@@ -1,0 +1,221 @@
+config FFXIV {
+    label = "Final Fantasy XIV"
+    id = "ffxiv"
+    description = "Final Fantasy XIV TTRPG"
+    author = "Cody Swendrowski"
+}
+
+actor PC {
+
+    string Class(choices: ["Dragoon", "Black Mage", "White Mage", "Warrior"])
+    string Role(choices: ["Tank", "Healer", "DPS"])
+    number Level
+
+    section PrimaryAttributes {
+        attribute STR(min: 1, max: 5, mod: {
+            return self.STR
+        })
+        attribute DEX(min: 1, max: 5, mod: {
+            return self.DEX
+        })
+        attribute VIT(min: 1, max: 5, mod: {
+            return self.VIT
+        })
+        attribute INT(min: 1, max: 5, mod: {
+            return self.INT
+        })
+        attribute MND(min: 1, max: 5, mod: {
+            return self.MND
+        })
+    }
+
+    section SecondaryAttributes {
+        number Defense
+        number MagicDefense
+        number Vigilance
+        number Speed
+    }
+
+    section Resources {
+        resource HP
+        resource MP
+    }
+
+    hidden boolean LimitBreakAllowed
+
+    PrimaryAbility[] PrimaryAbilities
+    SecondaryAbility[] SecondaryAbilities
+    InstantAbility[] InstantAbilities
+}
+
+item PrimaryAbility {
+    number Cost
+    string Target
+    string Range
+    boolean Invoked
+    string CheckAttribute(choices: ["STR", "DEX", "VIT", "INT", "MND"])
+    string CR(choices: ["Defense", "MagicDefense"])
+    html BaseEffect
+    html DirectHit
+    string Limitation
+
+    action Roll(icon: "fa-solid fa-dice-d20") {
+        fleeting attack = roll(d20 + parent[self.CheckAttribute].mod)
+        parent.MP -= self.Cost
+
+        chat AbilityRoll {
+            attack
+            tag self.Cost
+            tag self.Target
+            tag self.Invoked
+            tag self.Range
+            tag self.CR
+            self.BaseEffect
+            self.DirectHit
+            tag self.Limitation
+        }
+    }
+}
+
+item SecondaryAbility {
+    number Cost
+    string Target
+    string Range
+    boolean Invoked
+    number LimitationAmount
+    string Limitation(choices: ["Per Phase"])
+    html BaseEffect
+    pips UsesLeft(max: {
+        return self.LimitationAmount
+    })
+
+    action Use(icon: "fa-solid fa-fire") {
+        parent.MP -= self.Cost
+        self.UsesLeft--
+        chat AbilityUse {
+            tag self.Cost
+            tag self.Target
+            tag self.Invoked
+            self.BaseEffect
+            tag self.Limitation
+            tag self.UsesLeft
+        }
+    }
+
+    action ResetUses(icon: "fa-solid fa-undo") {
+        self.UsesLeft = self.LimitationAmount
+    }
+}
+
+item InstantAbility {
+    boolean LimitBreak
+    number Cost
+    string Target
+    string Trigger
+    number LimitationAmount
+    string Limitation(choices: ["Per Phase"])
+    html BaseEffect
+    pips UsesLeft(max: {
+        return self.LimitationAmount
+    })
+
+    action Use(icon: "fa-solid fa-fire") {
+        parent.MP -= self.Cost
+        self.UsesLeft--
+        chat AbilityUse {
+            tag self.Cost
+            tag self.Target
+            tag self.Trigger
+            self.BaseEffect
+            self.Limitation
+        }
+    }
+
+    action ResetUses(icon: "fa-solid fa-undo") {
+        self.UsesLeft = self.LimitationAmount
+    }
+}
+
+
+actor NPC {
+
+    resource HP
+    string Size(choices: ["Medium", "Large", "Huge"])
+    string Species
+
+    section PrimaryAttributes {
+        attribute STR(min: -5, max: 5, mod: {
+            return self.STR
+        })
+        attribute DEX(min: -5, max: 5, mod: {
+            return self.DEX
+        })
+        attribute VIT(min: -5, max: 5, mod: {
+            return self.VIT
+        })
+        attribute INT(min: -5, max: 5, mod: {
+            return self.INT
+        })
+        attribute MND(min: -5, max: 5, mod: {
+            return self.MND
+        })
+    }
+
+    section SecondaryAttributes {
+        number Defense
+        number MagicDefense
+        number Vigilance
+        number Speed
+    }
+
+    NpcAbility[] Abilities
+    NpcMarker[] Markers
+    NpcTrait[] Traits
+}
+
+item NpcAbility {
+    string Target
+    string Range
+    string Aspect
+    boolean Invoked
+    string CheckAttribute(choices: ["STR", "DEX", "VIT", "INT", "MND"])
+    string CR(choices: ["Defense", "MagicDefense"])
+    html BaseEffect
+    html DirectHit
+    string Limitation
+
+    action Roll(icon: "fa-solid fa-dice-d20") {
+        fleeting attack = roll(d20 + parent[self.CheckAttribute].mod)
+
+        chat AbilityRoll {
+            attack
+            tag self.Target
+            tag self.Invoked
+            tag self.Range
+            tag self.CR
+            self.BaseEffect
+            self.DirectHit
+            tag self.Limitation
+        }
+    }
+}
+
+item NpcMarker {
+    string Type(choices: ["Stationary", "Mobile"])
+    string Origin
+    string Area
+    string Target
+    string Trigger
+    
+    action Use(icon: "fa-solid fa-map-marker") {
+        chat Marker {
+            self.Origin
+            self.Area
+            self.Target
+            self.Trigger
+            tag self.Type
+        }
+    }
+}
+
+item NpcTrait {}

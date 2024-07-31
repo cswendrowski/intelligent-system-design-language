@@ -1,0 +1,101 @@
+{
+    "name": "fsdl",
+    "displayName": "Foundry System Design Language",
+    "description": "Foundry System Design Language support for Visual Studio Code",
+    "publisher": "IronMooseDevelopment",
+    "version": "0.0.3",
+    "repository": {
+        "url": ""
+    },
+    "files": [
+        "bin",
+        "out",
+        "src"
+    ],
+    "icon": "fsdl-logo.png",
+    "type": "module",
+    "scripts": {
+        "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
+        "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
+        "lint": "eslint src --ext ts",
+        "langium:generate": "langium generate",
+        "langium:watch": "langium generate --watch",
+        "vscode:prepublish": "",
+        "test": "vitest run",
+        "fsdl:generate": "node ./bin/cli.js"
+    },
+    "dependencies": {
+        "chalk": "~5.3.0",
+        "commander": "~11.0.0",
+        "inflection": "^3.0.0",
+        "langium": "~3.0.0",
+        "rpg-awesome": "^0.2.0",
+        "sass": "^1.77.4",
+        "vscode-languageclient": "~9.0.1",
+        "vscode-languageserver": "~9.0.1"
+    },
+    "devDependencies": {
+        "@types/node": "^18.19.34",
+        "@types/vscode": "~1.67.0",
+        "@typescript-eslint/eslint-plugin": "~6.4.1",
+        "@typescript-eslint/parser": "~6.4.1",
+        "concurrently": "~8.2.1",
+        "esbuild": "^0.19.12",
+        "eslint": "~8.47.0",
+        "langium-cli": "~3.0.0",
+        "typescript": "~5.1.6",
+        "vitest": "~1.0.0"
+    },
+    "engines": {
+        "vscode": "^1.67.0",
+        "node": ">=18.0.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "foundry-system-design-language",
+                "aliases": [
+                    "Foundry System Design Language",
+                    "foundry-system-design-language"
+                ],
+                "extensions": [
+                    ".fsdl"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "foundry-system-design-language",
+                "scopeName": "source.foundry-system-design-language",
+                "path": "syntaxes/foundry-system-design-language.tmLanguage.json"
+            }
+        ],
+        "commands": [
+            {
+                "command": "fsdl.generate",
+                "title": "Generate",
+                "category": "Foundry System Design Language"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Foundry System Design Language Configuration",
+            "properties": {
+                "fsdl.lastSelectedFolder": {
+                    "type": "string",
+                    "default": "",
+                    "description": "The last selected folder path"
+                }
+            }
+        }
+    },
+    "activationEvents": [],
+    "main": "./out/extension/main.js",
+    "bin": {
+        "foundry-system-design-language-cli": "./bin/cli.js"
+    }
+}

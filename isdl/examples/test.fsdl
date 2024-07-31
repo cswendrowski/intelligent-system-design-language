@@ -1,0 +1,116 @@
+config FabulaUltima {
+    label = "Fabula Ultima"
+    id = "fabula-ultima"
+    description = "Test generation of Fabula Ultima"
+    author = "Cody Swendrowski"
+}
+
+actor Hero {
+
+    string Type(choices: ["A", "B", "C"])
+    boolean HasHealing
+
+    section Level {
+        number Experience
+        number Level
+
+        action LevelUp(disabled: self.Experience < 10) {
+            self.Experience -= 10
+            self.Level++
+        }
+
+        action Heal(hidden: !self.HasHealing) {
+            fleeting amount = roll(1d6)
+            self.HP += amount
+            chat Healed {
+                amount
+            }
+        }
+    }
+
+    section Attributes {
+        number Dexterity
+        number Insight
+        number Might
+        number Willpower
+        attribute Strength(min: 1, max: 30, mod: {
+            return (self.Strength - 10) / 2
+        })
+    }
+
+    section StatusEffects {
+        boolean Slowed
+        boolean Dazed
+        boolean Weakened
+        boolean Shaken
+        boolean Enraged
+    }
+
+    section Traits {
+        string Identity
+        string Theme
+        string Origin
+    }
+    
+    section Resources {
+        number FabulaPoints
+        resource InventoryPoints(max: 6)
+        number Zenit
+    }
+
+    section Health {
+        resource HP(max: {
+            return self.Warrior + 6
+        })
+        resource MP
+        number Warrior
+        resource Fate(max: {
+            return self.Warrior + 6
+        })
+        pips DamageTrack(max: 5, style: circles)
+        readonly number Crisis
+        action Heal {
+            self.HP += 3
+        }
+    }
+
+    section Damage {
+        damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
+
+        action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
+            if ( self.Damage.bashing > 0 ) {
+                self.Damage.bashing--
+                self.Damage.empty++
+            }
+        }
+
+        action TakeBashing {
+            eternal amount = 5
+            if ( self.Damage.bashing < amount ) {
+                self.Damage.bashing++
+                self.Damage.empty--
+            }
+            @js{const roll = await new Roll("1d10").roll();}
+            @js{roll.toMessage({flavor: "Bashing Damage"});}
+            self.Damage.bashing += @js{roll._total}
+        }
+    }
+
+    hidden number AvailableSkillLevels
+
+    Equipment[] Equipment
+    Spell[] Spells
+}
+
+
+item Equipment {
+    string Type(choices: ["Armor", "Weapon"])
+}
+
+item Spell {
+    string Type(choices: ["Attack", "Defense", "Healing"])
+    string Class(choices: ["Fire", "Water", "Earth", "Air"])
+    number Level
+    number Cost
+    string Summary
+}

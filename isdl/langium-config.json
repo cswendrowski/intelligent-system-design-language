@@ -1,0 +1,12 @@
+{
+    "projectName": "FoundrySystemDesignLanguage",
+    "languages": [{
+        "id": "foundry-system-design-language",
+        "grammar": "src/language/foundry-system-design-language.langium",
+        "fileExtensions": [".fsdl"],
+        "textMate": {
+            "out": "syntaxes/foundry-system-design-language.tmLanguage.json"
+        }
+    }],
+    "out": "src/language/generated"
+}
