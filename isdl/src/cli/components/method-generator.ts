@@ -16,6 +16,8 @@ import type {
     ChatBlockExpression,
     Roll,
     ParentAssignment,
+    Entry,
+    Property,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -49,8 +51,8 @@ import {
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
 
-export function translateExpression(id: string, expression: MethodBlock | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll, preDerived: boolean = false): CompositeGeneratorNode | undefined {
-    
+export function translateExpression(entry: Entry, id: string, expression: MethodBlock | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
+
     function humanize(string: string | undefined) {
         if (string == undefined) {
             return "";
@@ -61,18 +63,18 @@ export function translateExpression(id: string, expression: MethodBlock | Method
         return string.replace(/([a-z])([A-Z])/g, '$1 $2');
     }
     
-    //console.log(preDerived);
+    //console.log(preDerived, generatingProperty);
     function translateMethodExpression(expression: VariableExpression): CompositeGeneratorNode | undefined {
         //console.log("Translating Method Expression: " + expression.name);
         return expandToNode`
-            ${expression.type == "fleeting" ? "let" : "const"} ${expression.name} = ${translateExpression(id, expression.value, preDerived)};
+            ${expression.type == "fleeting" ? "let" : "const"} ${expression.name} = ${translateExpression(entry, id, expression.value, preDerived, generatingProperty)};
         `;
     }
 
     function translateReturnExpression(expression: ReturnExpression): CompositeGeneratorNode | undefined {
         //console.log("Translating Return Expression: " + expression.value);
         return expandToNode`
-            return ${translateExpression(id, expression.value, preDerived)};
+            return ${translateExpression(entry, id, expression.value, preDerived, generatingProperty)};
         `;
     }
 
@@ -98,16 +100,16 @@ export function translateExpression(id: string, expression: MethodBlock | Method
         }
         if (isIncrementValAssignment(expression)) {
             return expandToNode`
-                update["${systemPath}"] = this.object.${systemPath} + ${translateExpression(id, expression.exp, preDerived)};
+                update["${systemPath}"] = this.object.${systemPath} + ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
         if (isDecrementValAssignment(expression)) {
             return expandToNode`
-                update["${systemPath}"] = this.object.${systemPath} - ${translateExpression(id, expression.exp, preDerived)};
+                update["${systemPath}"] = this.object.${systemPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
         return expandToNode`
-            update["${systemPath}"] = ${translateExpression(id, expression.exp, preDerived)};
+            update["${systemPath}"] = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
     }
 
@@ -133,22 +135,22 @@ export function translateExpression(id: string, expression: MethodBlock | Method
         }
         if (isParentIncrementValAssignment(expression)) {
             return expandToNode`
-                parentUpdate["${systemPath}"] = this.object.parent.${systemPath} + ${translateExpression(id, expression.exp, preDerived)};
+                parentUpdate["${systemPath}"] = this.object.parent.${systemPath} + ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
         if (isParentDecrementValAssignment(expression)) {
             return expandToNode`
-                parentUpdate["${systemPath}"] = this.object.parent.${systemPath} - ${translateExpression(id, expression.exp, preDerived)};
+                parentUpdate["${systemPath}"] = this.object.parent.${systemPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
         return expandToNode`
-            parentUpdate["${systemPath}"] = ${translateExpression(id, expression.exp, preDerived)};
+            parentUpdate["${systemPath}"] = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
     }
 
     function translateBinaryExpression(expression: BinaryExpression): CompositeGeneratorNode | undefined {
         return expandToNode`
-            ${translateExpression(id, expression.e1, preDerived)} ${expression.op} ${translateExpression(id, expression.e2, preDerived)}
+            ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${expression.op} ${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)}
         `;
     }
 
@@ -167,21 +169,22 @@ export function translateExpression(id: string, expression: MethodBlock | Method
     function translateGroupedExpression(expression: Group): CompositeGeneratorNode | undefined {
         //console.log("Translating Grouped Expression: " + expression.ge);
         return expandToNode`
-            (${translateExpression(id, expression.ge, preDerived)})
+            (${translateExpression(entry, id, expression.ge, preDerived, generatingProperty)})
         `;
     }
 
     function translateNegatedExpression(expression: NegExpression): CompositeGeneratorNode | undefined {
         //console.log("Translating Negated Expression: " + expression.ne);
         return expandToNode`
-            -(${translateExpression(id, expression.ne, preDerived)})
+            -(${translateExpression(entry, id, expression.ne, preDerived, generatingProperty)})
         `;
     }
 
-    function translateAccessExpression(expression: Access): CompositeGeneratorNode | undefined {
-        //console.log("Translating Access Expression: " + expression.property.ref?.name);
+    function translateAccessExpression(expression: Access, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
+        console.log("Translating Access Expression: " + expression.property.ref?.name);
 
-        if ( preDerived ) {
+        // Determine if the property reference is the same as the object we are working with
+        if ( generatingProperty && expression.property.ref == generatingProperty) {
             return expandToNode`
                 system.${expression.property.ref?.name.toLowerCase()}
             `;
@@ -200,8 +203,8 @@ export function translateExpression(id: string, expression: MethodBlock | Method
     function translateIfStatement(expression: IfStatement): CompositeGeneratorNode | undefined {
         //console.log("Translating If Statement: ");
         return expandToNode`
-            if (${translateExpression(id, expression.expression, preDerived)}) {
-                ${translateBodyExpressionToJavascript(id, expression.method.body, preDerived)}
+            if (${translateExpression(entry, id, expression.expression, preDerived, generatingProperty)}) {
+                ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
             }
         `;
     }
@@ -217,16 +220,22 @@ export function translateExpression(id: string, expression: MethodBlock | Method
         // TODO: has, excludes, exists, startsWith, endsWith, isEmpty, isNotEmpty
 
         return expandToNode`
-            ${translateExpression(id, expression.e1, preDerived)} ${term} ${translateExpression(id, expression.e2, preDerived)}
+            ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${term} ${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)}
         `;
     }
 
     if (expression == undefined) {
         return;
     }
+
+    if (typeof expression == "number") {
+        return expandToNode`
+            ${expression}
+        `;
+    }
     if (isMethodBlock(expression)) {
         //console.log("Translating Method Block: ");
-        return translateBodyExpressionToJavascript(id, expression.body, preDerived);
+        return translateBodyExpressionToJavascript(entry, id, expression.body, preDerived, generatingProperty);
     }
     if (isVariableExpression(expression)) {
         return translateMethodExpression(expression as VariableExpression);
@@ -256,7 +265,7 @@ export function translateExpression(id: string, expression: MethodBlock | Method
         return translateNegatedExpression(expression as NegExpression);
     }
     if (isAccess(expression)) {
-        return translateAccessExpression(expression as Access);
+        return translateAccessExpression(expression as Access, generatingProperty);
     }
     if (isParentAccess(expression)) {
         let path = "this.object.parent";
@@ -297,7 +306,7 @@ export function translateExpression(id: string, expression: MethodBlock | Method
                 }
                 const wide = isHtmlExp(expression.property.ref) ? true : false;
                 return expandToNode`
-                    { isRoll: false, label: "${humanize(expression.property.ref?.name ?? "")}", value: this.object.${systemPath}, wide: ${wide} },
+                    { isRoll: false, label: "${humanize(expression.property.ref?.name ?? "")}", value: this.object.${systemPath}, wide: ${wide}, hasValue: this.object.${systemPath} != "" },
                 `;
             }
             if ( isFleetingAccess(expression) ) {
@@ -415,7 +424,7 @@ export function translateExpression(id: string, expression: MethodBlock | Method
         
 
         return expandToNode`
-            await new ${id}Roll(${joinToNode(expression.parts, e => translateDiceParts(e), {separator: " + "})}, {${joinToNode(expression.parts, e => translateDiceData(e), {separator: ", "})}}).roll()
+            await new ${entry.config.name}Roll(${joinToNode(expression.parts, e => translateDiceParts(e), {separator: " + "})}, {${joinToNode(expression.parts, e => translateDiceData(e), {separator: ", "})}}).roll()
         `;
     }
 
@@ -423,7 +432,7 @@ export function translateExpression(id: string, expression: MethodBlock | Method
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
 }
 
-export function translateBodyExpressionToJavascript(id: string, body: MethodBlockExpression[], preDerived: boolean = false): CompositeGeneratorNode | undefined {
+export function translateBodyExpressionToJavascript(entry: Entry, id: string, body: MethodBlockExpression[], preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
 
     //     /**
     //      * A method body consists of a list of Expressions that ultimately return a value.
@@ -478,5 +487,5 @@ export function translateBodyExpressionToJavascript(id: string, body: MethodBloc
 
 
 
-    return joinToNode(body, (expression) => translateExpression(id, expression, preDerived), { appendNewLineIfNotEmpty: true });
+    return joinToNode(body, (expression) => translateExpression(entry, id, expression, preDerived, generatingProperty), { appendNewLineIfNotEmpty: true });
 }

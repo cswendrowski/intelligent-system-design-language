@@ -87,7 +87,7 @@ item SecondaryAbility {
     html BaseEffect
     pips UsesLeft(max: {
         return self.LimitationAmount
-    })
+    }, style: circles)
 
     action Use(icon: "fa-solid fa-fire") {
         parent.MP -= self.Cost

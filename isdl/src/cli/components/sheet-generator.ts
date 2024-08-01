@@ -91,7 +91,6 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
             activateListeners(html) {
                 super.activateListeners(html);
 
-                //html.find("img[data-edit='img']").click(this._onEditImage.bind(this));
                 html.find(".pips-container").mousedown(this._onPipsClick.bind(this));
                 html.find(".row-action").click(this._onTableRowAction.bind(this));
 
@@ -280,27 +279,6 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
             /* -------------------------------------------- */
 
             async handleItemDrop(item) { }
-
-            /* -------------------------------------------- */
-
-            async _onEditImage(event) {
-                event.preventDefault();
-                const attr = event.currentTarget.dataset.edit;
-                const current = foundry.utils.getProperty(this.item, attr);
-                const fp = new FilePicker({
-                    type: "image",
-                    current: current,
-                    callback: path => {
-                        event.currentTarget.src = path;
-                        if ( this.options.submitOnChange ) {
-                            this._onSubmit(event);
-                        }
-                    },
-                    top: this.position.top + 40,
-                    left: this.position.left + 10
-                });
-                return fp.browse();
-            }
 
             /* -------------------------------------------- */
 
@@ -533,7 +511,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 event.preventDefault();
                 const update = {};
                 const parentUpdate = {};
-                ${translateExpression(id, action.method)}
+                ${translateExpression(entry, id, action.method)}
                 if (Object.keys(update).length > 0) {
                     this.object.update(update);
                 }
@@ -583,7 +561,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
             `
         }
         return expandToNode`
-            ${translateExpression(id, expression as MethodBlock)}
+            ${translateExpression(entry, id, expression as MethodBlock)}
         `
     }
 
@@ -663,10 +641,10 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
         return expandToNode`
             // ${property.name} Action Info
             const ${property.name.toLowerCase()}DisabledFunc = (system) => {
-                return ${translateExpression(id, (property.conditions.filter(x => isDisabledCondition(x))[0] as HiddenCondition)?.when) ?? false}
+                return ${translateExpression(entry, id, (property.conditions.filter(x => isDisabledCondition(x))[0] as HiddenCondition)?.when) ?? false}
             };
             const ${property.name.toLowerCase()}HiddenFunc = (system) => {
-                return ${translateExpression(id, (property.conditions.filter(x => isHiddenCondition(x))[0] as HiddenCondition)?.when) ?? false}
+                return ${translateExpression(entry, id, (property.conditions.filter(x => isHiddenCondition(x))[0] as HiddenCondition)?.when) ?? false}
             };
             context.${property.name.toLowerCase()}Action = {
                 label: "${document.name}.${property.name}",
@@ -717,7 +695,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
     const fileNode = expandToNode`
         import ${entry.config.name}DocumentSheet from "../${id}-sheet.mjs";
         import ${entry.config.name}ActorSheet from "../${id}-actor-sheet.mjs";
-        import ${id}Roll from "../../rolls/roll.mjs";
+        import ${entry.config.name}Roll from "../../rolls/roll.mjs";
         
         export default class ${document.name}Sheet extends ${entry.config.name}${document.$type == "Actor" ? "Actor" : "Document"}Sheet {
         
@@ -884,12 +862,17 @@ export function generateDocumentHandlebars(document: Document, destination: stri
 
         if ( isNumberExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
+
+            let disabled = property.modifier == "readonly" || !edit;
+            if (property.value != undefined) { 
+                disabled = true;
+            }
             
             return expandToNode`
                 {{!-- Number ${property.name} --}}
                 <div class="form-group property numberExp" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    {{numberInput document.system.${property.name.toLowerCase()} name="system.${property.name.toLowerCase()}" disabled=${property.modifier == "readonly" || !edit} step=1}}
+                    {{numberInput document.system.${property.name.toLowerCase()} name="system.${property.name.toLowerCase()}" disabled=${disabled} step=1}}
                 </div>
             `.appendNewLine().appendNewLine();
         }

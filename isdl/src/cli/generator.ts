@@ -55,6 +55,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateChatCardClass(entry, data.destination);
     generateStandardChatCardTemplate(data.destination);
     generateRenderChatLogHookMjs(entry, id, data.destination);
+    generateExtendedRoll(entry, id, data.destination);
 
     // Documents
     entry.documents.forEach(x => {
@@ -322,6 +323,58 @@ function generateRenderChatLogHookMjs(entry: Entry, id: string, destination: str
 
         export function renderChatLog(app, html, data) {
             ${entry.config.name}ChatCard.activateListeners(html);
+        }
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateExtendedRoll(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "system", "rolls");
+    const generatedFilePath = path.join(generatedFileDir, `roll.mjs`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+        export default class ${entry.config.name}Roll extends Roll {
+            async getTooltip() {
+                const parts = [];
+
+                for ( const term of this.terms ) {
+                    console.log(term.constructor.name);
+                    if ( foundry.utils.isSubclass(term.constructor, DiceTerm) ) {
+                        parts.push(term.getTooltipData());
+                    }
+                    else if ( foundry.utils.isSubclass(term.constructor, NumericTerm) ) {
+                        parts.push({
+                            formula: term.flavor,
+                            total: term.total,
+                            faces: null,
+                            flavor: "",
+                            rolls: []
+                        });
+                    }
+                }
+
+                console.dir(parts);
+
+                return renderTemplate(this.constructor.TOOLTIP_TEMPLATE, { parts });
+            }
+
+            /* -------------------------------------------- */
+
+            get cleanFormula() {
+                // Replace flavor terms such as 5[STR] with just the flavor text
+                let cleanFormula = this._formula;
+                for ( const term of this.terms ) {
+                    if ( term instanceof NumericTerm ) {
+                        cleanFormula = cleanFormula.replace(term.formula, term.flavor);
+                    }
+                }
+                return cleanFormula;
+            }
         }
     `.appendNewLineIfNotEmpty();
 

@@ -8,7 +8,6 @@ config FabulaUltima {
 actor Hero {
 
     string Type(choices: ["A", "B", "C"])
-    boolean HasHealing
 
     section Level {
         number Experience
@@ -17,14 +16,6 @@ actor Hero {
         action LevelUp(disabled: self.Experience < 10) {
             self.Experience -= 10
             self.Level++
-        }
-
-        action Heal(hidden: !self.HasHealing) {
-            fleeting amount = roll(1d6)
-            self.HP += amount
-            chat Healed {
-                amount
-            }
         }
     }
 
@@ -44,6 +35,7 @@ actor Hero {
         boolean Weakened
         boolean Shaken
         boolean Enraged
+        boolean Test
     }
 
     section Traits {
@@ -51,6 +43,8 @@ actor Hero {
         string Theme
         string Origin
     }
+
+    html Background
     
     section Resources {
         number FabulaPoints
@@ -59,18 +53,38 @@ actor Hero {
     }
 
     section Health {
+        boolean HasHealing
         resource HP(max: {
             return self.Warrior + 6
         })
         resource MP
-        number Warrior
+        attribute Warrior(min: 0, max: 6, mod: {
+            return self.Warrior
+        })
+        attribute Rogue(min: 0, max: 6, mod: {
+            return self.Rogue
+        })
+        number Defense(value: { 
+            if (self.Rogue + self.Warrior equals 0) {
+                return 4
+            }
+            return self.Warrior + self.Rogue / 2 + 4
+        })
         resource Fate(max: {
-            return self.Warrior + 6
+            if (self.Rogue equals 0) {
+                return 1
+            }
+            return self.Rogue
         })
         pips DamageTrack(max: 5, style: circles)
         readonly number Crisis
+
         action Heal {
-            self.HP += 3
+            fleeting amount = roll(1d6)
+            self.HP += amount
+            chat Healed {
+                amount
+            }
         }
     }
 

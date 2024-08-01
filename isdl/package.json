@@ -3,16 +3,11 @@
     "displayName": "Foundry System Design Language",
     "description": "Foundry System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.0.3",
+    "version": "0.0.8",
     "repository": {
         "url": ""
     },
-    "files": [
-        "bin",
-        "out",
-        "src"
-    ],
-    "icon": "fsdl-logo.png",
+    "license": "LICENSE",
     "type": "module",
     "scripts": {
         "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
@@ -89,12 +84,17 @@
                     "type": "string",
                     "default": "",
                     "description": "The last selected folder path"
+                },
+                "fsdl.lastSelectedFile": {
+                    "type": "string",
+                    "default": "",
+                    "description": "The last selected file"
                 }
             }
         }
     },
     "activationEvents": [],
-    "main": "./out/extension/main.js",
+    "main": "./out/extension/main.cjs",
     "bin": {
         "foundry-system-design-language-cli": "./bin/cli.js"
     }

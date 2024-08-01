@@ -54,6 +54,10 @@ export function generateChatCardClass(entry: Entry, destination: string) {
 
             static _onChatCardToggleCollapsible(event) {
                 const target = event.currentTarget;
+
+                // If the target is a content-link, ignore the click event
+                if (event.target.classList.contains("content-link")) return;
+
                 event.preventDefault();
                 target.classList.toggle("collapsed");
 
@@ -94,7 +98,7 @@ export function generateStandardChatCardTemplate(destination: string) {
             <div class="chat-info">
                 <dl>
                     {{#each parts}}
-                        {{#if this.isRoll }}
+                        {{#if this.isRoll}}
                             <div class="dice-roll wide">
                                 <div class="dice-result">
                                     <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span> <span class="result">{{this.value._total}}</span></h4>
@@ -102,14 +106,16 @@ export function generateStandardChatCardTemplate(destination: string) {
                                 </div>
                             </div>
                         {{else}}
-                            {{#if this.wide}}
-                                <div class="wide collapsible">
-                                    <dt class="title">{{this.label}} <i class="collapse-icon fas fa-chevron-down fa-fw"></i></dt>
-                                    <dd class="collapsible-content">{{{this.value}}}</dd>
-                                </div>
-                            {{else}}
-                                <dt>{{this.label}}</dt>
-                                <dd>{{{this.value}}}</dd>
+                            {{#if this.hasValue}}
+                                {{#if this.wide}}
+                                    <div class="wide collapsible">
+                                        <dt class="title">{{this.label}} <i class="collapse-icon fas fa-chevron-down fa-fw"></i></dt>
+                                        <dd class="collapsible-content">{{{this.value}}}</dd>
+                                    </div>
+                                {{else}}
+                                    <dt>{{this.label}}</dt>
+                                    <dd>{{{this.value}}}</dd>
+                                {{/if}}
                             {{/if}}
                         {{/if}}
                     {{/each}}
@@ -117,7 +123,9 @@ export function generateStandardChatCardTemplate(destination: string) {
 
                 <div class="chat-info-tags">
                     {{#each tags}}
+                        {{#if this.hasValue}}
                         <div class="tag"><span class="label">{{this.label}}</span> {{this.value}}</div>
+                        {{/if}}
                     {{/each}}
                 </div>
             </div>

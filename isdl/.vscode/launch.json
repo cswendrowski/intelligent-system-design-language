@@ -14,6 +14,7 @@
             ],
             "sourceMaps": true,
             "outFiles": [
+                "${workspaceFolder}/out/**/*.cjs",
                 "${workspaceFolder}/out/**/*.js",
                 "${workspaceFolder}/out/**/*.mjs"
             ]

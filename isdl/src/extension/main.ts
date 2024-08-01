@@ -32,30 +32,33 @@ function registerCommands(context: vscode.ExtensionContext) {
             return;
         }
 
+        // Get the configuration
+        const config = vscode.workspace.getConfiguration('fsdl');
+        const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
+
         // Create a quick pick for selecting a file
         const fileItems = files.map(file => {
             return {
                 label: path.basename(file.fsPath),
-                description: file.fsPath
+                description: file.fsPath,
+                picked: file.fsPath === lastSelectedFile
             };
         });
 
         const selectedFile = await vscode.window.showQuickPick(fileItems, {
             placeHolder: 'Select a file to process',
-            canPickMany: false
+            canPickMany: false,
         });
 
         if (!selectedFile) {
             vscode.window.showErrorMessage('File selection is required');
             return;
         }
+        config.update('lastSelectedFile', selectedFile.description, vscode.ConfigurationTarget.Global);
 
         const sourceFilePath = selectedFile.description;
 
         // Prompt the user to select the destination folder
-
-        // Get the configuration
-        const config = vscode.workspace.getConfiguration('fsdl');
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
 
@@ -73,6 +76,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
 
         const destinationPath = destinationFolderUri[0].fsPath;
+        config.update('lastSelectedFolder', destinationPath, vscode.ConfigurationTarget.Workspace);
 
         vscode.window.showInformationMessage('Generating Foundry System Design Language code');
 

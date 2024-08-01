@@ -149,7 +149,7 @@ NegExpression:    '-' ne=Expression;
 
 StringExp: ExpressionModifier "string" name=ID ("(" "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]" ")")?;
 
-NumberExp: ExpressionModifier "number" name=ID;
+NumberExp: ExpressionModifier "number" name=ID ("(" ("max:" max=(MethodBlock | INT))? & ("value:" value=(MethodBlock | INT))? ")")?;
 
 BooleanExp: ExpressionModifier "boolean" name=ID;
 

@@ -1,0 +1,12 @@
+config Empty {
+    label = "Empty"
+    id = "empty"
+    description = "Empty"
+    author = "Cody Swendrowski"
+}
+
+actor PC {
+}
+
+item Equipment {
+}

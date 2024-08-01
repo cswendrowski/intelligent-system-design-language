@@ -13,6 +13,7 @@ import {
     isAttributeExp,
     isMethodBlock,
     isDocumentArrayExp,
+    isNumberExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -36,6 +37,16 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
             }
 
+            if ( isNumberExp(property) && property.value != undefined) {
+                return expandToNode`
+                    // ${property.name} Number Derived Data
+                    const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        ${translateExpression(entry, id, property.value, true, property)}
+                    };
+                    this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system)
+                `.appendNewLineIfNotEmpty();
+            }
+
             if ( isAttributeExp(property) ) {
                 console.log("Processing Derived Attribute: " + property.name);
                 return expandToNode`
@@ -43,7 +54,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     // ${property.name} Attribute Derived Data
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()} ?? 0;
                     const ${property.name.toLowerCase()}ModFunc = (system) => {
-                        ${translateExpression(id, property.method, true)}
+                        ${translateExpression(entry, id, property.method, true, property)}
                     };
                     this.system.${property.name.toLowerCase()} = {
                         value: ${property.name.toLowerCase()}CurrentValue,
@@ -58,7 +69,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     // ${property.name} Resource Derived Data
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}.value ?? 0;
                     const ${property.name.toLowerCase()}MaxFunc = (system) => {
-                        ${translateExpression(id, property.max as MethodBlock, true)}
+                        ${translateExpression(entry, id, property.max as MethodBlock, true, property)}
                     };
                     this.system.${property.name.toLowerCase()} = {
                         value: ${property.name.toLowerCase()}CurrentValue,
