@@ -73,6 +73,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
 
     const fileNode = expandToNode`
         {
+            "NoSingleDocument": "No Linked Document",
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ','})}
         }
     `.appendNewLineIfNotEmpty();

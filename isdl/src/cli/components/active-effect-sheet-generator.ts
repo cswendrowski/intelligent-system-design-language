@@ -1,7 +1,7 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isNumberExp, isSection, isStringExp } from '../../language/generated/ast.js';
+import { ClassExpression, Document, Entry, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isNumberExp, isResourceExp, isSection, isStringExp } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -22,6 +22,12 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
         if ( isHtmlExp(property) ) return;
         if ( property.modifier == "readonly" ) return;
+
+        if (isResourceExp(property)) {
+            return expandToNode`
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max");
+            `;
+        }
 
         return expandToNode`
             addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.${getSystemPath(property)}");
@@ -47,7 +53,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
             /** @override */
             static get defaultOptions() {
-                return mergeObject(super.defaultOptions, {
+                return foundry.utils.mergeObject(super.defaultOptions, {
                     classes: ["${id}", "sheet", "active-effect", "active-effect-sheet"],
                     template: "systems/${id}/system/templates/active-effect-sheet.hbs",
                     width: 600,
@@ -114,9 +120,11 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
             async _updateObject(event, formData) {
                 let ae = foundry.utils.duplicate(this.object);
                 ae.name = formData.name;
-                ae.icon = formData.icon;
+                ae.img = formData.img;
                 ae.description = formData.description;
                 ae.origin = formData.origin;
+                ae.disabled = formData.disabled;
+                ae.transfer = formData.transfer;
 
                 // Retrieve the existing effects.
                 const effectData = await this.getData();
@@ -127,7 +135,11 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
                 function addChange(documentName, key) {
                     const value = foundry.utils.getProperty(formData, key);
-                    if ( !value ) return;
+                    if ( !value ) {
+                        // If there is a current change for this key, remove it.
+                        changes = changes.filter(c => c.key !== key);
+                        return;
+                    }
                     const mode = foundry.utils.getProperty(formData, key + "-mode");
                     newChanges.push({
                         key: key,
@@ -221,6 +233,18 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
             `;
         }
 
+        if (isResourceExp(property)) {
+            return expandToNode`
+                <div class="form-group">
+                    <label>{{localize "${property.name}"}} Max</label>
+                    <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode" data-dtype="Number">
+                        {{selectOptions numberModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode}}
+                    </select>
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max}}" />
+                </div>
+            `;
+        }
+
         if ( isStringExp(property) ) {
             // if (property.choices != undefined && property.choices.length > 0) {
             //     return expandToNode`
@@ -275,7 +299,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
         <form  class="{{cssClass}}" autocomplete="off">
             <!-- Effect Header -->
             <header class="sheet-header">
-                <img class="effect-icon" src="{{ effect.icon }}" data-edit="icon">
+                <img class="effect-icon effect-img" src="{{ effect.img }}" data-edit="img">
                 <h1 class="effect-title"><input type="text" name="name" value="{{effect.name}}" placeholder="{{localize 'ARCHMAGE.name'}}"/></h1>
             </header>
 
@@ -297,7 +321,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
 
                             <div class="form-group">
                                 <label>{{ localize "EFFECT.Disabled" }}</label>
-                                <input type="checkbox" name="effect.disabled" {{ checked effect.disabled }}/>
+                                <input type="checkbox" name="disabled" {{ checked effect.disabled }}/>
                             </div>
 
                             {{#if originLink}}

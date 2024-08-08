@@ -17,10 +17,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extractDestinationAndName } from './cli-util.js';
 import { generateBaseSheet, generateDocumentSheet, generateDocumentHandlebars, generateBaseActorSheet } from './components/sheet-generator.js';
-import { generateSystemCss } from './components/css-generator.js';
+import { generateCustomCss, generateSystemCss } from './components/css-generator.js';
 import { generateLanguageJson } from './components/language-generator.js';
 import { generateExtendedDocumentClasses } from './components/derived-data-generator.js';
-import { generateDocumentDataModel } from './components/datamodel-generator.js';
+import { generateDocumentDataModel, generateUuidDocumentField } from './components/datamodel-generator.js';
 import { fileURLToPath } from 'url';
 import { generateActiveEffectHandlebars, generateBaseActiveEffectBaseSheet as generateActiveEffectBaseSheet } from './components/active-effect-sheet-generator.js';
 import { generateChatCardClass, generateStandardChatCardTemplate } from './components/chat-card-generator.js';
@@ -41,6 +41,8 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     copyDataTableFiles(data.destination);
     copyProgressBarJs(data.destination);
     generateSystemCss(entry, id, data.destination);
+    generateCustomCss(entry, id, data.destination);
+    generateUuidDocumentField(data.destination);
     //generateRpgAwesomeCss(data.destination);
     generateActiveEffectBaseSheet(entry, id, data.destination);
     generateActiveEffectHandlebars(id, entry, data.destination);
@@ -51,6 +53,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateBaseActorSheet(entry, id, data.destination);
     generateExtendedDocumentClasses(entry, id, data.destination);
     generateEntryMjs(entry, id, data.destination);
+    generateCustomEntryMjs(entry, id, data.destination);
     generateInitHookMjs(entry, id, data.destination);
     generateChatCardClass(entry, data.destination);
     generateStandardChatCardTemplate(data.destination);
@@ -132,9 +135,13 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                 "scripts/datatables.min.js",
                 "scripts/progressbar.min.js"
             ],
-            "esmodules": ["system/${id}-main.mjs"],
+            "esmodules": [
+                "system/${id}-main.mjs",
+                "system/${id}-custom.mjs",
+            ],
             "styles": [
                 "css/${id}.css",
+                "css/${id}-custom.css",
                 "css/datatables.min.css"
             ],
             "license": "LICENSE",
@@ -201,6 +208,23 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
         Hooks.once("init", init);
         Hooks.on("devModeReady", ({registerPackageDebugFlag}) => registerPackageDebugFlag("${id}"));
         Hooks.on("renderChatMessage", renderChatLog);
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateCustomEntryMjs(entry: Entry, id: string, destination: string) {
+    const generatedFilePath = path.join(destination, "system", `${id}-custom.mjs`);
+
+    // If the file already exists, don't overwrite it
+    if (fs.existsSync(generatedFilePath)) {
+        return;
+    }
+
+    const fileNode = expandToNode`
+        // Write your custom code and hooks here. This file will not be overwritten by the generator.
+
+        Hooks.once("init", () => {});
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

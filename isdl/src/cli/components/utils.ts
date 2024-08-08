@@ -16,7 +16,7 @@ export function getSystemPath(reference: Property | undefined): string {
         return "";
     }
     if (isResourceExp(reference)) {
-        return `system.${reference.name.toLowerCase()}.current`;
+        return `system.${reference.name.toLowerCase()}.value`;
     }
     if (isAttributeExp(reference)) {
         return `system.${reference.name.toLowerCase()}.mod`;

@@ -10,8 +10,10 @@ import type {
     PipsExp,
     DamageTrackExp,
     DocumentArrayExp,
-    IconOption,
+    IconParam,
     HiddenCondition,
+    SingleDocumentExp,
+    ColorParam,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -29,7 +31,10 @@ import {
     isProperty,
     isDisabledCondition,
     isHiddenCondition,
-    isIconOption,
+    isIconParam,
+    isSingleDocumentExp,
+    isColorParam,
+    isNumberParamValue,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -60,7 +65,7 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
                     submitOnChange: true,
                     closeOnSubmit: false,
                     tabs: [{navSelector: ".tabs", contentSelector: ".tabs-container", initial: "description"}],
-                    dragDrop: [{dragSelector: "tr", dropSelector: ".window-content"}],
+                    dragDrop: [{dragSelector: "tr", dropSelector: ".tabs-container"}, {dropSelector: ".single-document"}],
                 });
             }
 
@@ -93,6 +98,7 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
 
                 html.find(".pips-container").mousedown(this._onPipsClick.bind(this));
                 html.find(".row-action").click(this._onTableRowAction.bind(this));
+                html.find(".single-document-remove").click(this._onSingleDocumentRemove.bind(this));
 
                 this.activateDataTables(html);
                 this.activateProgressBars(html);
@@ -182,8 +188,16 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
                 for ( let p of progressBars ) {
                     const fromColor = p.dataset.colorFrom;
                     const toColor = p.dataset.colorTo;
+
+                    // If we don't have a value and max, we can't create a progress bar
+                    if (p.dataset.value === undefined || p.dataset.max === undefined) continue;
+
                     const value = parseFloat(p.dataset.value);
                     const max = parseFloat(p.dataset.max);
+
+                    if ( isNaN(value) || isNaN(max) ) continue;
+                    if ( max <= 0 ) continue;
+
                     const percent = Math.min(Math.max(value / max, 0), 1);
                     const name = p.attributes.name.value;
 
@@ -263,6 +277,22 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
             async _onDrop(event) {
                 super._onDrop(event);
                 const data = JSON.parse(event.dataTransfer.getData("text/plain"));
+
+                // If the drop target is a single document, handle it differently
+                if (event.currentTarget.classList.contains("single-document")) {
+                    const doc = await fromUuid(data.uuid);
+                    if ( !doc ) return;
+                    if ( doc.type !== event.currentTarget.dataset.type ) {
+                        ui.notifications.error(\`Expected a \${event.currentTarget.dataset.type} type Document, but got a \${doc.type} type one instead. \`);
+                        return;
+                    }
+
+                    const update = {};
+                    update[event.currentTarget.dataset.name] = data.uuid;
+                    await this.object.update(update);
+                    return;
+                }
+
                 const dropTypes = ["Item", "ActiveEffect"];
                 if ( !dropTypes.includes(data.type) ) return;
                 const item = await fromUuid(data.uuid);
@@ -341,8 +371,11 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
                             type: CONST.CHAT_MESSAGE_TYPES.IC
                         });
                         break;
+                    case "toggle":
+                        await item.update({ "disabled": !item.disabled });
+                        break;
                     default:
-                        this.handleTableRowAction(item, action);
+                        await this.handleTableRowAction(item, action);
                         break;
                 }
             }
@@ -350,6 +383,15 @@ export function generateBaseSheet(entry: Entry, id: string, destination: string)
             /* -------------------------------------------- */
 
             async handleTableRowAction(item, action) { }
+            
+            /* -------------------------------------------- */
+
+            async _onSingleDocumentRemove(event) {
+                event.preventDefault();
+                const update = {};
+                update[event.currentTarget.dataset.name] = null;
+                await this.object.update(update);
+            }
 
             /* -------------------------------------------- */
 
@@ -672,12 +714,14 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
             }
 
             function generateActionEntry(property: Action): CompositeGeneratorNode | undefined {
-                const icon = (property.conditions.find(x => isIconOption(x)) as IconOption)?.value ?? "fa-solid fa-bolt";
+                const icon = (property.conditions.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
+                const color = (property.conditions.find(x => isColorParam(x)) as ColorParam)?.value ?? "#000000";
                 return expandToNode`
                     {
                         label: "${property.name}",
                         icon: "${icon}",
-                        action: "${property.name.toLowerCase()}"
+                        action: "${property.name.toLowerCase()}",
+                        color: "${color}"
                     }
                 `;
             }
@@ -690,6 +734,23 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
         }
         
         return joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => generateItemActionList(property.document.ref), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generateSingleDocumentContentLinks(document: Document): CompositeGeneratorNode | undefined {
+
+        let expressions = document.body.filter(x => isSingleDocumentExp(x)).map(x => x as SingleDocumentExp);
+        for (let section of document.body.filter(x => isSection(x))) {
+            expressions = expressions.concat((section as Section).body.filter(x => isSingleDocumentExp(x)).map(x => x as SingleDocumentExp));
+        }
+
+        function generateContentLink(property: SingleDocumentExp): CompositeGeneratorNode | undefined {
+            return expandToNode`
+                context.${property.name.toLowerCase()}HasContentLink = this.object.system.${property.name.toLowerCase()}?.uuid != undefined;
+                context.${property.name.toLowerCase()}ContentLink = await TextEditor.enrichHTML(\`@UUID[\${this.object.system.${property.name.toLowerCase()}?.uuid\}]\`);
+            `;
+        }
+
+        return joinToNode(expressions, property => generateContentLink(property), { appendNewLineIfNotEmpty: true});
     }
 
     const fileNode = expandToNode`
@@ -722,19 +783,19 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                         class: '${id}-toggle-edit-mode',
                         label: game.i18n.localize('Edit'),
                         icon: 'fas fa-edit',
-                        onclick: (e) => {
-                            this._toggleEditMode(e)
+                        onclick: async (e) => {
+                            await this._toggleEditMode(e)
                         }
                     },
                     ...super._getHeaderButtons()
                 ]
             }
 
-            _toggleEditMode(event) {
+            async _toggleEditMode(event) {
                 event.preventDefault()
 
                 const currentValue = this.object.getFlag('${id}', 'edit-mode')
-                this.object.setFlag('${id}', 'edit-mode', !currentValue)
+                await this.object.setFlag('${id}', 'edit-mode', !currentValue)
             }
 
             /* -------------------------------------------- */
@@ -751,6 +812,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 ${joinToNode(damageTracks, property => generateDamageTrackInfo(property), { appendNewLineIfNotEmpty: true})}
                 ${joinToNode(actions, property => generateActionInfo(property), { appendNewLineIfNotEmpty: true})}
                 ${expandToNode`${generateItemActionLists(document)}`.appendNewLineIfNotEmpty()}
+                ${expandToNode`${generateSingleDocumentContentLinks(document)}`.appendNewLineIfNotEmpty()}
                 return context;
             }
 
@@ -864,14 +926,18 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             if (property.modifier == "hidden") return expandToNode``;
 
             let disabled = property.modifier == "readonly" || !edit;
-            if (property.value != undefined) { 
+            if (property.params.find(x => isNumberParamValue(x)) != undefined) { 
                 disabled = true;
             }
+
+            const iconParam = property.params.find(x => isIconParam(x)) as IconParam;
+            const colorParam = property.params.find(x => isColorParam(x)) as ColorParam;
+            const color = colorParam?.value ?? "#000000";
             
             return expandToNode`
                 {{!-- Number ${property.name} --}}
                 <div class="form-group property numberExp" data-name="system.${property.name.toLowerCase()}">
-                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    <label>${iconParam != undefined ? `<i class="${iconParam.value}" style="color: ${color};"></i> ` : ""}{{ localize "${document.name}.${property.name}" }}</label>
                     {{numberInput document.system.${property.name.toLowerCase()} name="system.${property.name.toLowerCase()}" disabled=${disabled} step=1}}
                 </div>
             `.appendNewLine().appendNewLine();
@@ -970,11 +1036,12 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         }
 
         if ( isAction(property) ) {
-            const icon = (property.conditions.find(x => isIconOption(x)) as IconOption)?.value ?? "fa-solid fa-bolt";
+            const icon = (property.conditions.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
+            const color = (property.conditions.find(x => isColorParam(x)) as ColorParam)?.value ?? "#000000";
             return expandToNode`
                 {{!-- Action ${property.name} --}}
                 {{#unless ${property.name.toLowerCase()}Action.hidden}}
-                <button type="button" class="action" data-action="${property.name.toLowerCase()}" {{#if ${property.name.toLowerCase()}Action.disabled}}disabled="disabled" data-tooltip="{{localize 'Disabled'}}"{{/if}}><i class="${icon}" ></i> {{ localize "${document.name}.${property.name}" }}</button>
+                <button type="button" class="action" data-action="${property.name.toLowerCase()}" {{#if ${property.name.toLowerCase()}Action.disabled}}disabled="disabled" data-tooltip="{{localize 'Disabled'}}"{{/if}}><i class="${icon}" style="color: ${color};" ></i> {{ localize "${document.name}.${property.name}" }}</button>
                 {{/unless}}
             `.appendNewLine().appendNewLine();
         }
@@ -1009,6 +1076,21 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                             <div class="damage {{type}} {{tier}}" data-tooltip="{{type}}"></div>
                         {{/each}}
                     </div>
+                </div>
+            `.appendNewLine().appendNewLine();
+        }
+
+        if (isSingleDocumentExp(property)) {
+            return expandToNode`
+                {{!-- Single Document ${property.name} --}}
+                <div class="form-group property single-document" data-name="system.${property.name.toLowerCase()}" data-type="${property.document.ref?.name.toLowerCase()}">
+                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    {{#if ${property.name.toLowerCase()}HasContentLink}}
+                    {{{${property.name.toLowerCase()}ContentLink}}}
+                    <a class="single-document-remove" data-name="system.${property.name.toLowerCase()}" data-action="remove" style="flex: 0;margin-left: 0.25rem;"><i class="fa-solid fa-delete-left"></i></a>
+                    {{else}}
+                    <p class="single-document-none">{{ localize "NoSingleDocument" }}</p>
+                    {{/if}}
                 </div>
             `.appendNewLine().appendNewLine();
         }
@@ -1102,6 +1184,14 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         `.appendNewLine().appendNewLine();
     }
 
+    function translateArrayTabHeader(property: DocumentArrayExp): CompositeGeneratorNode | undefined {
+        const iconParam = property.params.find(x => isIconParam(x)) as IconParam;
+        const icon = iconParam?.value ?? "fa-solid fa-table";
+        return expandToNode`
+            <a class="item" data-tab="${property.name.toLowerCase()}"><i class="${icon}"></i> {{ localize "${document.name}.${property.name}" }}</a>
+        `
+    }
+
     const fileNode = expandToNode`
         <form class="{{cssClass}} flexcol" autocomplete="off">
 
@@ -1124,7 +1214,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 {{!-- Sheet Navigation --}}
                 <nav class="sheet-navigation tabs" data-group="primary">
                     <a class="item" data-tab="description"><i class="fa-solid fa-book"></i> {{ localize "Description" }}</a>
-                    ${joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => expandToNode`<a class="item" data-tab="${property.name.toLowerCase()}"><i class="fa-solid fa-table"></i> {{ localize "${document.name}.${property.name}" }}</a>`, { appendNewLineIfNotEmpty: true })}
+                    ${joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => translateArrayTabHeader(property), { appendNewLineIfNotEmpty: true })}
                     <a class="item" data-tab="effects"><i class="fa-solid fa-sparkles"></i> {{ localize "Effects" }}</a>
                 </nav>
 
@@ -1157,9 +1247,14 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                                 {{#each document.effects as |effect|}}
                                     <tr data-id="{{effect._id}}" data-uuid="{{effect.uuid}}" data-type="ActiveEffect">
                                         <td><img src="{{effect.img}}" title="{{effect.name}}" width=40 height=40 /></td>
-                                        <td data-tooltip='{{effect.system.description}}'>{{effect.name}}</td>
+                                        <td data-tooltip='{{effect.description}}'>{{effect.name}}</td>
                                         <td>
                                             <div class="flexrow">
+                                                {{#if effect.disabled}}
+                                                <a class="row-action" data-action="toggle" data-item="{{effect._id}}" data-tooltip="{{localize 'Enable'}}"><i class="fas fa-toggle-off"></i></a>
+                                                {{else}}
+                                                <a class="row-action" data-action="toggle" data-item="{{effect._id}}" data-tooltip="{{localize 'Disable'}}"><i class="fas fa-toggle-on"></i></a>
+                                                {{/if}}
                                                 <a class="row-action" data-action="edit" data-item="{{effect._id}}" data-tooltip="{{localize 'Edit'}}"><i class="fas fa-edit"></i></a>
                                                 <a class="row-action" data-action="sendToChat" data-item="{{effect._id}}" data-tooltip="{{localize 'SendToChat'}}"><i class="fas fa-message"></i></a>
                                                 <a class="row-action" data-action="delete" data-item="{{effect._id}}" data-tooltip="{{ localize 'Delete' }}"><i class="fas fa-delete-left"></i></a>

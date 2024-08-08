@@ -3,7 +3,7 @@
     "displayName": "Foundry System Design Language",
     "description": "Foundry System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.0.8",
+    "version": "0.0.15",
     "repository": {
         "url": ""
     },

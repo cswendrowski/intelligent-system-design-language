@@ -73,3 +73,23 @@ export function generateSystemCss(entry: Entry, id: string, destination: string)
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }
+
+export function generateCustomCss(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "css");
+    const generatedFilePath = path.join(generatedFileDir, `${id}-custom.css`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    // If the file already exists, don't overwrite it
+    if (fs.existsSync(generatedFilePath)) {
+        return;
+    }
+
+    const fileNode = expandToNode`
+        /* Custom CSS for fabula-ultima. This file is empty by default and won't be overwritten by the generator. */
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}

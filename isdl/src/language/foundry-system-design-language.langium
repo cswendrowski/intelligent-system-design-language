@@ -15,6 +15,7 @@ Actor:
 Item:
     "item" name=ID ClassBlock;
 
+
 fragment ClassBlock:
     "{" body+=(ClassExpression | Section)* "}";
 
@@ -25,19 +26,25 @@ ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
 
 ClassExpression:
-    (Property | Action | Access | IfStatement);
+    (Property | Action | Access | IfStatement );
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp);
 
 Access:
-    "self." property=[Property:ID] ("." subProperty=ID)?;
+    "self." property=[Property:ID] ("." subProperties+=ID)*;
 
 FleetingAccess:
     variable=[VariableExpression] ("." subProperty=ID)?;
 
+ElseIf:
+    "else" "if" "(" expression=WhenExpressions ")" method=MethodBlock;
+
 IfStatement:
-    "if" "(" expression=ComparisonExpression ")" method=MethodBlock;
+    "if" "(" expression=WhenExpressions ")" method=MethodBlock
+    elseIfs+=(ElseIf)*
+    ("else" elseMethod=MethodBlock)?
+    ;
 
 Assignment:
     (ExpressionAssignment | IncrementAssignment | DecrementAssignment | IncrementValAssignment | DecrementValAssignment);
@@ -81,20 +88,41 @@ ParentIncrementValAssignment:
 ParentDecrementValAssignment:
     Parent "-=" exp=Expression;
 
+ItemAccess:
+    "item" "." property=ID ("." subProperty=ID)?;
+
+VariableAssignment:
+    (VariableExpressionAssignment | VariableIncrementAssignment | VariableDecrementAssignment | VariableIncrementValAssignment | VariableDecrementValAssignment);
+
+VariableExpressionAssignment:
+    variable=[VariableExpression:ID] "=" exp=Expression;
+
+VariableIncrementAssignment:
+    variable=[VariableExpression:ID] "++";
+
+VariableDecrementAssignment:
+    variable=[VariableExpression:ID] "--";
+
+VariableIncrementValAssignment:
+    variable=[VariableExpression:ID] "+=" exp=Expression;
+
+VariableDecrementValAssignment:
+    variable=[VariableExpression:ID] "-=" exp=Expression;
+
 Action:
     "action" name=ID ("(" conditions+=ActionCondition ("," conditions+=ActionCondition)* ")")? method=MethodBlock;
 
 ActionCondition:
-    (DisabledCondition | HiddenCondition | IconOption);
+    (DisabledCondition | HiddenCondition | IconParam | ColorParam);
 
 DisabledCondition:
-    "disabled:" when=ComparisonExpression;
+    "disabled:" when=WhenExpressions;
 
 HiddenCondition:
-    "hidden:" when=ComparisonExpression;
+    "hidden:" when=WhenExpressions;
 
-IconOption:
-    "icon:" value=STRING;
+WhenExpressions:
+    (ShorthandComparisonExpression | ComparisonExpression);
 
 Each:
     'each' var=Parameter 'in' collection=Property method=MethodBlock;
@@ -106,7 +134,7 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard);
+    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard);
 
 JS: js=JS_LINE;
 
@@ -117,7 +145,7 @@ ChatBlock:
     "{" chatExp+=(ChatBlockExpression)* "}";
 
 ChatBlockExpression:
-    type=("tag")? (Access | FleetingAccess | ParentAccess);
+    type=("tag")? (Access | FleetingAccess | ParentAccess | Expression);
 
 VariableExpression:
     type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll);
@@ -133,13 +161,16 @@ AddOrSubtract infers Expression:
 MultiplyOrDivide infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('*'|'/') e2=PrimitiveExpression)*;
 
-PrimitiveExpression: Literal | Ref | Group | NegExpression | Access | JS | FleetingAccess | ParentAccess ;
+PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | JS | FleetingAccess | ParentAccess | ItemAccess ;
 
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==") e2=Expression;
 
+ShorthandComparisonExpression:
+    e1=Expression term=("exists");
+
 // literal
-Literal:        val=(INT|STRING|DICE);
+Literal:        val=(INT|STRING|DICE|NOTHING);
 // cross-reference to a parameter
 Ref:        val=[VariableExpression:ID];
 // grouped expression with parentheses
@@ -149,7 +180,7 @@ NegExpression:    '-' ne=Expression;
 
 StringExp: ExpressionModifier "string" name=ID ("(" "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]" ")")?;
 
-NumberExp: ExpressionModifier "number" name=ID ("(" ("max:" max=(MethodBlock | INT))? & ("value:" value=(MethodBlock | INT))? ")")?;
+NumberExp: ExpressionModifier "number" name=ID NumberParameters;
 
 BooleanExp: ExpressionModifier "boolean" name=ID;
 
@@ -163,14 +194,44 @@ PipsExp: ExpressionModifier "pips" name=ID "(" "max:" max=(MethodBlock | INT) ("
 
 DamageTrackExp: ExpressionModifier "damageTrack" name=ID "(" "max:" max=(MethodBlock | INT) "," "types:" "[" (types+=STRING ("," types+=STRING)*)? "]" ")";
 
-DocumentArrayExp: ExpressionModifier document=[Document:ID] "[]" name=ID;
+DocumentArrayExp: ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(IconParam|WhereParam) ")")?;
+
+SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
 
 fragment ExpressionModifier:
     (modifier=("hidden" | "readonly"))?;
 
+fragment NumberParameters:
+    ("(" params+=NumberParameter* ("," params+=NumberParameter)* ")")?;
+
+NumberParameter:
+    (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | ColorParam | IconParam);
+
+NumberParamMin:
+    "min:" value=(MethodBlock | INT);
+
+NumberParamInitial:
+    "initial:" value=(INT);
+
+NumberParamValue:
+    "value:" value=(MethodBlock | INT);
+
+NumberParamMax:
+    "max:" value=(MethodBlock | INT);
+
+ColorParam:
+    "color:" value=HEX_COLOR;
+
+IconParam:
+    "icon:" value=STRING;
+
+WhereParam:
+    "where:" value=WhenExpressions;
+
 Parameter: name=ID;
 
 hidden terminal WS: /\s+/;
+terminal NOTHING: "nothing";
 terminal DICE: /(\d+)?d(\d+)(\w+)?/;
 terminal ID: /[_a-zA-Z][\w_]*/;
 terminal INT returns number: /(-)?[0-9]+/;

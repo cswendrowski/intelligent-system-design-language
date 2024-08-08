@@ -18,6 +18,9 @@ import type {
     ParentAssignment,
     Entry,
     Property,
+    ElseIf,
+    VariableAssignment,
+    WhenExpressions,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -35,7 +38,6 @@ import {
     isAccess,
     isMethodBlock,
     isIfStatement,
-    isComparisonExpression,
     isJS,
     isChatCard,
     isFleetingAccess,
@@ -46,12 +48,21 @@ import {
     isParentDecrementAssignment,
     isParentDecrementValAssignment,
     isParentIncrementValAssignment,
-    isParentAssignment
+    isParentAssignment,
+    isVariableAssignment,
+    isVariableIncrementValAssignment,
+    isVariableDecrementValAssignment,
+    isVariableIncrementAssignment,
+    isVariableDecrementAssignment,
+    isWhenExpressions,
+    isShorthandComparisonExpression,
+    isItemAccess,
+    isExpression
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
 
-export function translateExpression(entry: Entry, id: string, expression: MethodBlock | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -81,8 +92,6 @@ export function translateExpression(entry: Entry, id: string, expression: Method
     function translateAssignmentExpression(expression: Assignment): CompositeGeneratorNode | undefined {
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
 
-        // TODO: Not all references are to a system property - some will be to fleeting variables
-
         let systemPath = getSystemPath(expression.property.ref);
         if (expression.subProperty != undefined) {
             systemPath = `${systemPath}.${expression.subProperty}`;
@@ -110,6 +119,33 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         }
         return expandToNode`
             update["${systemPath}"] = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+        `;
+    }
+
+    function translateVariableAssignment(expression: VariableAssignment): CompositeGeneratorNode | undefined {
+
+        if (isVariableIncrementAssignment(expression)) {
+            return expandToNode`
+                ${expression.variable.ref?.name}++;
+            `;
+        }
+        if (isVariableDecrementAssignment(expression)) {
+            return expandToNode`
+                ${expression.variable.ref?.name}--;
+            `;
+        }
+        if (isVariableIncrementValAssignment(expression)) {
+            return expandToNode`
+                ${expression.variable.ref?.name} += ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+            `;
+        }
+        if (isVariableDecrementValAssignment(expression)) {
+            return expandToNode`
+                ${expression.variable.ref?.name} -= ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+            `;
+        }
+        return expandToNode`
+            ${expression.variable.ref?.name} = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
     }
 
@@ -155,6 +191,17 @@ export function translateExpression(entry: Entry, id: string, expression: Method
     }
 
     function translateLiteralExpression(expression: Literal): CompositeGeneratorNode | undefined {
+        console.log("Translating Literal Expression: " + expression.val);
+        if (typeof expression.val == "string") {
+            if (expression.val == "nothing") {
+                return expandToNode`
+                    null
+                `;
+            }
+            return expandToNode`
+             "${expression.val}"
+            `;
+        }
         return expandToNode`
             ${expression.val}
         `;
@@ -181,7 +228,7 @@ export function translateExpression(entry: Entry, id: string, expression: Method
     }
 
     function translateAccessExpression(expression: Access, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
-        console.log("Translating Access Expression: " + expression.property.ref?.name);
+        //console.log("Translating Access Expression: " + expression.property.ref?.name);
 
         // Determine if the property reference is the same as the object we are working with
         if ( generatingProperty && expression.property.ref == generatingProperty) {
@@ -191,8 +238,8 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         }
 
         let systemPath = getSystemPath(expression.property.ref);
-        if (expression.subProperty != undefined) {
-            systemPath = `${systemPath}.${expression.subProperty}`;
+        for (const subProperty of expression.subProperties) {
+            systemPath = `${systemPath}.${subProperty}`;
         }
 
         return expandToNode`
@@ -202,15 +249,29 @@ export function translateExpression(entry: Entry, id: string, expression: Method
 
     function translateIfStatement(expression: IfStatement): CompositeGeneratorNode | undefined {
         //console.log("Translating If Statement: ");
+
+        function translateElseIfStatement(elif: ElseIf): CompositeGeneratorNode {
+            return expandToNode`
+                else if (${translateExpression(entry, id, elif.expression, preDerived, generatingProperty)}) {
+                    ${translateBodyExpressionToJavascript(entry, id, elif.method.body, preDerived, generatingProperty)}
+                }
+            `;
+        }
+
         return expandToNode`
             if (${translateExpression(entry, id, expression.expression, preDerived, generatingProperty)}) {
                 ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
             }
+            ${joinToNode(expression.elseIfs, translateElseIfStatement, { appendNewLineIfNotEmpty: true })}
+            ${expression.elseMethod != undefined ? expandToNode`
+                else {
+                    ${translateBodyExpressionToJavascript(entry, id, expression.elseMethod?.body, preDerived, generatingProperty)}
+                }
+            `.appendNewLineIfNotEmpty() : ""}
         `;
     }
 
-    function translateComparisonExpression(expression: ComparisonExpression): CompositeGeneratorNode | undefined {
-        //console.log("Translating Comparison Expression: ");
+    function translateComparisonExpression(expression: WhenExpressions): CompositeGeneratorNode | undefined {
         // If the term is "equals" or "==", we need to translate it to "===" in JavaScript
         let term = expression.term.toString();
         if (term == "equals" || term == "==") {
@@ -218,6 +279,19 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         }
 
         // TODO: has, excludes, exists, startsWith, endsWith, isEmpty, isNotEmpty
+
+        if (isShorthandComparisonExpression(expression)) {
+            if (term == "exists") {
+                return expandToNode`
+                    ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} != undefined
+                `;
+            }
+            return expandToNode`
+                ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${term}
+            `;
+        }
+
+        console.log("Translating Comparison Expression: ", expression.e1.$type, term, expression.e2.$type);
 
         return expandToNode`
             ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${term} ${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)}
@@ -228,11 +302,23 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         return;
     }
 
+    if (typeof expression == "string" && expression == "nothing") {
+        return expandToNode`
+            null
+        `;
+    }
+    if (typeof expression == "string") {
+        return expandToNode`
+            "${expression}"
+        `;
+    }
+
     if (typeof expression == "number") {
         return expandToNode`
             ${expression}
         `;
     }
+
     if (isMethodBlock(expression)) {
         //console.log("Translating Method Block: ");
         return translateBodyExpressionToJavascript(entry, id, expression.body, preDerived, generatingProperty);
@@ -245,6 +331,9 @@ export function translateExpression(entry: Entry, id: string, expression: Method
     }
     if (isAssignment(expression)) {
         return translateAssignmentExpression(expression as Assignment);
+    }
+    if (isVariableAssignment(expression)) {
+        return translateVariableAssignment(expression as VariableAssignment);
     }
     if (isParentAssignment(expression)) {
         return translateParentAssignmentExpression(expression as ParentAssignment);
@@ -282,11 +371,30 @@ export function translateExpression(entry: Entry, id: string, expression: Method
             ${path}
         `;
     }
+    if (isItemAccess(expression)) {
+        let path = `item.system.${expression.property?.toLowerCase()}`;
+        if (expression.subProperty != undefined) {
+            path = `${path}.${expression.subProperty}`;
+        }
+        return expandToNode`
+            ${path}
+        `;
+    }
     if (isIfStatement(expression)) {
         return translateIfStatement(expression as IfStatement);
     }
-    if (isComparisonExpression(expression)) {
-        return translateComparisonExpression(expression as ComparisonExpression);
+    if (isWhenExpressions(expression)) {
+        return translateComparisonExpression(expression as WhenExpressions);
+    }
+    if (isFleetingAccess(expression)) {
+        let accessPath = expression.variable.ref?.name;
+        if (expression.subProperty != undefined) {
+            accessPath = `${accessPath}.${expression.subProperty}`;
+        }
+
+        return expandToNode`
+            ${accessPath}
+        `;
     }
     if (isJS(expression)) {
         // Remove the last "}" from the JS expression
@@ -298,11 +406,10 @@ export function translateExpression(entry: Entry, id: string, expression: Method
 
         function translateChatBodyExpression(expression: ChatBlockExpression) {
 
-
             if (isAccess(expression)) {
                 let systemPath = getSystemPath(expression.property.ref);
-                if (expression.subProperty != undefined) {
-                    systemPath = `${systemPath}.${expression.subProperty}`;
+                for (const subProperty of expression.subProperties) {
+                    systemPath = `${systemPath}.${subProperty}`;
                 }
                 const wide = isHtmlExp(expression.property.ref) ? true : false;
                 return expandToNode`
@@ -317,6 +424,7 @@ export function translateExpression(entry: Entry, id: string, expression: Method
 
                 let roll = false;
                 let wide = false;
+                //console.log(expression.variable.ref?.value);
                 if (isRoll(expression.variable.ref?.value)) {
                     roll = true
                     wide = true;
@@ -324,6 +432,11 @@ export function translateExpression(entry: Entry, id: string, expression: Method
 
                 return expandToNode`
                     { isRoll: ${roll}, label: "${humanize(expression.variable.ref?.name ?? "")}", value: ${accessPath}, wide: ${wide}, tooltip: await ${accessPath}.getTooltip() },
+                `;
+            }
+            if ( isExpression(expression) ) {
+                return expandToNode`
+                    { isParagraph: true, value: ${translateExpression(entry, id, expression, preDerived, generatingProperty)} },
                 `;
             }
             return;
@@ -351,16 +464,29 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         `;
     }
     if (isRoll(expression)) {
+        console.log("Translating Roll Expression");
 
         function translateDiceParts(expression: Expression): CompositeGeneratorNode | undefined {
+
+            console.log("Translating Dice Part: ", expression.$type);
+
             if (isLiteral(expression)) {
                 return expandToNode`
-                    "${expression.val}"
+                    ${expression.val}
                 `;
             }
             if (isRef(expression)) {
+                // If string or number, return the value
+                if (typeof expression.val == "string" || typeof expression.val == "number") {
+                    return expandToNode`
+                        "${expression.val}"
+                    `;
+                }
+                if (expression.val.ref == undefined) {
+                    return;
+                }
                 return expandToNode`
-                    ${expression.val}
+                    "${expression.val.ref?.name}[${humanize(expression.val.ref?.name)}]"
                 `;
             }
             if (isParentAccess(expression)) {
@@ -383,6 +509,29 @@ export function translateExpression(entry: Entry, id: string, expression: Method
                     \`@${path}[${label}]\`
                 `;
             }
+            if (isAccess(expression)) {
+                let path = expression.property.ref?.name?.toLowerCase();
+                let label = humanize(expression.property.ref?.name ?? "");
+                for (const subProperty of expression.subProperties) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
+                }
+                console.log("Acess:", path, label);
+                return expandToNode`
+                    \`@${path}[${label}]\`
+                `;
+            }
+            if (isFleetingAccess(expression)) {
+                let path = expression.variable.ref?.name;
+                let label = humanize(expression.variable.ref?.name ?? "");
+                if (expression.subProperty != undefined) {
+                    path = `${path}.${expression.subProperty}`;
+                    label = `${label} ${humanize(expression.subProperty)}`;
+                }
+                return expandToNode`
+                    \`@${path}[${label}]\`
+                `;
+            }
             if (isBinaryExpression(expression)) {
                 return expandToNode`
                     ${translateDiceParts(expression.e1)} + "${expression.op}" + ${translateDiceParts(expression.e2)}
@@ -392,6 +541,7 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         }
 
         function translateDiceData(expression: Expression): CompositeGeneratorNode | undefined {
+            console.log("Translating Dice Data: ", expression.$type);
             if (isParentAccess(expression)) {
                 let path = "this.object.parent.system";
                 let label = expression.property ?? "";
@@ -404,14 +554,48 @@ export function translateExpression(entry: Entry, id: string, expression: Method
                     label = `${label}.${expression.property}`;
                 }
                 if (expression.subProperty != undefined) {
-                    path = `${path}.${expression.subProperty}`;
+                    path = `${path}.${expression.subProperty?.toLowerCase()}`;
                     label = `${label}.${expression.subProperty}`;
                 }
                 return expandToNode`
                     "${label.replaceAll(".", "").toLowerCase()}": ${path}
                 `;
             }
+            if (isAccess(expression)) {
+                let path = expression.property.ref?.name.toLocaleLowerCase();
+                let label = expression.property.ref?.name ?? "";
+                for (const subProperty of expression.subProperties) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
+                }
+                return expandToNode`
+                    "${label.replaceAll(".", "").toLowerCase()}": this.object.system.${path}
+                `;
+            }
+            if (isFleetingAccess(expression)) {
+                let path = expression.variable.ref?.name;
+                if (expression.subProperty != undefined) {
+                    path = `${path}.${expression.subProperty}`;
+                }
 
+                return expandToNode`
+                    "${expression.variable.ref?.name.toLowerCase()}": ${path}
+                `;
+            }
+            if (isRef(expression)) {
+                // If string or number, return the value
+                if (typeof expression.val == "string" || typeof expression.val == "number") {
+                    return expandToNode`
+                        "${expression.val}": ${expression.val}
+                    `;
+                }
+                if (expression.val.ref == undefined) {
+                    return;
+                }
+                return expandToNode`
+                    "${expression.val.ref?.name}": ${expression.val.ref?.name}
+                `;
+            }
             if (isBinaryExpression(expression)) {
                 const expressions = [expression.e1, expression.e2];
                 return expandToNode`
@@ -428,7 +612,7 @@ export function translateExpression(entry: Entry, id: string, expression: Method
         `;
     }
 
-    console.log(expression.$type);
+    //console.log(expression.$type);
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
 }
 

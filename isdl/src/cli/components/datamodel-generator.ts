@@ -16,6 +16,10 @@ import {
     isLiteral,
     isPipsExp,
     isDamageTrackExp,
+    isSingleDocumentExp,
+    isNumberParamInitial,
+    isNumberParamMin,
+    isNumberParamMax,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -30,8 +34,26 @@ export function generateDocumentDataModel(config: Config, document: Document, de
     function generateField(property: ClassExpression | Section): CompositeGeneratorNode | undefined {
 
         if (isNumberExp(property)) {
+
+            // Check to see if we have literal values for min, initial, and max
+            let options = "integer: true";
+
+            const initalParam = property.params.find(p => isNumberParamInitial(p));
+            const minParam = property.params.find(p => isNumberParamMin(p));
+            const maxParam = property.params.find(p => isNumberParamMax(p));
+
+            if (initalParam && typeof(initalParam.value) === 'number') {
+                options += `, initial: ${initalParam.value}`;
+            }
+            if (minParam && typeof(minParam.value) === 'number') {
+                options += `, min: ${minParam.value}`;
+            }
+            if (maxParam && typeof(maxParam.value) === 'number') {
+                options += `, max: ${maxParam.value}`;
+            }
+
             return expandToNode`
-                ${property.name.toLowerCase()}: new fields.NumberField({initial: 0, integer: true}),
+                ${property.name.toLowerCase()}: new fields.NumberField({${options}}),
             `;
         }
         if (isStringExp(property)) {
@@ -108,6 +130,12 @@ export function generateDocumentDataModel(config: Config, document: Document, de
             `;
         }
 
+        if (isSingleDocumentExp(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new UuidDocumentField(),
+            `;   
+        }
+
         // if ( isDocumentArrayExp(property) ) {
         //     return expandToNode`
         //         ${property.name.toLowerCase()}: new fields.EmbeddedCollectionField(new fields.ForeignDocumentField(, {required: true, type: "${property.document.ref?.name.toLowerCase()}"})),
@@ -132,6 +160,7 @@ export function generateDocumentDataModel(config: Config, document: Document, de
     const fileNode = expandToNode`
         import ${config.name}Actor from "../../documents/actor.mjs";
         import ${config.name}Item from "../../documents/item.mjs";
+        import UuidDocumentField from "../UuidDocumentField.mjs";
 
         export default class ${document.name}TypeDataModel extends foundry.abstract.DataModel {
             /** @inheritDoc */
@@ -143,6 +172,46 @@ export function generateDocumentDataModel(config: Config, document: Document, de
                 };
             }
         };
+    `.appendNewLineIfNotEmpty();
+
+    if (!fs.existsSync(dataModelPath)) {
+        fs.mkdirSync(dataModelPath, { recursive: true });
+    }
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+export function generateUuidDocumentField(destination: string) {
+    const dataModelPath = path.join(destination, "system", "datamodels");
+    const generatedFilePath = path.join(dataModelPath, "UuidDocumentField.mjs");
+
+    const fileNode = expandToNode`
+        export default class UuidDocumentField extends foundry.data.fields.StringField {
+
+            /** @inheritdoc */
+            static get _defaults() {
+            return foundry.utils.mergeObject(super._defaults, {
+                required: true,
+                blank: false,
+                nullable: true,
+                initial: null,
+                readonly: false,
+                validationError: "is not a valid Document UUID string"
+            });
+            }
+        
+            /** @override */
+            _cast(value) {
+                if ( value instanceof foundry.abstract.Document ) return value.uuid;
+                else return String(value);
+            }
+
+            /** @inheritdoc */
+            initialize(value, model, options={}) {
+                if ( !game.collections ) return value; // server-side
+
+                return () => fromUuidSync(value);
+            }
+        }
     `.appendNewLineIfNotEmpty();
 
     if (!fs.existsSync(dataModelPath)) {

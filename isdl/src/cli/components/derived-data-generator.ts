@@ -4,6 +4,8 @@ import type {
     Entry,
     Section,
     MethodBlock,
+    NumberParameter,
+    NumberExp,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -14,6 +16,10 @@ import {
     isMethodBlock,
     isDocumentArrayExp,
     isNumberExp,
+    isNumberParamMax,
+    isNumberParamValue,
+    isNumberParamMin,
+    isWhereParam,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -31,19 +37,67 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
     function generateExtendedDocumentClass(type: string, entry: Entry) {
         const generatedFilePath = path.join(generatedFileDir, `${type.toLowerCase()}.mjs`);
 
+        const toBeReapplied = new Set<string>();
         function generateDerivedAttribute(property: ClassExpression | Section): CompositeGeneratorNode | undefined {
 
             if ( isSection(property) ) {
                 return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
             }
 
-            if ( isNumberExp(property) && property.value != undefined) {
+            if (isNumberExp(property)) {
+                function translateMethodOrValueOrStored(property: NumberExp, param: NumberParameter | undefined): CompositeGeneratorNode {
+                    if (param == undefined) {
+                        return expandToNode`
+                            return system.${property.name.toLowerCase()} ?? 0
+                        `
+                    }
+
+                    if (isMethodBlock(param.value)) {
+
+                        if (isNumberParamValue(param)) {
+                            toBeReapplied.add("system." + property.name.toLowerCase());
+                        }
+
+                        return expandToNode`
+                            ${translateExpression(entry, id, param.value, true, property)}
+                        `
+                    }
+
+                    return expandToNode`
+                        return ${param.value}
+                    `
+                }
+
+                const valueParam = property.params.find(p => isNumberParamValue(p));
+                const minParam = property.params.find(p => isNumberParamMin(p));
+                const maxParam = property.params.find(p => isNumberParamMax(p));
+
                 return expandToNode`
                     // ${property.name} Number Derived Data
                     const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
-                        ${translateExpression(entry, id, property.value, true, property)}
+                        ${translateMethodOrValueOrStored(property, valueParam)}
                     };
-                    this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system)
+                    this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+
+                    ${minParam != undefined ? expandToNode`
+                    const ${property.name.toLowerCase()}MinFunc = (system) => {
+                        ${translateMethodOrValueOrStored(property, minParam)}
+                    };
+                    const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
+                    if ( this.system.${property.name.toLowerCase()} < ${property.name.toLowerCase()}Min ) {
+                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}Min;
+                    }
+                    `.appendNewLine() : ""}
+
+                    ${maxParam != undefined ? expandToNode`
+                    const ${property.name.toLowerCase()}MaxFunc = (system) => {
+                        ${translateMethodOrValueOrStored(property, maxParam)}
+                    };
+                    const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
+                    if ( this.system.${property.name.toLowerCase()} > ${property.name.toLowerCase()}Max ) {
+                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}Max;
+                    }
+                    `.appendNewLine() : ""}
                 `.appendNewLineIfNotEmpty();
             }
 
@@ -65,6 +119,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
             if ( isResourceExp(property) && property.max != undefined && isMethodBlock(property.max) ) {
                 console.log("Processing Derived Resource: " + property.name);
+                toBeReapplied.add("system." + property.name.toLowerCase() + ".max");
                 return expandToNode`
                     // ${property.name} Resource Derived Data
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}.value ?? 0;
@@ -79,6 +134,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             }
 
             if ( isDocumentArrayExp(property) ) {
+                console.log("Processing Derived Document Array: " + property.name);
+
+                const whereParam = property.params.find(p => isWhereParam(p));
+                if ( whereParam ) {
+                    return expandToNode`
+                    // ${property.name} Document Array Derived Data
+                    this.system.${property.name.toLowerCase()} = this.items.filter((item) => {
+                        if ( item.type !== "${property.document.ref?.name.toLowerCase()}") return false;
+                        return ${translateExpression(entry, id, whereParam.value, true, property)};
+                    });
+                    `.appendNewLineIfNotEmpty();
+                }
                 return expandToNode`
                     // ${property.name} Document Array Derived Data
                     // this.system.${property.name.toLowerCase()} = this.system.${property.name.toLowerCase()}.map((item) => {
@@ -95,8 +162,13 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             return expandToNode`
                 async _prepare${document.name}DerivedData() {
                     ${joinToNode(document.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true })}
+
+                    ${isActor(document) ? expandToNode`
+                        // Reapply Active Effects for calculated values
+                        ${joinToNode(toBeReapplied, name => expandToNode`this.reapplyActiveEffectsForName("${name}");`, { appendNewLineIfNotEmpty: true})}
+                    ` : ""}
                 }
-            `.appendNewLineIfNotEmpty();
+            `.appendNewLineIfNotEmpty().appendNewLine();
         }
 
         const fileNode = expandToNode`
@@ -114,10 +186,23 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             
                 /* -------------------------------------------- */
 
+                reapplyActiveEffectsForName(name) {
+                    for (const effect of this.appliedEffects) {
+                        for (const change of effect.changes) {
+                            if (change.key == name) {
+                                const changes = effect.apply(this, change);
+                                Object.assign(this.overrides, changes);
+                            }
+                        }
+                    }
+                }
+
+                /* -------------------------------------------- */
+
                 // In order to support per-document type effects, we need to override the allApplicableEffects method to yield virtualized effects with only changes that match the document type
                 /** @override */
                 *allApplicableEffects() {
-                    const systemFlags = this.flags["fabula-ultima"] ?? {};
+                    const systemFlags = this.flags["${id}"] ?? {};
                     const edit = systemFlags["edit-mode"] ?? true;
 
                     function getTypedEffect(type, edit, effect) {
