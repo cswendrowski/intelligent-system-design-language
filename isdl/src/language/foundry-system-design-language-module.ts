@@ -2,6 +2,7 @@ import { type Module, inject } from 'langium';
 import { createDefaultModule, createDefaultSharedModule, type DefaultSharedModuleContext, type LangiumServices, type LangiumSharedServices, type PartialLangiumServices } from 'langium/lsp';
 import { FoundrySystemDesignLanguageGeneratedModule, FoundrySystemDesignLanguageGeneratedSharedModule } from './generated/module.js';
 import { FoundrySystemDesignLanguageValidator, registerValidationChecks } from './foundry-system-design-language-validator.js';
+import { IsdlScopeProvider } from './isdl-scope-provider.js';
 
 /**
  * Declaration of custom services - add your own service classes here.
@@ -26,8 +27,36 @@ export type FoundrySystemDesignLanguageServices = LangiumServices & FoundrySyste
 export const FoundrySystemDesignLanguageModule: Module<FoundrySystemDesignLanguageServices, PartialLangiumServices & FoundrySystemDesignLanguageAddedServices> = {
     validation: {
         FoundrySystemDesignLanguageValidator: () => new FoundrySystemDesignLanguageValidator()
+    },
+    references: {
+        ScopeProvider: (services) => new IsdlScopeProvider(services)
     }
 };
+
+// export class IsdlScopeProvider implements ScopeProvider {
+//     private astNodeDescriptionProvider: AstNodeDescriptionProvider;
+//     constructor(services: LangiumCoreServices) {
+//         //get some helper services
+//         this.astNodeDescriptionProvider = services.workspace.AstNodeDescriptionProvider;
+//     }
+    
+//     getScope(context: ReferenceInfo): Scope {
+//         //make sure which cross-reference you are handling right now
+//         if(isGreeting(context.container) && context.property === 'person') {
+//             //Success! We are handling the cross-reference of a greeting to a person!
+
+//             //get the root node of the document
+//             const model = AstUtils.getContainerOfType(context.container, isDocument)!;
+//             //select all persons from this document
+//             const persons = model.persons;
+//             //transform them into node descriptions
+//             const descriptions = persons.map(p => this.astNodeDescriptionProvider.createDescription(p, p.name));
+//             //create the scope
+//             return new MapScope(descriptions);
+//         }
+//         return EMPTY_SCOPE;
+//     }
+// }
 
 /**
  * Create the full set of services required by Langium.

@@ -2,6 +2,7 @@ import type {
     ClassExpression,
     Config,
     Document,
+    Page,
     Section,
 } from '../../language/generated/ast.js';
 import {
@@ -13,13 +14,13 @@ import {
     isBooleanExp,
     isResourceExp,
     isAttributeExp,
-    isLiteral,
     isPipsExp,
     isDamageTrackExp,
     isSingleDocumentExp,
     isNumberParamInitial,
     isNumberParamMin,
     isNumberParamMax,
+    isPage,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -31,7 +32,7 @@ export function generateDocumentDataModel(config: Config, document: Document, de
     const dataModelPath = path.join(destination, "system", "datamodels", typePath);
     const generatedFilePath = `${path.join(dataModelPath, document.name.toLowerCase())}.mjs`;
 
-    function generateField(property: ClassExpression | Section): CompositeGeneratorNode | undefined {
+    function generateField(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
 
         if (isNumberExp(property)) {
 
@@ -80,10 +81,11 @@ export function generateDocumentDataModel(config: Config, document: Document, de
             `;
         }
         if (isResourceExp(property)) {
-            const max = isLiteral(property.max) ? property.max?.val ?? 0 : 0;
+            const max = typeof(property.max) === 'number' ? property.max ?? 0 : 0;
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.SchemaField({
                     value: new fields.NumberField({initial: ${max}, integer: true}),
+                    temp: new fields.NumberField({initial: 0, min: 0, integer: true}),
                     max: new fields.NumberField({min: 0, initial: ${max}, integer: true}),
                 }),
             `;
@@ -153,6 +155,11 @@ export function generateDocumentDataModel(config: Config, document: Document, de
             //     }),
             // `;
         }
+
+        if (isPage(property)) {
+            return joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true });
+        }
+
         return
     }
 

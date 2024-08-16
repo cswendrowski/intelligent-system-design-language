@@ -1,7 +1,7 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isNumberExp, isResourceExp, isSection, isStringExp } from '../../language/generated/ast.js';
+import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isNumberExp, isPage, isResourceExp, isSection, isStringExp } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -12,11 +12,15 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    function generateAddValue(document: Document, property: ClassExpression | Section): CompositeGeneratorNode | undefined {
+    function generateAddValue(document: Document, property: ClassExpression | Page |Section): CompositeGeneratorNode | undefined {
 
         if ( isAccess(property) || isAction(property) || isIfStatement(property) ) return undefined;
 
         if ( isSection(property) ) {
+            return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
+        }
+
+        if (isPage(property)) {
             return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
         }
 
@@ -25,6 +29,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
         if (isResourceExp(property)) {
             return expandToNode`
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value", 1);
                 addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max");
             `;
         }
@@ -111,6 +116,9 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                     obj[mode] = context.modes[mode];
                     return obj;
                 }, {});
+                context.resourceModes = {
+                    0: "Add Once"
+                };
 
                 return context;
             }
@@ -126,6 +134,10 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 ae.disabled = formData.disabled;
                 ae.transfer = formData.transfer;
 
+                if ( !ae.flags["${id}"] ) {
+                    ae.flags["${id}"] = {};
+                }
+
                 // Retrieve the existing effects.
                 const effectData = await this.getData();
                 let changes = effectData?.data?.changes ? effectData.data.changes : [];
@@ -133,7 +145,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 // Build an array of effects from the form data
                 let newChanges = [];
 
-                function addChange(documentName, key) {
+                function addChange(documentName, key, customMode) {
                     const value = foundry.utils.getProperty(formData, key);
                     if ( !value ) {
                         // If there is a current change for this key, remove it.
@@ -146,6 +158,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                         value: value,
                         mode: mode
                     });
+                    if ( customMode ) ae.flags["${id}"][key + "-custommode"] = customMode;
                 }
 
                 ${joinToNode(entry.documents.filter(d => isActor(d)), document => joinToNode(document.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true }))}
@@ -192,7 +205,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    function generateField(document: Document, property: ClassExpression | Section): CompositeGeneratorNode | undefined {
+    function generateField(document: Document, property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
         
         if ( isAccess(property) || isAction(property) || isIfStatement(property) ) return undefined;
 
@@ -204,6 +217,10 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
                   ${joinToNode(property.body, property => generateField(document, property), { appendNewLineIfNotEmpty: true })}
                 </fieldset>
             `;
+        }
+
+        if (isPage(property)) {
+            return joinToNode(property.body, property => generateField(document, property), { appendNewLineIfNotEmpty: true });
         }
 
         if ( isHtmlExp(property) ) return;
@@ -235,6 +252,13 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
 
         if (isResourceExp(property)) {
             return expandToNode`
+                <div class="form-group">
+                    <label>{{localize "${property.name}"}} Current</label>
+                    <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode" data-dtype="Number">
+                        {{selectOptions resourceModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode}}
+                    </select>
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value}}" />
+                </div>
                 <div class="form-group">
                     <label>{{localize "${property.name}"}} Max</label>
                     <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode" data-dtype="Number">

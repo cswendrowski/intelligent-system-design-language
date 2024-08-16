@@ -16,7 +16,7 @@ import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'lang
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extractDestinationAndName } from './cli-util.js';
-import { generateBaseSheet, generateDocumentSheet, generateDocumentHandlebars, generateBaseActorSheet } from './components/sheet-generator.js';
+import { generateDocumentSheet } from './components/document-sheet-generator.js';
 import { generateCustomCss, generateSystemCss } from './components/css-generator.js';
 import { generateLanguageJson } from './components/language-generator.js';
 import { generateExtendedDocumentClasses } from './components/derived-data-generator.js';
@@ -24,6 +24,9 @@ import { generateDocumentDataModel, generateUuidDocumentField } from './componen
 import { fileURLToPath } from 'url';
 import { generateActiveEffectHandlebars, generateBaseActiveEffectBaseSheet as generateActiveEffectBaseSheet } from './components/active-effect-sheet-generator.js';
 import { generateChatCardClass, generateStandardChatCardTemplate } from './components/chat-card-generator.js';
+import { generateBaseDocumentSheet } from './components/base-sheet-generator.js';
+import { generateBaseActorSheet } from './components/base-actor-sheet-generator.js';
+import { generateDocumentHandlebars } from './components/document-sheet-handlebars-generator.js';
 
 export function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): string {
     const config = entry.config;
@@ -40,6 +43,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     // Generic shared components
     copyDataTableFiles(data.destination);
     copyProgressBarJs(data.destination);
+    copyLogo(data.destination);
     generateSystemCss(entry, id, data.destination);
     generateCustomCss(entry, id, data.destination);
     generateUuidDocumentField(data.destination);
@@ -49,7 +53,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateSystemJson(entry, id, data.destination);
     generateLanguageJson(entry, id, data.destination);
     generateTemplateJson(entry, id, data.destination);
-    generateBaseSheet(entry, id, data.destination);
+    generateBaseDocumentSheet(entry, id, data.destination);
     generateBaseActorSheet(entry, id, data.destination);
     generateExtendedDocumentClasses(entry, id, data.destination);
     generateEntryMjs(entry, id, data.destination);
@@ -113,6 +117,24 @@ function copyProgressBarJs(destination: string) {
     fs.copyFileSync(path.join(__dirname, "../progressbar.min.js"), jsFilePath);
 }
 
+function copyLogo(destination: string) {
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    // Make the scripts and css directories
+    const imgDir = path.join(destination, "img");
+
+    if (!fs.existsSync(imgDir)) {
+        fs.mkdirSync(imgDir, { recursive: true });
+    }
+
+    // Copy the files
+    const imgFilePath = path.join(destination, "img", "isdl.png");
+
+    fs.copyFileSync(path.join(__dirname, "../isdl.png"), imgFilePath);
+}
+
 function generateSystemJson(entry: Entry, id: string, destination: string) {
     const generatedFilePath = path.join(destination, `system.json`);
 
@@ -137,7 +159,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             ],
             "esmodules": [
                 "system/${id}-main.mjs",
-                "system/${id}-custom.mjs",
+                "system/${id}-custom.mjs"
             ],
             "styles": [
                 "css/${id}.css",
@@ -159,6 +181,13 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                     "paths": ["css", "system/templates", "lang"]
                 }
             },
+            "media": [
+                {
+                    "type": "setup",
+                    "url": "systems/${id}/img/isdl.png",
+                    "thumbnail": "systems/${id}/img/isdl.png"
+                }
+            ],
             "url": "This is auto replaced",
             "manifest": "This is auto replaced",
             "download": "This is auto replaced"
@@ -260,6 +289,8 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
         export function init() {
             console.log('${id} | Initializing System');
+
+            CONFIG.ActiveEffect.legacyTransferral = false;
 
             registerDataModels();
             registerDocumentSheets();

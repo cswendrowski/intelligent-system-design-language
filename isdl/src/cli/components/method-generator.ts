@@ -57,7 +57,10 @@ import {
     isWhenExpressions,
     isShorthandComparisonExpression,
     isItemAccess,
-    isExpression
+    isExpression,
+    isResourceExp,
+    isBooleanExp,
+    isSelfMethod
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
@@ -92,9 +95,38 @@ export function translateExpression(entry: Entry, id: string, expression: string
     function translateAssignmentExpression(expression: Assignment): CompositeGeneratorNode | undefined {
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
 
-        let systemPath = getSystemPath(expression.property.ref);
-        if (expression.subProperty != undefined) {
-            systemPath = `${systemPath}.${expression.subProperty}`;
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+    
+        if (isResourceExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "temp")) {
+            // We need to check for temp first when decrementing
+            const tempPath = `system.${expression.property?.ref?.name.toLowerCase()}.temp`;
+            if (isDecrementAssignment(expression)) {
+                return expandToNode`
+                    if (this.object.${tempPath} > 0) {
+                        update["${tempPath}"] = this.object.${tempPath} - 1;
+                    }
+                    else {
+                        update["${systemPath}"] = this.object.${systemPath} - 1;
+                    }
+                `;
+            }
+
+            if (isDecrementValAssignment(expression)) {
+                return expandToNode`
+                    if (this.object.${tempPath} > 0) {
+                        update["${tempPath}"] = this.object.${tempPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+
+                        if (update["${tempPath}"] < 0) {
+                            // Apply the remainder to the system property
+                            update["${systemPath}"] = this.object.${systemPath} + update["${tempPath}"];
+                            update["${tempPath}"] = 0;
+                        }
+                    }
+                    else {
+                        update["${systemPath}"] = this.object.${systemPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+                    }
+                `;
+            }
         }
 
         if (isIncrementAssignment(expression)) {
@@ -222,6 +254,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateNegatedExpression(expression: NegExpression): CompositeGeneratorNode | undefined {
         //console.log("Translating Negated Expression: " + expression.ne);
+
+        // If this is a boolean, we need to negate it differently
+        if (isAccess(expression.ne) && isBooleanExp(expression.ne.property?.ref)) {
+            return expandToNode`
+                !${translateExpression(entry, id, expression.ne, preDerived, generatingProperty)}
+            `;
+        }
+
         return expandToNode`
             -(${translateExpression(entry, id, expression.ne, preDerived, generatingProperty)})
         `;
@@ -231,17 +271,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
         //console.log("Translating Access Expression: " + expression.property.ref?.name);
 
         // Determine if the property reference is the same as the object we are working with
-        if ( generatingProperty && expression.property.ref == generatingProperty) {
+        if ( generatingProperty && expression.property?.ref == generatingProperty) {
             return expandToNode`
                 system.${expression.property.ref?.name.toLowerCase()}
             `;
         }
 
-        let systemPath = getSystemPath(expression.property.ref);
-        for (const subProperty of expression.subProperties) {
-            systemPath = `${systemPath}.${subProperty}`;
-        }
-
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+        
         return expandToNode`
             ${systemPath}
         `;
@@ -273,7 +310,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateComparisonExpression(expression: WhenExpressions): CompositeGeneratorNode | undefined {
         // If the term is "equals" or "==", we need to translate it to "===" in JavaScript
-        let term = expression.term.toString();
+        let term = expression.term?.toString() ?? "";
         if (term == "equals" || term == "==") {
             term = "===";
         }
@@ -406,14 +443,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         function translateChatBodyExpression(expression: ChatBlockExpression) {
 
+            if (expression.type == "flavor") {
+                return undefined;
+            }
+
             if (isAccess(expression)) {
-                let systemPath = getSystemPath(expression.property.ref);
-                for (const subProperty of expression.subProperties) {
-                    systemPath = `${systemPath}.${subProperty}`;
-                }
-                const wide = isHtmlExp(expression.property.ref) ? true : false;
+                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+                const wide = isHtmlExp(expression.property?.ref) ? true : false;
                 return expandToNode`
-                    { isRoll: false, label: "${humanize(expression.property.ref?.name ?? "")}", value: this.object.${systemPath}, wide: ${wide}, hasValue: this.object.${systemPath} != "" },
+                    { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: this.object.${systemPath}, wide: ${wide}, hasValue: this.object.${systemPath} != "" },
                 `;
             }
             if ( isFleetingAccess(expression) ) {
@@ -442,6 +480,33 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return;
         }
 
+        function translateChatBodyExpressionForFlavor(expression: ChatBlockExpression) {
+
+            if (isAccess(expression)) {
+                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+                return expandToNode`
+                    this.object.${systemPath}
+                `;
+            }
+            if ( isFleetingAccess(expression) ) {
+                let accessPath = expression.variable.ref?.name;
+                if (expression.subProperty != undefined) {
+                    accessPath = `${accessPath}.${expression.subProperty}`;
+                }
+                return expandToNode`
+                    ${accessPath}
+                `;
+            }
+            if ( isExpression(expression) ) {
+                return expandToNode`
+                    ${translateExpression(entry, id, expression, preDerived, generatingProperty)}
+                `;
+            }
+            return;
+        }
+
+        const flavorTag = expression.body.chatExp.find(x => x.type == "flavor");
+
         return expandToNode`
             // Create the chat message
             const ${expression.name}Content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
@@ -455,11 +520,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     ${joinToNode(expression.body.chatExp.filter(x => x.type == "tag"), (expression) => translateChatBodyExpression(expression), { appendNewLineIfNotEmpty: true })}
                 ]
             });
+            const ${expression.name}ChatFlavor = (system) => {
+                return ${flavorTag != undefined ? translateChatBodyExpressionForFlavor(flavorTag) : `""`}
+            }
             await ChatMessage.create({
                 user: game.user._id,
                 speaker: ChatMessage.getSpeaker(),
                 content: ${expression.name}Content,
-                flavor: \`\${this.object.parent.name} \${game.i18n.localize("used")} \${this.object.name}\`
+                flavor: ${expression.name}ChatFlavor(this.object.system),
             });
         `;
     }
@@ -471,8 +539,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
             console.log("Translating Dice Part: ", expression.$type);
 
             if (isLiteral(expression)) {
+                if (typeof expression.val == "string") {
+                    return expandToNode`
+                        "${expression.val}"
+                    `;
+                }
                 return expandToNode`
-                    ${expression.val}
+                    "${expression.val}"
                 `;
             }
             if (isRef(expression)) {
@@ -506,30 +579,30 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
                 label = label.trim();
                 return expandToNode`
-                    \`@${path}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
                 `;
             }
             if (isAccess(expression)) {
-                let path = expression.property.ref?.name?.toLowerCase();
-                let label = humanize(expression.property.ref?.name ?? "");
-                for (const subProperty of expression.subProperties) {
+                let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
+                let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
+                for (const subProperty of expression.subProperties ?? []) {
                     path = `${path}.${subProperty}`;
                     label = `${label} ${humanize(subProperty)}`;
                 }
-                console.log("Acess:", path, label);
+                console.log("Acesss:", path, label);
                 return expandToNode`
-                    \`@${path}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
                 `;
             }
             if (isFleetingAccess(expression)) {
-                let path = expression.variable.ref?.name;
+                let path = expression.variable.ref?.name ?? "";
                 let label = humanize(expression.variable.ref?.name ?? "");
                 if (expression.subProperty != undefined) {
                     path = `${path}.${expression.subProperty}`;
                     label = `${label} ${humanize(expression.subProperty)}`;
                 }
                 return expandToNode`
-                    \`@${path}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
                 `;
             }
             if (isBinaryExpression(expression)) {
@@ -545,6 +618,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if (isParentAccess(expression)) {
                 let path = "this.object.parent.system";
                 let label = expression.property ?? "";
+
+                console.log("Parent Access:", expression.property, expression.propertyLookup?.ref?.name);
+
                 if ( expression.propertyLookup != undefined ) {
                     path = `${path}[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
                     label = `${label}.${expression.propertyLookup.ref?.name}`;
@@ -557,34 +633,58 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.subProperty?.toLowerCase()}`;
                     label = `${label}.${expression.subProperty}`;
                 }
+
+                console.log(label, path);
+
                 return expandToNode`
                     "${label.replaceAll(".", "").toLowerCase()}": ${path}
                 `;
             }
             if (isAccess(expression)) {
-                let path = expression.property.ref?.name.toLocaleLowerCase();
-                let label = expression.property.ref?.name ?? "";
-                for (const subProperty of expression.subProperties) {
+                let path = "this.object.system";
+                let label = "";
+
+                console.log("Access:", expression.property?.ref?.name, expression.propertyLookup?.ref?.name);
+                
+                if (expression.propertyLookup != undefined) {
+                    path = `${path}[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
+                    label = `${label}.${expression.propertyLookup.ref?.name}`;
+                }
+                else {
+                    path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${label}.${expression.property?.ref?.name}`;
+                }
+
+                for (const subProperty of expression.subProperties ?? []) {
                     path = `${path}.${subProperty}`;
                     label = `${label} ${humanize(subProperty)}`;
                 }
+                console.log(label, path);
                 return expandToNode`
-                    "${label.replaceAll(".", "").toLowerCase()}": this.object.system.${path}
+                    "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": ${path}
                 `;
             }
             if (isFleetingAccess(expression)) {
+
+                console.log("Fleeting Access:", expression.variable.ref?.name);
+
                 let path = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
                     path = `${path}.${expression.subProperty}`;
                 }
-
+                const label = expression.variable.ref?.name.toLowerCase() ?? "";
+                console.log(label, path);
                 return expandToNode`
-                    "${expression.variable.ref?.name.toLowerCase()}": ${path}
+                    "${label}": ${path}
                 `;
             }
             if (isRef(expression)) {
+
+                console.log("Ref:", expression.val.ref?.name);
+
                 // If string or number, return the value
                 if (typeof expression.val == "string" || typeof expression.val == "number") {
+                    console.log(expression.val);
                     return expandToNode`
                         "${expression.val}": ${expression.val}
                     `;
@@ -592,10 +692,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (expression.val.ref == undefined) {
                     return;
                 }
+                console.log(expression.val.ref?.name);
                 return expandToNode`
                     "${expression.val.ref?.name}": ${expression.val.ref?.name}
                 `;
             }
+
             if (isBinaryExpression(expression)) {
                 const expressions = [expression.e1, expression.e2];
                 return expandToNode`
@@ -610,6 +712,29 @@ export function translateExpression(entry: Entry, id: string, expression: string
         return expandToNode`
             await new ${entry.config.name}Roll(${joinToNode(expression.parts, e => translateDiceParts(e), {separator: " + "})}, {${joinToNode(expression.parts, e => translateDiceData(e), {separator: ", "})}}).roll()
         `;
+    }
+
+    if (isSelfMethod(expression)) {
+        switch (expression.method) {
+            case "delete()": {
+                return expandToNode`
+                    await this.object.delete();
+                    selfDeleted = true;
+                `;
+            }
+            case "update()": {
+                return expandToNode`
+                    if (Object.keys(update).length > 0) {
+                        await this.object.update(update);
+                        system = this.object.system;
+                    }
+                    update = {};
+                `.appendNewLine();
+            }
+            default: {
+                throw new Error("Unknown method called on self");
+            }
+        }
     }
 
     //console.log(expression.$type);

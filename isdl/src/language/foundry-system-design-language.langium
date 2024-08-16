@@ -10,17 +10,20 @@ Document:
     Actor | Item;
 
 Actor:
-    "actor" name=ID ClassBlock;
+    "actor" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? ClassBlock;
 
 Item:
-    "item" name=ID ClassBlock;
+    "item" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? ClassBlock;
 
 
 fragment ClassBlock:
-    "{" body+=(ClassExpression | Section)* "}";
+    "{" body+=(ClassExpression | Section | Page)* "}";
 
 Section:
     "section" name=ID "{" body+=ClassExpression* "}";
+
+Page:
+    "page" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? "{" body+=(ClassExpression | Section)* "}";
 
 ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
@@ -31,8 +34,11 @@ ClassExpression:
 Property:
     (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp);
 
+fragment Self:
+    (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
+
 Access:
-    "self." property=[Property:ID] ("." subProperties+=ID)*;
+    Self;
 
 FleetingAccess:
     variable=[VariableExpression] ("." subProperty=ID)?;
@@ -50,19 +56,19 @@ Assignment:
     (ExpressionAssignment | IncrementAssignment | DecrementAssignment | IncrementValAssignment | DecrementValAssignment);
 
 ExpressionAssignment:
-    "self." property=[Property:ID] ("." subProperty=ID)? "=" exp=Expression;
+    Self "=" exp=Expression;
 
 IncrementAssignment:
-    "self." property=[Property:ID] ("." subProperty=ID)? "++";
+    Self "++";
 
 DecrementAssignment:
-    "self." property=[Property:ID] ("." subProperty=ID)? "--";
+    Self "--";
 
 IncrementValAssignment:
-    "self." property=[Property:ID] ("." subProperty=ID)? "+=" exp=Expression;
+    Self "+=" exp=Expression;
 
 DecrementValAssignment:
-    "self." property=[Property:ID] ("." subProperty=ID)? "-=" exp=Expression;
+    Self "-=" exp=Expression;
 
 fragment Parent:
     "parent" ( "." property=ID | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperty=ID)?;
@@ -134,9 +140,12 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard);
+    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod);
 
 JS: js=JS_LINE;
+
+SelfMethod:
+    "self." method=("delete()" | "update()");
 
 ChatCard:
     "chat" name=ID ("(" "template:" path=STRING ")")? body=ChatBlock;
@@ -145,7 +154,7 @@ ChatBlock:
     "{" chatExp+=(ChatBlockExpression)* "}";
 
 ChatBlockExpression:
-    type=("tag")? (Access | FleetingAccess | ParentAccess | Expression);
+    type=("tag" | "flavor")? (Access | FleetingAccess | ParentAccess | Expression);
 
 VariableExpression:
     type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll);
@@ -167,7 +176,7 @@ ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==") e2=Expression;
 
 ShorthandComparisonExpression:
-    e1=Expression term=("exists");
+    e1=Expression term=("exists")?;
 
 // literal
 Literal:        val=(INT|STRING|DICE|NOTHING);
@@ -176,7 +185,7 @@ Ref:        val=[VariableExpression:ID];
 // grouped expression with parentheses
 Group:      '(' ge=Expression ')';
 // negated expression
-NegExpression:    '-' ne=Expression;
+NegExpression:    ('-'|'!') ne=Expression;
 
 StringExp: ExpressionModifier "string" name=ID ("(" "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]" ")")?;
 
@@ -222,6 +231,9 @@ NumberParamMax:
 ColorParam:
     "color:" value=HEX_COLOR;
 
+BackgroundParam:
+    "background:" background=BACKGROUND;
+
 IconParam:
     "icon:" value=STRING;
 
@@ -232,12 +244,16 @@ Parameter: name=ID;
 
 hidden terminal WS: /\s+/;
 terminal NOTHING: "nothing";
+terminal BACKGROUND: "topography" | "hideout" | "graphpaper" | "texture" | "squares" | "dominoes" | "temple" | "food" | "anchors" | "bubbles" | "diamonds" | "circuitboard" | "bricks" ;
+terminal BOOLEAN: "true" | "false";
 terminal DICE: /(\d+)?d(\d+)(\w+)?/;
 terminal ID: /[_a-zA-Z][\w_]*/;
 terminal INT returns number: /(-)?[0-9]+/;
 terminal STRING: /"(\\.|[^"\\])*"|'(\\.|[^'\\])*'/;
 terminal JS_LINE: /\@js\{.+\}/;
 terminal HEX_COLOR: /#[0-9a-fA-F]{6}/;
+
+
 
 hidden terminal ML_COMMENT: /\/\*[\s\S]*?\*\//;
 hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;

@@ -1,14 +1,16 @@
 {
     "name": "fsdl",
-    "displayName": "Foundry System Design Language",
-    "description": "Foundry System Design Language support for Visual Studio Code",
+    "displayName": "Intelligent System Design Language",
+    "description": "Intelligent System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.0.15",
+    "version": "0.0.25",
     "repository": {
         "url": ""
     },
+    "preview": true,
     "license": "LICENSE",
     "type": "module",
+    "icon": "out/isdl.png",
     "scripts": {
         "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
         "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
@@ -39,7 +41,7 @@
         "eslint": "~8.47.0",
         "langium-cli": "~3.0.0",
         "typescript": "~5.1.6",
-        "vitest": "~1.0.0"
+        "vitest": "~1.4.0"
     },
     "engines": {
         "vscode": "^1.67.0",
@@ -53,15 +55,21 @@
             {
                 "id": "foundry-system-design-language",
                 "aliases": [
-                    "Foundry System Design Language",
-                    "foundry-system-design-language"
+                    "Intelligent System Design Language",
+                    "intelligent-system-design-language"
                 ],
                 "extensions": [
-                    ".fsdl"
+                    ".fsdl",
+                    ".isdl"
                 ],
                 "configuration": "./language-configuration.json"
             }
         ],
+        "configurationDefaults": {
+            "[foundry-system-design-language]": {
+                "editor.formatOnSave": true
+            }
+        },
         "grammars": [
             {
                 "language": "foundry-system-design-language",
@@ -73,12 +81,17 @@
             {
                 "command": "fsdl.generate",
                 "title": "Generate",
-                "category": "Foundry System Design Language"
+                "category": "Intelligent System Design Language"
+            },
+            {
+                "command": "fsdl.regenerate",
+                "title": "Regenerate",
+                "category": "Intelligent System Design Language"
             }
         ],
         "configuration": {
             "type": "object",
-            "title": "Foundry System Design Language Configuration",
+            "title": "Intelligent System Design Language Configuration",
             "properties": {
                 "fsdl.lastSelectedFolder": {
                     "type": "string",

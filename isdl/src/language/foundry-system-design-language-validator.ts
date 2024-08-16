@@ -1,5 +1,5 @@
 import type { ValidationAcceptor, ValidationChecks } from 'langium';
-import type { FoundrySystemDesignLanguageAstType, Actor, Property } from './generated/ast.js';
+import type { FoundrySystemDesignLanguageAstType, Actor, Property, Item } from './generated/ast.js';
 import type { FoundrySystemDesignLanguageServices } from './foundry-system-design-language-module.js';
 
 /**
@@ -10,6 +10,7 @@ export function registerValidationChecks(services: FoundrySystemDesignLanguageSe
     const validator = services.validation.FoundrySystemDesignLanguageValidator;
     const checks: ValidationChecks<FoundrySystemDesignLanguageAstType> = {
         Actor: validator.validateActor,
+        Item: validator.validateItem,
         Property: validator.validateProperty,
     };
     registry.register(checks, validator);
@@ -24,18 +25,18 @@ export class FoundrySystemDesignLanguageValidator {
 
         function validateUniqueName(node: any, name: string): void {
             if (discoveredPropertyNames.has(name)) {
-                accept('error',  `Actor has non-unique property name '${name}'.`,  {node: node, property: 'name'});
+                accept('error', `Actor has non-unique property name '${name}'.`, { node: node, property: 'name' });
             }
             discoveredPropertyNames.add(name);
         }
 
         actor.body.forEach(x => {
-            if ( x.$type == "NumberExp" || x.$type == "StringExp" ) {
+            if (x.$type == "NumberExp" || x.$type == "StringExp") {
                 validateUniqueName(x, x.name);
             }
-            else if ( x.$type == "Section" ) {
+            else if (x.$type == "Section") {
                 x.body.forEach(y => {
-                    if ( y.$type == "NumberExp" || y.$type == "StringExp" ) {
+                    if (y.$type == "NumberExp" || y.$type == "StringExp") {
                         validateUniqueName(y, y.name);
                     }
                 });
@@ -52,4 +53,30 @@ export class FoundrySystemDesignLanguageValidator {
         }
     }
 
+    validateItem(item: Item, accept: ValidationAcceptor): void {
+        const discoveredPropertyNames = new Set();
+
+        function validateUniqueName(node: any, name: string): void {
+            if (discoveredPropertyNames.has(name)) {
+                accept('error', `Item has non-unique property name '${name}'.`, { node: node, property: 'name' });
+            }
+            discoveredPropertyNames.add(name);
+        }
+
+        // If the item has a body, validate the names of the properties
+        if (item.body) {
+            item.body.forEach(x => {
+                if (x.$type == "NumberExp" || x.$type == "StringExp") {
+                    validateUniqueName(x, x.name);
+                }
+                else if (x.$type == "Section") {
+                    x.body.forEach(y => {
+                        if (y.$type == "NumberExp" || y.$type == "StringExp") {
+                            validateUniqueName(y, y.name);
+                        }
+                    });
+                }
+            })
+        }
+    }
 }

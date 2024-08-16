@@ -2,6 +2,7 @@ import type {
     ClassExpression,
     Document,
     Entry,
+    Page,
     Section,
 } from '../../language/generated/ast.js';
 import {
@@ -9,6 +10,7 @@ import {
     isStringExp,
     isAction,
     isProperty,
+    isPage,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -37,9 +39,16 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         `;
     }
 
-    function generateProperty(property: ClassExpression | Section): CompositeGeneratorNode | undefined {
+    function generateProperty(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
 
         if (isSection(property)) {
+            return expandToNode`
+                "${property.name}": "${humanize(property.name)}",
+                ${joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
+            `;
+        }
+
+        if (isPage(property)) {
             return expandToNode`
                 "${property.name}": "${humanize(property.name)}",
                 ${joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
@@ -74,6 +83,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
     const fileNode = expandToNode`
         {
             "NoSingleDocument": "No Linked Document",
+            "EditModeWarning": "Active Effects are not applied while in Edit mode. Base values are displayed and used for all rolls, calculations and actions.",
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ','})}
         }
     `.appendNewLineIfNotEmpty();

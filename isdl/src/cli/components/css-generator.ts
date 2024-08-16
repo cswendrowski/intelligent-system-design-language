@@ -27,6 +27,11 @@ export function compileSCSS(dynamicId: string) {
 
     fs.writeFileSync(tempScssFilePath, scssContent);
 
+    // Copy the _backgrounds.scss file to the same directory as the temp SCSS file
+    const backgroundsFilePath = path.join(__dirname, '../../_backgrounds.scss');
+    const tempBackgroundsFilePath = path.join(__dirname, '_backgrounds.scss');
+    fs.copyFileSync(backgroundsFilePath, tempBackgroundsFilePath);
+
     // Compile SCSS to CSS
     const result = sass.compile(tempScssFilePath);
 
@@ -88,7 +93,7 @@ export function generateCustomCss(entry: Entry, id: string, destination: string)
     }
 
     const fileNode = expandToNode`
-        /* Custom CSS for fabula-ultima. This file is empty by default and won't be overwritten by the generator. */
+        /* Custom CSS for ${id}. This file is empty by default and won't be overwritten by the generator. */
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

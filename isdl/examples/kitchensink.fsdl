@@ -1,0 +1,204 @@
+config KitchenSink {
+    label = "Kitchen Sink"
+    id = "kitchen-sink"
+    description = "An dump of all the features"
+    author = "Cody Swendrowski"
+}
+
+actor Hero(icon: "fa-solid fa-sword", background: texture) {
+
+    page Info(background: hideout) {
+        string Type(choices: ["A", "B", "C"])
+        string Summary
+
+        html Background
+
+        section Level {
+            number Experience
+            number Level(min: 1, max: 10)
+
+            action LevelUp(disabled: self.Experience < 10) {
+                self.Experience -= 10
+                self.Level++
+            }
+        }
+    }
+
+    page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
+        section Attributes {
+            attribute Fight(min: 1, max: 30, mod: {
+                return (self.Fight - 10) / 2
+            })
+            attribute Flight(min: 1, max: 30, mod: {
+                return (self.Flight - 10) / 2
+            })
+            attribute Endure(min: 1, max: 30, mod: {
+                return (self.Endure - 10) / 2
+            })
+            attribute Persuade(min: 1, max: 30, mod: {
+                return (self.Persuade - 10) / 2
+            })
+        }
+
+        section StatusEffects {
+            boolean Slowed
+            boolean Dazed
+        }
+    }
+
+
+
+    section Health {
+        resource HP(max: {
+            return self.Endure + 6
+        })
+
+        number Defense(value: { 
+            if (self.Fight + self.Endure equals 0) {
+                return 4
+            }
+            return self.Fight + self.Endure / 2 + 4
+        })
+        number Stealth(max: {
+            return self.Flight
+        })
+
+
+        resource Stagger(max: {return self.Endure + self.Fight})
+        action Recover(disabled: self.Stagger < 1) {
+            self.Stagger -= self.Endure
+            if (self.Stagger < 0) {
+                self.Stagger = 0
+            }
+            self.update()
+            chat Stagger {
+                flavor ("Staggered! " + 2 + " Remaining: " + self.Stagger)
+                self.Stagger
+            }
+        }
+
+        resource Mana(max: 10)
+        action Refill(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.max) {
+            self.Mana = self.Mana.max
+        }
+
+        pips DamageTrack(max: 5, style: circles)
+        readonly number Crisis
+
+        action Heal {
+            fleeting amount = roll((self.Endure)d6)
+            self.HP += amount
+            chat Healed {
+                amount
+            }
+        }
+    }
+
+    section Damage {
+        damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
+
+        action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
+            if ( self.Damage.bashing > 0 ) {
+                self.Damage.bashing--
+                self.Damage.empty++
+            }
+        }
+
+        action TakeBashing {
+            eternal amount = 5
+            if ( self.Damage.bashing < amount ) {
+                self.Damage.bashing++
+                self.Damage.empty--
+            }
+            @js{const roll = await new Roll("1d10").roll();}
+            @js{roll.toMessage({flavor: "Bashing Damage"});}
+            self.Damage.bashing += @js{roll._total}
+        }
+    }
+
+    hidden number AvailableSkillLevels
+
+    page Equipment(icon: "fa-solid fa-backpack", background: food) {
+        Equipment Armor
+        Equipment[] Armors(where: item.Type equals "Armor")
+        Equipment[] Weapons(where: item.Type equals "Weapon")
+        Potion[] Potion
+    }
+    Spell[] Spells
+    Skill[] Skills
+    
+}
+
+actor NPC {
+    number Level(initial: 4,
+     min: 1,
+     max: 7,
+     icon: "fa-solid fa-chart-line",
+     color: #FF7F50)
+    
+    number Defense(value: {
+        if (self.Armor exists) {
+            return self.Level + self.Armor.system.bonus
+        }
+        return self.Level
+    })
+    Equipment Armor
+    Equipment[] Equipment(where: item.Type equals "Armor")
+}
+
+item Skill {
+  string Ability(choices: [ "Warrior", "Rogue", "Mage" ])
+  boolean Trained
+  number SkillMod
+  readonly number Skill(value: {
+    if (self.Trained > 0) {return 2 + self.SkillMod}
+    return 0 + self.SkillMod
+  })
+
+  action Roll {
+    fleeting skill = 0
+    if (self.Skill > 0) {
+        skill = self.Skill
+      fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill)
+      chat AbilityUse {
+            abilityRoll
+            tag self.Ability
+            tag self.Skill
+        }
+    }
+    else {
+        fleeting abilityRoll = roll(d6 + parent[self.Ability].mod)
+        chat AbilityUse {
+            abilityRoll
+            tag self.Ability
+            tag self.Skill
+        }
+    }
+  }
+}
+
+item Equipment {
+    string Type(choices: ["Armor", "Weapon"])
+    number Bonus
+}
+
+item Spell {
+    string Type(choices: ["Attack", "Defense", "Healing"])
+    string Class(choices: ["Fire", "Water", "Earth", "Air"])
+    number Level
+    number Cost
+    string Summary
+}
+
+item Potion {
+    number Quantity
+    action Use(icon: "fa-solid fa-flask-round-potion") {
+        self.Quantity--
+        chat PotionUsed {}
+        self.update()
+
+        if (self.Quantity == 0) {
+            self.delete()
+        }
+    }
+}

@@ -1,4 +1,4 @@
-import type { LanguageClientOptions, ServerOptions} from 'vscode-languageclient/node.js';
+import type { LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node.js';
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { spawn } from 'child_process';
@@ -9,6 +9,7 @@ let client: LanguageClient;
 // This function is called when the extension is activated.
 export function activate(context: vscode.ExtensionContext): void {
     registerCommands(context);
+    registerFormatter(context);
     client = startLanguageClient(context);
 }
 
@@ -21,11 +22,48 @@ export function deactivate(): Thenable<void> | undefined {
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
+
+    function generate(sourceFilePath: string, destinationPath: string) {
+
+        vscode.window.showInformationMessage('Generating Foundry System Design Language code');
+
+        // Define the path to the CLI script
+        vscode.window.showInformationMessage(context.extensionPath);
+        const cliPath = path.resolve(context.extensionPath, 'bin', 'cli.js');
+
+        // Spawn a new process to run the CLI script with the provided parameters
+        vscode.window.showInformationMessage(`node ${cliPath} generate "${sourceFilePath}" --destination "${destinationPath}"`);
+        const cliProcess = spawn('node', [cliPath, 'generate', `"${sourceFilePath}"`, '--destination', `"${destinationPath}"`], {
+            cwd: context.extensionPath,
+            shell: true
+        });
+
+        cliProcess.stdout.on('data', (data) => {
+            vscode.window.showInformationMessage(`CLI Output: ${data}`);
+        });
+
+        cliProcess.stderr.on('data', (data) => {
+            vscode.window.showErrorMessage(`CLI Error: ${data}`);
+        });
+
+        cliProcess.on('close', (code) => {
+            vscode.window.showInformationMessage(`CLI process exited with code ${code}`);
+        });
+
+        // The code you place here will be executed every time your command is executed
+        // Display a message box to the user
+        vscode.window.showInformationMessage('Generation complete!');
+    }
+
     // Register a command that can be invoked with a keybinding, a menu item, or by running a command.
-    let generate = vscode.commands.registerCommand('fsdl.generate', async () => {
+    context.subscriptions.push(vscode.commands.registerCommand('fsdl.generate', async () => {
 
         // Get list of files in the current workspace
         const files = await vscode.workspace.findFiles('**/*.fsdl');
+
+        // Add .isdl files
+        const isdlFiles = await vscode.workspace.findFiles('**/*.isdl');
+        files.push(...isdlFiles);
 
         if (!files || files.length === 0) {
             vscode.window.showErrorMessage('No files found in the workspace');
@@ -61,7 +99,6 @@ function registerCommands(context: vscode.ExtensionContext) {
         // Prompt the user to select the destination folder
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
-
         const destinationFolderUri = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
@@ -78,36 +115,21 @@ function registerCommands(context: vscode.ExtensionContext) {
         const destinationPath = destinationFolderUri[0].fsPath;
         config.update('lastSelectedFolder', destinationPath, vscode.ConfigurationTarget.Workspace);
 
-        vscode.window.showInformationMessage('Generating Foundry System Design Language code');
+        generate(sourceFilePath, destinationPath);
+    }));
 
-        // Define the path to the CLI script
-        vscode.window.showInformationMessage(context.extensionPath);
-        const cliPath = path.resolve(context.extensionPath, 'bin', 'cli.js');
+    context.subscriptions.push(vscode.commands.registerCommand('fsdl.regenerate', async () => {
+        const config = vscode.workspace.getConfiguration('fsdl');
+        const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
+        const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
-        // Spawn a new process to run the CLI script with the provided parameters
-        vscode.window.showInformationMessage(`node ${cliPath} generate "${sourceFilePath}" --destination "${destinationPath}"`);
-        const cliProcess = spawn('node', [cliPath, 'generate', `"${sourceFilePath}"`, '--destination', `"${destinationPath}"`], {
-            cwd: context.extensionPath,
-            shell: true
-        });
+        if (!lastSelectedFile || !lastSelectedFolder) {
+            vscode.window.showErrorMessage('No file selected for regeneration. Run the "Generate" command first.');
+            return;
+        }
 
-        cliProcess.stdout.on('data', (data) => {
-            vscode.window.showInformationMessage(`CLI Output: ${data}`);
-        });
-
-        cliProcess.stderr.on('data', (data) => {
-            vscode.window.showErrorMessage(`CLI Error: ${data}`);
-        });
-
-        cliProcess.on('close', (code) => {
-            vscode.window.showInformationMessage(`CLI process exited with code ${code}`);
-        });
-
-        // The code you place here will be executed every time your command is executed
-        // Display a message box to the user
-        vscode.window.showInformationMessage('Generation complete!');
-    });
-    context.subscriptions.push(generate);
+        generate(lastSelectedFile, lastSelectedFolder);
+    }));
 }
 
 function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
@@ -140,4 +162,72 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
     // Start the client. This will also launch the server
     client.start();
     return client;
+}
+
+function registerFormatter(context: vscode.ExtensionContext) {
+    let disposable = vscode.languages.registerDocumentFormattingEditProvider('foundry-system-design-language', {
+        provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
+            const textEdits: vscode.TextEdit[] = [];
+            const indentation = '    '; // Four spaces for indentation
+            let indentLevel = 0;
+
+            for (let i = 0; i < document.lineCount; i++) {
+                try {
+                    const line = document.lineAt(i);
+                    const trimmedLine = line.text.trim();
+                    // console.log(`Line ${i}: ${trimmedLine}`);
+
+                    if (trimmedLine.includes('{') && trimmedLine.includes('}')) {
+                        // Split the line into 3 parts: before {, between { and }, and after }
+                        // const parts = trimmedLine.split('{');
+                        // const before = parts[0];
+                        // const between = parts[1].split('}')[0];
+                        // const after = parts[1].split('}')[1];
+                        
+                        // // Write the before part
+                        // const beforeText = indentation.repeat(indentLevel) + before;
+                        // textEdits.push(vscode.TextEdit.replace(line.range, beforeText));
+
+                        // // Indent and write the between part
+                        // indentLevel++;
+                        // const betweenText = indentation.repeat(indentLevel) + between;
+                        // textEdits.push(vscode.TextEdit.insert(new vscode.Position(i + 1, 0), betweenText));
+
+                        // // Decrease indent and write the after part
+                        // indentLevel--;
+                        // const afterText = indentation.repeat(indentLevel) + after;
+                        // textEdits.push(vscode.TextEdit.insert(new vscode.Position(i + 2, 0), afterText));
+
+                        const newText = indentation.repeat(indentLevel) + trimmedLine;
+                        if (newText !== line.text) {
+                            textEdits.push(vscode.TextEdit.replace(line.range, newText));
+                        }
+                        continue;
+                    }
+
+                    if (trimmedLine.endsWith('}') ||trimmedLine.startsWith('}')) {
+                        if (indentLevel > 0) indentLevel--;
+                        // console.log(`Decreasing indent level. ${indentLevel}`);
+                    }
+
+
+                    const newText = indentation.repeat(indentLevel) + trimmedLine;
+                    if (newText !== line.text) {
+                        textEdits.push(vscode.TextEdit.replace(line.range, newText));
+                    }
+
+                    if (trimmedLine.endsWith('{') || trimmedLine.startsWith('{')) {
+                        indentLevel++;
+                        // console.log(`Increasing indent level. ${indentLevel}`);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            return textEdits;
+        }
+    });
+
+    context.subscriptions.push(disposable);
 }

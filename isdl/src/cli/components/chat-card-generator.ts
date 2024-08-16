@@ -134,6 +134,7 @@ export function generateStandardChatCardTemplate(destination: string) {
                     {{/each}}
                 </div>
             </div>
+            {{#if hasEffects}}
             <div class="chat-effects collapsible">
                 <h3 class="title">{{localize "EFFECT.TabEffects"}} <i class="collapse-icon fas fa-chevron-down fa-fw"></i></h3>
                 <div class="effects collapsible-content">
@@ -148,6 +149,7 @@ export function generateStandardChatCardTemplate(destination: string) {
                 {{/each}}
                 </div>
             </div>
+            {{/if}}
         </div>
     `.appendNewLineIfNotEmpty();
 

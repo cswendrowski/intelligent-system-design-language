@@ -6,6 +6,7 @@ import type {
     MethodBlock,
     NumberParameter,
     NumberExp,
+    Page,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -20,6 +21,7 @@ import {
     isNumberParamValue,
     isNumberParamMin,
     isWhereParam,
+    isPage,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -38,9 +40,13 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
         const generatedFilePath = path.join(generatedFileDir, `${type.toLowerCase()}.mjs`);
 
         const toBeReapplied = new Set<string>();
-        function generateDerivedAttribute(property: ClassExpression | Section): CompositeGeneratorNode | undefined {
+        function generateDerivedAttribute(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
 
-            if ( isSection(property) ) {
+            if (isSection(property)) {
+                return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
+            }
+
+            if (isPage(property)) {
                 return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
             }
 
@@ -123,13 +129,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 return expandToNode`
                     // ${property.name} Resource Derived Data
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}.value ?? 0;
+                    const ${property.name.toLowerCase()}TempValue = this.system.${property.name.toLowerCase()}.temp ?? 0;
                     const ${property.name.toLowerCase()}MaxFunc = (system) => {
                         ${translateExpression(entry, id, property.max as MethodBlock, true, property)}
                     };
                     this.system.${property.name.toLowerCase()} = {
                         value: ${property.name.toLowerCase()}CurrentValue,
+                        temp: ${property.name.toLowerCase()}TempValue,
                         max: ${property.name.toLowerCase()}MaxFunc(this.system)
                     };
+                    if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
+                        this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
+                    }
                 `.appendNewLineIfNotEmpty();
             }
 
@@ -205,24 +216,71 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const systemFlags = this.flags["${id}"] ?? {};
                     const edit = systemFlags["edit-mode"] ?? true;
 
-                    function getTypedEffect(type, edit, effect) {
+                    function getTypedEffect(type, edit, effect, source) {
                         const typedEffect = new ActiveEffect(foundry.utils.duplicate(effect));
                         typedEffect.changes = typedEffect.changes.filter(c => c.key.startsWith(type));
                         for ( const change of typedEffect.changes ) {
                             change.key = change.key.replace(type + ".", "");
                         }
                         if ( edit ) typedEffect.disabled = true;
+                        typedEffect.source = source;
                         return typedEffect;
                     }
 
                     for ( const effect of this.effects ) {
-                        yield getTypedEffect(this.type, edit, effect);
+                        yield getTypedEffect(this.type, edit, effect, game.i18n.localize("Self"));
                     }
                     for ( const item of this.items ) {
                         for ( const effect of item.effects ) {
-                            if ( effect.transfer ) yield getTypedEffect(this.type, edit, effect);
+                            if ( effect.transfer ) yield getTypedEffect(this.type, edit, effect, item.name);
                         }
                     }
+                }
+
+                /* -------------------------------------------- */
+
+                _onCreateDescendantDocuments(parent, collection, documents, data, options, userId) {
+                    super._onCreateDescendantDocuments(parent, collection, documents, data, options, userId);
+
+                    for (const document of documents) {
+                        if (document.documentName !== "ActiveEffect") continue;
+                        
+                        for (const change of document.changes) {
+                            if (change.mode != 0) continue;
+                            const customMode = foundry.utils.getProperty(document.flags["${id}"], change.key + "-custommode");
+                            switch (customMode) {
+                                case 1: // Add Once
+                                    this._effectAddOnce(parent, document, change);
+                                    break;
+                                default:
+                                    console.error("Unknown custom mode", customMode);
+                                    break;
+                            }
+                        }
+                    }
+                }
+
+                /* -------------------------------------------- */
+
+                _effectAddOnce(parent, ae, change) {
+                    console.dir("AddOnce", parent, ae, change);
+
+                    const key = change.key.replace(parent.type + ".", "");
+                    const currentValue = foundry.utils.getProperty(parent.data, key);
+
+                    // Create an update for the parent
+                    const update = {
+                        [key]: currentValue + parseInt(change.value)
+                    };
+                    parent.update(update);
+
+                    // Create a chat card
+                    const chatData = {
+                        user: game.user._id,
+                        speaker: ChatMessage.getSpeaker({ actor: parent }),
+                        content: \`<p>Added "\${ae.name}" once</p>\`
+                    };
+                    ChatMessage.create(chatData);
                 }
             }
             `.appendNewLineIfNotEmpty();
