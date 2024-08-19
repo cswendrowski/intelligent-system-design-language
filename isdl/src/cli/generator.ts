@@ -428,6 +428,11 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
                         cleanFormula = cleanFormula.replace(term.formula, term.flavor);
                     }
                 }
+
+                // If there are still parts of the formula such as 5[STR] then replace them with just the flavor text
+                const rgx = new RegExp(/(\\d+)\\[(.*?)\\]/g);
+                cleanFormula = cleanFormula.replace(rgx, "$2");
+
                 return cleanFormula;
             }
         }

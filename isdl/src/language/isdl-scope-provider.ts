@@ -15,6 +15,10 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         if (isAccess(context.container) || isAssignment(context.container)) {
             return this.getAccessScope(context);
         }
+
+        // if (isFleetingAccess(context.container) || isRef(context.container)) {
+        //     return this.getAccessScope(context);
+        // }
         
         return super.getScope(context);
     }
@@ -38,8 +42,18 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
             const sectionProperties = section.body.filter(x => isProperty(x)) as Property[];
             properties.push(...sectionProperties);
         }
-  
+
         const descriptions = properties.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name));
+
+        // If we are in a method block belonging to an Each expression, add the variable of the each expression to the scope
+        // const eachExp = AstUtils.getContainerOfType(context.container, isEach);
+        // if (eachExp != undefined) {
+        //     const eachVariable = eachExp.var;
+        //     if (eachVariable != undefined) {
+        //         descriptions.push(this.astNodeDescriptionProvider.createDescription(eachVariable, eachVariable.name));
+        //     }
+        // }
+  
         return new MapScope(descriptions);
     }
 }

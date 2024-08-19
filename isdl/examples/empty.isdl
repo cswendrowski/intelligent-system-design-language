@@ -6,7 +6,9 @@ config Empty {
 }
 
 actor PC {
+    number Level
 }
 
 item Equipment {
+    boolean Equipped
 }

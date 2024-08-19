@@ -3,7 +3,7 @@
     "displayName": "Intelligent System Design Language",
     "description": "Intelligent System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.0.25",
+    "version": "0.0.26",
     "repository": {
         "url": ""
     },
@@ -53,7 +53,7 @@
     "contributes": {
         "languages": [
             {
-                "id": "foundry-system-design-language",
+                "id": "intelligent-system-design-language",
                 "aliases": [
                     "Intelligent System Design Language",
                     "intelligent-system-design-language"
@@ -72,9 +72,9 @@
         },
         "grammars": [
             {
-                "language": "foundry-system-design-language",
-                "scopeName": "source.foundry-system-design-language",
-                "path": "syntaxes/foundry-system-design-language.tmLanguage.json"
+                "language": "intelligent-system-design-language",
+                "scopeName": "source.intelligent-system-design-language",
+                "path": "syntaxes/intelligent-system-design-language.tmLanguage.json"
             }
         ],
         "commands": [
@@ -109,6 +109,6 @@
     "activationEvents": [],
     "main": "./out/extension/main.cjs",
     "bin": {
-        "foundry-system-design-language-cli": "./bin/cli.js"
+        "intelligent-system-design-language-cli": "./bin/cli.js"
     }
 }

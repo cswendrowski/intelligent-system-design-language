@@ -1,11 +1,11 @@
 {
-    "projectName": "FoundrySystemDesignLanguage",
+    "projectName": "IntelligentSystemDesignLanguage",
     "languages": [{
-        "id": "foundry-system-design-language",
-        "grammar": "src/language/foundry-system-design-language.langium",
-        "fileExtensions": [".fsdl"],
+        "id": "intelligent-system-design-language",
+        "grammar": "src/language/intelligent-system-design-language.langium",
+        "fileExtensions": [".fsdl", ".isdl"],
         "textMate": {
-            "out": "syntaxes/foundry-system-design-language.tmLanguage.json"
+            "out": "syntaxes/intelligent-system-design-language.tmLanguage.json"
         }
     }],
     "out": "src/language/generated"

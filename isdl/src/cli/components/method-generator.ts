@@ -21,6 +21,7 @@ import type {
     ElseIf,
     VariableAssignment,
     WhenExpressions,
+    Parameter,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -60,12 +61,16 @@ import {
     isExpression,
     isResourceExp,
     isBooleanExp,
-    isSelfMethod
+    isSelfMethod,
+    isAttributeExp,
+    isArrayExpression,
+    isEach,
+    isParameter,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
 
-export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -76,7 +81,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         string = string.charAt(0).toUpperCase() + string.slice(1);
         return string.replace(/([a-z])([A-Z])/g, '$1 $2');
     }
-    
+
     //console.log(preDerived, generatingProperty);
     function translateMethodExpression(expression: VariableExpression): CompositeGeneratorNode | undefined {
         //console.log("Translating Method Expression: " + expression.name);
@@ -96,7 +101,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
-    
+
         if (isResourceExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "temp")) {
             // We need to check for temp first when decrementing
             const tempPath = `system.${expression.property?.ref?.name.toLowerCase()}.temp`;
@@ -240,8 +245,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateReferenceExpression(expression: Ref): CompositeGeneratorNode | undefined {
+        let accessPath = expression.val.ref?.name;
+        if (expression.subProperty != undefined) {
+            accessPath = `${accessPath}.system.${expression.subProperty.toLowerCase()}`;
+        }
         return expandToNode`
-            ${expression.val.ref?.name}
+            ${accessPath}
         `;
     }
 
@@ -268,17 +277,22 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateAccessExpression(expression: Access, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
-        //console.log("Translating Access Expression: " + expression.property.ref?.name);
+        if (expression.property?.ref == undefined) {
+            return;
+        }
+        console.log("Translating Access Expression: " + expression.property.ref?.name);
 
         // Determine if the property reference is the same as the object we are working with
         if ( generatingProperty && expression.property?.ref == generatingProperty) {
+            console.log("Generating Property Access: ", expression.property.ref?.name);
             return expandToNode`
                 system.${expression.property.ref?.name.toLowerCase()}
             `;
         }
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
-        
+
+        console.log("System Path: ", systemPath);
         return expandToNode`
             ${systemPath}
         `;
@@ -428,9 +442,17 @@ export function translateExpression(entry: Entry, id: string, expression: string
         if (expression.subProperty != undefined) {
             accessPath = `${accessPath}.${expression.subProperty}`;
         }
+        if (expression.arrayAccess != undefined) {
+            accessPath = `${accessPath}[${translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty)}]`;
+        }
 
         return expandToNode`
             ${accessPath}
+        `;
+    }
+    if (isParameter(expression)) {
+        return expandToNode`
+            ${expression.name}
         `;
     }
     if (isJS(expression)) {
@@ -559,7 +581,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     return;
                 }
                 return expandToNode`
-                    "${expression.val.ref?.name}[${humanize(expression.val.ref?.name)}]"
+                    "@${expression.val.ref?.name.toLowerCase()}[${humanize(expression.val.ref?.name)}]"
                 `;
             }
             if (isParentAccess(expression)) {
@@ -610,6 +632,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     ${translateDiceParts(expression.e1)} + "${expression.op}" + ${translateDiceParts(expression.e2)}
                 `;
             }
+
+            if (isGroup(expression)) {
+                return expandToNode`
+                    "(" + ${translateDiceParts(expression.ge)} + ")"
+                `;
+            }
+
             return;
         }
 
@@ -645,7 +674,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 let label = "";
 
                 console.log("Access:", expression.property?.ref?.name, expression.propertyLookup?.ref?.name);
-                
+
                 if (expression.propertyLookup != undefined) {
                     path = `${path}[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
                     label = `${label}.${expression.propertyLookup.ref?.name}`;
@@ -653,6 +682,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 else {
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
+
+                    if (isResourceExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                        path = `${path}.value`;
+                    }
+                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        path = `${path}.mod`;
+                    }
                 }
 
                 for (const subProperty of expression.subProperties ?? []) {
@@ -671,6 +707,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 let path = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
                     path = `${path}.${expression.subProperty}`;
+                }
+                if (expression.arrayAccess != undefined) {
+                    console.log("Array Access:", expression.arrayAccess.$type);
+                    let accessExp = translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty);
+                    path = `${path}[${accessExp?.contents?.toString()}]`;
                 }
                 const label = expression.variable.ref?.name.toLowerCase() ?? "";
                 console.log(label, path);
@@ -694,7 +735,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
                 console.log(expression.val.ref?.name);
                 return expandToNode`
-                    "${expression.val.ref?.name}": ${expression.val.ref?.name}
+                    "${expression.val.ref?.name.toLowerCase()}": ${expression.val.ref?.name}
                 `;
             }
 
@@ -705,9 +746,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 `;
             }
 
+            if (isGroup(expression)) {
+                return expandToNode`
+                    ${translateDiceData(expression.ge)}
+                `;
+            }
+
             return undefined;
         }
-        
+
 
         return expandToNode`
             await new ${entry.config.name}Roll(${joinToNode(expression.parts, e => translateDiceParts(e), {separator: " + "})}, {${joinToNode(expression.parts, e => translateDiceData(e), {separator: ", "})}}).roll()
@@ -737,6 +784,22 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
     }
 
+    if (isArrayExpression(expression)) {
+        return expandToNode`
+            [${joinToNode(expression.items, e => translateExpression(entry, id, e, preDerived, generatingProperty), {separator: ", "})}]
+        `;
+    }
+
+    if (isEach(expression)) {
+        return expandToNode`
+            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${translateExpression(entry, id, expression.collection, preDerived, generatingProperty)}) {
+                ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
+            }
+        `;
+    }
+
+
+
     //console.log(expression.$type);
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
 }
@@ -746,7 +809,7 @@ export function translateBodyExpressionToJavascript(entry: Entry, id: string, bo
     //     /**
     //      * A method body consists of a list of Expressions that ultimately return a value.
     //      * We need to translate this into a function that will return the value of the last expression.
-    //      * 
+    //      *
     //      * Example:
     //      * {
     //      *       return (self.Strength - 10) / 2
@@ -756,33 +819,33 @@ export function translateBodyExpressionToJavascript(entry: Entry, id: string, bo
     //      * (self) => {
     //      *     return (self.system.strength - 10) / 2;
     //      * }
-    //      * 
+    //      *
     //      * There might be variables. Example:
     //      * {
     //      *     fleeting mod = (self.system.strength - 10) / 2;
     //      *     return mod;
     //      * }
-    //      * 
+    //      *
     //      * Translates to:
     //      * (self) => {
     //      *    let mod = (self.system.strength - 10) / 2;
     //      *    return mod;
     //      * }
-    //      * 
+    //      *
     //      * Variables might self-modify. Example:
     //      * {
     //      *     fleeting mod = self.system.strength - 10;
     //      *     mod = mod / 2;
     //      *     return mod;
     //      * }
-    //      * 
+    //      *
     //      * Translates to:
     //      * (self) => {
     //      *    let mod = self.system.strength - 10;
     //      *    mod = mod / 2;
     //      *    return mod;
     //      * }
-    //      * 
+    //      *
     //      * Expressions that need to be translated:
     //      * - MethodExpression: fleeting level = 1
     //      * - ReturnExpression: return level

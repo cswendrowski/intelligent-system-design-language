@@ -1,4 +1,4 @@
-grammar FoundrySystemDesignLanguage
+grammar IntelligentSystemDesignLanguage
 
 entry Entry:
     config=Config documents+=Document*;
@@ -41,7 +41,13 @@ Access:
     Self;
 
 FleetingAccess:
-    variable=[VariableExpression] ("." subProperty=ID)?;
+    variable=[VariableExpression] (("." subProperty=ID)? | ("[" arrayAccess=Expression "]")?);
+
+VariableAccess:
+    (VariableExpression | Parameter);
+
+EachAccess:
+    variable=[Each:ID];
 
 ElseIf:
     "else" "if" "(" expression=WhenExpressions ")" method=MethodBlock;
@@ -131,7 +137,7 @@ WhenExpressions:
     (ShorthandComparisonExpression | ComparisonExpression);
 
 Each:
-    'each' var=Parameter 'in' collection=Property method=MethodBlock;
+    'each' var=Parameter 'in' collection=(Access | FleetingAccess) method=MethodBlock;
 
 MethodBlock:
     "{" body+=(MethodBlockExpression)* "}";
@@ -140,7 +146,7 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod);
+    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each );
 
 JS: js=JS_LINE;
 
@@ -170,7 +176,7 @@ AddOrSubtract infers Expression:
 MultiplyOrDivide infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('*'|'/') e2=PrimitiveExpression)*;
 
-PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | JS | FleetingAccess | ParentAccess | ItemAccess ;
+PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression;
 
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==") e2=Expression;
@@ -178,10 +184,12 @@ ComparisonExpression:
 ShorthandComparisonExpression:
     e1=Expression term=("exists")?;
 
+ArrayExpression: "[" items+=Literal ("," items+=Literal)* "]";
+
 // literal
 Literal:        val=(INT|STRING|DICE|NOTHING);
 // cross-reference to a parameter
-Ref:        val=[VariableExpression:ID];
+Ref:        val=[VariableAccess:ID] ("." subProperty=ID)?;
 // grouped expression with parentheses
 Group:      '(' ge=Expression ')';
 // negated expression
@@ -244,7 +252,7 @@ Parameter: name=ID;
 
 hidden terminal WS: /\s+/;
 terminal NOTHING: "nothing";
-terminal BACKGROUND: "topography" | "hideout" | "graphpaper" | "texture" | "squares" | "dominoes" | "temple" | "food" | "anchors" | "bubbles" | "diamonds" | "circuitboard" | "bricks" ;
+terminal BACKGROUND: "topography" | "hideout" | "graphpaper" | "texture" | "squares" | "dominoes" | "temple" | "food" | "anchors" | "bubbles" | "diamonds" | "circuitboard" | "bricks" | "signal" ;
 terminal BOOLEAN: "true" | "false";
 terminal DICE: /(\d+)?d(\d+)(\w+)?/;
 terminal ID: /[_a-zA-Z][\w_]*/;

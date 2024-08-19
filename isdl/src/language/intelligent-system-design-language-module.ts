@@ -1,15 +1,15 @@
 import { type Module, inject } from 'langium';
 import { createDefaultModule, createDefaultSharedModule, type DefaultSharedModuleContext, type LangiumServices, type LangiumSharedServices, type PartialLangiumServices } from 'langium/lsp';
-import { FoundrySystemDesignLanguageGeneratedModule, FoundrySystemDesignLanguageGeneratedSharedModule } from './generated/module.js';
-import { FoundrySystemDesignLanguageValidator, registerValidationChecks } from './foundry-system-design-language-validator.js';
+import { IntelligentSystemDesignLanguageGeneratedModule, IntelligentSystemDesignLanguageGeneratedSharedModule } from './generated/module.js';
+import { IntelligentSystemDesignLanguageValidator, registerValidationChecks } from './intelligent-system-design-language-validator.js';
 import { IsdlScopeProvider } from './isdl-scope-provider.js';
 
 /**
  * Declaration of custom services - add your own service classes here.
  */
-export type FoundrySystemDesignLanguageAddedServices = {
+export type IntelligentSystemDesignLanguageAddedServices = {
     validation: {
-        FoundrySystemDesignLanguageValidator: FoundrySystemDesignLanguageValidator
+        IntelligentSystemDesignLanguageValidator: IntelligentSystemDesignLanguageValidator
     }
 }
 
@@ -17,16 +17,16 @@ export type FoundrySystemDesignLanguageAddedServices = {
  * Union of Langium default services and your custom services - use this as constructor parameter
  * of custom service classes.
  */
-export type FoundrySystemDesignLanguageServices = LangiumServices & FoundrySystemDesignLanguageAddedServices
+export type IntelligentSystemDesignLanguageServices = LangiumServices & IntelligentSystemDesignLanguageAddedServices
 
 /**
  * Dependency injection module that overrides Langium default services and contributes the
  * declared custom services. The Langium defaults can be partially specified to override only
  * selected services, while the custom services must be fully specified.
  */
-export const FoundrySystemDesignLanguageModule: Module<FoundrySystemDesignLanguageServices, PartialLangiumServices & FoundrySystemDesignLanguageAddedServices> = {
+export const IntelligentSystemDesignLanguageModule: Module<IntelligentSystemDesignLanguageServices, PartialLangiumServices & IntelligentSystemDesignLanguageAddedServices> = {
     validation: {
-        FoundrySystemDesignLanguageValidator: () => new FoundrySystemDesignLanguageValidator()
+        IntelligentSystemDesignLanguageValidator: () => new IntelligentSystemDesignLanguageValidator()
     },
     references: {
         ScopeProvider: (services) => new IsdlScopeProvider(services)
@@ -73,20 +73,20 @@ export const FoundrySystemDesignLanguageModule: Module<FoundrySystemDesignLangua
  * @param context Optional module context with the LSP connection
  * @returns An object wrapping the shared services and the language-specific services
  */
-export function createFoundrySystemDesignLanguageServices(context: DefaultSharedModuleContext): {
+export function createIntelligentSystemDesignLanguageServices(context: DefaultSharedModuleContext): {
     shared: LangiumSharedServices,
-    FoundrySystemDesignLanguage: FoundrySystemDesignLanguageServices
+    IntelligentSystemDesignLanguage: IntelligentSystemDesignLanguageServices
 } {
     const shared = inject(
         createDefaultSharedModule(context),
-        FoundrySystemDesignLanguageGeneratedSharedModule
+        IntelligentSystemDesignLanguageGeneratedSharedModule
     );
-    const FoundrySystemDesignLanguage = inject(
+    const IntelligentSystemDesignLanguage = inject(
         createDefaultModule({ shared }),
-        FoundrySystemDesignLanguageGeneratedModule,
-        FoundrySystemDesignLanguageModule
+        IntelligentSystemDesignLanguageGeneratedModule,
+        IntelligentSystemDesignLanguageModule
     );
-    shared.ServiceRegistry.register(FoundrySystemDesignLanguage);
-    registerValidationChecks(FoundrySystemDesignLanguage);
-    return { shared, FoundrySystemDesignLanguage };
+    shared.ServiceRegistry.register(IntelligentSystemDesignLanguage);
+    registerValidationChecks(IntelligentSystemDesignLanguage);
+    return { shared, IntelligentSystemDesignLanguage };
 }

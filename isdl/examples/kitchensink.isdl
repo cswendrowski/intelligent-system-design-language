@@ -6,24 +6,24 @@ config KitchenSink {
 }
 
 actor Hero(icon: "fa-solid fa-sword", background: texture) {
-
+    
     page Info(background: hideout) {
         string Type(choices: ["A", "B", "C"])
         string Summary
-
+        
         html Background
-
+        
         section Level {
             number Experience
             number Level(min: 1, max: 10)
-
+            
             action LevelUp(disabled: self.Experience < 10) {
                 self.Experience -= 10
                 self.Level++
             }
         }
     }
-
+    
     page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
         section Attributes {
             attribute Fight(min: 1, max: 30, mod: {
@@ -39,21 +39,21 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 return (self.Persuade - 10) / 2
             })
         }
-
+        
         section StatusEffects {
             boolean Slowed
             boolean Dazed
         }
     }
-
-
-
+    
+    
+    
     section Health {
         resource HP(max: {
             return self.Endure + 6
         })
-
-        number Defense(value: { 
+        
+        number Defense(value: {
             if (self.Fight + self.Endure equals 0) {
                 return 4
             }
@@ -62,8 +62,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         number Stealth(max: {
             return self.Flight
         })
-
-
+        
+        
         resource Stagger(max: {return self.Endure + self.Fight})
         action Recover(disabled: self.Stagger < 1) {
             self.Stagger -= self.Endure
@@ -76,34 +76,48 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 self.Stagger
             }
         }
-
+        
         resource Mana(max: 10)
         action Refill(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.max) {
             self.Mana = self.Mana.max
         }
-
+        
         pips DamageTrack(max: 5, style: circles)
         readonly number Crisis
-
+        
         action Heal {
             fleeting amount = roll((self.Endure)d6)
-            self.HP += amount
+            self.HP += amount._total
             chat Healed {
                 amount
             }
         }
+        
+        number Level2
+        action Roll {
+            fleeting levelToBonus = [ 1, 2, 4, 6, 8 ]
+            fleeting itemBonus = 0
+            
+            each skill in self.Skills {
+                itemBonus += skill.SkillMod
+            }
+            fleeting levelBonusRoll = roll(d6 + levelToBonus[1] + itemBonus)
+            chat LevelBonus {
+                levelBonusRoll
+            }
+        }
     }
-
+    
     section Damage {
         damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
-
+        
         action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
             if ( self.Damage.bashing > 0 ) {
                 self.Damage.bashing--
                 self.Damage.empty++
             }
         }
-
+        
         action TakeBashing {
             eternal amount = 5
             if ( self.Damage.bashing < amount ) {
@@ -115,9 +129,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             self.Damage.bashing += @js{roll._total}
         }
     }
-
+    
     hidden number AvailableSkillLevels
-
+    
     page Equipment(icon: "fa-solid fa-backpack", background: food) {
         Equipment Armor
         Equipment[] Armors(where: item.Type equals "Armor")
@@ -131,10 +145,10 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
 
 actor NPC {
     number Level(initial: 4,
-     min: 1,
-     max: 7,
-     icon: "fa-solid fa-chart-line",
-     color: #FF7F50)
+    min: 1,
+    max: 7,
+    icon: "fa-solid fa-chart-line",
+    color: #FF7F50)
     
     number Defense(value: {
         if (self.Armor exists) {
@@ -147,34 +161,34 @@ actor NPC {
 }
 
 item Skill {
-  string Ability(choices: [ "Warrior", "Rogue", "Mage" ])
-  boolean Trained
-  number SkillMod
-  readonly number Skill(value: {
-    if (self.Trained > 0) {return 2 + self.SkillMod}
-    return 0 + self.SkillMod
-  })
-
-  action Roll {
-    fleeting skill = 0
-    if (self.Skill > 0) {
-        skill = self.Skill
-      fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill)
-      chat AbilityUse {
-            abilityRoll
-            tag self.Ability
-            tag self.Skill
+    string Ability(choices: [ "Warrior", "Rogue", "Mage" ])
+    boolean Trained
+    number SkillMod
+    readonly number Skill(value: {
+        if (self.Trained > 0) {return 2 + self.SkillMod}
+        return 0 + self.SkillMod
+    })
+    
+    action Roll {
+        fleeting skill = 0
+        if (self.Skill > 0) {
+            skill = self.Skill
+            fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill)
+            chat AbilityUse {
+                abilityRoll
+                tag self.Ability
+                tag self.Skill
+            }
+        }
+        else {
+            fleeting abilityRoll = roll(d6 + parent[self.Ability].mod)
+            chat AbilityUse {
+                abilityRoll
+                tag self.Ability
+                tag self.Skill
+            }
         }
     }
-    else {
-        fleeting abilityRoll = roll(d6 + parent[self.Ability].mod)
-        chat AbilityUse {
-            abilityRoll
-            tag self.Ability
-            tag self.Skill
-        }
-    }
-  }
 }
 
 item Equipment {
@@ -196,7 +210,7 @@ item Potion {
         self.Quantity--
         chat PotionUsed {}
         self.update()
-
+        
         if (self.Quantity == 0) {
             self.delete()
         }

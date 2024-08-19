@@ -6,19 +6,19 @@ config FabulaUltima {
 }
 
 actor Hero {
-
+    
     string Type(choices: ["A", "B", "C"])
-
+    
     section Level {
         number Experience
         number Level
-
+        
         action LevelUp(disabled: self.Experience < 10) {
             self.Experience -= 10
             self.Level++
         }
     }
-
+    
     section Attributes {
         number Dexterity
         number Insight
@@ -28,7 +28,29 @@ actor Hero {
             return (self.Strength - 10) / 2
         })
     }
-
+    
+    string Ability(choices: ["self.Warrior","self.Rogue","self.Mage"])
+    boolean UseSkill
+    number Modifier
+    action Roll {
+        fleeting BasicRoll = roll(d6)
+        if (self.UseSkill) {BasicRoll = roll(1d6x + self.Ability.mod + self.Modifier)}
+        else {BasicRoll = roll(1d6 + self.Ability + self.Modifier)}
+        chat AbilityRoll {BasicRoll}
+    }
+    action RollAdv {
+        fleeting AdvantagedRoll = roll(d6)
+        if (self.UseSkill) {AdvantagedRoll = roll(2d6xkh + self.Ability + self.Modifier)}
+        else {AdvantagedRoll = roll(2d6kh + self.Ability + self.Modifier)}
+        chat AbilityRoll {AdvantagedRoll}
+    }
+    action RollDis {
+        fleeting DisadvantagedRoll = roll(d6)
+        if (self.UseSkill) {DisadvantagedRoll = roll(2d6xkl + self.Ability + self.Modifier)}
+        else {DisadvantagedRoll = roll(2d6kl + self.Ability + self.Modifier)}
+        chat AbilityRoll {DisadvantagedRoll}
+    }
+    
     section StatusEffects {
         boolean Slowed
         boolean Dazed
@@ -37,13 +59,13 @@ actor Hero {
         boolean Enraged
         boolean Test
     }
-
+    
     section Traits {
         string Identity
         string Theme
         string Origin
     }
-
+    
     html Background
     
     section Resources {
@@ -51,13 +73,8 @@ actor Hero {
         resource InventoryPoints(max: 6)
         number Zenit
     }
-
-    section Health {
-        boolean HasHealing
-        resource HP(max: {
-            return self.Warrior + 6
-        })
-        resource MP
+    
+    section WRM {
         attribute Warrior(min: 0, max: 6, mod: {
             return self.Warrior
         })
@@ -67,7 +84,16 @@ actor Hero {
         attribute Mage(min: 0, max: 6, mod: {
             return self.Mage
         })
-        number Defense(value: { 
+    }
+    
+    section Health {
+        boolean HasHealing
+        resource HP(max: {
+            return self.Warrior + 6
+        })
+        resource MP
+        
+        number Defense(value: {
             if (self.Rogue + self.Warrior equals 0) {
                 return 4
             }
@@ -89,7 +115,7 @@ actor Hero {
             }
             return amount
         })
-
+        
         resource Health(max: {
             return self.Warrior + 6
         })
@@ -98,18 +124,40 @@ actor Hero {
         resource Stagger(max: {return 0 + self.Warrior + self.Mage})
         action Recover(disabled: self.Stagger < 1) {
             self.Stagger -= self.Rogue
-            if (self.Stagger < 0) {
-                self.Stagger = 0
-            }
             chat Stagger {
-                ("Staggered!" + 2)
                 self.Stagger
             }
         }
-
+        
+        string Ability(choices: ["Warrior","Rogue","Mage"])
+        string Advantage(choices: ["None","Advantage","Disadvantage"])
+        boolean UseSkill
+        number Modifier
+        action Roll {
+            fleeting shitToRoll = roll(d6)
+            if (self.Advantage == "None") {
+                if (self.UseSkill) {shitToRoll = roll(1d6x + self[self.Ability].mod + self.Modifier)}
+                else {shitToRoll = roll(1d6 + self[self.Ability].mod + self.Modifier)}
+            }
+            else if (self.Advantage == "Advantage") {
+                if (self.UseSkill) {shitToRoll = roll(2d6xkh + self.Ability + self.Modifier)}
+                else {shitToRoll = roll(2d6kh + self.Ability + self.Modifier)}
+            }
+            else if (self.Advantage == "Disadvantage") {
+                if (self.UseSkill) {shitToRoll = roll(2d6xkl + self.Ability + self.Modifier)}
+                else {shitToRoll = roll(2d6kl + self.Ability + self.Modifier)}
+            }
+            chat AbilityRoll {shitToRoll}
+        }
+        
+        resource Mana(max: 10)
+        action Refill(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.max) {
+            self.Mana = self.Mana.max
+        }
+        
         pips DamageTrack(max: 5, style: circles)
         readonly number Crisis
-
+        
         action Heal {
             fleeting amount = roll((self.Warrior)d6)
             self.HP += amount
@@ -118,17 +166,17 @@ actor Hero {
             }
         }
     }
-
+    
     section Damage {
         damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
-
+        
         action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
             if ( self.Damage.bashing > 0 ) {
                 self.Damage.bashing--
                 self.Damage.empty++
             }
         }
-
+        
         action TakeBashing {
             eternal amount = 5
             if ( self.Damage.bashing < amount ) {
@@ -140,9 +188,9 @@ actor Hero {
             self.Damage.bashing += @js{roll._total}
         }
     }
-
+    
     hidden number AvailableSkillLevels
-
+    
     Equipment Armor
     Equipment[] Armors(where: item.Type equals "Armor")
     Equipment[] Weapons(where: item.Type equals "Weapon")
@@ -152,10 +200,10 @@ actor Hero {
 
 actor NPC {
     number Level(initial: 4,
-     min: 1,
-     max: 7,
-     icon: "fa-solid fa-chart-line",
-     color: #FF7F50)
+    min: 1,
+    max: 7,
+    icon: "fa-solid fa-chart-line",
+    color: #FF7F50)
     
     number Defense(value: {
         if (self.Armor exists) {
@@ -168,34 +216,34 @@ actor NPC {
 }
 
 item Skill {
-  string Ability(choices: [ "Warrior", "Rogue", "Mage" ])
-  boolean Trained
-  number SkillMod
-  readonly number Skill(value: {
-    if (self.Trained > 0) {return 2 + self.SkillMod}
-    return 0 + self.SkillMod
-  })
-
-  action Roll {
-    fleeting skill = 0
-    if (self.Skill > 0) {
-        skill = self.Skill
-      fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill)
-      chat AbilityUse {
-            abilityRoll
-            tag self.Ability
-            tag self.Skill
+    string Ability(choices: [ "Warrior", "Rogue", "Mage" ])
+    boolean Trained
+    number SkillMod
+    readonly number Skill(value: {
+        if (self.Trained > 0) {return 2 + self.SkillMod}
+        return 0 + self.SkillMod
+    })
+    
+    action Roll {
+        fleeting skill = 0
+        if (self.Skill > 0) {
+            skill = self.Skill
+            fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill)
+            chat AbilityUse {
+                abilityRoll
+                tag self.Ability
+                tag self.Skill
+            }
+        }
+        else {
+            fleeting abilityRoll = roll(d6 + parent[self.Ability].mod)
+            chat AbilityUse {
+                abilityRoll
+                tag self.Ability
+                tag self.Skill
+            }
         }
     }
-    else {
-        fleeting abilityRoll = roll(d6 + parent[self.Ability].mod)
-        chat AbilityUse {
-            abilityRoll
-            tag self.Ability
-            tag self.Skill
-        }
-    }
-  }
 }
 
 item Equipment {

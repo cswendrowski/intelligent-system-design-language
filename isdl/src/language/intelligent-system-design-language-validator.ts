@@ -1,14 +1,14 @@
 import type { ValidationAcceptor, ValidationChecks } from 'langium';
-import type { FoundrySystemDesignLanguageAstType, Actor, Property, Item } from './generated/ast.js';
-import type { FoundrySystemDesignLanguageServices } from './foundry-system-design-language-module.js';
+import type { IntelligentSystemDesignLanguageAstType, Actor, Property, Item } from './generated/ast.js';
+import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 
 /**
  * Register custom validation checks.
  */
-export function registerValidationChecks(services: FoundrySystemDesignLanguageServices) {
+export function registerValidationChecks(services: IntelligentSystemDesignLanguageServices) {
     const registry = services.validation.ValidationRegistry;
-    const validator = services.validation.FoundrySystemDesignLanguageValidator;
-    const checks: ValidationChecks<FoundrySystemDesignLanguageAstType> = {
+    const validator = services.validation.IntelligentSystemDesignLanguageValidator;
+    const checks: ValidationChecks<IntelligentSystemDesignLanguageAstType> = {
         Actor: validator.validateActor,
         Item: validator.validateItem,
         Property: validator.validateProperty,
@@ -19,7 +19,7 @@ export function registerValidationChecks(services: FoundrySystemDesignLanguageSe
 /**
  * Implementation of custom validations.
  */
-export class FoundrySystemDesignLanguageValidator {
+export class IntelligentSystemDesignLanguageValidator {
     validateActor(actor: Actor, accept: ValidationAcceptor): void {
         const discoveredPropertyNames = new Set();
 
@@ -29,6 +29,8 @@ export class FoundrySystemDesignLanguageValidator {
             }
             discoveredPropertyNames.add(name);
         }
+
+        if (!actor.body) accept('error', 'Actor requires at least one property.', { node: actor, property: 'body' });
 
         actor.body.forEach(x => {
             if (x.$type == "NumberExp" || x.$type == "StringExp") {
@@ -64,19 +66,18 @@ export class FoundrySystemDesignLanguageValidator {
         }
 
         // If the item has a body, validate the names of the properties
-        if (item.body) {
-            item.body.forEach(x => {
-                if (x.$type == "NumberExp" || x.$type == "StringExp") {
-                    validateUniqueName(x, x.name);
-                }
-                else if (x.$type == "Section") {
-                    x.body.forEach(y => {
-                        if (y.$type == "NumberExp" || y.$type == "StringExp") {
-                            validateUniqueName(y, y.name);
-                        }
-                    });
-                }
-            })
-        }
+        if (!item.body) accept('error', 'Item requires at least one property.', { node: item, property: 'body' });
+        item.body.forEach(x => {
+            if (x.$type == "NumberExp" || x.$type == "StringExp") {
+                validateUniqueName(x, x.name);
+            }
+            else if (x.$type == "Section") {
+                x.body.forEach(y => {
+                    if (y.$type == "NumberExp" || y.$type == "StringExp") {
+                        validateUniqueName(y, y.name);
+                    }
+                });
+            }
+        })
     }
 }

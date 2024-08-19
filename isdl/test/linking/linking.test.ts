@@ -153,6 +153,42 @@ describe('Linking tests', () => {
             Experience
         `);
     });
+
+    test('each variable reference', async () => {
+        document = await parse(`
+            config Test {
+                label = "test"
+                id = "test"
+                description = "test"
+                author = "test"
+            }
+
+            actor Hero {
+                number Level
+                action Test {
+                    each skill in self.Skills {
+                        self.Level -= skill
+                    }
+                }
+                Skill[] Skills
+            }
+            
+            item Skill {
+                number SkillMod
+            }
+        `);
+
+        expect(
+            // here we first check for validity of the parsed document object by means of the reusable function
+            //  'checkDocumentValid()' to sort out (critical) typos first,
+            // and then evaluate the cross references we're interested in by checking
+            //  the referenced AST element as well as for a potential error message;
+            checkDocumentValid(document)
+                || checkEntryDocumentValid(document.parseResult.value.documents[0])
+        ).toBe(s`
+            skill
+        `);
+    });
 });
 
 function checkDocumentValid(document: LangiumDocument): string | undefined {
@@ -182,5 +218,5 @@ function checkEntryDocumentValid(document: Document): string | undefined {
     const line = action.method.body[0] as DecrementValAssignment | undefined;
     if ( line === undefined ) return `Action has no body.`;
 
-    return line.property.ref?.name;
+    return line.property?.ref?.name;
 }

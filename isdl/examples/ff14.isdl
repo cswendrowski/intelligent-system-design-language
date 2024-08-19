@@ -137,6 +137,7 @@ item InstantAbility {
 }
 
 
+
 actor NPC {
 
     resource HP
@@ -185,7 +186,7 @@ item NpcAbility {
     string Limitation
 
     action Roll(icon: "fa-solid fa-dice-d20") {
-        fleeting attack = roll(d20 + parent[self.CheckAttribute].mod)
+        fleeting attack = roll((parent[self.CheckAttribute])d20 + parent[self.CheckAttribute].mod)
 
         chat AbilityRoll {
             attack
@@ -218,4 +219,6 @@ item NpcMarker {
     }
 }
 
-item NpcTrait {}
+item NpcTrait {
+    string Summary
+}
