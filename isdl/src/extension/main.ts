@@ -25,7 +25,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     function generate(sourceFilePath: string, destinationPath: string) {
 
-        vscode.window.showInformationMessage('Generating Foundry System Design Language code');
+        vscode.window.showInformationMessage('Generating Intelligent System Design Language code');
 
         // Define the path to the CLI script
         vscode.window.showInformationMessage(context.extensionPath);
@@ -148,13 +148,13 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'foundry-system-design-language' }]
+        documentSelector: [{ scheme: 'file', language: 'intelligent-system-design-language' }]
     };
 
     // Create the language client and start the client.
     const client = new LanguageClient(
-        'foundry-system-design-language',
-        'Foundry System Design Language',
+        'intelligent-system-design-language',
+        'Intelligent System Design Language',
         serverOptions,
         clientOptions
     );
@@ -165,7 +165,7 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
 }
 
 function registerFormatter(context: vscode.ExtensionContext) {
-    let disposable = vscode.languages.registerDocumentFormattingEditProvider('foundry-system-design-language', {
+    let disposable = vscode.languages.registerDocumentFormattingEditProvider('intelligent-system-design-language', {
         provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
             const textEdits: vscode.TextEdit[] = [];
             const indentation = '    '; // Four spaces for indentation
