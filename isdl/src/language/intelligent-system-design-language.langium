@@ -163,10 +163,22 @@ ChatBlockExpression:
     type=("tag" | "flavor")? (Access | FleetingAccess | ParentAccess | Expression);
 
 VariableExpression:
-    type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll);
+    type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll | Prompt);
 
 ReturnExpression:
     "return" value=Expression;
+
+Prompt: 
+    "prompt" ("(" params+=PromptParams ("," params+=PromptParams)* ")")? "{" body+=(ClassExpression)*"}";
+
+PromptParams:
+    (TargetParam | LabelParam );
+
+TargetParam:
+    "target:" value=("user" | "gm" | "self");
+
+LabelParam:
+    "label:" value=STRING;
 
 Expression: AddOrSubtract;
 

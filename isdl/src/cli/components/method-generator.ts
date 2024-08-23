@@ -22,6 +22,9 @@ import type {
     VariableAssignment,
     WhenExpressions,
     Parameter,
+    Prompt,
+    ClassExpression,
+    VariableAccess,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -66,11 +69,16 @@ import {
     isArrayExpression,
     isEach,
     isParameter,
+    isPrompt,
+    isLabelParam,
+    isNumberExp,
+    isStringExp,
+    isTargetParam,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
 
-export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt, preDerived: boolean = false, generatingProperty: Property | undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -580,6 +588,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (expression.val.ref == undefined) {
                     return;
                 }
+                if (expression.subProperty != undefined) {
+                    return expandToNode`
+                        "@${expression.val.ref?.name}${expression.subProperty.toLowerCase()}[${humanize(expression.subProperty)}]"
+                    `;
+                }
                 return expandToNode`
                     "@${expression.val.ref?.name.toLowerCase()}[${humanize(expression.val.ref?.name)}]"
                 `;
@@ -642,7 +655,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return;
         }
 
-        function translateDiceData(expression: Expression): CompositeGeneratorNode | undefined {
+        function translateDiceData(expression: Expression | VariableAccess): CompositeGeneratorNode | undefined {
             console.log("Translating Dice Data: ", expression.$type);
             if (isParentAccess(expression)) {
                 let path = "this.object.parent.system";
@@ -719,6 +732,34 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     "${label}": ${path}
                 `;
             }
+
+            // if (isVariableAccess(expression)) {
+            //     console.log("Variable Access:", expression.name);
+
+            //     if (isParameter(expression)) {
+            //         console.log("Parameter:", expression.name);
+            //         return expandToNode`
+            //             "${expression.name}": ${expression.name}
+            //         `;
+            //     }
+
+            //     if (isVariableExpression(expression)) {
+            //         console.log("Variable Expression:", expression.name);
+            //         if (isExpression(expression.value)) {
+            //             console.log("Expression:", expression.name);
+            //             return translateDiceData(expression.value);
+            //         }
+            //         if (isPrompt(expression.value)) {
+            //             console.log("Prompt:", expression.name);
+            //             return expandToNode`
+            //                 "${expression.name}": ${expression.name}
+            //             `;
+            //         }
+            //     }
+                
+            //     throw new Error("Variable Access not implemented");
+            // }
+
             if (isRef(expression)) {
 
                 console.log("Ref:", expression.val.ref?.name);
@@ -733,9 +774,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (expression.val.ref == undefined) {
                     return;
                 }
-                console.log(expression.val.ref?.name);
+                if (expression.subProperty != undefined) {
+                    return expandToNode`
+                        "${expression.val.ref?.name}${expression.subProperty.toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperty.toLowerCase()}
+                    `;
+                }
+                console.log(expression.val.ref?.name, expression.val.ref?.$type);
                 return expandToNode`
-                    "${expression.val.ref?.name.toLowerCase()}": ${expression.val.ref?.name}
+                    "${expression.val.ref?.name}": ${expression.val.ref?.name}
                 `;
             }
 
@@ -798,6 +844,165 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
+    if (isPrompt(expression)) {
+        const labelParam = expression.params.find(x => isLabelParam(x));
+        const title = labelParam?.value ?? "Prompt";
+
+        const targetParam = expression.params.find(x => isTargetParam(x));
+        const target = targetParam?.value ?? "self";
+
+        // const iconParam = expression.params.find(x => isIconParam(x));
+        // const icon = iconParam?.value ?? "fa-solid fa-comment-dots";
+
+        function translateDialogBody(expression: ClassExpression): CompositeGeneratorNode | undefined {
+
+            if (isNumberExp(expression)) {
+                return expandToNode`
+                    <div class="form-group">
+                        <label>${humanize(expression.name)}</label>
+                        <input type="number" name="${expression.name.toLowerCase()}" />
+                    </div>
+                `;
+            }
+
+            if (isBooleanExp(expression)) {
+                return expandToNode`
+                    <div class="form-group">
+                        <label>${humanize(expression.name)}</label>
+                        <input type="checkbox" name="${expression.name.toLowerCase()}" />
+                    </div>
+                `;
+            }
+
+            if (isStringExp(expression)) {
+                if (expression.choices != undefined && expression.choices.length > 0) {
+                    return expandToNode`
+                        <div class="form-group">
+                            <label>${humanize(expression.name)}</label>
+                            <select name="${expression.name.toLowerCase()}">
+                                ${joinToNode(expression.choices, (choice) => expandToNode`
+                                    <option value="${choice}">${choice}</option>
+                                `)}
+                            </select>
+                        </div>
+                    `;
+                }
+                return expandToNode`
+                    <div class="form-group">
+                        <label>${humanize(expression.name)}</label>
+                        <input type="text" name="${expression.name.toLowerCase()}" />
+                    </div>
+                `;
+            }
+
+            return undefined;
+        }
+
+        if (target == "gm") {
+            return expandToNode`
+                await new Promise((resolve, reject) => {
+
+                    const firstGm = game.users.find(u => u.isGM && u.active);
+                    const uuid = foundry.utils.randomID();
+
+                    // Setup a listener that will wait for this response
+                    game.socket.on("system.${id}", (data) => {
+                        if (data.type != "promptResponse" || data.uuid != uuid) return;
+
+                        // Resolve the promise with the data
+                        resolve(data.data);
+                    });
+
+                    game.socket.emit("system.${id}", {
+                        uuid: uuid,
+                        type: "prompt",
+                        userId: game.user.id,
+                        title: "${title}",
+                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    }, {recipients: [firstGm.id]});
+                });
+            `;
+        }
+        
+        if (target == "user") {
+            return expandToNode`
+            await new Promise(async (resolve, reject) => {
+
+                const allActiveUsers = game.users.filter(u => u.active);
+                const targetedUser = await Dialog.prompt({
+                    title: "Select User",
+                    content: \`<form>
+                        <div class="form-group">
+                            <label>\${game.i18n.localize("User")}</label>
+                            <select name="user">
+                                \${allActiveUsers.map(u => \`<option value="\${u.id}">\${u.name}</option>\`).join("")}
+                            </select>
+                        </div>
+                    </form>\`,
+                    callback: (html, event) => {
+                        const formData = new FormDataExtended(html[0].querySelector("form"));
+                        return formData.get("user");
+                    },
+                    options: {
+                        classes: ["${id}", "dialog"]
+                    }
+                });
+                const uuid = foundry.utils.randomID();
+
+                // Setup a listener that will wait for this response
+                game.socket.on("system.${id}", (data) => {
+                    if (data.type != "promptResponse" || data.uuid != uuid) return;
+
+                    // Resolve the promise with the data
+                    resolve(data.data);
+                });
+
+                game.socket.emit("system.${id}", {
+                    uuid: uuid,
+                    type: "prompt",
+                    userId: game.user.id,
+                    title: "${title}",
+                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                }, {recipients: [targetedUser]});
+            });
+        `;
+        }
+
+        return expandToNode`
+            await Dialog.prompt({
+                title: "${title}",
+                content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                callback: (html, event) => {
+                    // Grab the form data
+                    const formData = new FormDataExtended(html[0].querySelector("form"));
+                    const data = { system: {} };
+                    for (const [key, value] of formData.entries()) {
+                        // Translate values to more helpful ones, such as booleans and numbers
+                        if (value === "true") {
+                            data[key] = true;
+                            data.system[key] = true;
+                        }
+                        else if (value === "false") {
+                            data[key] = false;
+                            data.system[key] = false;
+                        }
+                        else if (!isNaN(value)) {
+                            data[key] = parseInt(value);
+                            data.system[key] = parseInt(value);
+                        }
+                        else {
+                            data[key] = value;
+                            data.system[key] = value;
+                        }
+                    }
+                    return data;
+                },
+                options: {
+                    classes: ["${id}", "dialog"]
+                }
+            });
+        `;
+    }
 
 
     //console.log(expression.$type);

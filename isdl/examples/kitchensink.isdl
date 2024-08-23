@@ -161,7 +161,7 @@ actor NPC {
 }
 
 item Skill {
-    string Ability(choices: [ "Warrior", "Rogue", "Mage" ])
+    string Ability(choices: [ "Fight", "Flight", "Endure", "Persuade" ])
     boolean Trained
     number SkillMod
     readonly number Skill(value: {
@@ -171,9 +171,14 @@ item Skill {
     
     action Roll {
         fleeting skill = 0
-        if (self.Skill > 0) {
+        fleeting answer = prompt(label: "Bonus", target: gm) {
+            number Bonus
+            boolean HasAdvantage
+        }
+
+        if (answer.HasAdvantage) {
             skill = self.Skill
-            fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill)
+            fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill + answer.Bonus)
             chat AbilityUse {
                 abilityRoll
                 tag self.Ability
@@ -181,7 +186,7 @@ item Skill {
             }
         }
         else {
-            fleeting abilityRoll = roll(d6 + parent[self.Ability].mod)
+            fleeting abilityRoll = roll(d6 + parent[self.Ability].mod + answer.Bonus)
             chat AbilityUse {
                 abilityRoll
                 tag self.Ability

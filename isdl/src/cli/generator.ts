@@ -59,6 +59,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateEntryMjs(entry, id, data.destination);
     generateCustomEntryMjs(entry, id, data.destination);
     generateInitHookMjs(entry, id, data.destination);
+    generateReadyHookMjs(entry, id, data.destination);
     generateChatCardClass(entry, data.destination);
     generateStandardChatCardTemplate(data.destination);
     generateRenderChatLogHookMjs(entry, id, data.destination);
@@ -168,6 +169,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             ],
             "license": "LICENSE",
             "readme": "README.md",
+            "socket": true,
             "languages": [
               {
                 "lang": "en",
@@ -232,9 +234,11 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
 
     const fileNode = expandToNode`
         import {init} from "./hooks/init.mjs";
+        import {ready} from "./hooks/ready.mjs";
         import {renderChatLog} from "./hooks/render-chat-log.mjs";
 
         Hooks.once("init", init);
+        Hooks.once("ready", ready);
         Hooks.on("devModeReady", ({registerPackageDebugFlag}) => registerPackageDebugFlag("${id}"));
         Hooks.on("renderChatMessage", renderChatLog);
     `.appendNewLineIfNotEmpty();
@@ -359,6 +363,83 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                 ${joinToNode(entry.documents.filter(d => isActor(d)), document => generateTrackableResourceBars(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
             };
         }
+
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "system", "hooks");
+    const generatedFilePath = path.join(generatedFileDir, `ready.mjs`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+        export function ready() {
+            console.log('${id} | Ready');
+
+            registerSockets();
+        }
+        
+        /* -------------------------------------------- */
+
+        function registerSockets() {
+            game.socket.on("system.${id}", (data) => {
+                console.log(data);
+
+                if (data.type === "prompt") {
+                    _handlePrompt(data);
+                }
+            });
+        }
+
+        /* -------------------------------------------- */
+
+        function _handlePrompt(message) {
+            Dialog.prompt({
+                title: message.title,
+                content: message.content,
+                callback: (html, event) => {
+                    // Grab the form data
+                    const formData = new FormDataExtended(html[0].querySelector("form"));
+                    const data = { system: {} };
+                    for (const [key, value] of formData.entries()) {
+                        // Translate values to more helpful ones, such as booleans and numbers
+                        if (value === "true") {
+                            data[key] = true;
+                            data.system[key] = true;
+                        }
+                        else if (value === "false") {
+                            data[key] = false;
+                            data.system[key] = false;
+                        }
+                        else if (!isNaN(value)) {
+                            data[key] = parseInt(value);
+                            data.system[key] = parseInt(value);
+                        }
+                        else {
+                            data[key] = value;
+                            data.system[key] = value;
+                        }
+                    }
+
+                    game.socket.emit("system.${id}", {
+                        type: "promptResponse",
+                        uuid: message.uuid,
+                        data: data
+                    }, { recipients: [message.userId] });
+
+                    return data;
+                },
+                options: {
+                    classes: ["${id}", "dialog"]
+                }
+            });
+        }
+
 
     `.appendNewLineIfNotEmpty();
 
