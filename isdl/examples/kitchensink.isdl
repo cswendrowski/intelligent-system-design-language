@@ -49,7 +49,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     
     
     section Health {
-        resource HP(max: {
+        health resource HP(max: {
             return self.Endure + 6
         })
         

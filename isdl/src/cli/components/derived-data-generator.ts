@@ -1,4 +1,4 @@
-import type {
+import {
     ClassExpression,
     Document,
     Entry,
@@ -7,6 +7,7 @@ import type {
     NumberParameter,
     NumberExp,
     Page,
+    ResourceExp,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -27,6 +28,7 @@ import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'lang
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { translateExpression } from './method-generator.js';
+import { getAllOfType } from './utils.js';
 
 export function generateExtendedDocumentClasses(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, "system", "documents");
@@ -182,6 +184,183 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             `.appendNewLineIfNotEmpty().appendNewLine();
         }
 
+        function generateActorPreUpdate(document: Document): CompositeGeneratorNode | undefined {
+            const allResources = getAllOfType<ResourceExp>(document.body, isResourceExp);
+            const healthResource = allResources.find(x => x.tag == "health") as ResourceExp | undefined;
+            if (healthResource == undefined) return expandToNode`
+            _handlePreUpdate${document.name}Delta(changes, deltas) {
+                // No health resource defined
+            }
+            `.appendNewLine();
+            return expandToNode`
+            _handlePreUpdate${document.name}Delta(changes, deltas) {
+                if (changes.system.${healthResource.name.toLowerCase()} === undefined) return;
+
+                // Store value and temp changes
+                const valueChange = changes.system.${healthResource.name.toLowerCase()}.value;
+                const tempChange = changes.system.${healthResource.name.toLowerCase()}.temp;
+
+                // Calculate delta
+                if (valueChange !== undefined) {
+                    const delta = valueChange - this.system.${healthResource.name.toLowerCase()}.value;
+                    if (delta !== 0) {
+                        deltas.${healthResource.name.toLowerCase()} = delta;
+                    }
+                }
+
+                // Calculate temp delta
+                if (tempChange !== undefined) {
+                    const tempDelta = tempChange - this.system.${healthResource.name.toLowerCase()}.temp;
+                    if (tempDelta !== 0) {
+                        deltas.${healthResource.name.toLowerCase()}Temp = tempDelta;
+                    }
+                }
+            }
+            `.appendNewLine();
+        }
+
+        function generateDeltas(documents: Document[]): CompositeGeneratorNode | undefined {
+
+            if (type != "Actor") return;
+
+            function generateHealthResourceAssignments(documents: Document[]) {
+                function documentHealthResource(document: Document): CompositeGeneratorNode | undefined {
+                    const healthResource = getAllOfType<ResourceExp>(document.body, isResourceExp).find(x => x.tag == "health") as ResourceExp | undefined;
+                    if (healthResource == undefined) return;
+
+                    return expandToNode`
+                    case "${document.name.toLowerCase()}": {
+                        // ${healthResource.name} health resource
+
+                        if ( !data.prototypeToken.bar1.attribute ) data.prototypeToken.bar1.attribute = "${healthResource.name.toLowerCase()}";
+                        if ( !data.prototypeToken.displayBars ) data.prototypeToken.displayBars = CONST.TOKEN_DISPLAY_MODES.ALWAYS;
+                    }
+                    `.appendNewLineIfNotEmpty();
+                }
+
+                return expandToNode`
+                    switch ( data.type ) {
+                        ${joinToNode(documents.filter(x => isActor(x)), document => documentHealthResource(document), { appendNewLineIfNotEmpty: true })}
+                    }
+                `.appendNewLineIfNotEmpty();
+            }
+
+            return expandToNode`
+            async _preUpdate(data, options, userId) {
+                await super._preUpdate(data, options, userId);
+                if (!options.diff || data === undefined) return;
+                let changes = {};
+
+                // Foundry v12 no longer has diffed data during _preUpdate, so we need to compute it ourselves.
+                if (game.release.version >= 12) {
+                    // Retrieve a copy of the existing actor data.
+                    let newData = foundry.utils.flattenObject(data);
+                    let oldData = foundry.utils.flattenObject(this);
+
+                    // Limit data to just the new data.
+                    const diffData = foundry.utils.diffObject(oldData, newData);
+                    changes = foundry.utils.expandObject(diffData);
+                }
+                else {
+                    changes = foundry.utils.duplicate(data);
+                }
+
+                // Handle name changes
+                if (changes.name) {
+                    let tokenData = {};
+
+                    // Propagate name update to prototype token if same as actor
+                    if (changes.name && this.name == this.prototypeToken.name) {
+                        data.prototypeToken = {name: data.name};
+                    }
+
+                    // Update tokens.
+                    let tokens = this.getActiveTokens();
+                    tokens.forEach(token => {
+                        let updateData = foundry.utils.duplicate(tokenData);
+
+                        // Propagate name update to token if same as actor
+                        if (data.name && this.name == token.name) {
+                            updateData.name = data.name;
+                        }
+                        token.document.update(updateData);
+                    });
+                }
+    
+                if (changes.system === undefined) return; // Nothing more to do
+
+                const deltas = {};
+
+                ${joinToNode(documents.filter(x => isActor(x)), document => expandToNode`
+                    if (this.type == "${document.name.toLowerCase()}") this._handlePreUpdate${document.name}Delta(changes, deltas);
+                `, { appendNewLineIfNotEmpty: true })}
+
+                options.fromPreUpdate = deltas;
+            }
+
+            /* -------------------------------------------- */
+
+            ${joinToNode(documents.filter(x => isActor(x)), document => generateActorPreUpdate(document), { appendNewLineIfNotEmpty: true })}
+
+            /* -------------------------------------------- */
+
+            async _onUpdate(data, options, userId) {
+                await super._onUpdate(data, options, userId);
+
+                // Iterate over all objects in fromPreUpdate, showing scrolling text for each.
+                if (options.fromPreUpdate) {
+                    for (const [key, delta] of Object.entries(options.fromPreUpdate)) {
+                        this._showScrollingText(delta, key);
+                    }
+                }
+            }
+
+            /* -------------------------------------------- */
+
+            async _onCreate(data, options, userId) {
+                await super._onCreate(data, options, userId);
+
+                console.log("onCreate", data, options, userId);
+
+                ${generateHealthResourceAssignments(documents)}
+            }
+
+            /* -------------------------------------------- */
+
+            _showScrollingText(delta, suffix="", overrideOptions={}) {
+            // Show scrolling text of hp update
+            const tokens = this.isToken ? [this.token?.object] : this.getActiveTokens(true);
+            if (delta != 0 && tokens.length > 0) {
+                let color = delta < 0 ? 0xcc0000 : 0x00cc00;
+                for ( let token of tokens ) {
+                    let textOptions = {
+                        anchor: CONST.TEXT_ANCHOR_POINTS.CENTER,
+                        direction: CONST.TEXT_ANCHOR_POINTS.TOP,
+                        fontSize: 32,
+                        fill: color,
+                        stroke: 0x000000,
+                        strokeThickness: 4,
+                        duration: 3000
+                    };
+                    canvas.interface.createScrollingText(
+                        token.center,
+                        delta.signedString()+" "+suffix,
+                        foundry.utils.mergeObject(textOptions, overrideOptions)
+                    );
+                    // Flash dynamic token rings.
+                    if (token?.ring) {
+                        const flashColor = delta < 0 ? Color.fromString('#ff0000') : Color.fromString('#00ff00');
+                        token.ring.flashColor(flashColor, {
+                            duration: 600,
+                            easing: foundry.canvas.tokens.TokenRing.easeTwoPeaks,
+                        });
+                    }
+                }
+            }
+        }
+        `.appendNewLineIfNotEmpty();
+        }
+
         const fileNode = expandToNode`
             export default class ${entry.config.name}${type} extends ${type} {
                 /** @override */
@@ -195,6 +374,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                 ${joinToNode(entry.documents.filter(d => type == "Actor" ? isActor(d) : isItem(d)), document => generateDerivedData(document), { appendNewLineIfNotEmpty: true })}
             
+                /* -------------------------------------------- */
+
+                ${generateDeltas(entry.documents)}
+
                 /* -------------------------------------------- */
 
                 reapplyActiveEffectsForName(name) {

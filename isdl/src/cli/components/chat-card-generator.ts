@@ -1,7 +1,8 @@
-import { expandToNode, toString } from "langium/generate";
-import { Entry } from "../../language/generated/ast.js";
+import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from "langium/generate";
+import { Document, Entry, isResourceExp, ResourceExp } from "../../language/generated/ast.js";
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { getAllOfType, getSystemPath } from "./utils.js";
 
 export function generateChatCardClass(entry: Entry, destination: string) {
 
@@ -12,7 +13,48 @@ export function generateChatCardClass(entry: Entry, destination: string) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
+    const id = entry.config.body.find(x => x.type == "id")!.value;
+
+    function generateHpElement(document: Document): CompositeGeneratorNode {
+        const healthResource = getAllOfType<ResourceExp>(document.body, isResourceExp).find(x => x.tag == "health") as ResourceExp | undefined;
+        
+        if (!healthResource) {
+            return expandToNode`
+                case '${document.name.toLocaleLowerCase()}':
+                    // No health resource found.
+                    break;
+            `;
+        }
+
+        return expandToNode`
+            case '${document.name.toLocaleLowerCase()}':
+
+                // If the type is temp, add to the temp health.
+                if ( type === 'temp' ) {
+                    update['${getSystemPath(healthResource, ['temp'])}'] = target.actor.${getSystemPath(healthResource, ['temp'])} + roll;
+                    break;
+                }
+
+                // If the type is damage and we have temp health, apply to temp health first.
+                if ( type === 'damage' && target.actor.${getSystemPath(healthResource, ['temp'])} > 0 ) {
+                    update['${getSystemPath(healthResource, ['temp'])}'] = target.actor.${getSystemPath(healthResource, ['temp'])} - roll;
+
+                    if ( update['${getSystemPath(healthResource, ['temp'])}'] < 0 ) {
+                        update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} + update['${getSystemPath(healthResource, ['temp'])}'];
+                        update['${getSystemPath(healthResource, ['temp'])}'] = 0;
+                    }
+                }
+                else {
+                    // Otherwise, apply to the main health.
+                    update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} - roll;
+                }
+                break;
+        `;
+    }
+
     const fileNode = expandToNode`
+        import { ContextMenu2 } from '../contextMenu2.js';
+
         export default class ${entry.config.name}ChatCard {
             
             static activateListeners(html) {
@@ -48,6 +90,185 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         }
                     }
                 }
+
+                function uuidv4() {
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+
+                function applyMenus(roll) {
+                    var uuid = uuidv4();
+
+                    // Add a way to uniquely identify this roll
+                    $(this)[0].dataset.uuid = uuid;
+                    $(this).off("contextmenu");
+
+                    // Determine if applying damage to targets is allowed.
+                    const allowTargeting = game.settings.get('${id}', 'allowTargetDamageApplication');
+                    let targetType = game.settings.get('${id}', 'userTargetDamageApplicationType');
+                    if (!allowTargeting && targetType !== 'selected') {
+                        game.settings.set('${id}', 'userTargetDamageApplicationType', 'selected');
+                        targetType = 'selected';
+                    }
+
+                    let menuItems = [];
+
+                    function getRollFromElement(rollElement) {
+                        const element = rollElement.hasClass('inline-roll')
+                        ? rollElement
+                        : rollElement.find('.result');
+
+                        if (element.length === 0) return null;
+                        return getRollValue(element);
+                    }
+
+                    function getRollValue(roll) {
+                        if (Number.isInteger(roll)) {
+                            return roll;
+                        }
+                        if (roll instanceof Roll) {
+                            return roll.total;
+                        }
+                        // Try the regex for expanded rolls.
+                        const REGEX_EXPANDED_INLINE_ROLL = /.*=\s(\d+)/gm;
+                        let match = REGEX_EXPANDED_INLINE_ROLL.exec(roll[0].innerText);
+                        if (match) return Number.parseInt(match[1]);
+
+                        // Regex failed to match, try grabbing the inner text.
+                        match = Number.parseInt(roll[0].innerText.trim());
+                        return match || 0;  // Fallback if we failed to parse
+                    }
+
+                    function getTargets(targetType) {
+                        const targets = targetType === 'targeted'
+                        ? [...game.user.targets]
+                        : (canvas?.tokens?.controlled ?? []);
+
+                        if (!targets || targets?.length < 1) {
+                            ui.notifications.warn(game.i18n.localize(\`NOTIFICATIONS.\${targetType === 'targeted' ? 'NoTokenTargeted' : 'NoTokenSelected'}\`));
+                            return [];
+                        }
+
+                        return targets;
+                    }
+
+                    function apply(element, event, type) {
+                        const menu = element.find('#context-menu2')?.[0];
+                        const applyTargetType = menu?.dataset?.target ?? 'selected';
+                        const applyMod = menu?.dataset?.mod ? Number(menu.dataset.mod) : 1;
+
+                        let roll = getRollFromElement(element);
+                        if ( !roll ) return;
+
+                        if ( type === 'healing' ) {
+                            roll = -roll;
+                        }
+
+                        roll *= applyMod;
+
+                        const targets = getTargets(applyTargetType);
+
+                        for ( const target of targets ) {
+                            console.log(type, roll, target);
+                            const update = {};
+
+                            switch ( target.actor.type ) {
+                                ${joinToNode(entry.documents, document => generateHpElement(document), { appendNewLineIfNotEmpty: true })}
+                            }
+
+                            target.actor.update(update);
+                        }
+                    }
+
+                    if ( allowTargeting ) {
+                        menuItems.push({
+                            name: \`
+                                <div class="damage-target flex flexrow">
+                                    <button type="button" data-target="targeted"><i class="fa-solid fa-bullseye"></i> \${game.i18n.localize('Targeted')}</button>
+                                    <button type="button" data-target="selected"><i class="fa-solid fa-expand"></i> \${game.i18n.localize('Selected')}</button>
+                                </div>\`,
+                            id: 'targets',
+                            icon: '',
+                            preventClose: true,
+                            callback: (inlineRoll, event) => {
+                                const button = event?.target ?? event?.currentTarget;
+                                if (button?.dataset?.target) {
+                                    // Deactivate the other target type.
+                                    const activeButtons = inlineRoll.find('button[data-target].active');
+                                    activeButtons.removeClass('active');
+                                    // Set the target type on the menu for later reference.
+                                    const menu = inlineRoll.find('#context-menu2')[0];
+                                    if (menu) {
+                                        menu.dataset.target = button.dataset.target;
+                                    }
+                                    // Toggle the active button and update the user setting.
+                                    button.classList.add('active');
+                                    game.settings.set('${id}', 'userTargetDamageApplicationType', button.dataset.target);
+                                }
+                            }
+                        });
+                    }
+
+                    // Add damage multipliers.
+                    menuItems.push({
+                        name: \`
+                            <div class="damage-modifiers flex flexrow">
+                                <button type="button" data-mod="0.25">&frac14;x</button>
+                                <button type="button" data-mod="0.5">&frac12;x</button>
+                                <button type="button" data-mod="1" class="active">1x</button>
+                                <button type="button" data-mod="1.5">1.5x</button>
+                                <button type="button" data-mod="2">2x</button>
+                                <button type="button" data-mod="3">3x</button>
+                                <button type="button" data-mod="4">4x</button>
+                            </div>\`,
+                        id: 'modifiers',
+                        icon: '',
+                        preventClose: true,
+                        callback: (inlineRoll, event) => {
+                            const button = event?.target ?? event?.currentTarget;
+                            if (button?.dataset?.mod) {
+                                // Deactivate the other target type.
+                                const activeButtons = inlineRoll.find('button[data-mod].active');
+                                activeButtons.removeClass('active');
+
+                                // Set the target type on the menu for later reference.
+                                const menu = inlineRoll.find('#context-menu2')[0];
+                                if (menu) {
+                                    menu.dataset.mod = button.dataset.mod;
+                                }
+                                
+                                // Toggle the active button and update the user setting.
+                                button.classList.add('active');
+                            }
+                        }
+                    });
+
+                    menuItems.push(
+                        {
+                            name: game.i18n.localize("CONTEXT.ApplyDamage"),
+                            id: 'damage',
+                            icon: '<i class="fas fa-tint"></i>',
+                            callback: (inlineRoll, event) => apply(inlineRoll, event, 'damage')
+                        },
+                        {
+                            name: game.i18n.localize("CONTEXT.ApplyHealing"),
+                            id: 'healing',
+                            icon: '<i class="fas fa-medkit"></i>',
+                            callback: (inlineRoll, event) => apply(inlineRoll, event, 'healing')
+                        },
+                        {
+                            name: game.i18n.localize("CONTEXT.ApplyTemp"),
+                            id: 'temp-healing',
+                            icon: '<i class="fas fa-heart"></i>',
+                            callback: (inlineRoll, event) => apply(inlineRoll, event, 'temp')
+                        }
+                    );
+                    new ContextMenu2($(this).parent(), \`[data-uuid=\${uuid}]\`, menuItems);
+                }
+                html.find('.inline-roll').each(applyMenus);
+                html.find('.dice-total').each(applyMenus);
             }
 
             /* -------------------------------------------- */

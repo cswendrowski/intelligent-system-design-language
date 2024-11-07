@@ -164,8 +164,15 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         if ( isResourceExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
             const color = colors[currentColorIndex++];
-            const darkColor = shadeColor(color, 25);
-            const lightColor = shadeColor(color, 50);
+            let darkColor = shadeColor(color, 25);
+            let lightColor = shadeColor(color, 50);
+
+            // If this is a health resource, use red and green colors
+            if (property.tag == "health") {
+                lightColor = "#8B0000";
+                darkColor = "#33cc33";
+            }
+
             return expandToNode`
                 {{!-- Resource ${property.name} --}}
                 <fieldset style="border-color: ${color};" class="property resourceExp">

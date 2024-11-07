@@ -326,13 +326,15 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
             activateListeners(html) {
                 super.activateListeners(html);
 
-                // Find the outer window and attach edit mode class
-                const outer = html.closest(".window-app")[0];
-                const editMode = this.object.getFlag('${id}', 'edit-mode') ?? true;
-                if (editMode && !outer.classList.contains("edit-mode")) {
-                    outer.classList.add("edit-mode");
-                } else if (!editMode && outer.classList.contains("edit-mode")) {
-                    outer.classList.remove("edit-mode");
+                if (this.documentType === "Actor") {
+                    // Find the outer window and attach edit mode class
+                    const outer = html.closest(".window-app")[0];
+                    const editMode = this.object.getFlag('${id}', 'edit-mode') ?? true;
+                    if (editMode && !outer.classList.contains("edit-mode")) {
+                        outer.classList.add("edit-mode");
+                    } else if (!editMode && outer.classList.contains("edit-mode")) {
+                        outer.classList.remove("edit-mode");
+                    }
                 }
 
                 // Actions

@@ -172,10 +172,10 @@ Prompt:
     "prompt" ("(" params+=PromptParams ("," params+=PromptParams)* ")")? "{" body+=(ClassExpression)*"}";
 
 PromptParams:
-    (TargetParam | LabelParam );
+    (TargetParam | LabelParam | IconParam);
 
 TargetParam:
-    "target:" value=("user" | "gm" | "self");
+    "target:" value=("user" | "gm");
 
 LabelParam:
     "label:" value=STRING;
@@ -215,7 +215,7 @@ BooleanExp: ExpressionModifier "boolean" name=ID;
 
 HtmlExp: ExpressionModifier "html" name=ID;
 
-ResourceExp: ExpressionModifier "resource" name=ID ("(" ("max:" max=(MethodBlock | INT))? & ("color:" color=HEX_COLOR)? ")")?;
+ResourceExp: ExpressionModifier (tag=("health" | "wounds"))? "resource" name=ID ("(" ("max:" max=(MethodBlock | INT))? & ("color:" color=HEX_COLOR)? ")")?;
 
 AttributeExp: ExpressionModifier "attribute" name=ID "(" "min:" min=INT "," "max:" max=INT "," "mod:" method=MethodBlock ")";
 

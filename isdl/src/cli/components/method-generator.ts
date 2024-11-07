@@ -115,7 +115,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             const tempPath = `system.${expression.property?.ref?.name.toLowerCase()}.temp`;
             if (isDecrementAssignment(expression)) {
                 return expandToNode`
-                    if (this.object.${tempPath} > 0) {
+                    if ( this.object.${tempPath} > 0 ) {
                         update["${tempPath}"] = this.object.${tempPath} - 1;
                     }
                     else {
@@ -126,10 +126,10 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
             if (isDecrementValAssignment(expression)) {
                 return expandToNode`
-                    if (this.object.${tempPath} > 0) {
+                    if ( this.object.${tempPath} > 0 ) {
                         update["${tempPath}"] = this.object.${tempPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
 
-                        if (update["${tempPath}"] < 0) {
+                        if ( update["${tempPath}"] < 0 ) {
                             // Apply the remainder to the system property
                             update["${systemPath}"] = this.object.${systemPath} + update["${tempPath}"];
                             update["${tempPath}"] = 0;
@@ -928,7 +928,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return expandToNode`
             await new Promise(async (resolve, reject) => {
 
-                const allActiveUsers = game.users.filter(u => u.active);
+                const allActiveUsers = game.users.filter(u => u.active && u.id != game.user.id);
                 const targetedUser = await Dialog.prompt({
                     title: "Select User",
                     content: \`<form>

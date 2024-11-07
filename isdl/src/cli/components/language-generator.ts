@@ -84,6 +84,22 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         {
             "NoSingleDocument": "No Linked Document",
             "EditModeWarning": "Active Effects are not applied while in Edit mode. Base values are displayed and used for all rolls, calculations and actions.",
+            "SETTINGS": {
+                "RoundUpDamageApplicationName": "Round Up Damage",
+                "RoundUpDamageApplicationHint": "When enabled, damage is rounded up to the nearest whole number. When disabled, damage is rounded down.",
+                "AllowTargetDamageApplicationName": "Allow Target Damage Application",
+                "AllowTargetDamageApplicationHint": "Whether or not to allow damage and healing on chat messages to be applied to targeted tokens in addition to selected tokens. Targeting does not require permissions, so this can allow players and GMs to apply damage to ANY token they can see."
+            },
+            "CONTEXT": {
+                "ApplyChanges": "Apply",
+                "ApplyDamage": "As Damage",
+                "ApplyHealing": "As Healing",
+                "ApplyTemp": "As Temporary"
+            },
+            "NOTIFICATIONS": {
+                "NoTokenSelected": "No Token is currently selected",
+                "NoTokenTargeted": "No Token is currently targeted"
+            },
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ','})}
         }
     `.appendNewLineIfNotEmpty();
