@@ -1,0 +1,66 @@
+name: Publish VS Code Extension
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Install vsce
+      run: npm install -g vsce
+
+    - name: Bump version and publish
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      run: |
+        # Bump the version
+        npm version patch -m "Release version %s"
+        
+        # Publish the extension
+        vsce publish -p $VSCE_PAT
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Install vsce
+      run: npm install -g vsce
+
+    - name: Bump version and publish
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      run: |
+        # Extract the release name
+        RELEASE_NAME=${{ github.event.release.name }}
+        
+        # Bump the version using the release name
+        npm version $RELEASE_NAME --no-git-tag-version
+        
+        # Publish the extension
+        vsce publish -p $VSCE_PAT
