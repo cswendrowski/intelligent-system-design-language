@@ -1,5 +1,7 @@
 //@ts-check
 import * as esbuild from 'esbuild';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const watch = process.argv.includes('--watch');
 const minify = process.argv.includes('--minify');
@@ -15,12 +17,20 @@ function padZeroes(i) {
     return i.toString().padStart(2, '0');
 }
 
+function copyPackageJson(outDir) {
+    const src = path.resolve('package.json');
+    const dest = path.join(outDir, 'extension/package.json');
+    fs.copyFileSync(src, dest);
+    console.log(getTime() + 'Copied package.json to output directory.');
+}
+
 const plugins = [{
     name: 'watch-plugin',
     setup(build) {
         build.onEnd(result => {
             if (result.errors.length === 0) {
                 console.log(getTime() + success);
+                copyPackageJson('out');
             }
         });
     },
@@ -50,5 +60,6 @@ if (watch) {
     await ctx.watch();
 } else {
     await ctx.rebuild();
+    copyPackageJson('out');
     ctx.dispose();
 }

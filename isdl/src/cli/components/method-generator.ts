@@ -496,10 +496,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (isRoll(expression.variable.ref?.value)) {
                     roll = true
                     wide = true;
+
+                    return expandToNode`
+                        { isRoll: ${roll}, label: "${humanize(expression.variable.ref?.name ?? "")}", value: ${accessPath}, wide: ${wide}, tooltip: await ${accessPath}.getTooltip() },
+                    `;
                 }
 
                 return expandToNode`
-                    { isRoll: ${roll}, label: "${humanize(expression.variable.ref?.name ?? "")}", value: ${accessPath}, wide: ${wide}, tooltip: await ${accessPath}.getTooltip() },
+                    { isRoll: ${roll}, label: "${humanize(expression.variable.ref?.name ?? "")}", value: ${accessPath}, wide: ${wide}, hasValue: ${accessPath} != "" },
                 `;
             }
             if ( isExpression(expression) ) {
@@ -539,10 +543,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         return expandToNode`
             // Create the chat message
+            const ${expression.name}Description = this.object.description ?? this.object.system.description;
             const ${expression.name}Content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
                 cssClass: "${id} ${toMachineIdentifier(expression.name)}",
                 document: this.object,
-                description: this.object.description ?? this.object.system.description,
+                description: ${expression.name}Description,
+                hasDescription: ${expression.name}Description!= "",
                 parts: [
                     ${joinToNode(expression.body.chatExp.filter(x => x.type != "tag"), (expression) => translateChatBodyExpression(expression), { appendNewLineIfNotEmpty: true })}
                 ],

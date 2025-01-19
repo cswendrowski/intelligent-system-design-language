@@ -270,8 +270,10 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 <div class="form-group property single-document" data-name="system.${property.name.toLowerCase()}" data-type="${property.document.ref?.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
                     {{#if ${property.name.toLowerCase()}HasContentLink}}
-                    {{{${property.name.toLowerCase()}ContentLink}}}
-                    <a class="single-document-remove" data-name="system.${property.name.toLowerCase()}" data-action="remove" style="flex: 0;margin-left: 0.25rem;"><i class="fa-solid fa-delete-left"></i></a>
+                    <div class="single-document-content">
+                        {{{${property.name.toLowerCase()}ContentLink}}}
+                        ${edit ? `<a class="single-document-remove" data-name="system.${property.name.toLowerCase()}" data-action="remove" style="flex: 0;margin-left: 0.25rem;"><i class="fa-solid fa-delete-left"></i></a>` : ""}
+                    </div>
                     {{else}}
                     <p class="single-document-none">{{ localize "NoSingleDocument" }}</p>
                     {{/if}}
@@ -307,6 +309,10 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             if ( isHtmlExp(property) ) return undefined;
 
             if ( isProperty(property) ) {
+
+                const isHidden = property.modifier == "hidden";
+                if (isHidden) return undefined;
+
                 if ( isStringExp(property) && property.choices != undefined && property.choices.length > 0 ) {
                     return expandToNode`
                         <th>{{ localize "${refDoc?.ref?.name}.${property.name}.label" }}</th>
@@ -328,6 +334,10 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             }
             if ( isHtmlExp(property) ) return undefined;
             if ( isProperty(property) ) {
+
+                const isHidden = property.modifier == "hidden";
+                if (isHidden) return undefined;
+
                 return expandToNode`
                     <td>{{item.${getSystemPath(property)}}}</td>
                 `
@@ -381,7 +391,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         `
     }
 
-    const pages = document.body.filter(x => isPage(x)).map(x => x as Page);
+    const pages = getAllOfType<Page>(document.body, isPage);
 
     function generatePageTabHeader(property: Page): CompositeGeneratorNode | undefined {
         const iconParam = property.params.find(x => isIconParam(x)) as IconParam;
@@ -420,7 +430,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         const background = backgroundParam?.background ?? "topography";
 
         return expandToNode`
-            ${pages.length > 1 ? expandToNode`
+            ${pages.length > 0 ? expandToNode`
                 {{!-- Page Navigation --}}
                 <nav class="sheet-navigation pages" data-group="primary">
                     <a class="item" data-tab="main" data-background="${background}"><i class="fa-solid ${icon}"></i> {{ localize "${document.name}" }}</a>

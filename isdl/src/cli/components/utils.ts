@@ -30,7 +30,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     if (subProperties.length > 0) {
         let systemPath = `${basePath}${reference.name.toLowerCase()}`;
         for (const subProperty of subProperties) {
-            systemPath = `${systemPath}.${subProperty}`;
+            systemPath = `${systemPath}?.${subProperty}`;
         }
         return systemPath;
     }

@@ -110,7 +110,8 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                                                 });
                                             }
                                         }
-                                    }
+                                    },
+                                    'colvis'
                                 ]
                             }
                         },
@@ -123,6 +124,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                                 target: 0, // Image
                                 width: "40px"
                             },
+
                             {
                                 target: -1, // Actions
                                 orderable: false,

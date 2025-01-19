@@ -41,7 +41,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
 
     function generateProperty(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
 
-        if (isSection(property)) {
+        if (isSection(property) && property.body.length > 0) {
             return expandToNode`
                 "${property.name}": "${humanize(property.name)}",
                 ${joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}

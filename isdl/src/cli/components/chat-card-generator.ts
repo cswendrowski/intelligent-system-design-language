@@ -302,6 +302,7 @@ export function generateStandardChatCardTemplate(destination: string) {
 
     const fileNode = expandToNode`
         <div class="{{cssClass}} standard-chat-card chat-card">
+            {{#if hasDescription}}
             <div class="chat-header collapsible collapsed">
                 <header class="flexrow">
                     <img src="{{document.img}}" title="{{document.name}}" width="50" height="50">
@@ -316,6 +317,17 @@ export function generateStandardChatCardTemplate(destination: string) {
                     {{{description}}}
                 </section>
             </div>
+            {{else}}
+            <div class="chat-header">
+                <header class="flexrow">
+                    <img src="{{document.img}}" title="{{document.name}}" width="50" height="50">
+                    <div class="title">
+                        <div class="name">{{document.name}}</div>
+                        <div class="type">{{localize document.type}}</div>
+                    </div>
+                </header>
+            </div>
+            {{/if}}
             <div class="chat-info">
                 <dl>
                     {{#each parts}}

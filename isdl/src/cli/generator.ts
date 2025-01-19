@@ -137,8 +137,22 @@ function copyLogo(destination: string) {
     fs.copyFileSync(path.join(__dirname, "../isdl.png"), imgFilePath);
 }
 
+function getExtensionVersion(): string | undefined {
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    var packageJsonPath = path.join(__dirname, "../extension/package.json");
+    console.log(packageJsonPath);
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return packageJson.version;
+}
+
 function generateSystemJson(entry: Entry, id: string, destination: string) {
     const generatedFilePath = path.join(destination, `system.json`);
+
+    // Get the version of the extension
+    const extensionVersion = getExtensionVersion();
 
     const fileNode = expandToNode`
         {
@@ -182,7 +196,8 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                 "hotReload": {
                     "extensions": ["css", "hbs", "json"],
                     "paths": ["css", "system/templates", "lang"]
-                }
+                },
+                "isdl-version": "${extensionVersion}"
             },
             "media": [
                 {
