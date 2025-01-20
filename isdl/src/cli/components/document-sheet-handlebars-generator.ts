@@ -448,7 +448,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     {{!-- Tab Navigation --}}
                     <nav class="sheet-navigation tabs" data-group="secondary">
                         <a class="item" data-tab="description"><i class="fa-solid fa-book"></i> {{ localize "Description" }}</a>
-                        ${joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => translateArrayTabHeader(property), { appendNewLineIfNotEmpty: true })}
+                        ${joinToNode(getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp), property => translateArrayTabHeader(property), { appendNewLineIfNotEmpty: true })}
                         <a class="item" data-tab="effects"><i class="fa-solid fa-sparkles"></i> {{ localize "Effects" }}</a>
                     </nav>
 
@@ -464,7 +464,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                             </fieldset>
                         </div>
 
-                        ${joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => generateDocumentArray(property), { appendNewLineIfNotEmpty: true })}
+                        ${joinToNode(getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp), property => generateDocumentArray(property), { appendNewLineIfNotEmpty: true })}
                     
                         {{!-- Effects Tab --}}
                         <div class="tab effects" data-group="secondary" data-tab="effects" data-type="ActiveEffect">

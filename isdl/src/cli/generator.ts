@@ -1,4 +1,4 @@
-import type {
+import {
     Document,
     Entry,
     HtmlExp,
@@ -27,6 +27,7 @@ import { generateChatCardClass, generateStandardChatCardTemplate } from './compo
 import { generateBaseDocumentSheet } from './components/base-sheet-generator.js';
 import { generateBaseActorSheet } from './components/base-actor-sheet-generator.js';
 import { generateDocumentHandlebars } from './components/document-sheet-handlebars-generator.js';
+import { getAllOfType } from './components/utils.js';
 
 export function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): string {
     const config = entry.config;
@@ -221,7 +222,7 @@ function generateTemplateJson(entry: Entry, id: string, destination: string) {
 
     function generateHtmlFields(document: Document): CompositeGeneratorNode | undefined {
         return expandToNode`
-            ${joinToNode(document.body.filter(x => isHtmlExp(x)), property => `,"${(property as HtmlExp).name.toLowerCase()}"`)}
+            ${joinToNode(getAllOfType<HtmlExp>(document.body, isHtmlExp), property => `,"${(property as HtmlExp).name.toLowerCase()}"`)}
         `;
     }
 
@@ -288,10 +289,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
     }
 
     function generateTrackableResourceBars(document: Document): CompositeGeneratorNode {
-        let resourceExps = document.body.filter(x => isResourceExp(x)).map(x => x as ResourceExp);
-        for (let section of document.body.filter(x => isSection(x))) {
-            resourceExps = resourceExps.concat((section as Section).body.filter(x => isResourceExp(x)).map(x => x as ResourceExp));
-        }
+        let resourceExps = getAllOfType<ResourceExp>(document.body, isResourceExp);
         return expandToNode`
             "${document.name.toLowerCase()}": {
                 "bar": [${joinToNode(resourceExps, x => `"${x.name.toLowerCase()}"`, { separator: ',' })}],

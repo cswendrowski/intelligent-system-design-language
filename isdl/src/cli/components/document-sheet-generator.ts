@@ -85,10 +85,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
         `;
     }
 
-    let pips = document.body.filter(x => isPipsExp(x)).map(x => x as PipsExp);
-    for (let section of document.body.filter(x => isSection(x))) {
-        pips = pips.concat((section as Section).body.filter(x => isPipsExp(x)).map(x => x as PipsExp));
-    }
+    let pips = getAllOfType<PipsExp>(document.body, isPipsExp);
 
     function translateLiteralOrExpression(expression: number | MethodBlock | undefined): CompositeGeneratorNode | undefined {
         if ( expression == undefined ) {
@@ -229,7 +226,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
         `;
         }
         
-        return joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => generateItemActionList(property.document.ref), { appendNewLineIfNotEmpty: true });
+        return joinToNode(getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp), property => generateItemActionList(property.document.ref), { appendNewLineIfNotEmpty: true });
     }
 
     function generateSingleDocumentContentLinks(document: Document): CompositeGeneratorNode | undefined {
@@ -374,7 +371,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
             /** @override */
             async handleItemDrop(item) {
                 switch ( item.type ) {
-                    ${joinToNode(document.body.filter(x => isDocumentArrayExp(x)).map(x => x as DocumentArrayExp), property => 
+                    ${joinToNode(getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp), property => 
                         `case "${property.document.ref?.name.toLowerCase()}": {
                             Item.createDocuments([item], {parent: this.object})
                             break;
