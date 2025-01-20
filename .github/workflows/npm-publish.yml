@@ -19,13 +19,16 @@ jobs:
 
     - name: Install dependencies
       run: npm install
+      working-directory: ./isdl
 
     - name: Install vsce
       run: npm install -g vsce
+      working-directory: ./isdl
 
     - name: Bump version and publish
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      working-directory: ./isdl
       run: |
         # Extract the release tag
         RELEASE_TAG=${{ github.event.release.tag_name }}
