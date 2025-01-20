@@ -30,11 +30,11 @@ jobs:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
       working-directory: ./isdl
       run: |
-        # Extract the release tag
-        RELEASE_TAG=${{ github.event.release.tag_name }}
+        npm version ${{ github.event.release.tag_name }} --no-git-tag-version
         
-        # Bump the version using the release name
-        npm version $RELEASE_TAG --no-git-tag-version
-        
-        # Publish the extension
+    - name: Publish
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      working-directory: ./isdl
+      run: |
         vsce publish -p $VSCE_PAT
