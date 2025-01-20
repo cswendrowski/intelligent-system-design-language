@@ -253,19 +253,21 @@ actor PC {
             }
         }
     }
-    section Abilities {
-        hidden number WarriorMax
-        hidden number RogueMax
-        hidden number MageMax
-        number Warrior(min: 0, initial: 0, max: {return 6 + self.WarriorMax})
-        number Rogue(min: 0, initial: 0, max: {return 6 + self.RogueMax})
-        number Mage(min: 0, initial: 0, max: {return 6 + self.MageMax})
+    Skill[] Skills
+    Language[] Languages
+    // PAGE 2 -- MAGIC
+    page Magic(icon: "fa-solid fa-sparkles", background: temple) {
+        number SpellsIKnow
+        Spell[] Spells
+        Talent[] Talents
     }
+    // PAGE 3 -- Equipment
+    page Belongings(icon: "fa-solid fa-backpack", background: diamonds) {
     section Armor {
-        Armor Armor
+        Armor WornArmor
         readonly number ArmorRating(value: {
-            if (self.Armor exists) {
-                return self.Armor.system.armorrating
+            if (self.WornArmor exists) {
+                return self.WornArmor.system.armorrating
                 }
                 return 0
                 })
@@ -274,21 +276,27 @@ actor PC {
             return self.ArmorRating - 1
         })
     }
-    section Progression {
-        number Advancements
-        readonly number MajorAdvancements(min: 0, value: {return self.Advancements / 4})
-        number BonusAdvancements
+        Weapon[] Weapons
+        Armor[] Armor
+        Consumable[] Consumables
+        Item[] OtherItems
     }
-    Talent[] Talents
-    Skill[] Skills
-    Language[] Languages
-    Spell[] Spells
-    Advancement[] Advancements
-    // PAGE 2 -- Contents TBD. Doesn't work????
-    page Two(icon: "fa-solid fa-backpack", background: food) {
-        section NumberHole {
-            string Location
+    // PAGE 4 -- CONFIG/SETUP ITEMS
+    page Config(icon: "fa-solid fa-cogs", background: circuitboard) {
+        section Abilities {
+            hidden number WarriorMax
+            hidden number RogueMax
+            hidden number MageMax
+            number Warrior(min: 0, initial: 0, max: {return 6 + self.WarriorMax})
+            number Rogue(min: 0, initial: 0, max: {return 6 + self.RogueMax})
+            number Mage(min: 0, initial: 0, max: {return 6 + self.MageMax})
         }
+        section Progression {
+            number Advancements(min:0)
+            readonly number MajorAdv(min: 0, value: {return self.Advancements / 4})
+            number BonusAdv
+        }
+        Advancement[] Advancements
     }
 }
 
@@ -352,12 +360,21 @@ item Weapon {
         number DiceMod
         string Limit(choices: [ "None","Max5","Max4","Max3"])
     }
-    action Attack {
+action Attack {
+        fleeting hasSkill = false
+        each skill in parent.system.skills {
+            if (skill.Name equals self.Skill) {
+                hasSkill = true
+            }
+        }
+        chat AttackOutcome {
+            hasSkill
+        }
         // Roll is 1d6 + self.Ability + Weapon Skill.
         // Can we make it check against the defense of the target actor?
         // Damage should be automatically rolled on a hit?
         // Option to turn a miss into a hit with a button?
-        }
+    }
 }
 
 // ITEM

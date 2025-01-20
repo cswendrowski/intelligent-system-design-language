@@ -243,6 +243,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     null
                 `;
             }
+            else if (expression.val == "true" || expression.val == "false") {
+                return expandToNode`
+                    ${expression.val}
+                `;
+            }
             return expandToNode`
              "${expression.val}"
             `;
@@ -254,8 +259,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateReferenceExpression(expression: Ref): CompositeGeneratorNode | undefined {
         let accessPath = expression.val.ref?.name;
+        console.log("Translating Reference Expression: " + accessPath);
         if (expression.subProperty != undefined) {
-            accessPath = `${accessPath}.system.${expression.subProperty.toLowerCase()}`;
+            if (expression.subProperty.toLowerCase() == "name") {
+                accessPath = `${accessPath}.name`;
+            }
+            else {
+                accessPath = `${accessPath}.system.${expression.subProperty.toLowerCase()}`;
+            }
         }
         return expandToNode`
             ${accessPath}

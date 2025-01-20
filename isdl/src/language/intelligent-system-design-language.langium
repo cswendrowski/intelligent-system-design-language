@@ -137,7 +137,7 @@ WhenExpressions:
     (ShorthandComparisonExpression | ComparisonExpression);
 
 Each:
-    'each' var=Parameter 'in' collection=(Access | FleetingAccess) method=MethodBlock;
+    'each' var=Parameter 'in' collection=(Access | FleetingAccess | ParentAccess) method=MethodBlock;
 
 MethodBlock:
     "{" body+=(MethodBlockExpression)* "}";
@@ -199,7 +199,7 @@ ShorthandComparisonExpression:
 ArrayExpression: "[" items+=Literal ("," items+=Literal)* "]";
 
 // literal
-Literal:        val=(INT|STRING|DICE|NOTHING);
+Literal:        val=(INT|STRING|DICE|NOTHING|BOOLEAN);
 // cross-reference to a parameter
 Ref:        val=[VariableAccess:ID] ("." subProperty=ID)?;
 // grouped expression with parentheses

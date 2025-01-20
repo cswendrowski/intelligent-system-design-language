@@ -21,6 +21,11 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return "";
     }
 
+    // If the property is "name", that is at the base of the object, not system
+    if (reference.name.toLowerCase() === "name") {
+        return reference.name.toLowerCase();
+    }
+
     let basePath = "system.";
     if (propertyLookup) {
         basePath = `system[${propertyLookup.name.toLowerCase()}.toLowerCase()].`;
