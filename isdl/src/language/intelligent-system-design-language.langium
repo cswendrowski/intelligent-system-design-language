@@ -188,15 +188,27 @@ AddOrSubtract infers Expression:
 MultiplyOrDivide infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('*'|'/') e2=PrimitiveExpression)*;
 
-PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression;
+PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression;
 
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==") e2=Expression;
 
 ShorthandComparisonExpression:
-    e1=Expression term=("exists")?;
+    e1=Expression term=("exists" | "!exists")?;
 
 ArrayExpression: "[" items+=Literal ("," items+=Literal)* "]";
+
+MathExpression:
+    MathSingleExpression | MathParamExpression | MathEmptyExpression;
+
+MathEmptyExpression:
+    "Math." operation=("random") "(" ")";
+
+MathSingleExpression:
+    "Math." operation=("abs" | "ceil" | "floor" | "round" ) "(" exp=Expression ")";
+
+MathParamExpression:
+    "Math." operation=("max" | "min") "(" params+=Expression ("," params+=Expression)* ")";
 
 // literal
 Literal:        val=(INT|STRING|DICE|NOTHING|BOOLEAN);

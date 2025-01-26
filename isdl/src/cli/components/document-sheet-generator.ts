@@ -2,7 +2,6 @@ import {
     Document,
     Entry,
     HtmlExp,
-    Section,
     Action,
     MethodBlock,
     StringExp,
@@ -22,7 +21,6 @@ import {
 import {
     isActor,
     isHtmlExp,
-    isSection,
     isStringExp,
     isAction,
     isPipsExp,

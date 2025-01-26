@@ -3,14 +3,12 @@ import {
     Entry,
     HtmlExp,
     ResourceExp,
-    Section,
 } from '../language/generated/ast.js';
 import {
     isActor,
     isItem,
     isHtmlExp,
     isResourceExp,
-    isSection,
 } from "../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';

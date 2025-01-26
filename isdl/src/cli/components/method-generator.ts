@@ -25,6 +25,7 @@ import type {
     Prompt,
     ClassExpression,
     VariableAccess,
+    MathExpression,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -74,6 +75,11 @@ import {
     isNumberExp,
     isStringExp,
     isTargetParam,
+    IntelligentSystemDesignLanguageTerminals,
+    isMathExpression,
+    isMathEmptyExpression,
+    isMathSingleExpression,
+    isMathParamExpression,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
@@ -268,6 +274,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 accessPath = `${accessPath}.system.${expression.subProperty.toLowerCase()}`;
             }
         }
+        console.log("Access Path: ", accessPath);
         return expandToNode`
             ${accessPath}
         `;
@@ -354,6 +361,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if (term == "exists") {
                 return expandToNode`
                     ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} != undefined
+                `;
+            }
+            else if (term == "!exists") {
+                return expandToNode`
+                    ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} == undefined
                 `;
             }
             return expandToNode`
@@ -596,6 +608,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 `;
             }
             if (isRef(expression)) {
+
                 // If string or number, return the value
                 if (typeof expression.val == "string" || typeof expression.val == "number") {
                     return expandToNode`
@@ -610,6 +623,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         "@${expression.val.ref?.name}${expression.subProperty.toLowerCase()}[${humanize(expression.subProperty)}]"
                     `;
                 }
+
+                console.log("Ref:", `${expression.val.$refText}`);
+                if (IntelligentSystemDesignLanguageTerminals.DICE.test(`${expression.val}`)) {
+                    return expandToNode`
+                        "${expression.val}"
+                    `;
+                }
+
                 return expandToNode`
                     "@${expression.val.ref?.name.toLowerCase()}[${humanize(expression.val.ref?.name)}]"
                 `;
@@ -647,6 +668,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 `;
             }
             if (isFleetingAccess(expression)) {
+
+                // If this is a roll expression, just output it directly
+                if (isRoll(expression.variable.ref?.value)) {
+                    return expandToNode`
+                        ${expression.variable.ref?.name}
+                    `;
+                }
+
                 let path = expression.variable.ref?.name ?? "";
                 let label = humanize(expression.variable.ref?.name ?? "");
                 if (expression.subProperty != undefined) {
@@ -733,6 +762,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if (isFleetingAccess(expression)) {
 
                 console.log("Fleeting Access:", expression.variable.ref?.name);
+
+                // If this is a roll expression, just skip it
+                if (isRoll(expression.variable.ref?.value)) {
+                    return;
+                }
 
                 let path = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
@@ -1021,6 +1055,28 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
+    if (isMathExpression(expression)) {
+        expression = expression as MathExpression;
+
+        console.log("Translating Math Expression: ", expression.operation);
+        
+        if (isMathEmptyExpression(expression)) {
+            return expandToNode`
+                Math.${expression.operation}()
+            `;
+        }
+        if (isMathSingleExpression(expression)) {
+            return expandToNode`
+                Math.${expression.operation}(${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)})
+            `;
+        }
+        if (isMathParamExpression(expression)) {
+            return expandToNode`
+                Math.${expression.operation}(${joinToNode(expression.params, x => translateExpression(entry, id, x, preDerived, generatingProperty), {separator: ", "})})
+            `;
+        }
+        throw new Error("Unknown Math Expression type encountered while translating to JavaScript ");
+    }
 
     //console.log(expression.$type);
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
