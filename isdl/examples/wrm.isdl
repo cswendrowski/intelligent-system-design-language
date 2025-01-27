@@ -4,192 +4,15 @@ config wrm {
     description = "ISDL Build of Warrior, Rogue & Mage"
     author = "Roman Trevisanut"
 }
+
 actor Character {
-    // PAGE 1 - THE CHARACTER [DEFAULT] (Abilities, Skills, Talents, Advancements, Languages)
-    section Resources {
-        // Calculate total health for the character.
-        hidden number HealthMod
-        hidden number HealthRegen
-        resource Health(max: {
-            return self.Warrior + 6 + self.HealthMod
-        })
-        hidden number FateMod
-        resource Fate(max: {
-            if (self.Rogue == 0) {
-                return 1 + self.FateMod
-            }
-            return self.Rogue + self.FateMod
-        })
-        hidden number ManaMult(min: 1, initial: 2)
-        hidden number ManaMod
-        resource Mana(max: {
-            return (self.Mage * self.ManaMult + self.ManaMod)
-        })
-    }
-    section Defenses {
-        // Temporary health for physical and magical shields. No max on these.
-        number BarrierHealth(min: 0, initial: 0)
-        number ShieldHealth(min: 0, initial: 0)
-    }
-    section ResourceActions {
-        action Rest(icon: "fa-solid fa-heart-pulse", disabled: self.Health == self.Health.max) {
-            fleeting HealthRecover = self.Warrior + self.HealthRegen
-            if (self.Mana + HealthRecover > self.Health.max) {self.Health = self.Health.max}
-            else {self.Health += HealthRecover}
-            self.update()
-            chat HealthHeal {"I've rested and recovered " self.Warrior + self.HealthRegen + " health."}
-        }
-        action FullHeal(icon: "fa-duotone fa-solid fa-heart-circle-plus", disabled: self.Health == self.Health.max) {
-            self.Health = self.Health.Max
-            chat HealthReset {"I've reset my health to " self.Health + "."}
-        }
-        action Spend(icon: "fa-regular fa-clover") {
-            self.Fate -= 1
-            self.update()
-            chat FateSpend {"I've spent a fate point and now have " self.Fate + " left."}
-        }
-        action Add(icon: "fa-solid fa-clover") {
-            self.Fate += 1
-            self.update()
-            chat FateAdd {"I've gaing a fate point and now have " self.Fate + "."}
-        }
-        action Reset(icon: "fa-duotone fa-solid fa-clover", disabled: self.Fate == self.Fate.max) {
-            self.Fate = self.Fate.max
-            chat FateReset {"I've reset my fate points to " self.Fate + "."}
-        }
-        action Meditate(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.max) {
-            fleeting ManaRecover = self.Mage + self.ManaRegen
-            if (self.Mana + ManaRecover > self.Mana.max) {self.Mana = self.Mana.max}
-            else {self.Mana += ManaRecover}
-            self.update()
-            chat Meditation {
-                "I've meditated, and recovered " + ManaRecover + " mana."
-            }
-        }
-        hidden number ManaRegen(initial: 0)
-        action Refill(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.max) {
-            self.Mana = self.Mana.max
-            chat ManaRefill {"I've refilled my mana."}
-        }
-    }
-    section Abilities {
-        hidden number WarriorMax
-        hidden number RogueMax
-        hidden number MageMax
-        number Warrior(min: 0, initial: 0, max: {return 6 + self.WarriorMax})
-        number Rogue(min: 0, initial: 0, max: {return 6 + self.RogueMax})
-        number Mage(min: 0, initial: 0, max: {return 6 + self.MageMax})
-    }
-    section Armor {
-        Armor Armor
-        hidden number ArmorRating(value: {
-            if (self.Armor exists) {
-                return self.Armor.system.armorating
-            }
-            return 0
-        })
-        //string ArmorType(choices:["None","Padded","Lamellar","Leather","Scale","Chain","Splinted","Banded","Plate"])
-        //hidden number ArmorRating(value: {
-            //    if (self.ArmorType == "Plate") {return 8}
-            //    if (self.ArmorType == "Banded") {return 7}
-            //    if (self.ArmorType == "Splinted") {return 6}
-            //    if (self.ArmorType == "Chain") {return 5}
-            //    if (self.ArmorType == "Scale") {return 4}
-            //    if (self.ArmorType == "Leather") {return 3}
-            //    if (self.ArmorType == "Lamellar") {return 2}
-            //    if (self.ArmorType == "Padded") {return 1}
-            //    if (self.ArmorType == "None") {return 0}
-            //    return 0
-            //})
-            readonly number ArmorAbsorb(value:{return self.ArmorRating})
-            readonly number ArmorPenalty(value: {
-                if (self.ArmorRating < 1) {return 0}
-                return self.ArmorRating - 1
-            })
-            hidden number DefenseBase(value:{return 4})
-            hidden number DefenseAdjust(value: {return self.Warrior + self.Rogue + self.Mage})
-            hidden number DefenseAdd(value: {return self.DefenseAdjust / 3})
-            readonly number Defense(value: {return self.DefenseBase + self.DefenseAdd})
-        }
-        Advancement[] Advancements
-        Talent[] Talents
-        Skill[] Skills
-        Language[] Languages
-        // Page 2 - THEIR EQUIPMENT (Armor, Weapons, Items)
-        page Equipment(icon: "fa-duotone fa-solid fa-shirt") {
-            section Finances {
-                number Silver(max: 300)
-                number BankedSilver
-                number Investments
-                readonly number MonthlyIncome(value: {return 300 * self.Investments})
-                string LodgingQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
-                hidden number LodgingQualityCost(value: {
-                    if (self.LodgingQuality == "Extravagant") {return 600}
-                    if (self.LodgingQuality == "Rich") {return 300}
-                    if (self.LodgingQuality == "Good") {return 150}
-                    if (self.LodgingQuality == "Modest") {return 75}
-                    if (self.LodgingQuality == "Bare") {return 50}
-                    return 0
-                })
-                string MealQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
-                hidden number MealQualityCost(value: {
-                    if (self.MealQuality == "Extravagant") {return 160}
-                    if (self.MealQuality == "Rich") {return 80}
-                    if (self.MealQuality == "Good") {return 40}
-                    if (self.MealQuality == "Modest") {return 20}
-                    if (self.MealQuality == "Bare") {return 10}
-                    return 0
-                })
-                number Days
-                readonly number Cost(value: {return self.LodgingQualityCost + self.MealQualityCost * self.Days})
-                action PayBill(icon: "fa-duotone fa-solid fa-coins", disabled: self.Silver < self.Cost) {
-                    self.Silver -= self.Cost
-                    self.update()
-                    chat Paid {
-                        flavor ("I paid " + self.Cost + " silver for cost of living and now have " + self.Silver + " left!" )
-                        self.Cost
-                    }
-                }
-                
-            }
-            Item[] Items
-            Equipment[] Equipment
-            Weapon[] Weapons
-        }
-        
-        // Page 3 - COMBAT (Resources, Defense, )
-        page Combat(icon: "fa-duotone fa-solid fa-shield-halved") {
-            section Defense {
-                number ParryBonus
-                string ParryAbility(choices: ["Warrior", "Rogue", "Mage"])
-                action Parry(icon: "fa-solid fa-swords") {
-                    fleeting Parry = roll(d6 + self[self.ParryAbility])
-                    chat ParryChat {
-                        Parry
-                        "I attempted to parry using " self.ParryAbility "."
-                    }
-                }
-                number DodgeBonus
-                action Dodge(icon: "fa-solid fa-person-running-fast") {
-                    fleeting Dodge = roll(1d6 + self.Rogue)
-                    chat DodgeChat {
-                        Dodge
-                        "I attempted to dodge an attack."
-                    }
-                }
-            }
-            Spell[] Spells
-        }
-}
-    
-actor PC {
     // ALTERNATE SHEET LAYOUT TEST
     // PAGE 1 - Play Area [DEFAULT]
     section Resources {
         // Calculate total health for the character.
         hidden number HealthMod
         hidden number HealthRegen
-        resource Health(max: {
+        health resource Health(max: {
             return self.Warrior + 6 + self.HealthMod
         })
         hidden number FateMod
@@ -198,6 +21,10 @@ actor PC {
                 return 1 + self.FateMod
             }
             return self.Rogue + self.FateMod
+        })
+        string TestReadout(value: "Test")
+        string ManaReadout(value: {
+            return self.Mana + " Mana left"
         })
         hidden number ManaMult(min: 1, initial: 2)
         hidden number ManaMod
@@ -257,7 +84,64 @@ actor PC {
     Language[] Languages
     // PAGE 2 -- MAGIC
     page Magic(icon: "fa-solid fa-sparkles", background: temple) {
-        number SpellsIKnow
+        section Spellcasting {
+            readonly number ManaCostPenalty(value: {return self.ArmorPenalty/2})
+            readonly number SpellCastPenalty(value: {return self.ArmorPenalty/2})
+            Spell Spell
+            number Enhancements
+            readonly number EnhancementCost(value: {
+                if (self.Spell exists) {return self.Spell.system.mana / 2 * self.Enhancements}
+                else {return 0}
+            })
+            number ManaCost(value: {
+                if (self.Spell exists) {return self.Spell.system.mana + self.ManaCostPenalty + self.Enhancements}
+                else {return 0}
+            })
+            number CastDL
+        }
+        section SpellRoller {
+            // SPELL ROLLER HERE
+        string CastingAbility(choices: ["Warrior","Rogue","Mage"])
+        string CastAdvantage(choices: ["None","Advantage","Disadvantage"])
+        Skill CastingSkill
+        hidden number CastBase(value:{
+            if (self.CastingSkill exists) {return self.Skill.system.skillbase}
+            else {return 0}
+        })
+        number CastBonus(value:{
+            if (self.CastingSkill exists) {return self.Skill.system.skilltotal}
+            else {return 0}
+        })
+        number CastModifier
+        action CastSpell {
+            fleeting Level = "None"
+            if (self.Skill exists) {Level = self.Skill.system.skilllevel}
+            fleeting Skill = "None"
+            if (self.Skill exists) {Skill = self.Skill.name}
+            fleeting Roll = roll(d6)
+            if (self.Advantage == "None") {
+                if (self.SkillBase > 0) {Roll = roll(1d6x + self[self.Ability] + self.SkillBonus + self.OtherModifier)}
+                else {Roll = roll(1d6 + self[self.Ability] + self.OtherModifier)}
+            }
+            if (self.Advantage == "Advantage") {
+                if (self.Skill.system.Trained) {Roll = roll(2d6xkh + self[self.Ability] + self.SkillBonus + self.OtherModifier)}
+                else {Roll = roll(2d6kh + self[self.Ability] + self.OtherModifier)}
+            }
+            if (self.Advantage == "Disadvantage") {
+                if (self.Skill.system.Trained) {Roll = roll(2d6xkl + self[self.Ability] + self.SkillBonus + self.OtherModifier)}
+                else {Roll = roll(2d6kl + self[self.Ability] + self.OtherModifier)}
+            }
+            chat RollOutcome {
+                Roll
+                tag self.Ability
+                tag Skill
+                tag Level
+                tag self.Advantage
+            }
+        }
+            string SpellsGo(choices: ["Brr","Zap","Woosh","WooWooooo"])
+        }
+        number SpellsKnown
         Spell[] Spells
         Talent[] Talents
     }
@@ -277,7 +161,7 @@ actor PC {
         })
     }
         Weapon[] Weapons
-        Armor[] Armor
+        Armor[] Armors
         Consumable[] Consumables
         Item[] OtherItems
     }
@@ -293,7 +177,13 @@ actor PC {
         }
         section Progression {
             number Advancements(min:0)
-            readonly number MajorAdv(min: 0, value: {return self.Advancements / 4})
+            readonly number MajorAdv(min: 0, value: {
+                fleeting majAdv = Math.floor(self.Advancements / 4)
+                fleeting randomBonus = Math.random()
+                fleeting randomBonus2 = Math.random()
+                fleeting smallerBonus = Math.min(randomBonus, randomBonus2)
+                return majAdv + smallerBonus
+            })
             number BonusAdv
         }
         Advancement[] Advancements
@@ -356,24 +246,30 @@ item Weapon {
     section Qualities {
         number AttackMod
         number DamageMod
-        number Dice
-        number DiceMod
+        number DiceCount
         string Limit(choices: [ "None","Max5","Max4","Max3"])
+        string DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"])
     }
-action Attack {
-        fleeting hasSkill = false
-        each skill in parent.system.skills {
-            if (skill.Name equals self.Skill) {
-                hasSkill = true
-            }
+action Damage {
+        fleeting damageRoll = roll((self.DiceCount)d6x + self.DamageMod)
+
+        // Roll is #d6x [modified] + Damage Mod (6s explode)
+        // Damage mods can be: Max5, Max4, Max3
+        // Damage can have a type.
+        if (self.Limit == "Max5") {
+            damageRoll = roll((self.DiceCount)d6xmin1max5 + self.DamageMod)
         }
+        else if (self.Limit == "Max4") {
+            damageRoll = roll((self.DiceCount)d6xmin1max4 + self.DamageMod)
+        }
+        else if (self.Limit == "Max3") {
+            damageRoll = roll((self.DiceCount)d6xmin1max3 + self.DamageMod)
+        }
+
         chat AttackOutcome {
-            hasSkill
+            damageRoll
+            self.DamageType
         }
-        // Roll is 1d6 + self.Ability + Weapon Skill.
-        // Can we make it check against the defense of the target actor?
-        // Damage should be automatically rolled on a hit?
-        // Option to turn a miss into a hit with a button?
     }
 }
 
@@ -477,7 +373,7 @@ item Advancement {
 item Armor {
     number ArmorRating(max: {return 10})
     string ArmorState(choices:["Good","Worn","Battered","Damaged","Ruined"])
-    readonly number ArmorReduction(value: {
+    hidden number ArmorReduction(value: {
         if (self.ArmorState == "Good") {return 0}
         if (self.ArmorState == "Worn") {return 0}
         if (self.ArmorState == "Battered") {return self.ArmorRating / 4}

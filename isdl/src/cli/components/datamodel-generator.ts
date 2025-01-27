@@ -4,6 +4,7 @@ import type {
     Document,
     Page,
     Section,
+    StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -21,6 +22,7 @@ import {
     isNumberParamMin,
     isNumberParamMax,
     isPage,
+    isStringParamChoices,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -58,11 +60,12 @@ export function generateDocumentDataModel(config: Config, document: Document, de
             `;
         }
         if (isStringExp(property)) {
-            if (property.choices != undefined && property.choices.length > 0) {
+            let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
+            if (choices != undefined && choices.choices.length > 0) {
                 return expandToNode`
                     ${property.name.toLowerCase()}: new fields.StringField({
-                        choices: [${property.choices.map(x => `"${toMachineIdentifier(x)}"`).join(", ")}],
-                        initial: "${toMachineIdentifier(property.choices[0])}"
+                        choices: [${choices.choices.map(x => `"${toMachineIdentifier(x)}"`).join(", ")}],
+                        initial: "${toMachineIdentifier(choices.choices[0])}"
                     }),
                 `;
             }

@@ -4,6 +4,7 @@ import type {
     Entry,
     Page,
     Section,
+    StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
     isSection,
@@ -11,6 +12,7 @@ import {
     isAction,
     isProperty,
     isPage,
+    isStringParamChoices,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -34,7 +36,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             "${document.name.toLowerCase()}": "${humanize(document.name)}",
             "${document.name}": {
                 "${document.name}": "${humanize(document.name)}" ${document.body.length > 0 ? ',' : ''}
-                ${joinToNode(document.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ','})}  
+                ${joinToNode(document.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}  
             }
         `;
     }
@@ -58,14 +60,18 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         if (isProperty(property)) {
 
             // If the property is a string with choices, we need to expand it into a list of localized strings
-            if (isStringExp(property) && property.choices != undefined && property.choices.length > 0) {
-                return expandToNode`
+            if (isStringExp(property)) {
+                let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
+                if (choices != undefined && choices.choices.length > 0) {
+                    return expandToNode`
                     "${property.name}": {
                         "label": "${humanize(property.name)}",
-                        ${joinToNode(property.choices, choice => `"${choice}": "${choice}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                        ${joinToNode(choices.choices, choice => `"${choice}": "${choice}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
                     }
                 `;
+                }
             }
+
             return expandToNode`
                 "${property.name}": "${humanize(property.name)}"
             `;
@@ -100,7 +106,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 "NoTokenSelected": "No Token is currently selected",
                 "NoTokenTargeted": "No Token is currently targeted"
             },
-            ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ','})}
+            ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
         }
     `.appendNewLineIfNotEmpty();
 

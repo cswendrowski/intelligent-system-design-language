@@ -8,6 +8,9 @@ import {
     NumberExp,
     Page,
     ResourceExp,
+    isStringExp,
+    isStringParamValue,
+    StringParamValue,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -50,6 +53,28 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
             if (isPage(property)) {
                 return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
+            }
+
+            if (isStringExp(property)) {
+                let stringValue = property.params.find(p => isStringParamValue(p)) as StringParamValue;
+                if (stringValue != undefined) {
+                    if (stringValue.value == "") return;
+                    if (typeof stringValue.value == "string") {
+                        return expandToNode`
+                            // ${property.name} String Derived Data
+                            this.system.${property.name.toLowerCase()} = "${stringValue.value}";
+                        `.appendNewLineIfNotEmpty();
+                    }
+                    else {
+                        return expandToNode`
+                        // ${property.name} String Derived Data
+                        const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                            ${translateExpression(entry, id, stringValue.value, true, property)}
+                        };
+                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                        `.appendNewLineIfNotEmpty();
+                    }
+                }
             }
 
             if (isNumberExp(property)) {

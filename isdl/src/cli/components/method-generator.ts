@@ -26,6 +26,7 @@ import type {
     ClassExpression,
     VariableAccess,
     MathExpression,
+    StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -80,6 +81,7 @@ import {
     isMathEmptyExpression,
     isMathSingleExpression,
     isMathParamExpression,
+    isStringParamChoices,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
@@ -926,12 +928,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
             }
 
             if (isStringExp(expression)) {
-                if (expression.choices != undefined && expression.choices.length > 0) {
+                let choices = expression.params.find(x => isStringParamChoices(x)) as StringParamChoices;
+                if (choices != undefined && choices.choices.length > 0) {
                     return expandToNode`
                         <div class="form-group">
                             <label>${humanize(expression.name)}</label>
                             <select name="${expression.name.toLowerCase()}">
-                                ${joinToNode(expression.choices, (choice) => expandToNode`
+                                ${joinToNode(choices.choices, (choice) => expandToNode`
                                     <option value="${choice}">${choice}</option>
                                 `)}
                             </select>

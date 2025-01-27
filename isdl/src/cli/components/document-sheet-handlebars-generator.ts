@@ -10,6 +10,10 @@ import {
     isBackgroundParam,
     BackgroundParam,
     ResourceExp,
+    isStringParamChoices,
+    StringParamChoices,
+    StringParamValue,
+    isStringParamValue,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -117,13 +121,17 @@ export function generateDocumentHandlebars(document: Document, destination: stri
 
         if ( isStringExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
+            let stringValue = property.params.find(x => isStringParamValue(x)) as StringParamValue;
+            let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
 
-            if (property.choices != undefined && property.choices.length > 0) {
+            let disabled = property.modifier == "readonly" || stringValue != undefined || !edit;
+
+            if (choices != undefined && choices.choices.length > 0) {
                 return expandToNode`
                     {{!-- String ${property.name} --}}
                     <div class="form-group property stringExp" data-name="system.${property.name.toLowerCase()}">
                         <label>{{ localize "${document.name}.${property.name}.label" }}</label>
-                        <select name="system.${property.name.toLowerCase()}" ${property.modifier == "readonly" || !edit? "disabled='disabled'" : ""}>
+                        <select name="system.${property.name.toLowerCase()}" ${disabled ? "disabled='disabled'" : ""}>
                             {{selectOptions ${property.name.toLowerCase()}Choices selected=document.system.${property.name.toLowerCase()} localize=true}}
                         </select>
                     </div>
@@ -134,7 +142,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 {{!-- String ${property.name} --}}
                 <div class="form-group property stringExp" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    <input name="system.${property.name.toLowerCase()}" type="text" value="{{document.system.${property.name.toLowerCase()}}}" placeholder="${property.name}" ${property.modifier == "readonly" || !edit ? "disabled='disabled'" : ""} />
+                    <input name="system.${property.name.toLowerCase()}" type="text" value="{{document.system.${property.name.toLowerCase()}}}" placeholder="${property.name}" ${disabled ? "disabled='disabled'" : ""} />
                 </div>
             `.appendNewLine().appendNewLine();
         }
@@ -313,10 +321,13 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 const isHidden = property.modifier == "hidden";
                 if (isHidden) return undefined;
 
-                if ( isStringExp(property) && property.choices != undefined && property.choices.length > 0 ) {
-                    return expandToNode`
-                        <th>{{ localize "${refDoc?.ref?.name}.${property.name}.label" }}</th>
-                    `;
+                if (isStringExp(property)) {
+                    let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
+                    if (choices != undefined && choices.choices.length > 0 ) {
+                        return expandToNode`
+                            <th>{{ localize "${refDoc?.ref?.name}.${property.name}.label" }}</th>
+                        `;
+                    }
                 }
                 return expandToNode`
                     <th>{{ localize "${refDoc?.ref?.name}.${property.name}" }}</th>

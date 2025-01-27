@@ -17,6 +17,8 @@ import {
     isPage,
     isBackgroundParam,
     BackgroundParam,
+    isStringParamChoices,
+    StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -72,13 +74,17 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
 
     let html = getAllOfType<HtmlExp>(document.body, isHtmlExp);
 
-    let stringChoices = getAllOfType<StringExp>(document.body, (property) => isStringExp(property) && property.choices != undefined && property.choices.length > 0);
+    let stringChoices = getAllOfType<StringExp>(document.body, (property) => isStringExp(property) && property.params.find(p => isStringParamChoices(p)) != undefined && (property.params.find(p => isStringParamChoices(p)) as StringParamChoices)!.choices.length > 0);
 
     function generateStringChoices(property: StringExp): CompositeGeneratorNode | undefined {
         // We need to map an array of form [ "A", "B", "C" ] to an object of form { A: "A", B: "B", C: "C" }
+        let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
+        if (choices == undefined) {
+            return undefined;
+        }
         return expandToNode`
             context.${property.name.toLowerCase()}Choices = {
-                ${joinToNode(property.choices, x => expandToNode`${toMachineIdentifier(x)}: "${document.name}.${property.name}.${x}",`.appendNewLineIfNotEmpty())}
+                ${joinToNode(choices.choices, x => expandToNode`${toMachineIdentifier(x)}: "${document.name}.${property.name}.${x}",`.appendNewLineIfNotEmpty())}
             };
         `;
     }

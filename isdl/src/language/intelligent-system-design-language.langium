@@ -219,7 +219,7 @@ Group:      '(' ge=Expression ')';
 // negated expression
 NegExpression:    ('-'|'!') ne=Expression;
 
-StringExp: ExpressionModifier "string" name=ID ("(" "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]" ")")?;
+StringExp: ExpressionModifier "string" name=ID StringParameters;
 
 NumberExp: ExpressionModifier "number" name=ID NumberParameters;
 
@@ -241,6 +241,18 @@ SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
 
 fragment ExpressionModifier:
     (modifier=("hidden" | "readonly"))?;
+
+fragment StringParameters:
+    ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
+
+StringParameter:
+    (StringParamChoices | StringParamValue);
+
+StringParamValue:
+    "value:" value=(STRING | MethodBlock);
+
+StringParamChoices:
+    "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]";
 
 fragment NumberParameters:
     ("(" params+=NumberParameter* ("," params+=NumberParameter)* ")")?;
