@@ -31,17 +31,17 @@ export function generateChatCardClass(entry: Entry, destination: string) {
 
                 // If the type is temp, add to the temp health.
                 if ( type === 'temp' ) {
-                    update['${getSystemPath(healthResource, ['temp'])}'] = target.actor.${getSystemPath(healthResource, ['temp'])} + roll;
+                    update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} + roll;
                     break;
                 }
 
                 // If the type is damage and we have temp health, apply to temp health first.
-                if ( type === 'damage' && target.actor.${getSystemPath(healthResource, ['temp'])} > 0 ) {
-                    update['${getSystemPath(healthResource, ['temp'])}'] = target.actor.${getSystemPath(healthResource, ['temp'])} - roll;
+                if ( type === 'damage' && target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} > 0 ) {
+                    update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} - roll;
 
-                    if ( update['${getSystemPath(healthResource, ['temp'])}'] < 0 ) {
-                        update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} + update['${getSystemPath(healthResource, ['temp'])}'];
-                        update['${getSystemPath(healthResource, ['temp'])}'] = 0;
+                    if ( update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] < 0 ) {
+                        update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} + update['${getSystemPath(healthResource, ['temp'], undefined, false)}'];
+                        update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = 0;
                     }
                 }
                 else {

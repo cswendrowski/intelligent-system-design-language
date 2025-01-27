@@ -15,7 +15,7 @@ export function toMachineIdentifier(s: string): string {
     return s.replace(/[^a-zA-Z0-9]/g, '');
 }
 
-export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], propertyLookup: Property | undefined = undefined): string {
+export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], propertyLookup: Property | undefined = undefined, safeAccess=true): string {
     // Not all references are to the baseline - resources and attributes have sub-paths
     if (reference == undefined) {
         return "";
@@ -35,7 +35,12 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     if (subProperties.length > 0) {
         let systemPath = `${basePath}${reference.name.toLowerCase()}`;
         for (const subProperty of subProperties) {
-            systemPath = `${systemPath}?.${subProperty}`;
+            if (safeAccess) {
+                systemPath = `${systemPath}?.${subProperty}`;
+            }
+            else {
+                systemPath = `${systemPath}.${subProperty}`;
+            }
         }
         return systemPath;
     }

@@ -27,6 +27,7 @@ import type {
     VariableAccess,
     MathExpression,
     StringParamChoices,
+    ResourceAccess,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -82,6 +83,7 @@ import {
     isMathSingleExpression,
     isMathParamExpression,
     isStringParamChoices,
+    isResourceAccess,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
@@ -326,6 +328,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
+    function translateResourceAccessExpression(expression: ResourceAccess): CompositeGeneratorNode | undefined {
+        console.log("Translating Resource Access Expression: " + expression.property?.ref?.name);
+
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+
+        console.log("System Path: ", systemPath);
+
+        return expandToNode`
+            ${systemPath}
+        `;
+    }
+
     function translateIfStatement(expression: IfStatement): CompositeGeneratorNode | undefined {
         //console.log("Translating If Statement: ");
 
@@ -437,9 +451,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isNegExpression(expression)) {
         return translateNegatedExpression(expression as NegExpression);
     }
+    if (isResourceAccess(expression)) {
+        return translateResourceAccessExpression(expression as ResourceAccess);
+    }
     if (isAccess(expression)) {
         return translateAccessExpression(expression as Access, generatingProperty);
     }
+
     if (isParentAccess(expression)) {
         let path = "this.object.parent";
         if ( expression.propertyLookup != undefined ) {

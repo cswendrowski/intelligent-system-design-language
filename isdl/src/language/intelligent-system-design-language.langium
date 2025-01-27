@@ -37,8 +37,11 @@ Property:
 fragment Self:
     (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
 
+ResourceAccess:
+ ("self." property=[ResourceExp:ID]) ("." subProperties+=("min" | "max"))?;
+
 Access:
-    Self;
+    Self | ResourceAccess;
 
 FleetingAccess:
     variable=[VariableExpression] (("." subProperty=ID)? | ("[" arrayAccess=Expression "]")?);
