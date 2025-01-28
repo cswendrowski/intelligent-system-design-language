@@ -490,6 +490,84 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     };
                     ChatMessage.create(chatData);
                 }
+
+                /* -------------------------------------------- */
+                
+                static async createDialog(data = {}, { parent = null, pack = null, types = null, ...options } = {}) {
+                    types ??= game.documentTypes[this.documentName].filter(t => (t !== CONST.BASE_DOCUMENT_TYPE) && (CONFIG[this.documentName].typeCreatables[t] !== false));
+                    if (!types.length) return null;
+
+                    const collection = parent ? null : pack ? game.packs.get(pack) : game.collections.get(this.documentName);
+                    const folders = collection?._formatFolderSelectOptions() ?? [];
+
+                    const label = game.i18n.localize(this.metadata.label);
+                    const title = game.i18n.format("DOCUMENT.Create", { type: label });
+                    const name = data.name || game.i18n.format("DOCUMENT.New", { type: label });
+
+                    let type = data.type || CONFIG[this.documentName]?.defaultType;
+                    if (!types.includes(type)) type = types[0];
+
+                    // If there's only one type, no need to prompt
+                    if (types.length === 1) {
+                        let createName = this.defaultName();
+                        const createData = {
+                            name: createName,
+                            type
+                        };
+                        return this.create(createData, { parent, pack, renderSheet: true });
+                    }
+
+                    const content = await renderTemplate("systems/wrm/system/templates/document-create.hbs", {
+                        folders, name, type,
+                        folder: data.folder,
+                        hasFolders: folders.length > 0,
+                        types: types.reduce((arr, typer) => {
+                            arr.push({
+                                type: typer,
+                                label: game.i18n.has(typer) ? game.i18n.localize(typer) : typer,
+                                icon: this.getDefaultArtwork({ typer })?.img ?? "icons/svg/item-bag.svg",
+                                description: CONFIG[this.documentName]?.typeDescriptions?.[typer] ?? "",
+                                selected: type === typer
+                            });
+                            return arr;
+                        }, []).sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang))
+                    });
+                    return Dialog.prompt({
+                        title, content,
+                        label: title,
+                        render: html => {
+                            const app = html.closest(".app");
+                            const folder = app.querySelector("select");
+                            if (folder) app.querySelector(".dialog-buttons").insertAdjacentElement("afterbegin", folder);
+                            app.querySelectorAll(".window-header .header-button").forEach(btn => {
+                                const label = btn.innerText;
+                                const icon = btn.querySelector("i");
+                                btn.innerHTML = icon.outerHTML;
+                                btn.dataset.tooltip = label;
+                                btn.setAttribute("aria-label", label);
+                            });
+                            app.querySelector(".document-name").select();
+                        },
+                        callback: html => {
+                            const form = html.querySelector("form");
+                            const fd = new FormDataExtended(form);
+                            const createData = foundry.utils.mergeObject(data, fd.object, { inplace: false });
+                            if (!createData.folder) delete createData.folder;
+                            if (!createData.name?.trim()) createData.name = this.defaultName();
+                            return this.create(createData, { parent, pack, renderSheet: true });
+                        },
+                        rejectClose: false,
+                        options: { ...options, jQuery: false, width: 700, classes: ["${id}", "create-document", "dialog"] }
+                    });
+                }
+
+                /* -------------------------------------------- */
+
+                static getDefaultArtwork(itemData = {}) {
+                    const { type } = itemData;
+                    const { img } = super.getDefaultArtwork(itemData);
+                    return { img: CONFIG[this.documentName]?.typeArtworks?.[type] ?? img };
+                }
             }
             `.appendNewLineIfNotEmpty();
         fs.writeFileSync(generatedFilePath, toString(fileNode));

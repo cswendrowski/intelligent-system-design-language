@@ -5,7 +5,7 @@ config wrm {
     author = "Roman Trevisanut"
 }
 
-actor Character {
+actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character") {
     // ALTERNATE SHEET LAYOUT TEST
     // PAGE 1 - CHARACTER [DEFAULT]
     section Warrior {
@@ -418,14 +418,14 @@ item Spell {
 }
 
 // ADVANCEMENT
-item Advancement {
+item Advancement(creatable: false) {
     string AdvancementType(choices: ["Standard","Major"])
     string AwardDate
     string IngameDate
 }
 
 // ARMOR
-item Armor {
+item Armor(svg: "icons/svg/shield.svg", description: "A piece of protective gear", default: true) {
     number ArmorRating(max: {return 10})
     string ArmorState(choices:["Good","Worn","Battered","Damaged","Ruined"])
     hidden number ArmorReduction(value: {

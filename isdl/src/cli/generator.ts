@@ -1,8 +1,17 @@
 import {
+    Actor,
     Document,
     Entry,
     HtmlExp,
+    isDocumentCreatableParam,
+    isDocumentDefaultParam,
+    isDocumentDescriptionParam,
+    isDocumentSvgParam,
+    Item,
     ResourceExp,
+    DocumentCreatableParam,
+    DocumentSvgParam,
+    DocumentDescriptionParam
 } from '../language/generated/ast.js';
 import {
     isActor,
@@ -64,6 +73,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateRenderChatLogHookMjs(entry, id, data.destination);
     generateExtendedRoll(entry, id, data.destination);
     generateContextMenu2(entry, id, data.destination);
+    generateDocumentCreateHbs(entry, id, data.destination);
 
     // Documents
     entry.documents.forEach(x => {
@@ -296,6 +306,18 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         `;
     }
 
+    let actorDocs = entry.documents.filter(d => isActor(d)).map(d => d as Actor);
+    let actorDefaultType = actorDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value.toLowerCase() == "true"))?.name.toLowerCase() ?? actorDocs[0]?.name.toLowerCase();
+    let actorArtworks = actorDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
+    let actorDescriptions = actorDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
+    let actorCreatables = actorDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
+
+    let itemDocs = entry.documents.filter(d => isItem(d)).map(d => d as Item);
+    let itemDefaultType = itemDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value.toLowerCase() == "true"))?.name.toLowerCase() ?? itemDocs[0]?.name.toLowerCase();
+    let itemArtworks = itemDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
+    let itemDescriptions = itemDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
+    let itemCreatables = itemDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
+
     const fileNode = expandToNode`
         ${joinToNode(entry.documents, document => `import ${document.name}TypeDataModel from "../datamodels/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}Sheet from "../sheets/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
@@ -312,6 +334,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerDataModels();
             registerDocumentSheets();
             registerDocumentClasses();
+            registerTypeInfo();
             registerHandlebarsHelpers();
             registerResourceBars();
         }
@@ -380,6 +403,34 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         function registerDocumentClasses() {
             CONFIG.Actor.documentClass = ${entry.config.name}Actor;
             CONFIG.Item.documentClass = ${entry.config.name}Item;
+        }
+
+        /* -------------------------------------------- */
+
+        function registerTypeInfo() {
+            CONFIG.Actor.defaultType = "${actorDefaultType}";
+            CONFIG.Item.defaultType = "${itemDefaultType}";
+
+            CONFIG.Actor.typeArtworks = {
+                ${joinToNode(actorArtworks, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            }
+            CONFIG.Item.typeArtworks = {
+                ${joinToNode(itemArtworks, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            }
+
+            CONFIG.Actor.typeDescriptions = {
+                ${joinToNode(actorDescriptions, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentDescriptionParam(p)) as DocumentDescriptionParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            }
+            CONFIG.Item.typeDescriptions = {
+                ${joinToNode(itemDescriptions, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentDescriptionParam(p)) as DocumentDescriptionParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            }
+
+            CONFIG.Actor.typeCreatables = {
+                ${joinToNode(actorCreatables, document => `"${document.name.toLowerCase()}": ${(document.params.find(p => isDocumentCreatableParam(p)) as DocumentCreatableParam)?.value}`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            }
+            CONFIG.Item.typeCreatables = {
+                ${joinToNode(itemCreatables, document => `"${document.name.toLowerCase()}": ${(document.params.find(p => isDocumentCreatableParam(p)) as DocumentCreatableParam)?.value}`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            }
         }
 
         /* -------------------------------------------- */
@@ -785,4 +836,40 @@ function generateContextMenu2(entry: Entry, id: string, destination: string) {
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }
- 
+
+function generateDocumentCreateHbs(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates");
+    const generatedFilePath = path.join(generatedFileDir, `document-create.hbs`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <form id="document-create" autocomplete="off">
+        <header>
+            <input type="text" class="document-name uninput" name="name" value="{{ name }}" autofocus
+                placeholder="{{ localize 'Name' }}">
+            {{#if hasFolders}}
+            <select class="unselect" name="folder" form="document-create">
+                {{ selectOptions folders selected=folder labelAttr="name" valueAttr="id"
+                                blank=(localize "DOCUMENT.Folder") }}
+            </select>
+            {{/if}}
+        </header>
+        <ol class="unlist card">
+            {{#each types}}
+            <li data-tooltip="{{ description }}">
+                <label>
+                    <img src="{{ icon }}" alt="{{ label }}">
+                    <span>{{ label }}</span>
+                    <input type="radio" name="type" value="{{ type }}" required {{#if selected}}checked{{/if}}>
+                </label>
+            </li>
+            {{/each}}
+        </ol>
+    </form>
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}

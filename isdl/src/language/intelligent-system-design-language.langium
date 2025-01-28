@@ -10,11 +10,25 @@ Document:
     Actor | Item;
 
 Actor:
-    "actor" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? ClassBlock;
+    "actor" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ClassBlock;
 
 Item:
-    "item" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? ClassBlock;
+    "item" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ClassBlock;
 
+DocumentParam:
+    (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam | DocumentCreatableParam | DocumentDefaultParam);
+
+DocumentSvgParam:
+    "svg:" value=STRING;
+
+DocumentDescriptionParam:
+    "description:" value=STRING;
+
+DocumentCreatableParam:
+    "creatable:" value=BOOLEAN;
+
+DocumentDefaultParam:
+    "default:" value=BOOLEAN;
 
 fragment ClassBlock:
     "{" body+=(ClassExpression | Section | Page)* "}";
