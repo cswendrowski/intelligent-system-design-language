@@ -102,6 +102,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             if (property.modifier == "hidden") return expandToNode``;
 
             let disabled = property.modifier == "readonly" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
             if (property.params.find(x => isNumberParamValue(x)) != undefined) { 
                 disabled = true;
             }
@@ -273,6 +274,8 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         }
 
         if (isSingleDocumentExp(property)) {
+            let disabled = property.modifier == "readonly" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
             return expandToNode`
                 {{!-- Single Document ${property.name} --}}
                 <div class="form-group property single-document" data-name="system.${property.name.toLowerCase()}" data-type="${property.document.ref?.name.toLowerCase()}">
@@ -280,7 +283,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     {{#if ${property.name.toLowerCase()}HasContentLink}}
                     <div class="single-document-content">
                         {{{${property.name.toLowerCase()}ContentLink}}}
-                        ${edit ? `<a class="single-document-remove" data-name="system.${property.name.toLowerCase()}" data-action="remove" style="flex: 0;margin-left: 0.25rem;"><i class="fa-solid fa-delete-left"></i></a>` : ""}
+                        ${!disabled ? `<a class="single-document-remove" data-name="system.${property.name.toLowerCase()}" data-action="remove" style="flex: 0;margin-left: 0.25rem;"><i class="fa-solid fa-delete-left"></i></a>` : ""}
                     </div>
                     {{else}}
                     <p class="single-document-none">{{ localize "NoSingleDocument" }}</p>

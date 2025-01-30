@@ -257,7 +257,7 @@ DocumentArrayExp: ExpressionModifier document=[Document:ID] "[]" name=ID ("(" pa
 SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
 
 fragment ExpressionModifier:
-    (modifier=("hidden" | "readonly"))?;
+    (modifier=("hidden" | "readonly" | "unlocked"))?;
 
 fragment StringParameters:
     ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;

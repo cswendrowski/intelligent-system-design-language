@@ -5,7 +5,7 @@ config wrm {
     author = "Roman Trevisanut"
 }
 
-actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character") {
+actor Character {
     // ALTERNATE SHEET LAYOUT TEST
     // PAGE 1 - CHARACTER [DEFAULT]
     section Warrior {
@@ -24,9 +24,9 @@ actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character
         readonly number ManaMult(initial: 2)
     }
     section Progression {
-            number Advancements(min: 0)
+            number Advances(min: 0)
             readonly number MajorAdv(min: 0, value: {
-                @js{let mAdv = Math.floor(system.advancements / 4);}
+                @js{let mAdv = Math.floor(system.advances / 4);}
                 return @js{mAdv}
                 })
             number BonusAdv(min: 0)
@@ -59,7 +59,7 @@ actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character
                 Score
                 }
         }
-        action HealthReset(icon: "fa-solid fa-clover", disabled: self.Health equals self.Health.max) {
+        action HPReset(icon: "fa-solid fa-clover", disabled: self.Health == self.Health.max) {
             self.Health = self.Health.max
             chat FateReset {"I've reset my Health points to " self.Health + "."}
             }
@@ -67,13 +67,16 @@ actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character
             self.Fate = self.Fate.max
             chat FateReset {"I've reset my Fate points to " self.Fate + "."}
             }
-        action ManaReset(icon: "fa-solid fa-clover", disabled: self.Mana == self.Mana.max) {
+        action MPReset(icon: "fa-solid fa-clover", disabled: self.Mana == self.Mana.max) {
             self.Mana = self.Mana.max
             chat ManaReset {"I've reset my Mana points to " self.Mana + "."}
             }
     }
+    Advancement[] Advancements
     Skill[] Skills
+    Talent[] Talents
     Language[] Languages
+    Project[] Projects
     // Page 2 -- Belongings
     page Belongings(icon: "fa-solid fa-backpack", background: diamonds) {
     section Armor {
@@ -95,10 +98,21 @@ actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character
         number Investments
         readonly number MonthlyIncome(value: {return 300 * self.Investments})
     }
-        Weapon[] Weapons
-        Armor[] Armors
-        Consumable[] Consumables
-        Item[] OtherItems
+    section Accessories {
+        Equipment Headwear
+        Equipment Cloak
+        Equipment Outwear
+        Equipment Clothing
+        Equipment Gloves
+        Equipment Belt
+        Equipment Footwear
+        Equipment RingLeft
+        Equipment RingRight
+        Equipment Necklace
+        Equipment BraceletLeft
+        Equipment BraceletRight
+    }
+    Equipment[] Wearables
     }
     // PAGE 3 -- COMBAT
     page Combat(icon: "fa-solid fa-swords") {
@@ -150,7 +164,25 @@ actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character
                 tag self.Advantage
             }
         }
+    unlocked Skill QuickSkill1
+    unlocked Skill QuickSkill2
+    unlocked Skill QuickSkill3
+    unlocked Skill QuickSkill4
     }
+    section QuickItems{
+    Weapon Unarmed
+    Weapon OnBack
+    Weapon LeftHip
+    Weapon RightHip
+    Consumable Belt1
+    Consumable Belt2
+    Consumable Belt3
+    }
+    Armor[] Armors
+    Consumable[] Consumables
+    Skill[] Skills
+    Talent[] Talents
+    Weapon[] Weapons
     }
     // Page 4 -- MAGIC
     page Magic(icon: "fa-solid fa-sparkles", background: temple) {
@@ -235,9 +267,6 @@ actor Character(svg: "icons/svg/paralysis.svg", description: "A Player Character
             }
         }
         }
-        Skill[] Skills
-        Spell[] Spells
-        Talent[] Talents
     }
 }
 
@@ -413,19 +442,19 @@ item Spell {
         string Practice
         string CastingAbility(choices: ["Warrior", "Rogue", "Mage"])
         string CastingSkill
-        string Consumes(choices: ["Mana","Blood","Favor"])
+        string Consumes(choices: ["Mana","Blood","Other"])
     }
 }
 
 // ADVANCEMENT
-item Advancement(creatable: false) {
-    string AdvancementType(choices: ["Standard","Major"])
+item Advancement {
+    string AdvancementType(choices: ["Standard","Major","Bonus"])
     string AwardDate
     string IngameDate
 }
 
 // ARMOR
-item Armor(svg: "icons/svg/shield.svg", description: "A piece of protective gear", default: true) {
+item Armor {
     number ArmorRating(max: {return 10})
     string ArmorState(choices:["Good","Worn","Battered","Damaged","Ruined"])
     hidden number ArmorReduction(value: {
@@ -450,8 +479,14 @@ item Project {
 
 }
 
-// EQUIPMENT [To be removed]
+// EQUIPMENT
 item Equipment {
-    string Type(choices: ["Armor","Ring","Footwear","Gloves","Belt","Headwear","Cloak","Neckwear"])
-    number Bonus
+    string Type(choices: ["OuterWear","Bracelet","Coat","Clothing","Ring","Footwear","Gloves","Belt","Headwear","Cloak","Neckwear"])
+    string Style
+    section ItemState {
+        string Value(choices: ["Cheap", "Modest", "Good", "Rich", "Extravagant"])
+        string Quality(choices: ["Shoddy", "Decent", "Good", "Excellent", "Fantastic","Amazing"])
+        string Structure(choices: ["New", "Decent", "Worn", "Damaged", "Ruined"])
+        string Appearance(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
+    }
 }
