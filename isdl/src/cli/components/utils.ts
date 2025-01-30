@@ -54,17 +54,19 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     return `${basePath}${reference.name.toLowerCase()}`;
 }
 
-export function getAllOfType<T extends (ClassExpression | Page | Section)>(body: (ClassExpression | Page | Section)[], comparisonFunc: (element: T) => boolean) : T[] {
+export function getAllOfType<T extends (ClassExpression | Page | Section)>(body: (ClassExpression | Page | Section)[], comparisonFunc: (element: T) => boolean, samePageOnly: boolean = false) : T[] {
     let result: T[] = [];
     const actions = body.filter(x => comparisonFunc(x as T)).map(x => x as T);
     result.push(...actions);
 
-    for (let page of body.filter(x => isPage(x)).map(x => x as Page)) {
-        result.push(...getAllOfType(page.body, comparisonFunc));
+    if (!samePageOnly) {
+        for (let page of body.filter(x => isPage(x)).map(x => x as Page)) {
+            result.push(...getAllOfType(page.body, comparisonFunc, samePageOnly));
+        }
     }
 
     for (let section of body.filter(x => isSection(x)).map(x => x as Section)) {
-        result.push(...getAllOfType(section.body, comparisonFunc));
+        result.push(...getAllOfType(section.body, comparisonFunc, samePageOnly));
     }
     
     return result;
