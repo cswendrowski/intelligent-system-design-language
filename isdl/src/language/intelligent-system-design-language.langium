@@ -43,7 +43,7 @@ ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
 
 ClassExpression:
-    (Property | Action | Access | IfStatement );
+    (Property | Action | Access | IfStatement | InitiativeProperty);
 
 Property:
     (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp);
@@ -255,6 +255,9 @@ DamageTrackExp: ExpressionModifier "damageTrack" name=ID "(" "max:" max=(MethodB
 DocumentArrayExp: ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(IconParam|WhereParam) ")")?;
 
 SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
+
+InitiativeProperty:
+    "initiative" "(" "value:" value=Expression ")";
 
 fragment ExpressionModifier:
     (modifier=("hidden" | "readonly" | "unlocked"))?;

@@ -74,6 +74,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateExtendedRoll(entry, id, data.destination);
     generateContextMenu2(entry, id, data.destination);
     generateDocumentCreateHbs(entry, id, data.destination);
+    generateCombatant(entry, id, data.destination);
 
     // Documents
     entry.documents.forEach(x => {
@@ -324,6 +325,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         import ${entry.config.name}EffectSheet from "../sheets/active-effect-sheet.mjs";
         import ${entry.config.name}Actor from "../documents/actor.mjs";
         import ${entry.config.name}Item from "../documents/item.mjs";
+        import ${entry.config.name}Combatant from "../documents/combatant.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -403,6 +405,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         function registerDocumentClasses() {
             CONFIG.Actor.documentClass = ${entry.config.name}Actor;
             CONFIG.Item.documentClass = ${entry.config.name}Item;
+            CONFIG.Combatant.documentClass = ${entry.config.name}Combatant;
         }
 
         /* -------------------------------------------- */
@@ -869,6 +872,25 @@ function generateDocumentCreateHbs(entry: Entry, id: string, destination: string
             {{/each}}
         </ol>
     </form>
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateCombatant(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "system", "documents");
+    const generatedFilePath = path.join(generatedFileDir, `combatant.mjs`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    export default class ${entry.config.name}Combatant extends Combatant {
+        _getInitiativeFormula() {
+            return String(CONFIG.Combat.initiative.formula || game.system.initiative || this.actor.getInitiativeFormula());
+        }
+    }
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

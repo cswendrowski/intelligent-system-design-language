@@ -11,6 +11,8 @@ import {
     isStringExp,
     isStringParamValue,
     StringParamValue,
+    InitiativeProperty,
+    isInitiativeProperty,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -386,6 +388,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
         `.appendNewLineIfNotEmpty();
         }
 
+        function generateInitiativeFormula(document: Document): CompositeGeneratorNode | undefined {
+            const initiativeAttribute = getAllOfType<InitiativeProperty>(document.body, isInitiativeProperty);
+            if (initiativeAttribute.length == 0) return;
+
+            var initiative = initiativeAttribute[0]?.value;
+            if (initiative == undefined) return;
+            console.log("Initiative Formula");
+            return expandToNode`
+            case "${document.name.toLowerCase()}": return "${translateExpression(entry, id, initiative, true, initiativeAttribute[0])}";
+            `.appendNewLineIfNotEmpty();
+        }
+
         const fileNode = expandToNode`
             export default class ${entry.config.name}${type} extends ${type} {
                 /** @override */
@@ -568,6 +582,25 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const { img } = super.getDefaultArtwork(itemData);
                     return { img: CONFIG[this.documentName]?.typeArtworks?.[type] ?? img };
                 }
+
+                /* -------------------------------------------- */
+
+                getRollData() {
+                    const data = super.getRollData();
+                    data.system = this.system;
+                    return data;
+                }
+
+                ${type == "Actor" ? expandToNode`
+/* -------------------------------------------- */
+
+// Blah
+getInitiativeFormula() {
+    switch ( this.type ) {
+        ${joinToNode(entry.documents.filter(d => isActor(d)), document => generateInitiativeFormula(document), { appendNewLineIfNotEmpty: true })}
+    }
+}
+`.appendNewLine() : ""}
             }
             `.appendNewLineIfNotEmpty();
         fs.writeFileSync(generatedFilePath, toString(fileNode));

@@ -14,6 +14,7 @@ import {
     StringParamChoices,
     StringParamValue,
     isStringParamValue,
+    isInitiativeProperty,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -317,7 +318,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     ${joinToNode(property.body, p => generateReferenceHeader(refDoc, p), { appendNewLineIfNotEmpty: true })}
                 `;
             }
-            if ( isHtmlExp(property) ) return undefined;
+            if ( isHtmlExp(property) || isInitiativeProperty(property) ) return undefined;
 
             if ( isProperty(property) ) {
 
@@ -346,7 +347,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     ${joinToNode(property.body, p => generateReferenceRow(refDoc, p), { appendNewLineIfNotEmpty: true })}
                 `;
             }
-            if ( isHtmlExp(property) ) return undefined;
+            if ( isHtmlExp(property) || isInitiativeProperty(property) ) return undefined;
             if ( isProperty(property) ) {
 
                 const isHidden = property.modifier == "hidden";

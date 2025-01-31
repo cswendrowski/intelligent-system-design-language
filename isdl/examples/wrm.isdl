@@ -8,6 +8,9 @@ config wrm {
 actor Character {
     // ALTERNATE SHEET LAYOUT TEST
     // PAGE 1 - CHARACTER [DEFAULT]
+
+    initiative(value: d6 + self.Rogue)
+
     section Warrior {
         number Warrior(min: 0, initial: 0, max: {return self.MaxWarrior})
         readonly number MaxWarrior(initial: 6)

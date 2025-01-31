@@ -9,6 +9,7 @@ import {
     isAttributeExp,
     isSection,
     isPage,
+    isInitiativeProperty,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -21,13 +22,17 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return "";
     }
 
+    if (isInitiativeProperty(reference)) {
+        return "initiative";
+    }
+
     // If the property is "name", that is at the base of the object, not system
     if (reference.name.toLowerCase() === "name") {
         return reference.name.toLowerCase();
     }
 
-    let basePath = "system.";
-    if (propertyLookup) {
+    let basePath = isInitiativeProperty(propertyLookup) ? "" : "system.";
+    if (propertyLookup && !isInitiativeProperty(propertyLookup)) {
         basePath = `system[${propertyLookup.name.toLowerCase()}.toLowerCase()].`;
     }
 

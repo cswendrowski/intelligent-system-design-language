@@ -1,7 +1,7 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isNumberExp, isPage, isResourceExp, isSection, isStringExp } from '../../language/generated/ast.js';
+import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isPage, isResourceExp, isSection, isStringExp } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -24,8 +24,8 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
             return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
         }
 
-        if ( isHtmlExp(property) ) return;
-        if ( property.modifier == "readonly" ) return;
+        if ( isHtmlExp(property) || isInitiativeProperty(property) ) return;
+        if ( property.modifier == "readonly" || property.modifier == "unlocked" ) return;
 
         if (isResourceExp(property)) {
             return expandToNode`
@@ -223,7 +223,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
             return joinToNode(property.body, property => generateField(document, property), { appendNewLineIfNotEmpty: true });
         }
 
-        if ( isHtmlExp(property) ) return;
+        if ( isHtmlExp(property) || isInitiativeProperty(property) ) return;
         if ( property.modifier == "readonly" ) return;
 
         if ( isNumberExp(property) ) {
