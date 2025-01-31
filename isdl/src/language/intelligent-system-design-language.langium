@@ -230,7 +230,7 @@ MathParamExpression:
 // literal
 Literal:        val=(INT|STRING|DICE|NOTHING|BOOLEAN);
 // cross-reference to a parameter
-Ref:        val=[VariableAccess:ID] ("." subProperty=ID)?;
+Ref:        val=[VariableAccess:ID] ("." subProperties+=ID)*;
 // grouped expression with parentheses
 Group:      '(' ge=Expression ')';
 // negated expression

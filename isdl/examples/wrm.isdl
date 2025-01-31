@@ -347,7 +347,7 @@ item Weapon {
         string DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"])
     }
     action Attack(icon: "fa-solid fa-crosshairs") {
-        fleeting AttackRoll = ""
+        fleeting AttackRoll = roll(d6x)
         // Set a 0 Ability just in case, and get the parent's ability.
         fleeting Ability = 0
         if (parent[self.Ability] > Ability) {Ability = parent[self.Ability]}
@@ -359,15 +359,16 @@ item Weapon {
             if (skill.Name equals self.Skill) {
                 // Get the relevant skill info: name, level, bonus.
                 hasSkill = true
-                Level = self.Skill.system.skilllevel
-                SkillBonus = self.Skill.system.skillmod
+                Level = skill.system.skilllevel
+                SkillBonus = skill.system.skillmod
             }
         }
-        if (Level == "None") {AttackRoll = roll(1d6 + self[self.Ability] + SkillBonus + self.AttackMod)}
-        else {AttackRoll = roll(1d6x + self[self.Ability] + SkillBonus + self.AttackMod)}
+        if (Level == "None") {AttackRoll = roll(1d6 + Ability + SkillBonus + self.AttackMod)}
+        else {AttackRoll = roll(1d6x + Ability + SkillBonus + self.AttackMod)}
         fleeting range = "Melee"
         if (self.RangedWeapon == true) {range = "self.Range" + " Yds"}
         chat AttackOutcome {
+            AttackRoll
             tag self.Ability
             tag self.Skill
             tag Level

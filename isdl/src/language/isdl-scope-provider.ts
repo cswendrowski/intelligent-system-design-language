@@ -1,5 +1,5 @@
 import { AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { isAccess, isAssignment, isDocument, isProperty, isStatusProperty, Property, StatusProperty } from "./generated/ast.js";
+import { isAccess, isAssignment, isDocument, isParentAccess, isProperty, isStatusProperty, Property, StatusProperty } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -13,7 +13,7 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
     
     override getScope(context: ReferenceInfo): Scope {
 
-        if (isAccess(context.container) || isAssignment(context.container)) {
+        if (isAccess(context.container) || isAssignment(context.container) || isParentAccess(context.container)) {
             return this.getAccessScope(context);
         }
 
@@ -44,6 +44,7 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         // if (eachExp != undefined) {
         //     const eachVariable = eachExp.var;
         //     if (eachVariable != undefined) {
+        //         console.log("Adding each variable to scope: " + eachVariable.name);
         //         descriptions.push(this.astNodeDescriptionProvider.createDescription(eachVariable, eachVariable.name));
         //     }
         // }

@@ -283,12 +283,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
     function translateReferenceExpression(expression: Ref): CompositeGeneratorNode | undefined {
         let accessPath = expression.val.ref?.name;
         console.log("Translating Reference Expression: " + accessPath);
-        if (expression.subProperty != undefined) {
-            if (expression.subProperty.toLowerCase() == "name") {
+        for (const subProperty of expression.subProperties ?? []) {
+            if (subProperty.toLowerCase() == "name") {
                 accessPath = `${accessPath}.name`;
             }
             else {
-                accessPath = `${accessPath}.system.${expression.subProperty.toLowerCase()}`;
+                accessPath = `${accessPath}.${subProperty}`;
             }
         }
         console.log("Access Path: ", accessPath);
@@ -671,9 +671,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (expression.val.ref == undefined) {
                     return;
                 }
-                if (expression.subProperty != undefined) {
+                if (expression.subProperties != undefined  && expression.subProperties.length > 0) {
                     return expandToNode`
-                        "@${expression.val.ref?.name}${expression.subProperty.toLowerCase()}[${humanize(expression.subProperty)}]"
+                        "@${expression.val.ref?.name}${expression.subProperties[0].toLowerCase()}[${humanize(expression.subProperties[0])}]"
                     `;
                 }
 
@@ -878,14 +878,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (expression.val.ref == undefined) {
                     return;
                 }
-                if (expression.subProperty != undefined) {
+                if (expression.subProperties != undefined && expression.subProperties.length > 0) {
                     return expandToNode`
-                        "${expression.val.ref?.name}${expression.subProperty.toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperty.toLowerCase()}
+                        "${expression.val.ref?.name.toLowerCase()}${expression.subProperties[0].toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperties[0].toLowerCase()}
                     `;
                 }
                 console.log(expression.val.ref?.name, expression.val.ref?.$type);
                 return expandToNode`
-                    "${expression.val.ref?.name}": ${expression.val.ref?.name}
+                    "${expression.val.ref?.name.toLowerCase()}": ${expression.val.ref?.name}
                 `;
             }
 
