@@ -1,5 +1,6 @@
 import type {
     ClassExpression,
+    Document,
     Page,
     Property,
     Section,
@@ -10,6 +11,7 @@ import {
     isSection,
     isPage,
     isInitiativeProperty,
+    isDocument,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -59,7 +61,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     return `${basePath}${reference.name.toLowerCase()}`;
 }
 
-export function getAllOfType<T extends (ClassExpression | Page | Section)>(body: (ClassExpression | Page | Section)[], comparisonFunc: (element: T) => boolean, samePageOnly: boolean = false) : T[] {
+export function getAllOfType<T extends (ClassExpression | Page | Section)>(body: (ClassExpression | Page | Section | Document)[], comparisonFunc: (element: T) => boolean, samePageOnly: boolean = false) : T[] {
     let result: T[] = [];
     const actions = body.filter(x => comparisonFunc(x as T)).map(x => x as T);
     result.push(...actions);
@@ -72,6 +74,10 @@ export function getAllOfType<T extends (ClassExpression | Page | Section)>(body:
 
     for (let section of body.filter(x => isSection(x)).map(x => x as Section)) {
         result.push(...getAllOfType(section.body, comparisonFunc, samePageOnly));
+    }
+
+    for (let document of body.filter(x => isDocument(x)).map(x => x as Document)) {
+        result.push(...getAllOfType(document.body, comparisonFunc, samePageOnly));
     }
     
     return result;

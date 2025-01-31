@@ -219,8 +219,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 // No health resource defined
             }
             `.appendNewLine();
+
             return expandToNode`
             _handlePreUpdate${document.name}Delta(changes, deltas) {
+                // Health resource updates
                 if (changes.system.${healthResource.name.toLowerCase()} === undefined) return;
 
                 // Store value and temp changes
@@ -281,8 +283,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 // Foundry v12 no longer has diffed data during _preUpdate, so we need to compute it ourselves.
                 if (game.release.version >= 12) {
                     // Retrieve a copy of the existing actor data.
-                    let newData = foundry.utils.flattenObject(data);
-                    let oldData = foundry.utils.flattenObject(this);
+                    let newData = game.system.utils.flattenObject(data);
+                    let oldData = game.system.utils.flattenObject(this);
 
                     // Limit data to just the new data.
                     const diffData = foundry.utils.diffObject(oldData, newData);
@@ -338,6 +340,31 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 if (options.fromPreUpdate) {
                     for (const [key, delta] of Object.entries(options.fromPreUpdate)) {
                         this._showScrollingText(delta, key);
+                    }
+                }
+
+                // Add / remove status effects
+                const calculatedStatusEffects = CONFIG.statusEffects.filter(effect => effect.calculated);
+                for (const effect of calculatedStatusEffects) {
+                    const key = effect.id;
+                    const active = this.system[key] ?? false;
+                    const existing = this.effects.find(e => e.statuses.has(key));
+
+                    if ((active && existing) || (!active && !existing)) continue;
+
+                    // If the effect is active the AE doesn't exist, add it
+                    if (active && !existing) {
+                        const cls = getDocumentClass("ActiveEffect");
+                        const createData = foundry.utils.deepClone(effect);
+                        createData.statuses = [key];
+                        delete createData.id;
+                        createData.name = game.i18n.localize(createData.name);
+                        await cls.create(createData, {parent: this});
+                    }
+
+                    // If the effect is active the AE doesn't exist, add it
+                    if (!active && existing) {
+                        this.deleteEmbeddedDocuments("ActiveEffect", [existing.id]);
                     }
                 }
             }
@@ -587,14 +614,14 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                 getRollData() {
                     const data = super.getRollData();
-                    data.system = this.system;
-                    return data;
+                    const rollData = foundry.utils.duplicate(data);
+                    rollData.system = this.system;
+                    return rollData;
                 }
 
                 ${type == "Actor" ? expandToNode`
 /* -------------------------------------------- */
 
-// Blah
 getInitiativeFormula() {
     switch ( this.type ) {
         ${joinToNode(entry.documents.filter(d => isActor(d)), document => generateInitiativeFormula(document), { appendNewLineIfNotEmpty: true })}

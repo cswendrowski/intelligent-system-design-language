@@ -43,7 +43,7 @@ ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
 
 ClassExpression:
-    (Property | Action | Access | IfStatement | InitiativeProperty);
+    (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
     (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp);
@@ -52,7 +52,7 @@ fragment Self:
     (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
 
 ResourceAccess:
- ("self." property=[ResourceExp:ID]) ("." subProperties+=("min" | "max"))?;
+    ("self." property=[ResourceExp:ID]) ("." subProperties+=("min" | "max"))?;
 
 Access:
     Self | ResourceAccess;
@@ -258,6 +258,18 @@ SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
 
 InitiativeProperty:
     "initiative" "(" "value:" value=Expression ")";
+
+StatusProperty:
+    (tag="death")? "status" name=ID StatusPropertyParameters;
+
+fragment StatusPropertyParameters:
+    ("(" params+=StatusPropertyParameter* ("," params+=StatusPropertyParameter)* ")")?;
+
+StatusPropertyParameter:
+    (DocumentSvgParam | StatusParamWhen);
+
+StatusParamWhen:
+    "when:" when=(WhenExpressions | MethodBlock);
 
 fragment ExpressionModifier:
     (modifier=("hidden" | "readonly" | "unlocked"))?;

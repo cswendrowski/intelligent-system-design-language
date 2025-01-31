@@ -1,5 +1,6 @@
 import { AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { isAccess, isAssignment, isDocument, isPage, isProperty, isSection, Page, Property, Section } from "./generated/ast.js";
+import { isAccess, isAssignment, isDocument, isProperty, isStatusProperty, Property, StatusProperty } from "./generated/ast.js";
+import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
 
@@ -26,24 +27,17 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
     private getAccessScope(context: ReferenceInfo): Scope {
         const model = AstUtils.getContainerOfType(context.container, isDocument)!;
 
-        const properties = model.body.filter(x => isProperty(x)) as Property[];
-        const sections = model.body.filter(x => isSection(x)) as Section[];
-        const pages = model.body.filter(x => isPage(x)) as Page[];
+        //console.log("Scope for document: " + model.name);
 
-        for (const page of pages) {
-            const pageProperties = page.body.filter(x => isProperty(x)) as Property[];
-            properties.push(...pageProperties);
+        const properties = getAllOfType<Property>(model.body, isProperty, false);
+        const statuses = getAllOfType<StatusProperty>(model.body, isStatusProperty, false);
 
-            const pageSections = page.body.filter(x => isSection(x)) as Section[];
-            sections.push(...pageSections);
-        }
-
-        for (const section of sections) {
-            const sectionProperties = section.body.filter(x => isProperty(x)) as Property[];
-            properties.push(...sectionProperties);
-        }
+        // for (const property of properties) {
+        //     console.log(property.name);
+        // }
 
         const descriptions = properties.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name));
+        descriptions.push(...statuses.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
 
         // If we are in a method block belonging to an Each expression, add the variable of the each expression to the scope
         // const eachExp = AstUtils.getContainerOfType(context.container, isEach);

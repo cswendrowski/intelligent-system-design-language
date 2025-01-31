@@ -11,7 +11,10 @@ import {
     ResourceExp,
     DocumentCreatableParam,
     DocumentSvgParam,
-    DocumentDescriptionParam
+    DocumentDescriptionParam,
+    StatusProperty,
+    isStatusProperty,
+    isStatusParamWhen
 } from '../language/generated/ast.js';
 import {
     isActor,
@@ -78,7 +81,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
 
     // Documents
     entry.documents.forEach(x => {
-        generateDocumentDataModel(config, x, data.destination);
+        generateDocumentDataModel(entry, x, data.destination);
         generateDocumentSheet(x, entry, id, data.destination);
         generateDocumentHandlebars(x, data.destination, true);
         generateDocumentHandlebars(x, data.destination, false);
@@ -307,6 +310,23 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         `;
     }
 
+    function generateStatusEffect(document: StatusProperty): CompositeGeneratorNode {
+        let svg = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value;
+        if (!svg) svg = "icons/svg/upgrade.svg";
+        let calculated = document.params.find(p => isStatusParamWhen(p)) ? true : false;
+        return expandToNode`
+            {
+                id: "${document.name.toLowerCase()}",
+                name: "${document.name}",
+                label: "${document.name}",
+                icon: "${svg}",
+                img: "${svg}",
+                calculated: ${calculated}
+            }
+        `;
+    }
+
+
     let actorDocs = entry.documents.filter(d => isActor(d)).map(d => d as Actor);
     let actorDefaultType = actorDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value.toLowerCase() == "true"))?.name.toLowerCase() ?? actorDocs[0]?.name.toLowerCase();
     let actorArtworks = actorDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
@@ -318,6 +338,8 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
     let itemArtworks = itemDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
     let itemDescriptions = itemDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
     let itemCreatables = itemDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
+
+    let statusEffects = getAllOfType<StatusProperty>(entry.documents, isStatusProperty);
 
     const fileNode = expandToNode`
         ${joinToNode(entry.documents, document => `import ${document.name}TypeDataModel from "../datamodels/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}.mjs"`, { appendNewLineIfNotEmpty: true })}
@@ -339,6 +361,8 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerTypeInfo();
             registerHandlebarsHelpers();
             registerResourceBars();
+            registerStatusEffects();
+            registerUtils();
         }
 
         /* -------------------------------------------- */
@@ -460,6 +484,43 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             CONFIG.Actor.trackableAttributes = {
                 ${joinToNode(entry.documents.filter(d => isActor(d)), document => generateTrackableResourceBars(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
             };
+        }
+
+        /* -------------------------------------------- */
+
+        function registerStatusEffects() {
+            CONFIG.statusEffects = [
+                ${joinToNode(statusEffects, document => generateStatusEffect(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
+            ];
+        }
+
+        /* -------------------------------------------- */
+
+        function registerUtils() {
+            game.system.utils = {};
+
+            function flattenObject(obj, _d=0) {
+                const flat = {};
+                if ( _d > 100 ) {
+                    throw new Error("Maximum depth exceeded");
+                }
+                for ( let [k, v] of Object.entries(obj) ) {
+                    let t = getType(v);
+                    if ( t === "Object" ) {
+                        if ( k == "parent" ) continue;
+                        if ( isEmpty(v) ) flat[k] = v;
+                        let inner = flattenObject(v, _d+1);
+                        for ( let [ik, iv] of Object.entries(inner) ) {
+                            flat[\`\${k}.\${ik}\`] = iv;
+                        }
+                    }
+                    else flat[k] = v;
+                }
+                return flat;
+            }
+
+            game.system.utils.flattenObject = flattenObject;
+
         }
 
     `.appendNewLineIfNotEmpty();

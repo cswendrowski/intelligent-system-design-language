@@ -29,6 +29,7 @@ import type {
     StringParamChoices,
     ResourceAccess,
     InitiativeProperty,
+    StatusProperty,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -86,11 +87,12 @@ import {
     isStringParamChoices,
     isResourceAccess,
     isInitiativeProperty,
+    isStatusProperty,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
 
-export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty |undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -317,7 +319,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
-    function translateAccessExpression(expression: Access, generatingProperty: Property | InitiativeProperty | undefined = undefined): CompositeGeneratorNode | undefined {
+    function translateAccessExpression(expression: Access, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined): CompositeGeneratorNode | undefined {
         if (expression.property?.ref == undefined) {
             return;
         }
@@ -338,6 +340,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
 
+        if (isStatusProperty(generatingProperty)) {
+            console.log("This is a status property, swapping to self-access");
+            systemPath = systemPath.replace("system.", "this.");
+        }
+
         console.log("System Path: ", systemPath);
         if (isInitiativeProperty(generatingProperty)) {
             return expandToNode`
@@ -353,6 +360,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
         console.log("Translating Resource Access Expression: " + expression.property?.ref?.name);
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+
+        if (isStatusProperty(generatingProperty)) {
+            console.log("This is a status property, swapping to self-access");
+            systemPath = systemPath.replace("system.", "this.");
+        }
 
         console.log("System Path: ", systemPath);
 
@@ -482,13 +494,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isParentAccess(expression)) {
         let path = "this.object.parent";
         if ( expression.propertyLookup != undefined ) {
-            path = `${path}.system[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
+            path = `${path}?.system[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
         }
         else {
-            path = `${path}.${expression.property?.toLowerCase()}`;
+            path = `${path}?.${expression.property?.toLowerCase()}`;
         }
         if (expression.subProperty != undefined) {
-            path = `${path}.${expression.subProperty}`;
+            path = `${path}?.${expression.subProperty}`;
         }
         return expandToNode`
             ${path}
@@ -1124,7 +1136,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
 }
 
-export function translateBodyExpressionToJavascript(entry: Entry, id: string, body: MethodBlockExpression[], preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateBodyExpressionToJavascript(entry: Entry, id: string, body: MethodBlockExpression[], preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined): CompositeGeneratorNode | undefined {
 
     //     /**
     //      * A method body consists of a list of Expressions that ultimately return a value.

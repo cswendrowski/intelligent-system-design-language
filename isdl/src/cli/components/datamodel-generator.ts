@@ -1,9 +1,10 @@
 import type {
     ClassExpression,
-    Config,
     Document,
+    Entry,
     Page,
     Section,
+    StatusParamWhen,
     StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
@@ -23,16 +24,22 @@ import {
     isNumberParamMax,
     isPage,
     isStringParamChoices,
+    StatusProperty,
+    isStatusProperty,
+    isStatusParamWhen,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { toMachineIdentifier } from './utils.js';
+import { getAllOfType, toMachineIdentifier } from './utils.js';
+import { translateExpression } from './method-generator.js';
 
-export function generateDocumentDataModel(config: Config, document: Document, destination: string) {
+export function generateDocumentDataModel(entry: Entry, document: Document, destination: string) {
     const typePath = isActor(document) ? 'actor' : 'item';
     const dataModelPath = path.join(destination, "system", "datamodels", typePath);
     const generatedFilePath = `${path.join(dataModelPath, document.name.toLowerCase())}.mjs`;
+    const config = entry.config;
+    const id = config.body.find(x => x.type == "id")!.value;
 
     function generateField(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
 
@@ -166,6 +173,32 @@ export function generateDocumentDataModel(config: Config, document: Document, de
         return
     }
 
+    function generateCalculatedStatusEffect(property: StatusProperty): CompositeGeneratorNode | undefined {
+        let whenParam = property.params.find(p => isStatusParamWhen(p)) as StatusParamWhen;
+
+        if (whenParam == undefined || whenParam.when == undefined) return undefined;
+
+        console.log(`Generating calculated status effect for ${property.name}`);
+
+        return expandToNode`
+            get ${property.name.toLowerCase()}() {
+                return ${translateExpression(entry, id, whenParam?.when, true, property)};
+            }
+        `.appendNewLine().appendNewLine();
+    }
+
+    function generateStatusEffect(property: StatusProperty): CompositeGeneratorNode {
+        return expandToNode`
+            get ${property.name.toLowerCase()}() {
+                return this.parent.statuses.has("${property.name.toLowerCase()}");
+            }
+        `;
+    }
+
+    let statusEffects = getAllOfType<StatusProperty>(document.body, isStatusProperty);
+    let calculatedStatusEffects = statusEffects.filter(x => x.params.some(p => isStatusParamWhen(p)));
+    let nonCalculatedStatusEffects = statusEffects.filter(x => !x.params.some(p => isStatusParamWhen(p)));
+
     // Name and img come with all docs. We'll go ahead and staple Description on as well
     const fileNode = expandToNode`
         import ${config.name}Actor from "../../documents/actor.mjs";
@@ -181,6 +214,11 @@ export function generateDocumentDataModel(config: Config, document: Document, de
                     ${joinToNode(document.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
                 };
             }
+
+            /* -------------------------------------------- */
+
+            ${joinToNode(calculatedStatusEffects, effect => generateCalculatedStatusEffect(effect), { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(nonCalculatedStatusEffects, effect => generateStatusEffect(effect), { appendNewLineIfNotEmpty: true })}
         };
     `.appendNewLineIfNotEmpty();
 
