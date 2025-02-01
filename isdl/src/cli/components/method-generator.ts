@@ -942,7 +942,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     if (isEach(expression)) {
         return expandToNode`
-            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${translateExpression(entry, id, expression.collection, preDerived, generatingProperty)}) {
+            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${translateExpression(entry, id, expression.collection, preDerived, generatingProperty)} ?? []) {
                 ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
             }
         `;
