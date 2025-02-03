@@ -94,7 +94,7 @@ DecrementValAssignment:
     Self "-=" exp=Expression;
 
 fragment Parent:
-    "parent" ( "." property=ID | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperty=ID)?;
+    "parent" ( "." property=ID | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=ID)*;
 
 ParentAccess:
     Parent;
@@ -123,20 +123,23 @@ ItemAccess:
 VariableAssignment:
     (VariableExpressionAssignment | VariableIncrementAssignment | VariableDecrementAssignment | VariableIncrementValAssignment | VariableDecrementValAssignment);
 
+fragment VariableAccessFrag:
+    variable=[VariableAccess:ID] ("." subProperties+=ID)*;
+
 VariableExpressionAssignment:
-    variable=[VariableExpression:ID] "=" exp=Expression;
+   VariableAccessFrag "=" exp=Expression;
 
 VariableIncrementAssignment:
-    variable=[VariableExpression:ID] "++";
+    VariableAccessFrag "++";
 
 VariableDecrementAssignment:
-    variable=[VariableExpression:ID] "--";
+    VariableAccessFrag "--";
 
 VariableIncrementValAssignment:
-    variable=[VariableExpression:ID] "+=" exp=Expression;
+    VariableAccessFrag "+=" exp=Expression;
 
 VariableDecrementValAssignment:
-    variable=[VariableExpression:ID] "-=" exp=Expression;
+    VariableAccessFrag "-=" exp=Expression;
 
 Action:
     "action" name=ID ("(" conditions+=ActionCondition ("," conditions+=ActionCondition)* ")")? method=MethodBlock;
@@ -163,7 +166,7 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each );
+    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update );
 
 JS: js=JS_LINE;
 
@@ -196,6 +199,15 @@ TargetParam:
 
 LabelParam:
     "label:" value=STRING;
+
+Update:
+    (UpdateSelf | UpdateParent);
+
+UpdateSelf:
+    "update" Self;
+
+UpdateParent:
+    "update" Parent;
 
 Expression: AddOrSubtract;
 

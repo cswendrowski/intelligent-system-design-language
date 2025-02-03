@@ -88,6 +88,9 @@ import {
     isResourceAccess,
     isInitiativeProperty,
     isStatusProperty,
+    isUpdate,
+    isUpdateParent,
+    isUpdateSelf,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getSystemPath, toMachineIdentifier } from './utils.js';
@@ -183,28 +186,33 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateVariableAssignment(expression: VariableAssignment): CompositeGeneratorNode | undefined {
 
+        let name = expression.variable.ref?.name;
+        for (const subProperty of expression.subProperties ?? []) {
+            name = `${name}.${subProperty}`;
+        }
+
         if (isVariableIncrementAssignment(expression)) {
             return expandToNode`
-                ${expression.variable.ref?.name}++;
+                ${name}++;
             `;
         }
         if (isVariableDecrementAssignment(expression)) {
             return expandToNode`
-                ${expression.variable.ref?.name}--;
+                ${name}--;
             `;
         }
         if (isVariableIncrementValAssignment(expression)) {
             return expandToNode`
-                ${expression.variable.ref?.name} += ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+                ${name} += ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
         if (isVariableDecrementValAssignment(expression)) {
             return expandToNode`
-                ${expression.variable.ref?.name} -= ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+                ${name} -= ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
         return expandToNode`
-            ${expression.variable.ref?.name} = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+            ${name} = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
     }
 
@@ -214,8 +222,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
         // TODO: Not all references are to a system property - some will be to fleeting variables
 
         let systemPath = `system.${expression.property?.toLowerCase()}`;
-        if (expression.subProperty != undefined) {
-            systemPath = `${systemPath}.${expression.subProperty}`;
+        for (const subProperty of expression.subProperties ?? []) {
+            systemPath = `${systemPath}.${subProperty}`;
         }
 
         if (isParentIncrementAssignment(expression)) {
@@ -499,8 +507,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
         else {
             path = `${path}?.${expression.property?.toLowerCase()}`;
         }
-        if (expression.subProperty != undefined) {
-            path = `${path}?.${expression.subProperty}`;
+        for (const subProperty of expression.subProperties ?? []) {
+            path = `${path}?.${subProperty}`;
         }
         return expandToNode`
             ${path}
@@ -699,9 +707,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}${expression.property?.toLowerCase()}`;
                     label = `${label} ${humanize(expression.property ?? "")}`;
                 }
-                if (expression.subProperty != undefined) {
-                    path = `${path}${expression.subProperty}`;
-                    label = `${label} ${humanize(expression.subProperty)}`;
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
                 }
                 label = label.trim();
                 return expandToNode`
@@ -770,9 +778,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.property?.toLowerCase()}`;
                     label = `${label}.${expression.property}`;
                 }
-                if (expression.subProperty != undefined) {
-                    path = `${path}.${expression.subProperty?.toLowerCase()}`;
-                    label = `${label}.${expression.subProperty}`;
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label}.${subProperty}`;
                 }
 
                 console.log(label, path);
@@ -1130,6 +1138,29 @@ export function translateExpression(entry: Entry, id: string, expression: string
             `;
         }
         throw new Error("Unknown Math Expression type encountered while translating to JavaScript ");
+    }
+
+    if (isUpdate(expression)) {
+        console.log("Translating Update Expression:");
+
+        let path = "system";
+        if (isUpdateSelf(expression)) {
+            path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
+        }
+        for (const subProperty of expression.subProperties ?? []) {
+            path = `${path}.${subProperty}`;
+        }
+
+        if (isUpdateParent(expression)) {
+            return expandToNode`
+                parentUpdate["${path}"] = foundry.utils.getProperty(this.object.parent, "${path}");
+            `;
+        }
+        else if (isUpdateSelf(expression)) {
+            return expandToNode`
+                update["${path}"] = foundry.utils.getProperty(this.object, "${path}");
+            `;
+        }
     }
 
     //console.log(expression.$type);

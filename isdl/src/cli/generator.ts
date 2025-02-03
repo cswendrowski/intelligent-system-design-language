@@ -521,6 +521,17 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
             game.system.utils.flattenObject = flattenObject;
 
+            function toNearest(interval=1, method="round") {
+                if (!Number.isNumeric(this)) {
+                    throw new Error("toNearest() must be called on a numeric looking value");
+                }
+                const number = Number.fromString(this);
+                return number.toNearest(interval, method);
+            }
+
+            Object.defineProperties(String.prototype, {
+                toNearest: {value: toNearest}
+            });
         }
 
     `.appendNewLineIfNotEmpty();
