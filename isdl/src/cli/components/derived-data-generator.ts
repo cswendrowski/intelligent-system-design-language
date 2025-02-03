@@ -619,6 +619,28 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     return rollData;
                 }
 
+                /* -------------------------------------------- */
+
+                /** @override */
+                async modifyTokenAttribute(attribute, value, isDelta, isBar) {
+                    const resource = foundry.utils.getProperty(this.system, attribute);
+
+                    if (isDelta && value < 0) {
+                        // Apply to temp first
+                        resource.temp += value;
+
+                        // If temp is negative, apply to value
+                        if (resource.temp < 0) {
+                            resource.value += resource.temp;
+                            resource.temp = 0;
+                        }
+                        await this.update({ ["system." + attribute]: resource });
+                        return;
+                    }
+
+                    return super.modifyTokenAttribute(attribute, value, isDelta, isBar);
+                }
+
                 ${type == "Actor" ? expandToNode`
 /* -------------------------------------------- */
 

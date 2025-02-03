@@ -38,6 +38,7 @@ import { generateBaseDocumentSheet } from './components/base-sheet-generator.js'
 import { generateBaseActorSheet } from './components/base-actor-sheet-generator.js';
 import { generateDocumentHandlebars } from './components/document-sheet-handlebars-generator.js';
 import { getAllOfType } from './components/utils.js';
+import { generateCanvasToken, generateTokenDocument } from './components/token-generator.js';
 
 export function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): string {
     const config = entry.config;
@@ -78,6 +79,8 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateContextMenu2(entry, id, data.destination);
     generateDocumentCreateHbs(entry, id, data.destination);
     generateCombatant(entry, id, data.destination);
+    generateCanvasToken(entry, id, data.destination);
+    generateTokenDocument(entry, id, data.destination);
 
     // Documents
     entry.documents.forEach(x => {
@@ -348,6 +351,8 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         import ${entry.config.name}Actor from "../documents/actor.mjs";
         import ${entry.config.name}Item from "../documents/item.mjs";
         import ${entry.config.name}Combatant from "../documents/combatant.mjs";
+        import ${entry.config.name}TokenDocument from "../documents/token.mjs";
+        import ${entry.config.name}Token from "../canvas/token.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -358,6 +363,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerDataModels();
             registerDocumentSheets();
             registerDocumentClasses();
+            registerCanvasClasses();
             registerTypeInfo();
             registerHandlebarsHelpers();
             registerResourceBars();
@@ -430,6 +436,13 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             CONFIG.Actor.documentClass = ${entry.config.name}Actor;
             CONFIG.Item.documentClass = ${entry.config.name}Item;
             CONFIG.Combatant.documentClass = ${entry.config.name}Combatant;
+            CONFIG.Token.documentClass = ${entry.config.name}TokenDocument;
+        }
+
+        /* -------------------------------------------- */
+
+        function registerCanvasClasses() {
+            CONFIG.Token.objectClass = ${entry.config.name}Token;
         }
 
         /* -------------------------------------------- */
