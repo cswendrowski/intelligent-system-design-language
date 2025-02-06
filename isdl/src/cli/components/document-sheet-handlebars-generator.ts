@@ -114,9 +114,27 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             
             return expandToNode`
                 {{!-- Number ${property.name} --}}
-                <div class="form-group property numberExp" data-name="system.${property.name.toLowerCase()}">
+                <div class="form-group property numberExp ${!disabled ? 'calc' : '' }" data-name="system.${property.name.toLowerCase()}">
                     <label>${iconParam != undefined ? `<i class="${iconParam.value}" style="color: ${color};"></i> ` : ""}{{ localize "${document.name}.${property.name}" }}</label>
                     {{numberInput document.system.${property.name.toLowerCase()} name="system.${property.name.toLowerCase()}" disabled=${disabled} step=1}}
+                    ${!disabled ? expandToNode`
+                    <a class="calculator-toggle action" data-action="toggle-calculator">
+                        <i class="fa-solid fa-calculator"></i>
+                    </a>
+                    <div class="calculator">
+                        <input type="number" class="calc-input" placeholder="Enter number">
+                        <div class="calc-buttons">
+                            <button data-action="calc-mode" data-mode="add" class="mode-button active action" data-tooltip="Add">➕</button>
+                            <button data-action="calc-mode" data-mode="subtract" class="mode-button action" data-tooltip="Subtract">➖</button>
+                            <button data-action="calc-mode" data-mode="multiply" class="mode-button action" data-tooltip="Multiply">✖️</button>
+                            <button data-action="calc-mode" data-mode="divide" class="mode-button action" data-tooltip="Divide">➗</button>
+                        </div>
+                        <div class="calc-buttons">
+                            <button data-action="calc-submit" class="action" data-tooltip="Submit">✅</button>
+                            <button class="close-btn action" data-action="toggle-calculator" data-tooltip="Cancel">❌</button>
+                        </div>
+                    </div>
+                    ` : ``}
                 </div>
             `.appendNewLine().appendNewLine();
         }
@@ -183,6 +201,8 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 darkColor = "#33cc33";
             }
 
+            let canEdit = (edit && property.modifier != "readonly") || property.modifier == "unlocked";
+
             return expandToNode`
                 {{!-- Resource ${property.name} --}}
                 <fieldset style="border-color: ${color};" class="property resourceExp">
@@ -192,15 +212,34 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     <div class="form-group" data-name="system.${property.name.toLowerCase()}">
                         <label>{{ localize "Current" }}</label>
                         <div class="flexrow values">
-                            {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" min=0 max=document.system.${property.name.toLowerCase()}.max step=1 disabled=${property.modifier == "readonly"}}}
+                            {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" min=0 max=document.system.${property.name.toLowerCase()}.max step=1 disabled=${!canEdit}}}
                         
                             {{!-- Temp --}}
                             <input type="number" class="temp" value="{{document.system.${property.name.toLowerCase()}.temp}}" step="1" name="system.${property.name.toLowerCase()}.temp" min="0" data-tooltip="{{localize "Temporary"}}">
+                        
+                            ${property.modifier != "readonly" ? expandToNode`
+                            <a class="calculator-toggle action" data-action="toggle-calculator">
+                                <i class="fa-solid fa-calculator"></i>
+                            </a>
+                            <div class="calculator">
+                                <input type="number" class="calc-input" placeholder="Enter number">
+                                <div class="calc-buttons">
+                                    <button data-action="calc-mode" data-mode="add" class="mode-button active action" data-tooltip="Add">➕</button>
+                                    <button data-action="calc-mode" data-mode="subtract" class="mode-button action" data-tooltip="Subtract">➖</button>
+                                    <button data-action="calc-mode" data-mode="multiply" class="mode-button action" data-tooltip="Multiply">✖️</button>
+                                    <button data-action="calc-mode" data-mode="divide" class="mode-button action" data-tooltip="Divide">➗</button>
+                                </div>
+                                <div class="calc-buttons">
+                                    <button data-action="calc-submit" class="action" data-tooltip="Submit">✅</button>
+                                    <button class="close-btn action" data-action="toggle-calculator" data-tooltip="Cancel">❌</button>
+                                </div>
+                            </div>
+                            ` : ``}
                         </div>
                     </div>
 
                     {{!-- Max --}}
-                    <div class="form-group" data-name="system.${property.name.toLowerCase()}">
+                    <div class="form-group max" data-name="system.${property.name.toLowerCase()}">
                         <label>{{ localize "Max" }}</label>
                         {{numberInput document.system.${property.name.toLowerCase()}.max name="system.${property.name.toLowerCase()}.max" min=0 step=1 disabled=${property.modifier == "readonly" || property.max != undefined || !edit}}}
                     </div>

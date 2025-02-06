@@ -178,7 +178,7 @@ actor Character {
     unlocked string Appearance(choices: ["Pristine","Clean","Grubby","Dirty","Grimy","Foul"])
     //    Equipment Facewear
     //    Equipment Cloak
-        Equipment Outerwear
+        Equipment OuterwearForWearingOnTheOutside
         Equipment Clothing
         Equipment Accessory
         Equipment Accessory

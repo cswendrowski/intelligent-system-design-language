@@ -355,6 +355,9 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 event.preventDefault();
                 const action = event.currentTarget.dataset.action;
                 switch ( action ) {
+                    case "toggle-calculator": this._onToggleCalculator(event); break;
+                    case "calc-mode": this._onCalculatorModeSwap(event, action); break;
+                    case "calc-submit": this._onCalculatorSubmit(event); break;
                     ${joinToNode(actions, property => `case "${property.name.toLowerCase()}": this._on${property.name}Action(event, this.object.system); break;`, { appendNewLineIfNotEmpty: true })}
                 }
             }
@@ -368,6 +371,100 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 switch ( action ) {
                     ${joinToNode(actions, property => `case "${property.name.toLowerCase()}": this._on${property.name}Action(event, item.system); break;`, { appendNewLineIfNotEmpty: true })}
                 }
+            }
+
+            /* -------------------------------------------- */
+
+            _onToggleCalculator(event) {
+                const calculator = event.currentTarget.closest(".form-group").querySelector(".calculator");
+                if (calculator.style.display === "block") {
+                    calculator.style.display = "none";
+                } else {
+                    // Find the window app
+                    const windowApp = event.currentTarget.closest(".window-app");
+                    const rect = windowApp.getBoundingClientRect();
+
+                    // Get the bounding box of the button too
+                    const button = event.currentTarget.getBoundingClientRect();
+
+                    // Calculate relative position
+                    const relativeX = button.left - rect.left;
+                    const relativeY = button.top - rect.top + 26;
+                    calculator.style.position = "absolute";
+                    calculator.style.top = \`\${relativeY}px\`;
+                    calculator.style.left = \`\${relativeX}px\`;
+                    calculator.style.display = "block";
+                }
+            }
+
+            /* -------------------------------------------- */
+
+            _onCalculatorModeSwap(event, mode) {
+                event.preventDefault();
+                const calculator = event.currentTarget.closest(".form-group").querySelector(".calculator");
+                const modeButtons = calculator.querySelectorAll(".mode-button");
+                for (let button of modeButtons) {
+                    button.classList.remove("active");
+                }
+                event.currentTarget.classList.add("active");
+                calculator.dataset.mode = mode;
+            }
+
+            /* -------------------------------------------- */
+
+            _onCalculatorSubmit(event) {
+                const calculator = event.currentTarget.closest(".calculator");
+
+                // Get the mode
+                const modeButtons = calculator.querySelectorAll(".mode-button");
+                let mode = "add";
+                for (let button of modeButtons) {
+                    if (button.classList.contains("active")) {
+                        mode = button.dataset.mode;
+                    }
+                }
+
+                // Get the number
+                const input = calculator.querySelector("input");
+                const number = parseInt(input.value);
+
+                // Get the attribute name
+                const formGroup = calculator.closest(".form-group");
+                const attribute = formGroup.dataset.name;
+
+                let property = event.currentTarget.closest(".property");
+                let isResourceExp = property.classList.contains("resourceExp");
+
+                const currentValue = isResourceExp ? foundry.utils.getProperty(this.object, attribute + ".value") : foundry.utils.getProperty(this.object, attribute);
+                const updateAttribute = isResourceExp ? attribute + ".value" : attribute;
+                const update = {};
+                if (mode === "add") {
+                    update[updateAttribute] = currentValue + number;
+                }
+                else if (mode === "subtract") {
+                    if (isResourceExp) {
+                        const temp = foundry.utils.getProperty(this.object, attribute + ".temp");
+                        update[attribute + ".temp"] = temp - number;
+
+                        if (temp - number < 0) {
+                            update[attribute + ".value"] = currentValue + (temp - number);
+                            update[attribute + ".temp"] = 0;
+                        }
+                    }
+                    else {
+                        update[updateAttribute] = currentValue - number;
+                    }
+                }
+                else if (mode === "multiply") {
+                    update[updateAttribute] = currentValue * number;
+                }
+                else if (mode === "divide") {
+                    update[updateAttribute] = currentValue / number;
+                }
+                this.object.update(update);
+
+                // Close the calculator
+                calculator.style.display = "none";
             }
 
             /* -------------------------------------------- */
