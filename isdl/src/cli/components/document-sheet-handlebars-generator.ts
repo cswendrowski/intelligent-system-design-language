@@ -145,6 +145,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
 
             let disabled = property.modifier == "readonly" || stringValue != undefined || !edit;
+            if (property.modifier == "unlocked" && stringValue == undefined) disabled = false;
 
             if (choices != undefined && choices.choices.length > 0) {
                 return expandToNode`
@@ -201,7 +202,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 darkColor = "#33cc33";
             }
 
-            let canEdit = (edit && property.modifier != "readonly") || property.modifier == "unlocked";
+            //let canEdit = (edit && property.modifier != "readonly") || property.modifier == "unlocked";
 
             return expandToNode`
                 {{!-- Resource ${property.name} --}}
@@ -212,7 +213,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     <div class="form-group" data-name="system.${property.name.toLowerCase()}">
                         <label>{{ localize "Current" }}</label>
                         <div class="flexrow values">
-                            {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" min=0 max=document.system.${property.name.toLowerCase()}.max step=1 disabled=${!canEdit}}}
+                            {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" min=0 max=document.system.${property.name.toLowerCase()}.max step=1 disabled=${property.modifier == "readonly"}}}
                         
                             {{!-- Temp --}}
                             <input type="number" class="temp" value="{{document.system.${property.name.toLowerCase()}.temp}}" step="1" name="system.${property.name.toLowerCase()}.temp" min="0" data-tooltip="{{localize "Temporary"}}">
@@ -404,7 +405,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             {{!-- ${property.name} Document Array --}}
             <div class="tab" data-group="secondary" data-tab="${property.name.toLowerCase()}" data-type="${property.document.ref?.name.toLowerCase()}" >
                 {{!-- ${property.name} Table --}}
-                <table class="display" style="width: 100%">
+                <table class="display compact" style="width: 100%">
                     <thead>
                         <tr>
                             <th data-class-name="priority" data-orderable="false">{{ localize "Image" }}</th>

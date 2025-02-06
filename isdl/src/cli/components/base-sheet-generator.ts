@@ -124,10 +124,13 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                                 target: 0, // Image
                                 width: "40px"
                             },
-
                             {
                                 target: -1, // Actions
                                 orderable: false,
+                                width: "200px"
+                            },
+                            {
+                                target: 1, // Name 
                                 width: "200px"
                             }
                         ],
@@ -359,11 +362,13 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                         if ( shouldDelete ) item.delete();
                         break;
                     case "sendToChat":
+                        const chatDescription = item.description ?? item.system.description;
                         const content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
                             cssClass: "${id}",
                             document: item,
                             hasEffects: item.effects?.size > 0,
-                            description: item.description ?? item.system.description
+                            description: chatDescription,
+                            hasDescription: chatDescription != ""
                         });
                         ChatMessage.create({
                             content: content,
