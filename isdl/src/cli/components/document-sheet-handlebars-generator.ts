@@ -102,7 +102,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         if ( isNumberExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
 
-            let disabled = property.modifier == "readonly" || !edit;
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
             if (property.modifier == "unlocked") disabled = false;
             if (property.params.find(x => isNumberParamValue(x)) != undefined) { 
                 disabled = true;
@@ -144,7 +144,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             let stringValue = property.params.find(x => isStringParamValue(x)) as StringParamValue;
             let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
 
-            let disabled = property.modifier == "readonly" || stringValue != undefined || !edit;
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || stringValue != undefined || !edit;
             if (property.modifier == "unlocked" && stringValue == undefined) disabled = false;
 
             if (choices != undefined && choices.choices.length > 0) {
@@ -170,28 +170,37 @@ export function generateDocumentHandlebars(document: Document, destination: stri
 
         if ( isHtmlExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
+
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+
             return expandToNode`
                 {{!-- HTML ${property.name} --}}
                 <div class="form-group stacked double-wide property htmlExp" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    {{editor descriptionHTML target="system.${property.name.toLowerCase()}" button=false editable=editable engine="prosemirror" collaborate=false disabled=${property.modifier == "readonly" || !edit}}}
+                    {{editor descriptionHTML target="system.${property.name.toLowerCase()}" button=false editable=editable engine="prosemirror" collaborate=false disabled=${disabled}}}
                 </div>
             `.appendNewLine().appendNewLine();
         }
 
         if ( isBooleanExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
             return expandToNode`
                 {{!-- Boolean ${property.name} --}}
                 <div class="form-group property booleanExp" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    <input type="checkbox" name="system.${property.name.toLowerCase()}" {{checked document.system.${property.name.toLowerCase()}}} ${property.modifier == "readonly" || !edit ? "disabled='disabled'" : ""} />
+                    <input type="checkbox" name="system.${property.name.toLowerCase()}" {{checked document.system.${property.name.toLowerCase()}}} ${disabled ? "disabled='disabled'" : ""} />
                 </div>
             `.appendNewLine().appendNewLine();
         }
 
         if ( isResourceExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
+
+            let locked = property.modifier == "locked";
+
             const color = colors[currentColorIndex++];
             let darkColor = shadeColor(color, 25);
             let lightColor = shadeColor(color, 50);
@@ -213,12 +222,12 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     <div class="form-group" data-name="system.${property.name.toLowerCase()}">
                         <label>{{ localize "Current" }}</label>
                         <div class="flexrow values">
-                            {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" min=0 max=document.system.${property.name.toLowerCase()}.max step=1 disabled=${property.modifier == "readonly"}}}
+                            {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" min=0 max=document.system.${property.name.toLowerCase()}.max step=1 disabled=${property.modifier == "readonly" || locked}}}
                         
                             {{!-- Temp --}}
                             <input type="number" class="temp" value="{{document.system.${property.name.toLowerCase()}.temp}}" step="1" name="system.${property.name.toLowerCase()}.temp" min="0" data-tooltip="{{localize "Temporary"}}">
                         
-                            ${property.modifier != "readonly" ? expandToNode`
+                            ${property.modifier != "readonly" && !locked ? expandToNode`
                             <a class="calculator-toggle action" data-action="toggle-calculator">
                                 <i class="fa-solid fa-calculator"></i>
                             </a>
@@ -242,7 +251,7 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                     {{!-- Max --}}
                     <div class="form-group max" data-name="system.${property.name.toLowerCase()}">
                         <label>{{ localize "Max" }}</label>
-                        {{numberInput document.system.${property.name.toLowerCase()}.max name="system.${property.name.toLowerCase()}.max" min=0 step=1 disabled=${property.modifier == "readonly" || property.max != undefined || !edit}}}
+                        {{numberInput document.system.${property.name.toLowerCase()}.max name="system.${property.name.toLowerCase()}.max" min=0 step=1 disabled=${property.modifier == "readonly" || locked || property.max != undefined || !edit}}}
                     </div>
 
                     {{!-- Progress Bar --}}
@@ -259,12 +268,14 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             if (property.modifier == "hidden") return expandToNode``;
             const min = property.min ?? 0;
             const max = property.max ?? 0;
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
             return expandToNode`
                 {{!-- Attribute ${property.name} --}}
                 <div class="form-group attributeExp" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
                     <div class="mod">{{document.system.${property.name.toLowerCase()}.mod}}</div>
-                    {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}" step=1 min=${min} max=${max} disabled=${!edit}}}
+                    {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}" step=1 min=${min} max=${max} disabled=${disabled}}}
                 </div>
             `.appendNewLine().appendNewLine();
         }
@@ -284,11 +295,14 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             if (property.modifier == "hidden") return expandToNode``;
             const style = property.style ?? "squares";
 
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+
             return expandToNode`
                 {{!-- Pips ${property.name} --}}
                 <div class="form-group property pips" data-name="system.${property.name.toLowerCase()}" data-tooltip="{{document.system.${property.name.toLowerCase()}}}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    <div class="pips-container ${style}" data-style="${style}" data-max="{{${property.name.toLowerCase()}Max}}" data-current="{{document.system.${property.name.toLowerCase()}}}" data-name="${property.name.toLowerCase()}" ${property.modifier == "readonly" ? "disabled='disabled'" : ""}>
+                    <div class="pips-container ${style}" data-style="${style}" data-max="{{${property.name.toLowerCase()}Max}}" data-current="{{document.system.${property.name.toLowerCase()}}}" data-name="${property.name.toLowerCase()}" ${disabled ? "disabled='disabled'" : ""}>
                         {{#each ${property.name.toLowerCase()}}}
                             <div class="pip{{#if this.checked}} filled{{/if}}"></div>
                         {{/each}}
@@ -301,11 +315,14 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             if (property.modifier == "hidden") return expandToNode``;
             const max = property.max ?? 10;
 
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+
             return expandToNode`
-                {{!-- Pips ${property.name} --}}
+                {{!-- Damage Track ${property.name} --}}
                 <div class="form-group property damage-track" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    <div class="damage-track-container" data-max="${max}" data-current="{{document.system.${property.name.toLowerCase()}}}" data-name="${property.name.toLowerCase()}" ${property.modifier == "readonly" ? "disabled='disabled'" : ""}>
+                    <div class="damage-track-container" data-max="${max}" data-current="{{document.system.${property.name.toLowerCase()}}}" data-name="${property.name.toLowerCase()}" ${disabled ? "disabled='disabled'" : ""}>
                         {{#each ${property.name.toLowerCase()}}}
                             <div class="damage {{type}} {{tier}}" data-tooltip="{{type}}"></div>
                         {{/each}}
@@ -315,8 +332,9 @@ export function generateDocumentHandlebars(document: Document, destination: stri
         }
 
         if (isSingleDocumentExp(property)) {
-            let disabled = property.modifier == "readonly" || !edit;
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
             if (property.modifier == "unlocked") disabled = false;
+
             return expandToNode`
                 {{!-- Single Document ${property.name} --}}
                 <div class="form-group property single-document" data-name="system.${property.name.toLowerCase()}" data-type="${property.document.ref?.name.toLowerCase()}">

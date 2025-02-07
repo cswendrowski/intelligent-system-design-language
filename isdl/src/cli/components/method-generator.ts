@@ -255,7 +255,6 @@ export function translateExpression(entry: Entry, id: string, expression: string
         console.log("Translating Binary Expression: ", expression.e1.$type, expression.op, expression.e2.$type);
         let a = translateExpression(entry, id, expression.e1, preDerived, generatingProperty);
         let b = translateExpression(entry, id, expression.e2, preDerived, generatingProperty);
-        console.log("A:", a?.contents, "B:", b?.contents);
         return expandToNode`
             ${a} ${expression.op} ${b}
         `;

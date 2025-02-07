@@ -92,7 +92,7 @@ actor Character {
         unlocked number Silver(max: 300)
         unlocked number BankedSilver
         unlocked number Investments
-        readonly number MonthlyIncome(value: {return 300 * self.Investments})
+        locked number MonthlyIncome(value: {return 300 * self.Investments})
     }
     section CostOfLiving {
         unlocked string LodgingQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])

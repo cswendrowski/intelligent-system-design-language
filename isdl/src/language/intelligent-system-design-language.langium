@@ -284,7 +284,7 @@ StatusParamWhen:
     "when:" when=(WhenExpressions | MethodBlock);
 
 fragment ExpressionModifier:
-    (modifier=("hidden" | "readonly" | "unlocked"))?;
+    (modifier=("hidden" | "readonly" | "unlocked" | "locked"))?;
 
 fragment StringParameters:
     ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;

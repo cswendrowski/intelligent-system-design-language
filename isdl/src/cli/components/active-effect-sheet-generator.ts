@@ -1,7 +1,7 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isPage, isResourceExp, isSection, isStatusProperty, isStringExp } from '../../language/generated/ast.js';
+import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isNumberParamValue, isPage, isResourceExp, isSection, isStatusProperty, isStringExp } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -25,7 +25,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
         }
 
         if ( isHtmlExp(property) || isInitiativeProperty(property) || isStatusProperty(property) ) return;
-        if ( property.modifier == "readonly" || property.modifier == "unlocked" ) return;
+        if ( property.modifier == "locked" ) return;
 
         if (isResourceExp(property)) {
             return expandToNode`
@@ -210,11 +210,18 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
         if ( isAccess(property) || isAction(property) || isIfStatement(property) ) return undefined;
 
         if ( isSection(property) ) {
+            if (property.body.length == 0) return undefined;
+            let fields = [];
+            for (let p of property.body) {
+                let field = generateField(document, p);
+                if (field != undefined) fields.push(field);
+            }
+            if (fields.length == 0) return undefined;
             return expandToNode`
                 <!-- ${property.name} Section -->
                 <fieldset>
                   <legend>{{localize "${property.name}"}}</legend>
-                  ${joinToNode(property.body, property => generateField(document, property), { appendNewLineIfNotEmpty: true })}
+                  ${joinToNode(fields, field => field, { appendNewLineIfNotEmpty: true })}
                 </fieldset>
             `;
         }
@@ -224,9 +231,11 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
         }
 
         if ( isHtmlExp(property) || isInitiativeProperty(property) || isStatusProperty(property) ) return;
-        if ( property.modifier == "readonly" ) return;
+        if ( property.modifier == "locked" ) return;
 
         if ( isNumberExp(property) ) {
+            // If this is calculated, it's implicitly locked
+            if (property.params.find(x => isNumberParamValue(x))) return;
             return expandToNode`
                 <div class="form-group">
                     <label>{{localize "${property.name}"}}</label>
