@@ -15,6 +15,9 @@ import {
     StringParamValue,
     isStringParamValue,
     isInitiativeProperty,
+    isNumberParamMin,
+    NumberParamMin,
+    isAttributeParamMod,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -266,18 +269,30 @@ export function generateDocumentHandlebars(document: Document, destination: stri
 
         if ( isAttributeExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
-            const min = property.min ?? 0;
-            const max = property.max ?? 0;
+            const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
+            const min = minParam?.value ?? 0;
+            const hasMod = property.params.find(x => isAttributeParamMod(x)) != undefined;
             let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
             if (property.modifier == "unlocked") disabled = false;
-            return expandToNode`
+            if (hasMod) {
+                return expandToNode`
+                    {{!-- Attribute ${property.name} --}}
+                    <div class="form-group attributeExp" data-name="system.${property.name.toLowerCase()}">
+                        <label>{{ localize "${document.name}.${property.name}" }}</label>
+                        <div class="mod">{{document.system.${property.name.toLowerCase()}.mod}}</div>
+                        {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" step=1 min=${min} disabled=${disabled}}}
+                    </div>
+                `.appendNewLine().appendNewLine();
+            }
+            else {
+                return expandToNode`
                 {{!-- Attribute ${property.name} --}}
-                <div class="form-group attributeExp" data-name="system.${property.name.toLowerCase()}">
+                <div class="form-group attributeExp no-mod" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
-                    <div class="mod">{{document.system.${property.name.toLowerCase()}.mod}}</div>
-                    {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}" step=1 min=${min} max=${max} disabled=${disabled}}}
+                    {{numberInput document.system.${property.name.toLowerCase()}.value name="system.${property.name.toLowerCase()}.value" step=1 min=${min} disabled=${disabled}}}
                 </div>
             `.appendNewLine().appendNewLine();
+            }
         }
 
         if ( isAction(property) ) {
@@ -406,6 +421,14 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 `;
             }
             if ( isHtmlExp(property) || isInitiativeProperty(property) ) return undefined;
+
+            if ( isSingleDocumentExp(property) ) {
+
+                return expandToNode`
+                    <td>{{item.${getSystemPath(property, ["name"])}}}</td>
+                `;
+            }
+
             if ( isProperty(property) ) {
 
                 const isHidden = property.modifier == "hidden";

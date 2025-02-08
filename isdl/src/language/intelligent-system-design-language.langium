@@ -258,7 +258,16 @@ HtmlExp: ExpressionModifier "html" name=ID;
 
 ResourceExp: ExpressionModifier (tag=("health" | "wounds"))? "resource" name=ID ("(" ("max:" max=(MethodBlock | INT))? & ("color:" color=HEX_COLOR)? ")")?;
 
-AttributeExp: ExpressionModifier "attribute" name=ID "(" "min:" min=INT "," "max:" max=INT "," "mod:" method=MethodBlock ")";
+AttributeExp: ExpressionModifier "attribute" name=ID AttributeParameters;
+
+fragment AttributeParameters:
+    ("(" params+=AttributeParameter* ("," params+=AttributeParameter)* ")")?;
+
+AttributeParameter:
+    (NumberParamMin | NumberParamMax | AttributeParamMod);
+
+AttributeParamMod:
+    "mod:" method=MethodBlock;
 
 PipsExp: ExpressionModifier "pips" name=ID "(" "max:" max=(MethodBlock | INT) ("," "initial:" initial=(MethodBlock | INT))? ("," "style:" style=("squares" | "circles"))? ")";
 

@@ -34,6 +34,13 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
             `;
         }
 
+        if (isAttributeExp(property)) {
+            return expandToNode`
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value");
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max");
+            `;
+        }
+
         return expandToNode`
             addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.${getSystemPath(property)}");
         `;
@@ -248,13 +255,29 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
         }
 
         if ( isAttributeExp(property) ) {
+            // return expandToNode`
+            //     <div class="form-group">
+            //         <label>{{localize "${property.name}"}} Value</label>
+            //         <select name="${document.name.toLowerCase()}.${getSystemPath(property)}-mode" data-dtype="Number">
+            //             {{selectOptions numberModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode}}
+            //         </select>
+            //         <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value}}" />
+            //     </div>
+            //     <div class="form-group">
+            //         <label>{{localize "${property.name}"}} Max</label>
+            //         <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode" data-dtype="Number">
+            //             {{selectOptions numberModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode}}
+            //         </select>
+            //         <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max}}" />
+            //     </div>
+            // `;
             return expandToNode`
                 <div class="form-group">
-                    <label>{{localize "${property.name}"}}</label>
+                    <label>{{localize "${property.name}"}} Value</label>
                     <select name="${document.name.toLowerCase()}.${getSystemPath(property)}-mode" data-dtype="Number">
-                        {{selectOptions numberModes selected=${document.name.toLowerCase()}.${getSystemPath(property)}-mode}}
+                        {{selectOptions numberModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode}}
                     </select>
-                    <input type="number" name="${document.name.toLowerCase()}.${getSystemPath(property)}" value="{{${document.name.toLowerCase()}.${getSystemPath(property)}}}" />
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value}}" />
                 </div>
             `;
         }

@@ -2,6 +2,8 @@ import type {
     ClassExpression,
     Document,
     Entry,
+    NumberParamMax,
+    NumberParamMin,
     Page,
     Section,
     StatusParamWhen,
@@ -101,12 +103,18 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             `;
         }
         if (isAttributeExp(property)) {
-            const min = property.min ?? 0;
-            const max = property.max ?? 0;
+            const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
+            const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
+            const min = minParam?.value ?? 0;
+            const max = maxParam?.value ?? 0;
             return expandToNode`
-                ${property.name.toLowerCase()}: new fields.NumberField({integer: true, min: ${min}, max: ${max}, initial: ${min}}),
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    value: new fields.NumberField({integer: true, min: ${min}, initial: ${min}}),
+                    max: new fields.NumberField({integer: true, min: 0, initial: ${max}}),
+                }),
             `;
         }
+
         if ( isPipsExp(property) ) {
             let max = 0;
             if ( Number.isInteger(property.max) ) {

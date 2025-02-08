@@ -13,6 +13,8 @@ import {
     StringParamValue,
     InitiativeProperty,
     isInitiativeProperty,
+    isAttributeParamMod,
+    AttributeParamMod,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -138,17 +140,23 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
             if ( isAttributeExp(property) ) {
                 console.log("Processing Derived Attribute: " + property.name);
+                const modParam = property.params.find(p => isAttributeParamMod(p)) as AttributeParamMod | undefined;
                 return expandToNode`
 
                     // ${property.name} Attribute Derived Data
-                    const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()} ?? 0;
+                    const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}?.value ?? 0;
+                    const ${property.name.toLowerCase()}CurrentMax = this.system.${property.name.toLowerCase()}?.max ?? 0;
                     const ${property.name.toLowerCase()}ModFunc = (system) => {
-                        ${translateExpression(entry, id, property.method, true, property)}
+                        ${modParam ? translateExpression(entry, id, modParam.method, true, property) : `return ${property.name.toLowerCase()}CurrentValue`}
                     };
                     this.system.${property.name.toLowerCase()} = {
                         value: ${property.name.toLowerCase()}CurrentValue,
+                        max: ${property.name.toLowerCase()}CurrentMax,
                         mod: ${property.name.toLowerCase()}ModFunc(this.system)
                     };
+                    if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
+                        this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
+                    }
                 `.appendNewLineIfNotEmpty();
             };
 
