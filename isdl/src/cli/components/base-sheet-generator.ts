@@ -19,7 +19,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                 return foundry.utils.mergeObject(super.defaultOptions, {
                     classes: ["${id}", "sheet"],
                     width: 1000,
-                    height: "auto",
+                    height: 950,
                     resizable: true,
                     submitOnClose: true,
                     submitOnChange: true,

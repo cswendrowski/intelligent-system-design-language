@@ -18,6 +18,9 @@ import {
     isNumberParamMin,
     NumberParamMin,
     isAttributeParamMod,
+    isDateExp,
+    isTimeExp,
+    isDateTimeExp,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -373,6 +376,42 @@ export function generateDocumentHandlebars(document: Document, destination: stri
 
                     ${joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
                 </fieldset>
+            `.appendNewLine().appendNewLine();
+        }
+
+        if (isDateExp(property)) {
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+            return expandToNode`
+                {{!-- Date ${property.name} --}}
+                <div class="form-group property date" data-name="system.${property.name.toLowerCase()}">
+                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    <input type="date" name="system.${property.name.toLowerCase()}" value="{{document.system.${property.name.toLowerCase()}}}" ${disabled ? "disabled='true'" : ""} />
+                </div>
+            `.appendNewLine().appendNewLine();
+        }
+
+        if (isTimeExp(property)) {
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+            return expandToNode`
+                {{!-- Time ${property.name} --}}
+                <div class="form-group property time" data-name="system.${property.name.toLowerCase()}">
+                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    <input type="time" name="system.${property.name.toLowerCase()}" value="{{document.system.${property.name.toLowerCase()}}}" ${disabled ? "disabled='true'" : ""} />
+                </div>
+            `.appendNewLine().appendNewLine();
+        }
+
+        if (isDateTimeExp(property)) {
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+            return expandToNode`
+                {{!-- DateTime ${property.name} --}}
+                <div class="form-group property datetime" data-name="system.${property.name.toLowerCase()}">
+                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    <input type="datetime-local" name="system.${property.name.toLowerCase()}" value="{{document.system.${property.name.toLowerCase()}}}" ${disabled ? "disabled='true'" : ""} />
+                </div>
             `.appendNewLine().appendNewLine();
         }
 

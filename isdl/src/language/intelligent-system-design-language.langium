@@ -46,10 +46,12 @@ ClassExpression:
     (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DateExp | TimeExp | DateTimeExp);
 
 fragment Self:
     (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
+
+// | ("self." access=("Name" | "Description" | "Image" | "Type" ))
 
 ResourceAccess:
     ("self." property=[ResourceExp:ID]) ("." subProperties+=("min" | "max"))?;
@@ -276,6 +278,12 @@ DamageTrackExp: ExpressionModifier "damageTrack" name=ID "(" "max:" max=(MethodB
 DocumentArrayExp: ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(IconParam|WhereParam) ")")?;
 
 SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
+
+DateExp: ExpressionModifier "date" name=ID;
+
+TimeExp: ExpressionModifier "time" name=ID;
+
+DateTimeExp: ExpressionModifier "datetime" name=ID;
 
 InitiativeProperty:
     "initiative" "(" "value:" value=Expression ")";

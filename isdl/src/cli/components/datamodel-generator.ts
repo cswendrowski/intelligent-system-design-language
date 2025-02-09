@@ -29,6 +29,9 @@ import {
     StatusProperty,
     isStatusProperty,
     isStatusParamWhen,
+    isDateExp,
+    isTimeExp,
+    isDateTimeExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -80,6 +83,21 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             }
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
+            `;
+        }
+        if (isDateExp(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.StringField({initial: new Intl.DateTimeFormat('en-CA').format(new Date()) }),
+            `;
+        }
+        if (isTimeExp(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.StringField({initial: new Date().toTimeString().slice(0, 5) }),
+            `;
+        }
+        if (isDateTimeExp(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.StringField({initial: new Date().toISOString().slice(0, 16) }),
             `;
         }
         if (isHtmlExp(property)) {
