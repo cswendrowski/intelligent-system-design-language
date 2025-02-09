@@ -1142,22 +1142,23 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isUpdate(expression)) {
         console.log("Translating Update Expression:");
 
-        let path = "system";
+        let path = "";
         if (isUpdateSelf(expression)) {
-            path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
+            path = `${expression.property?.ref?.name.toLowerCase()}`;
         }
+        // TODO: Parent lookup
         for (const subProperty of expression.subProperties ?? []) {
             path = `${path}.${subProperty}`;
         }
 
         if (isUpdateParent(expression)) {
             return expandToNode`
-                parentUpdate["${path}"] = foundry.utils.getProperty(this.object.parent, "${path}");
+                parentUpdate["${path}"] = foundry.utils.getProperty(this.object.parent, "system.${path}");
             `;
         }
         else if (isUpdateSelf(expression)) {
             return expandToNode`
-                update["${path}"] = foundry.utils.getProperty(this.object, "${path}");
+                update["system.${path}"] = foundry.utils.getProperty(system, "${path}");
             `;
         }
     }

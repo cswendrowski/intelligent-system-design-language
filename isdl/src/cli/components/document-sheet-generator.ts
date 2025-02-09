@@ -59,12 +59,18 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 let update = {};
                 let parentUpdate = {};
                 let selfDeleted = false;
+                let rerender = false;
                 ${translateExpression(entry, id, action.method)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.object.update(update);
+                    rerender = true;
                 }
                 if (Object.keys(parentUpdate).length > 0) {
                     await this.object.parent.update(parentUpdate);
+                    rerender = true;
+                }
+                if (rerender) {
+                    this.render();
                 }
             }
         `;
