@@ -162,7 +162,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
             if ( isResourceExp(property) && property.max != undefined && isMethodBlock(property.max) ) {
                 console.log("Processing Derived Resource: " + property.name);
-                toBeReapplied.add("system." + property.name.toLowerCase() + ".max");
+                //toBeReapplied.add("system." + property.name.toLowerCase() + ".max");
                 return expandToNode`
                     // ${property.name} Resource Derived Data
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}.value ?? 0;
@@ -175,6 +175,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         temp: ${property.name.toLowerCase()}TempValue,
                         max: ${property.name.toLowerCase()}MaxFunc(this.system)
                     };
+                    this.reapplyActiveEffectsForName("system.${property.name.toLowerCase()}.max");
                     if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
                     }

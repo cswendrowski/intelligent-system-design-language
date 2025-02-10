@@ -243,6 +243,37 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                     table.responsive.rebuild();
                     table.responsive.recalc();
                 }
+
+                this.calculateHeight();
+            }
+
+            /* -------------------------------------------- */
+
+            firstRender = true;
+            /** @override */
+            setPosition({left, top, width, height, scale}={}) {
+                if ( !this.popOut && !this.options.resizable ) return;
+                super.setPosition({left, top, width, height, scale});
+
+                if ( this.firstRender ) {
+                    this.firstRender = false;
+                    this.calculateHeight();
+                }
+            }
+
+            /* -------------------------------------------- */
+
+            calculateHeight() {
+                // Calculate the height of the drawn content and set the height of the sheet to that value
+                const form = this.form;
+                let calculatedInnerHeight = 0;
+                for ( let c of form.children ) {
+                    calculatedInnerHeight += c.offsetHeight;
+                }
+                const formHeight = calculatedInnerHeight + 50;
+                const maxHeight = window.innerHeight * 0.9; // 90% of the viewport height
+
+                this.setPosition({height: Math.min(formHeight, maxHeight)});
             }
 
             /* -------------------------------------------- */
