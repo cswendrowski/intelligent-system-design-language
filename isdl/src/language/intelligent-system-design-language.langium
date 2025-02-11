@@ -46,7 +46,7 @@ ClassExpression:
     (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DateExp | TimeExp | DateTimeExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DateExp | TimeExp | DateTimeExp | PaperDollExp);
 
 fragment Self:
     (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
@@ -285,6 +285,17 @@ TimeExp: ExpressionModifier "time" name=ID;
 
 DateTimeExp: ExpressionModifier "datetime" name=ID;
 
+PaperDollExp: ExpressionModifier "paperdoll" name=ID ("(" "image:" image=STRING ")")? PaperDollBlock;
+
+fragment PaperDollBlock:
+    "{" elements+=(PaperDollElement)* "}";
+
+PaperDollElement:
+    (PaperDollDocumentReference);
+
+PaperDollDocumentReference:
+    document=[Document:ID] name=ID "(" "left:" left=PX "," "top:" top=PX ")";
+
 InitiativeProperty:
     "initiative" "(" "value:" value=Expression ")";
 
@@ -353,6 +364,7 @@ terminal BACKGROUND: "topography" | "hideout" | "graphpaper" | "texture" | "squa
 terminal BOOLEAN: "true" | "false";
 terminal DICE: /(\d+)?d(\d+)(\w+)?/;
 terminal ID: /[_a-zA-Z][\w_]*/;
+terminal PX: /(-)?[0-9]+px/;
 terminal INT returns number: /(-)?[0-9]+/;
 terminal STRING: /"(\\.|[^"\\])*"|'(\\.|[^'\\])*'/;
 terminal JS_LINE: /\@js\{.+\}/;

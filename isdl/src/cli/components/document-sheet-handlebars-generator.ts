@@ -21,6 +21,8 @@ import {
     isDateExp,
     isTimeExp,
     isDateTimeExp,
+    isPaperDollExp,
+    PaperDollElement,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -411,6 +413,34 @@ export function generateDocumentHandlebars(document: Document, destination: stri
                 <div class="form-group property datetime" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
                     <input type="datetime-local" name="system.${property.name.toLowerCase()}" value="{{document.system.${property.name.toLowerCase()}}}" ${disabled ? "disabled='true'" : ""} />
+                </div>
+            `.appendNewLine().appendNewLine();
+        }
+
+        if (isPaperDollExp(property)) {
+            // let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            // if (property.modifier == "unlocked") disabled = false;
+
+            function generatePaperDollElementField(property: PaperDollElement, parentPath: string): CompositeGeneratorNode | undefined {
+                const left = property.left ?? "0px";
+                const top = property.top ?? "0px";
+                return expandToNode`
+                    {{!-- Paper Doll ${property.name} --}}
+                    <div class="paper-doll-slot ${property.name.toLowerCase()} single-document" data-name="${parentPath}.${property.name.toLowerCase()}" style="left: ${left}; top: ${top};" data-tooltip="${property.name}"  data-type="${property.document.ref?.name.toLowerCase()}" >
+                        <img src="{{document.${parentPath}.${property.name.toLowerCase()}.img}}" title="{{document.${parentPath}.${property.name.toLowerCase()}.name}}" />
+                    </div>
+                `.appendNewLine().appendNewLine();
+            }
+
+            let image = property.image ?? "default";
+
+            return expandToNode`
+                {{!-- Paper Doll ${property.name} --}}
+                <div class="form-group stacked property paper-doll" data-name="system.${property.name.toLowerCase()}">
+                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    <div class="paper-doll-container" data-name="${property.name.toLowerCase()}" style="background-image: url('${image}');">
+                        ${joinToNode(property.elements, element => generatePaperDollElementField(element, "system." + property.name.toLowerCase()), { appendNewLineIfNotEmpty: true })}
+                    </div>
                 </div>
             `.appendNewLine().appendNewLine();
         }

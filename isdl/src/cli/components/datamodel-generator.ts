@@ -5,6 +5,7 @@ import type {
     NumberParamMax,
     NumberParamMin,
     Page,
+    PaperDollElement,
     Section,
     StatusParamWhen,
     StringParamChoices,
@@ -32,6 +33,7 @@ import {
     isDateExp,
     isTimeExp,
     isDateTimeExp,
+    isPaperDollExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -172,6 +174,21 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             return expandToNode`
                 ${property.name.toLowerCase()}: new UuidDocumentField(),
             `;   
+        }
+
+        if (isPaperDollExp(property)) {
+
+            function generatePaperDollElementField(property: PaperDollElement): CompositeGeneratorNode | undefined {
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new UuidDocumentField()
+                `;
+            }
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    ${joinToNode(property.elements, property => generatePaperDollElementField(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
+                }),
+            `;
         }
 
         // if ( isDocumentArrayExp(property) ) {

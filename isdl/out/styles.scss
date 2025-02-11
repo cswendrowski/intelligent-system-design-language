@@ -341,6 +341,62 @@
         }
     }
 
+    .paper-doll {
+        .paper-doll-container {
+            position: relative;
+            height: 300px;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .paper-doll-slot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px dashed rgba(0, 0, 0, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+
+            // &.head {
+            //     top: 15px;
+            //     left: 123px;
+            // }
+
+            // &.neck {
+            //     left: 60px;
+            // }
+
+            // &.chest {
+            //     left: 123px;
+            //     top: -17px;
+            // }
+
+            // &.arms {
+            //     left: 195px;
+            //     top: -23px;
+            // }
+
+            // &.legs {
+            //     left: 124px;
+            //     top: 30px;
+            // }
+
+            // &.feet {
+            //     left: 124px;
+            //     top: 50px;
+            // }
+
+            // &.right-hand {
+            //     top: -100px;
+            //     left: 80px;
+            // }
+
+            // &.left-hand {
+            //     top: -140px;
+            //     left: 162px;
+            // }
+        }
+    }
+
     .damage-track {
         .damage-track-container {
             margin-left: 5px;
