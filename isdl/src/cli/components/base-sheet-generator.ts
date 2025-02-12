@@ -72,6 +72,58 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                 this.activateProgressBars(html);
             }
 
+            dbInstance = null;
+
+            // Open IndexedDB (Cached)
+            openDB(version=1) {
+                return new Promise((resolve, reject) => {
+                    if (this.dbInstance) return resolve(this.dbInstance);
+
+                    const request = indexedDB.open("datatableDB", version);
+                    
+                    request.onupgradeneeded = (event) => {
+                        let db = event.target.result;
+                        if (!db.objectStoreNames.contains("tableStates")) {
+                            db.createObjectStore("tableStates", { keyPath: "id" });
+                        }
+                    };
+
+                    request.onsuccess = (event) => {
+                        this.dbInstance = event.target.result;
+                        resolve(this.dbInstance);
+                    };
+                    
+                    request.onerror = () => reject("IndexedDB failed to open.");
+                });
+            }
+
+            // Save table state
+            saveTableState(name, data) {
+                this.openDB().then((db) => {
+                    const tx = db.transaction("tableStates", "readwrite");
+                    const store = tx.objectStore("tableStates");
+                    store.put({ id: name, data });
+
+                    tx.oncomplete = () => console.log(\`Saved state: \${name}\`, data);
+                    tx.onerror = () => console.error(\`Failed to save state: \${name}\`);
+                });
+            }
+
+            // Load table state
+            loadTableState(name) {
+                return new Promise((resolve) => {
+                    this.openDB().then((db) => {
+                        const tx = db.transaction("tableStates", "readonly");
+                        const store = tx.objectStore("tableStates");
+                        const request = store.get(name);
+
+                        request.onsuccess = () => resolve(request.result ? request.result.data : null);
+                        request.onerror = () => resolve(null);
+                    });
+                });
+            }
+
+
             /* -------------------------------------------- */
 
             activateDataTables(html) {
@@ -87,6 +139,32 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                         paging: false,
                         scrollY: 250,
                         stateSave: true,
+                        stateSaveCallback: (settings, data) => {
+                            const documentName = this.object.name;
+                            const documentType = this.object.type;
+                            const tableName = settings.nTable.closest(".tab").dataset.tab;
+                            const name = \`DataTables_\${documentName}_\${documentType}_\${tableName}\`;
+                            try {
+                                this.saveTableState(name, data);
+                            }
+                            catch (e) {
+                                console.error("Failed to save state:", e);
+                            }
+                        },
+                        stateLoadCallback: (settings, callback) => {
+                            const documentName = this.object.name;
+                            const documentType = this.object.type;
+                            const tableName = settings.nTable.closest(".tab").dataset.tab;
+                            const name = \`DataTables_\${documentName}_\${documentType}_\${tableName}\`;
+                        
+                        
+                            this.loadTableState(name).then((data) => {
+                                callback(data);
+                            }).catch((error) => {
+                                console.error("Failed to load table state:", name, error);
+                                callback(null); // Return null on failure
+                            });
+                        },
                         responsive: true,
                         scrollX: false,
                         colReorder: true,
