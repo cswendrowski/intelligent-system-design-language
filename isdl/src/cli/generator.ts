@@ -56,6 +56,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     copyDataTableFiles(data.destination);
     copyProgressBarJs(data.destination);
     copyLogo(data.destination);
+    copyPaperDoll(data.destination);
     generateSystemCss(entry, id, data.destination);
     generateCustomCss(entry, id, data.destination);
     generateUuidDocumentField(data.destination);
@@ -86,8 +87,8 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     entry.documents.forEach(x => {
         generateDocumentDataModel(entry, x, data.destination);
         generateDocumentSheet(x, entry, id, data.destination);
-        generateDocumentHandlebars(x, data.destination, true);
-        generateDocumentHandlebars(x, data.destination, false);
+        generateDocumentHandlebars(id, x, data.destination, true);
+        generateDocumentHandlebars(id, x, data.destination, false);
     });
 
     return data.destination;
@@ -151,6 +152,24 @@ function copyLogo(destination: string) {
     const imgFilePath = path.join(destination, "img", "isdl.png");
 
     fs.copyFileSync(path.join(__dirname, "../isdl.png"), imgFilePath);
+}
+
+function copyPaperDoll(destination: string) {
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    // Make the scripts and css directories
+    const imgDir = path.join(destination, "img");
+
+    if (!fs.existsSync(imgDir)) {
+        fs.mkdirSync(imgDir, { recursive: true });
+    }
+
+    // Copy the files
+    const imgFilePath = path.join(destination, "img", "paperdoll_default.png");
+
+    fs.copyFileSync(path.join(__dirname, "../paperdoll_default.png"), imgFilePath);
 }
 
 function getExtensionVersion(): string | undefined {

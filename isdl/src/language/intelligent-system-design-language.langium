@@ -285,7 +285,13 @@ TimeExp: ExpressionModifier "time" name=ID;
 
 DateTimeExp: ExpressionModifier "datetime" name=ID;
 
-PaperDollExp: ExpressionModifier "paperdoll" name=ID ("(" "image:" image=STRING ")")? PaperDollBlock;
+PaperDollExp: ExpressionModifier "paperdoll" name=ID PaperDollParameters PaperDollBlock;
+
+fragment PaperDollParameters:
+    ("(" params+=PaperDollParameter* ("," params+=PaperDollParameter)* ")")?;
+
+PaperDollParameter:
+    (ImageParam | SizeParam);
 
 fragment PaperDollBlock:
     "{" elements+=(PaperDollElement)* "}";
@@ -338,6 +344,9 @@ NumberParamMin:
 NumberParamInitial:
     "initial:" value=(INT);
 
+SizeParam:
+    "size:" value=PX;
+
 NumberParamValue:
     "value:" value=(MethodBlock | INT);
 
@@ -352,6 +361,9 @@ BackgroundParam:
 
 IconParam:
     "icon:" value=STRING;
+
+ImageParam:
+    "image:" value=STRING;
 
 WhereParam:
     "where:" value=WhenExpressions;

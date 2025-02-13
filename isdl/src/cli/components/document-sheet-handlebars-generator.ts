@@ -23,6 +23,10 @@ import {
     isDateTimeExp,
     isPaperDollExp,
     PaperDollElement,
+    isImageParam,
+    ImageParam,
+    isSizeParam,
+    SizeParam,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -49,7 +53,7 @@ import * as path from 'node:path';
 import { getAllOfType, getSystemPath } from './utils.js';
 import { Reference } from 'langium';
 
-export function generateDocumentHandlebars(document: Document, destination: string, edit: boolean) {
+export function generateDocumentHandlebars(id: string, document: Document, destination: string, edit: boolean) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", type);
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${edit ? "-config": ""}.hbs`);
@@ -421,18 +425,22 @@ export function generateDocumentHandlebars(document: Document, destination: stri
             // let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
             // if (property.modifier == "unlocked") disabled = false;
 
+            let sizeParam = property.params.find(x => isSizeParam(x)) as SizeParam;
+            let size = sizeParam?.value ?? "40px";
+
             function generatePaperDollElementField(property: PaperDollElement, parentPath: string): CompositeGeneratorNode | undefined {
                 const left = property.left ?? "0px";
                 const top = property.top ?? "0px";
                 return expandToNode`
                     {{!-- Paper Doll ${property.name} --}}
-                    <div class="paper-doll-slot ${property.name.toLowerCase()} single-document" data-name="${parentPath}.${property.name.toLowerCase()}" style="left: ${left}; top: ${top};" data-tooltip="${property.name}"  data-type="${property.document.ref?.name.toLowerCase()}" >
-                        <img src="{{document.${parentPath}.${property.name.toLowerCase()}.img}}" title="{{document.${parentPath}.${property.name.toLowerCase()}.name}}" />
+                    <div class="paper-doll-slot ${property.name.toLowerCase()}" data-name="${parentPath}.${property.name.toLowerCase()}" style="left: ${left}; top: ${top}; width: ${size}; height: ${size};" data-tooltip="${property.name}"  data-type="${property.document.ref?.name.toLowerCase()}" >
+                        <img src="{{document.${parentPath}.${property.name.toLowerCase()}.img}}" data-tooltip="{{document.${parentPath}.${property.name.toLowerCase()}.name}}" />
                     </div>
                 `.appendNewLine().appendNewLine();
             }
 
-            let image = property.image ?? "default";
+            let imageParam = property.params.find(x => isImageParam(x)) as ImageParam;
+            let image = imageParam?.value ?? `systems/${id}/img/paperdoll_default.png`;
 
             return expandToNode`
                 {{!-- Paper Doll ${property.name} --}}

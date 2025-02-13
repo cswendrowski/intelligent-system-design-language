@@ -30,7 +30,8 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                     ],
                     dragDrop: [
                         {dragSelector: "tr", dropSelector: ".tabs-container"},
-                        {dropSelector: ".single-document"}
+                        {dropSelector: ".single-document"},
+                        {dragSelector: ".paper-doll-slot", dropSelector: ".paper-doll-slot"}
                     ],
                 });
             }
@@ -104,7 +105,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                     const store = tx.objectStore("tableStates");
                     store.put({ id: name, data });
 
-                    tx.oncomplete = () => console.log(\`Saved state: \${name}\`, data);
+                    tx.oncomplete = () => {};
                     tx.onerror = () => console.error(\`Failed to save state: \${name}\`);
                 });
             }
@@ -390,7 +391,8 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                 const data = JSON.parse(event.dataTransfer.getData("text/plain"));
 
                 // If the drop target is a single document, handle it differently
-                if (event.currentTarget.classList.contains("single-document")) {
+                const linkedClasses = [ "single-document", "paper-doll-slot" ];
+                if (linkedClasses.includes(event.currentTarget.classList[0])) {
                     const doc = await fromUuid(data.uuid);
                     if ( !doc ) return;
                     if ( doc.type !== event.currentTarget.dataset.type ) {
@@ -518,13 +520,23 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
 
             _onDragStart(event) {
                 console.log("Drag Start");
-                const tr = event.currentTarget.closest("tr");
-                const data = {
-                    type: tr.dataset.type == "ActiveEffect" ? "ActiveEffect" : "Item",
-                    uuid: tr.dataset.uuid
-                };
 
-                event.dataTransfer.setData("text/plain", JSON.stringify(data));
+                if (event.currentTarget.classList.contains("paper-doll-slot")) {
+                    // Remove the item from the slot
+                    const name = event.currentTarget.dataset.name;
+                    const update = {};
+                    update[name] = null;
+                    this.object.update(update);
+                }
+                else {
+                    const tr = event.currentTarget.closest("tr");
+                    const data = {
+                        type: tr.dataset.type == "ActiveEffect" ? "ActiveEffect" : "Item",
+                        uuid: tr.dataset.uuid
+                    };
+
+                    event.dataTransfer.setData("text/plain", JSON.stringify(data));
+                }
             }
         }
     `.appendNewLineIfNotEmpty();
