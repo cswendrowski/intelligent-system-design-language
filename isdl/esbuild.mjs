@@ -20,8 +20,10 @@ function padZeroes(i) {
 function copyPackageJson(outDir) {
     const src = path.resolve('package.json');
     const dest = path.join(outDir, 'extension/package.json');
+    const dest2 = path.join(outDir, 'package.json');
     fs.copyFileSync(src, dest);
-    console.log(getTime() + 'Copied package.json to output directory.');
+    fs.copyFileSync(src, dest2);
+    console.log(getTime() + 'Copied package.json to output directory ' + dest);
 }
 
 const plugins = [{

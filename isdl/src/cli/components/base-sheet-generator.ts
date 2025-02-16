@@ -392,7 +392,8 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
 
                 // If the drop target is a single document, handle it differently
                 const linkedClasses = [ "single-document", "paper-doll-slot" ];
-                if (linkedClasses.includes(event.currentTarget.classList[0])) {
+                const eventClasses = Array.from(event.currentTarget.classList);
+                if (eventClasses.find(c => linkedClasses.includes(c))) {
                     const doc = await fromUuid(data.uuid);
                     if ( !doc ) return;
                     if ( doc.type !== event.currentTarget.dataset.type ) {
