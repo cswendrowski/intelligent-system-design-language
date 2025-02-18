@@ -129,6 +129,7 @@ export function generateTokenDocument(entry: Entry, id: string, destination: str
         /** @inheritDoc */
         getBarAttribute(barName, options={}) {
             const data = super.getBarAttribute(barName, options);
+            if ( data === null ) return;
             const resource = foundry.utils.getProperty(this.actor.system, data.attribute);
             data.value += resource.temp;
             return data;

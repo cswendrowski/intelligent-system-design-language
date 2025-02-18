@@ -46,18 +46,15 @@ ClassExpression:
     (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DateExp | TimeExp | DateTimeExp | PaperDollExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp);
 
 fragment Self:
     (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
 
 // | ("self." access=("Name" | "Description" | "Image" | "Type" ))
 
-ResourceAccess:
-    ("self." property=[ResourceExp:ID]) ("." subProperties+=("min" | "max"))?;
-
 Access:
-    Self | ResourceAccess;
+    Self;
 
 FleetingAccess:
     variable=[VariableExpression] (("." subProperty=ID)? | ("[" arrayAccess=Expression "]")?);
@@ -96,7 +93,7 @@ DecrementValAssignment:
     Self "-=" exp=Expression;
 
 fragment Parent:
-    "parent" ( "." property=ID | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=ID)*;
+    "parent" ( "." property=[Property:ID] | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=ID)*;
 
 ParentAccess:
     Parent;
@@ -156,7 +153,7 @@ HiddenCondition:
     "hidden:" when=WhenExpressions;
 
 WhenExpressions:
-    (ShorthandComparisonExpression | ComparisonExpression);
+    (ShorthandComparisonExpression | ComparisonExpression | ParentTypeCheckExpression);
 
 Each:
     'each' var=Parameter 'in' collection=(Access | FleetingAccess | ParentAccess) method=MethodBlock;
@@ -227,6 +224,9 @@ ComparisonExpression:
 ShorthandComparisonExpression:
     e1=Expression term=("exists" | "!exists")?;
 
+ParentTypeCheckExpression:
+    "parent" "is" document=[Document:ID];
+
 ArrayExpression: "[" items+=Literal ("," items+=Literal)* "]";
 
 MathExpression:
@@ -286,6 +286,11 @@ TimeExp: ExpressionModifier "time" name=ID;
 DateTimeExp: ExpressionModifier "datetime" name=ID;
 
 PaperDollExp: ExpressionModifier "paperdoll" name=ID PaperDollParameters PaperDollBlock;
+
+ParentPropertyRefExp: ExpressionModifier "parent" "<" propertyType=("attribute" | "resource" | "number") ">" name=ID ( "(" "choices:" "[" choices+=ParentPropertyRefChoice ("," choices+=ParentPropertyRefChoice)* "]" ")")?;
+
+ParentPropertyRefChoice:
+    document=[Document:ID] ("." property=[Property:ID])?;
 
 fragment PaperDollParameters:
     ("(" params+=PaperDollParameter* ("," params+=PaperDollParameter)* ")")?;

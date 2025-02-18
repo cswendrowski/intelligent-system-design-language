@@ -27,9 +27,9 @@ import type {
     VariableAccess,
     MathExpression,
     StringParamChoices,
-    ResourceAccess,
     InitiativeProperty,
     StatusProperty,
+    ParentAccess,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -85,15 +85,17 @@ import {
     isMathSingleExpression,
     isMathParamExpression,
     isStringParamChoices,
-    isResourceAccess,
     isInitiativeProperty,
     isStatusProperty,
     isUpdate,
     isUpdateParent,
     isUpdateSelf,
+    isParentTypeCheckExpression,
+    isParentPropertyRefExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
-import { getSystemPath, toMachineIdentifier } from './utils.js';
+import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
+import { AstUtils } from 'langium';
 
 export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty |undefined = undefined): CompositeGeneratorNode | undefined {
 
@@ -221,7 +223,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         // TODO: Not all references are to a system property - some will be to fleeting variables
 
-        let systemPath = `system.${expression.property?.toLowerCase()}`;
+        let systemPath = `system.${expression.property?.ref?.name?.toLowerCase()}`;
         for (const subProperty of expression.subProperties ?? []) {
             systemPath = `${systemPath}.${subProperty}`;
         }
@@ -290,12 +292,21 @@ export function translateExpression(entry: Entry, id: string, expression: string
     function translateReferenceExpression(expression: Ref): CompositeGeneratorNode | undefined {
         let accessPath = expression.val.ref?.name;
         console.log("Translating Reference Expression: " + accessPath);
+
+        // Check if we are in an each loop
+        const eachExp = AstUtils.getContainerOfType(expression.$container, isEach);
+        if (eachExp != undefined) {
+            if (isAccess(eachExp.collection) || isParentAccess(eachExp.collection)) {
+                accessPath = `${accessPath}.system`;
+            }
+        }
+
         for (const subProperty of expression.subProperties ?? []) {
             if (subProperty.toLowerCase() == "name") {
-                accessPath = `${accessPath}.name`;
+                accessPath = `${expression.val.ref?.name}.name`;
             }
             else {
-                accessPath = `${accessPath}.${subProperty}`;
+                accessPath = `${accessPath}.${subProperty.toLowerCase()}`;
             }
         }
         console.log("Access Path: ", accessPath);
@@ -334,10 +345,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         // Determine if the property reference is the same as the object we are working with
         if ( generatingProperty && expression.property?.ref == generatingProperty) {
-            console.log("Generating Property Access: ", expression.property.ref?.name);
+            console.log("Generating self referencing Property Access: ", expression.property.ref?.name);
             if (isInitiativeProperty(generatingProperty)) {
                 return expandToNode`
                     @system.${expression.property.ref?.name.toLowerCase()}
+                `;
+            }
+            if (isAttributeExp(generatingProperty) || isResourceExp(generatingProperty)) {
+                return expandToNode`
+                    system.${expression.property.ref?.name.toLowerCase()}.value
                 `;
             }
             return expandToNode`
@@ -363,22 +379,22 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
-    function translateResourceAccessExpression(expression: ResourceAccess): CompositeGeneratorNode | undefined {
-        console.log("Translating Resource Access Expression: " + expression.property?.ref?.name);
+    // function translateResourceAccessExpression(expression: ResourceAccess): CompositeGeneratorNode | undefined {
+    //     console.log("Translating Resource Access Expression: " + expression.property?.ref?.name);
 
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+    //     let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
 
-        if (isStatusProperty(generatingProperty)) {
-            console.log("This is a status property, swapping to self-access");
-            systemPath = systemPath.replace("system.", "this.");
-        }
+    //     if (isStatusProperty(generatingProperty)) {
+    //         console.log("This is a status property, swapping to self-access");
+    //         systemPath = systemPath.replace("system.", "this.");
+    //     }
 
-        console.log("System Path: ", systemPath);
+    //     console.log("System Path: ", systemPath);
 
-        return expandToNode`
-            ${systemPath}
-        `;
-    }
+    //     return expandToNode`
+    //         ${systemPath}
+    //     `;
+    // }
 
     function translateIfStatement(expression: IfStatement): CompositeGeneratorNode | undefined {
         //console.log("Translating If Statement: ");
@@ -405,6 +421,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateComparisonExpression(expression: WhenExpressions): CompositeGeneratorNode | undefined {
+       
+        if (isParentTypeCheckExpression(expression)) {
+            return expandToNode`
+                this.object.parent.type == "${expression.document.ref?.name?.toLowerCase()}"
+            `;
+        }
+       
         // If the term is "equals" or "==", we need to translate it to "===" in JavaScript
         let term = expression.term?.toString() ?? "";
         if (term == "equals" || term == "==") {
@@ -491,24 +514,19 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isNegExpression(expression)) {
         return translateNegatedExpression(expression as NegExpression);
     }
-    if (isResourceAccess(expression)) {
-        return translateResourceAccessExpression(expression as ResourceAccess);
-    }
+    // if (isResourceAccess(expression)) {
+    //     return translateResourceAccessExpression(expression as ResourceAccess);
+    // }
     if (isAccess(expression)) {
         return translateAccessExpression(expression as Access, generatingProperty);
     }
 
     if (isParentAccess(expression)) {
         let path = "this.object.parent";
-        if ( expression.propertyLookup != undefined ) {
-            path = `${path}?.system[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
-        }
-        else {
-            path = `${path}?.${expression.property?.toLowerCase()}`;
-        }
-        for (const subProperty of expression.subProperties ?? []) {
-            path = `${path}?.${subProperty}`;
-        }
+
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
+        path = `${path}?.${systemPath}`;
+
         return expandToNode`
             ${path}
         `;
@@ -563,6 +581,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if (isAccess(expression)) {
                 let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
                 const wide = isHtmlExp(expression.property?.ref) ? true : false;
+
+                if (isParentPropertyRefExp(expression.property?.ref)) {
+                    return expandToNode`
+                        { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: this.object.${systemPath}.replace("system", "").replaceAll(".", "").titleCase(), wide: ${wide}, hasValue: this.object.${systemPath} != "" },
+                    `;
+                }
+
                 return expandToNode`
                     { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: this.object.${systemPath}, wide: ${wide}, hasValue: this.object.${systemPath} != "" },
                 `;
@@ -696,15 +721,20 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 `;
             }
             if (isParentAccess(expression)) {
-                let path = expression.property ?? ""
-                let label = humanize(expression.property ?? "");
-                if ( expression.propertyLookup != undefined ) {
-                    path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
-                    label = `${label} \${this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
+                let path = expression.property?.ref?.name ?? ""
+                let label = humanize(expression.property?.ref?.name ?? "");
+                const document = getParentDocument(expression as ParentAccess);
+                if ( document != undefined ) {
+                    path = `${document.name.toLowerCase()}${path}`;
+                    label = `${humanize(document.name)} ${label}`;
                 }
+                // else if ( expression.propertyLookup != undefined ) {
+                //     path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
+                //     label = `${label} \${this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
+                // }
                 else {
-                    path = `${path}${expression.property?.toLowerCase()}`;
-                    label = `${label} ${humanize(expression.property ?? "")}`;
+                    path = `${path}${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${label} ${humanize(expression.property?.ref?.name ?? "")}`;
                 }
                 for (const subProperty of expression.subProperties ?? []) {
                     path = `${path}${subProperty}`;
@@ -718,11 +748,17 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if (isAccess(expression)) {
                 let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
                 let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
-                for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}.${subProperty}`;
-                    label = `${label} ${humanize(subProperty)}`;
+
+                if (isParentPropertyRefExp(expression.property?.ref)) {
+                    label = `${label} - \${this.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
                 }
-                console.log("Acesss:", path, label);
+                else {
+                    for (const subProperty of expression.subProperties ?? []) {
+                        path = `${path}.${subProperty}`;
+                        label = `${label} ${humanize(subProperty)}`;
+                    }
+                }
+                console.log("Acess:", path, label);
                 return expandToNode`
                     \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
                 `;
@@ -765,16 +801,17 @@ export function translateExpression(entry: Entry, id: string, expression: string
             console.log("Translating Dice Data: ", expression.$type);
             if (isParentAccess(expression)) {
                 let path = "this.object.parent.system";
-                let label = expression.property ?? "";
+                let label = expression.property?.ref?.name ?? "";
 
-                console.log("Parent Access:", expression.property, expression.propertyLookup?.ref?.name);
+                console.log("Parent Access:", expression.property?.ref?.name);
 
-                if ( expression.propertyLookup != undefined ) {
-                    path = `${path}[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
-                    label = `${label}.${expression.propertyLookup.ref?.name}`;
+                const document = getParentDocument(expression as ParentAccess);
+                if ( document != undefined ) {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${humanize(document.name)}.${label}`;
                 }
                 else {
-                    path = `${path}.${expression.property?.toLowerCase()}`;
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
                     label = `${label}.${expression.property}`;
                 }
                 for (const subProperty of expression.subProperties ?? []) {
@@ -798,11 +835,27 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}[this.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
                     label = `${label}.${expression.propertyLookup.ref?.name}`;
                 }
+                else if (isParentPropertyRefExp(expression.property?.ref)) {
+                    path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${label}.${expression.property?.ref?.name}`;
+
+                    if (expression.property?.ref.propertyType == "resource" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                        path = `${path} + ".value"`;
+                    }
+                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        path = `${path} + ".mod"`;
+                    }
+                    
+                    console.log(label, path);
+                    return expandToNode`
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(this.object.parent, ${path})
+                    `;
+                }
                 else {
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if (isResourceExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                    if ((isResourceExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path}.value`;
                     }
                     if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
@@ -816,7 +869,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
                 console.log(label, path);
                 return expandToNode`
-                    "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": ${path}
+                    "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": ${path} ?? 0
                 `;
             }
             if (isFleetingAccess(expression)) {
@@ -840,7 +893,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 const label = expression.variable.ref?.name.toLowerCase() ?? "";
                 console.log(label, path);
                 return expandToNode`
-                    "${label}": ${path}
+                    "${label}": ${path} ?? 0
                 `;
             }
 
@@ -887,12 +940,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
                 if (expression.subProperties != undefined && expression.subProperties.length > 0) {
                     return expandToNode`
-                        "${expression.val.ref?.name.toLowerCase()}${expression.subProperties[0].toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperties[0].toLowerCase()}
+                        "${expression.val.ref?.name.toLowerCase()}${expression.subProperties[0].toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperties[0].toLowerCase()} ?? 0
                     `;
                 }
                 console.log(expression.val.ref?.name, expression.val.ref?.$type);
                 return expandToNode`
-                    "${expression.val.ref?.name.toLowerCase()}": ${expression.val.ref?.name}
+                    "${expression.val.ref?.name.toLowerCase()}": ${expression.val.ref?.name} ?? 0
                 `;
             }
 

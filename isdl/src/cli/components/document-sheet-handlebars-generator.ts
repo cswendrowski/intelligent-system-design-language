@@ -27,6 +27,7 @@ import {
     ImageParam,
     isSizeParam,
     SizeParam,
+    isParentPropertyRefExp,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -176,6 +177,23 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
                 <div class="form-group property stringExp" data-name="system.${property.name.toLowerCase()}">
                     <label>{{ localize "${document.name}.${property.name}" }}</label>
                     <input name="system.${property.name.toLowerCase()}" type="text" value="{{document.system.${property.name.toLowerCase()}}}" placeholder="${property.name}" ${disabled ? "disabled='disabled'" : ""} />
+                </div>
+            `.appendNewLine().appendNewLine();
+        }
+
+        if ( isParentPropertyRefExp(property) ) {
+            if (property.modifier == "hidden") return expandToNode``;
+
+            let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
+            if (property.modifier == "unlocked") disabled = false;
+
+            return expandToNode`
+                {{!-- Parent Property Ref ${property.name} --}}
+                <div class="form-group property parentPropertyRefExp" data-name="system.${property.name.toLowerCase()}">
+                    <label>{{ localize "${document.name}.${property.name}" }}</label>
+                    <select name="system.${property.name.toLowerCase()}" ${disabled ? "disabled='disabled'" : ""}>
+                        {{selectOptions ${property.name.toLowerCase()}ParentChoices selected=document.system.${property.name.toLowerCase()} localize=true}}
+                    </select>
                 </div>
             `.appendNewLine().appendNewLine();
         }

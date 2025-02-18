@@ -204,6 +204,20 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 `.appendNewLineIfNotEmpty();
             }
 
+            // if (isParentPropertyRefExp(property)) {
+            //     console.log("Processing Derived Parent Property: " + property.name);
+
+            //     return expandToNode`
+            //         // Parent ${property.name} Property Derived Data
+            //         if ( !this.parent || this.system.${property.name.toLowerCase()}Ref == "" ) {
+            //             this.system.${property.name.toLowerCase()} = 0;
+            //         }
+            //         else {
+            //             this.system.${property.name.toLowerCase()} = foundry.utils.getProperty(this.parent, this.system.${property.name.toLowerCase()}Ref) ?? 0;
+            //         }
+            //     `.appendNewLineIfNotEmpty().appendNewLine();
+            // }
+
             return
         }
 

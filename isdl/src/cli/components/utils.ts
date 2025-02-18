@@ -1,7 +1,12 @@
+import { AstNode, AstUtils } from 'langium';
 import type {
     ClassExpression,
     Document,
+    Entry,
+    IfStatement,
     Page,
+    ParentAccess,
+    ParentTypeCheckExpression,
     Property,
     Section,
 } from '../../language/generated/ast.js';
@@ -12,6 +17,8 @@ import {
     isPage,
     isInitiativeProperty,
     isDocument,
+    isIfStatement,
+    isParentTypeCheckExpression,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -33,7 +40,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return reference.name.toLowerCase();
     }
 
-    let basePath = isInitiativeProperty(propertyLookup) ? "" : "system.";
+    let basePath = isInitiativeProperty(propertyLookup) ? "" : (safeAccess ? "system?." : "system.");
     if (propertyLookup && !isInitiativeProperty(propertyLookup)) {
         basePath = `system[${propertyLookup.name.toLowerCase()}.toLowerCase()].`;
     }
@@ -43,10 +50,10 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         let systemPath = `${basePath}${reference.name.toLowerCase()}`;
         for (const subProperty of subProperties) {
             if (safeAccess) {
-                systemPath = `${systemPath}?.${subProperty}`;
+                systemPath = `${systemPath}?.${subProperty.toLowerCase()}`;
             }
             else {
-                systemPath = `${systemPath}.${subProperty}`;
+                systemPath = `${systemPath}.${subProperty.toLowerCase()}`;
             }
         }
         return systemPath;
@@ -81,4 +88,31 @@ export function getAllOfType<T extends (ClassExpression | Page | Section)>(body:
     }
     
     return result;
+}
+
+export function globalGetAllOfType<T extends (ClassExpression | Page | Section)>(entry: Entry, comparisonFunc: (element: T) => boolean) : T[] {
+    let result: T[] = [];
+    for (let document of entry.documents) {
+        result.push(...getAllOfType(document.body, comparisonFunc, false));
+    }
+    return result;
+}
+
+export function getParentDocument(parentAccess: ParentAccess): Document | undefined {
+    const ifStatement = AstUtils.getContainerOfType(parentAccess.$container, (n: AstNode): n is IfStatement => {
+        const isIf = isIfStatement(n);
+        if (!isIf) return false;
+        return isParentTypeCheckExpression((n as IfStatement).expression);
+    })!;
+    const parentTypeCheck = ifStatement.expression as ParentTypeCheckExpression;
+    if (parentTypeCheck == undefined) {
+        console.error("Parent type check not found");
+        return undefined
+    }
+    return parentTypeCheck.document.ref;
+}
+
+export function getDocument(property: Property): Document | undefined {
+    const document = AstUtils.getContainerOfType(property.$container, isDocument);
+    return document;
 }

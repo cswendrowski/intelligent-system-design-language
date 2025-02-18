@@ -19,6 +19,15 @@ import {
     BackgroundParam,
     isStringParamChoices,
     StringParamChoices,
+    ParentPropertyRefExp,
+    isParentPropertyRefExp,
+    AttributeExp,
+    isAttributeExp,
+    NumberExp,
+    isNumberExp,
+    isResourceExp,
+    ResourceExp,
+    Property,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -38,7 +47,7 @@ import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'lang
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { translateExpression } from './method-generator.js';
-import { getAllOfType, getSystemPath, toMachineIdentifier } from './utils.js';
+import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from './utils.js';
 
 export function generateDocumentSheet(document: Document, entry: Entry, id: string, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -258,6 +267,56 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
 
     const pages = getAllOfType<Page>(document.body, isPage);
 
+    const parentPropertyReferences = getAllOfType<ParentPropertyRefExp>(document.body, isParentPropertyRefExp);
+
+    function generateParentPropertyReference(property: ParentPropertyRefExp): CompositeGeneratorNode | undefined {
+
+        let allChoices: Property[] = [];
+        switch (property.propertyType) {
+            case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
+            case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
+            case "number": allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp); break;
+            default: console.error("Unsupported parent property type: " + property.propertyType); break;
+        }
+
+        if (allChoices.length == 0) {
+            return expandToNode`
+                context.${property.name.toLowerCase()}ParentChoices = {};
+            `;
+        }
+
+        let refChoices = allChoices.map(x => {
+            let parentDocument = getDocument(x);
+
+            if (property.choices.length > 0) {
+                if (!property.choices.find(y => {
+                    const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
+
+                    if (y.property != undefined) {
+                        const propertyNameMatches = y.property.ref?.name.toLowerCase() == x.name.toLowerCase();
+                        return documentNameMatches && propertyNameMatches;
+                    }
+                    // Just check document name
+                    return documentNameMatches;
+                })) {
+                    return undefined;
+                }
+            }
+
+            return {
+                name: `system.${x.name.toLowerCase()}`,
+                label: `${parentDocument?.name} - ${x.name}`
+            };
+        });
+        refChoices = refChoices.filter(x => x != undefined);
+        return expandToNode`
+            context.${property.name.toLowerCase()}ParentChoices = {
+                "" : "None",
+                ${joinToNode(refChoices, x => expandToNode`"${x!.name}": "${x!.label}"`, { separator: ",", appendNewLineIfNotEmpty: true })}
+            };
+        `;
+    }
+
     const fileNode = expandToNode`
         import ${entry.config.name}DocumentSheet from "../${id}-sheet.mjs";
         import ${entry.config.name}ActorSheet from "../${id}-actor-sheet.mjs";
@@ -324,6 +383,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 ${joinToNode(actions, property => generateActionInfo(property), { appendNewLineIfNotEmpty: true})}
                 ${expandToNode`${generateItemActionLists(document)}`.appendNewLineIfNotEmpty()}
                 ${expandToNode`${generateSingleDocumentContentLinks(document)}`.appendNewLineIfNotEmpty()}
+                ${joinToNode(parentPropertyReferences, property => generateParentPropertyReference(property), { appendNewLineIfNotEmpty: true})}
                 return context;
             }
 

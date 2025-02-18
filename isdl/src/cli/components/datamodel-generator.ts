@@ -34,6 +34,7 @@ import {
     isTimeExp,
     isDateTimeExp,
     isPaperDollExp,
+    isParentPropertyRefExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -188,6 +189,14 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 ${property.name.toLowerCase()}: new fields.SchemaField({
                     ${joinToNode(property.elements, property => generatePaperDollElementField(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
                 }),
+            `;
+        }
+
+        if (isParentPropertyRefExp(property)) {
+            console.log(`Parent property ref: ${property.name}`);
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
             `;
         }
 

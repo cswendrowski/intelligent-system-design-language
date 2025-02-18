@@ -78,8 +78,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
         
         resource Mana(max: 10)
-        action Refill(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.max) {
-            self.Mana = self.Mana.max
+        action Refill(icon: "fa-duotone fa-solid fa-sparkles", disabled: self.Mana == self.Mana.Max) {
+            self.Mana = self.Mana.Max
         }
         
         pips DamageTrack(max: 5, style: circles)
@@ -149,6 +149,8 @@ actor NPC {
     max: 7,
     icon: "fa-solid fa-chart-line",
     color: #FF7F50)
+
+    attribute Monster
     
     number Defense(value: {
         if (self.Armor exists) {
@@ -161,7 +163,8 @@ actor NPC {
 }
 
 item Skill {
-    string Ability(choices: [ "Fight", "Flight", "Endure", "Persuade" ])
+    //string Ability(choices: [ "Fight", "Flight", "Endure", "Persuade" ])
+    parent<attribute> Ability(choices: [Hero.Fight, Hero.Flight])
     boolean Trained
     number SkillMod
     readonly number Skill(value: {
@@ -178,7 +181,7 @@ item Skill {
 
         if (answer.HasAdvantage) {
             skill = self.Skill
-            fleeting abilityRoll = roll(d6x6 + parent[self.Ability].mod + skill + answer.Bonus)
+            fleeting abilityRoll = roll(d6 + self.Ability + skill + answer.Bonus)
             chat AbilityUse {
                 abilityRoll
                 tag self.Ability
@@ -186,10 +189,21 @@ item Skill {
             }
         }
         else {
-            fleeting abilityRoll = roll(d6 + parent[self.Ability].mod + answer.Bonus)
+            fleeting abilityRoll = roll(d6 + self.Ability + answer.Bonus)
             chat AbilityUse {
                 abilityRoll
                 tag self.Ability
+                tag self.Skill
+            }
+        }
+    }
+
+    action SimpleFightRoll {
+        if (parent is Hero) {
+            fleeting abilityRoll = roll(d6 + parent.Fight.mod)
+            chat AbilityUse {
+                abilityRoll
+                tag "Fight"
                 tag self.Skill
             }
         }
