@@ -2,6 +2,7 @@ import type {
     ClassExpression,
     Document,
     Entry,
+    NumberParamInitial,
     NumberParamMax,
     NumberParamMin,
     Page,
@@ -127,7 +128,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
             const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
             const min = minParam?.value ?? 0;
-            const max = maxParam?.value ?? 0;
+            const max = maxParam?.value ?? 100;
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.SchemaField({
                     value: new fields.NumberField({integer: true, min: ${min}, initial: ${min}}),
@@ -137,23 +138,29 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         }
 
         if ( isPipsExp(property) ) {
-            let max = 0;
-            if ( Number.isInteger(property.max) ) {
-                max = property.max as number;
+            const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+            const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
+            const initialParam = property.params.find(x => isNumberParamInitial(x)) as NumberParamInitial;
+
+            let options = "integer: true";
+
+            if (maxParam && typeof(maxParam.value) === 'number') {
+                options += `, max: ${maxParam.value}`;
             }
-            let initial = 0;
-            if ( Number.isInteger(property.initial) ) {
-                initial = property.initial as number;
+
+            if (minParam && typeof(minParam.value) === 'number') {
+                options += `, min: ${minParam.value}`;
             }
-            if ( max > 0 ) {
-                return expandToNode`
-                    ${property.name.toLowerCase()}: new fields.NumberField({initial: ${initial}, min: 0, max: ${max}, integer: true}),
-                `;
+
+            if (initialParam && typeof(initialParam.value) === 'number') {
+                options += `, initial: ${initialParam.value}`;
             }
+
             return expandToNode`
-                ${property.name.toLowerCase()}: new fields.NumberField({initial: ${initial}, min: 0, integer: true}),
+                ${property.name.toLowerCase()}: new fields.NumberField({${options}}),
             `;
         }
+
         if ( isDamageTrackExp(property) ) {
             if ( Number.isInteger(property.max) ) {
                 return expandToNode`

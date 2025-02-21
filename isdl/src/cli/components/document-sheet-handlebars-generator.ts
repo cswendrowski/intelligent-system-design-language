@@ -28,6 +28,8 @@ import {
     isSizeParam,
     SizeParam,
     isParentPropertyRefExp,
+    isPipsStyleParameter,
+    PipsStyleParameter,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -335,7 +337,8 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
 
         if ( isPipsExp(property) ) {
             if (property.modifier == "hidden") return expandToNode``;
-            const style = property.style ?? "squares";
+            const styleParam = property.params.find(x => isPipsStyleParameter(x)) as PipsStyleParameter;
+            const style = styleParam?.style ?? "squares";
 
             let disabled = property.modifier == "readonly" || property.modifier == "locked" || !edit;
             if (property.modifier == "unlocked") disabled = false;

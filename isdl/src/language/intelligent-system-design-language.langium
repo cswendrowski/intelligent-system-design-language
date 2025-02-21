@@ -271,7 +271,13 @@ AttributeParameter:
 AttributeParamMod:
     "mod:" method=MethodBlock;
 
-PipsExp: ExpressionModifier "pips" name=ID "(" "max:" max=(MethodBlock | INT) ("," "initial:" initial=(MethodBlock | INT))? ("," "style:" style=("squares" | "circles"))? ")";
+PipsExp: ExpressionModifier "pips" name=ID ("(" params+=PipsParameter ("," params+=PipsParameter)* ")")?;
+
+PipsParameter:
+    (NumberParamMin | NumberParamMax | NumberParamInitial | NumberParamValue | PipsStyleParameter);
+
+PipsStyleParameter:
+    "style:" style=("squares" | "circles");
 
 DamageTrackExp: ExpressionModifier "damageTrack" name=ID "(" "max:" max=(MethodBlock | INT) "," "types:" "[" (types+=STRING ("," types+=STRING)*)? "]" ")";
 

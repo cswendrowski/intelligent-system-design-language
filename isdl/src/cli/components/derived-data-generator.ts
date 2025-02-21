@@ -5,7 +5,6 @@ import {
     Section,
     MethodBlock,
     NumberParameter,
-    NumberExp,
     Page,
     ResourceExp,
     isStringExp,
@@ -15,6 +14,11 @@ import {
     isInitiativeProperty,
     isAttributeParamMod,
     AttributeParamMod,
+    isPipsExp,
+    Property,
+    NumberParamMax,
+    NumberParamMin,
+    NumberParamValue,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -46,6 +50,30 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
     }
 
     function generateExtendedDocumentClass(type: string, entry: Entry) {
+
+        function translateMethodOrValueOrStored(property: Property, param: NumberParameter | undefined): CompositeGeneratorNode {
+            if (param == undefined) {
+                return expandToNode`
+                    return system.${property.name.toLowerCase()} ?? 0
+                `
+            }
+
+            if (isMethodBlock(param.value)) {
+
+                if (isNumberParamValue(param)) {
+                    toBeReapplied.add("system." + property.name.toLowerCase());
+                }
+
+                return expandToNode`
+                    ${translateExpression(entry, id, param.value, true, property)}
+                `
+            }
+
+            return expandToNode`
+                return ${param.value}
+            `
+        }
+
         const generatedFilePath = path.join(generatedFileDir, `${type.toLowerCase()}.mjs`);
 
         const toBeReapplied = new Set<string>();
@@ -82,28 +110,6 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             }
 
             if (isNumberExp(property)) {
-                function translateMethodOrValueOrStored(property: NumberExp, param: NumberParameter | undefined): CompositeGeneratorNode {
-                    if (param == undefined) {
-                        return expandToNode`
-                            return system.${property.name.toLowerCase()} ?? 0
-                        `
-                    }
-
-                    if (isMethodBlock(param.value)) {
-
-                        if (isNumberParamValue(param)) {
-                            toBeReapplied.add("system." + property.name.toLowerCase());
-                        }
-
-                        return expandToNode`
-                            ${translateExpression(entry, id, param.value, true, property)}
-                        `
-                    }
-
-                    return expandToNode`
-                        return ${param.value}
-                    `
-                }
 
                 const valueParam = property.params.find(p => isNumberParamValue(p));
                 const minParam = property.params.find(p => isNumberParamMin(p));
@@ -179,6 +185,44 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
                     }
+                `.appendNewLineIfNotEmpty();
+            }
+
+            if (isPipsExp(property)) {
+                const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+                const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
+                const valueParam = property.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+
+                if (maxParam == undefined && minParam == undefined && valueParam == undefined) return;
+
+                return expandToNode`
+                    ${valueParam != undefined ? expandToNode`
+                    // ${property.name} Pips Derived Data
+                    const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        ${translateMethodOrValueOrStored(property, valueParam)}
+                    };
+                    this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                    `.appendNewLine() : ""}
+
+                    ${minParam != undefined ? expandToNode`
+                    const ${property.name.toLowerCase()}MinFunc = (system) => {
+                        ${translateMethodOrValueOrStored(property, minParam)}
+                    };
+                    const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
+                    if ( this.system.${property.name.toLowerCase()} < ${property.name.toLowerCase()}Min ) {
+                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}Min;
+                    }
+                    `.appendNewLine() : ""}
+
+                    ${maxParam != undefined ? expandToNode`
+                    const ${property.name.toLowerCase()}MaxFunc = (system) => {
+                        ${translateMethodOrValueOrStored(property, maxParam)}
+                    };
+                    const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
+                    if ( this.system.${property.name.toLowerCase()} > ${property.name.toLowerCase()}Max ) {
+                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}Max;
+                    }
+                    `.appendNewLine() : ""}
                 `.appendNewLineIfNotEmpty();
             }
 

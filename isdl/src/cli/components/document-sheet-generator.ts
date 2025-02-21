@@ -28,6 +28,10 @@ import {
     isResourceExp,
     ResourceExp,
     Property,
+    isNumberParamMax,
+    isNumberParamInitial,
+    NumberParamMax,
+    NumberParamInitial,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -123,15 +127,18 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
     function generatePipsInfo(property: PipsExp): CompositeGeneratorNode | undefined{
         console.log("Processing Pips: " + property.name);
 
+        const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+        const initialParam = property.params.find(x => isNumberParamInitial(x)) as NumberParamInitial;
+
         // Pips are a current number and a max. We need to turn this into an array of objects, where each object has a checked property of true if the index is less than or equal to the current value
         return expandToNode`
             // ${property.name} Pip Data
             const ${property.name.toLowerCase()}CurrentValue = this.object.${getSystemPath(property)} ?? 0;
             const ${property.name.toLowerCase()}MaxFunc = (system) => {
-                ${translateLiteralOrExpression(property.max) ?? 0}
+                ${translateLiteralOrExpression(maxParam?.value) ?? 0}
             };
             const ${property.name.toLowerCase()}InitialFunc = (system) => {
-                return ${translateLiteralOrExpression(property.initial) ?? 0};
+                return ${translateLiteralOrExpression(initialParam?.value) ?? 0};
             };
             context.${property.name.toLowerCase()} = Array.from({length: ${property.name.toLowerCase()}MaxFunc(this.object.system)}, (_, i) => {
                 return {checked: i < ${property.name.toLowerCase()}CurrentValue};
