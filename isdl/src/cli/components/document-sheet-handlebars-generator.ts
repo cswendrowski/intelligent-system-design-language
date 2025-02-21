@@ -520,7 +520,7 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
             if ( isSingleDocumentExp(property) ) {
 
                 return expandToNode`
-                    <td>{{item.${getSystemPath(property, ["name"])}}}</td>
+                    <td>{{item.${getSystemPath(property, ["name"], undefined, false)}}}</td>
                 `;
             }
 
@@ -529,8 +529,14 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
                 const isHidden = property.modifier == "hidden";
                 if (isHidden) return undefined;
 
+                if (isParentPropertyRefExp(property)) {
+                    return expandToNode`
+                        <td>{{humanize item.${getSystemPath(property, [], undefined, false)}}}</td>
+                    `;
+                }
+
                 return expandToNode`
-                    <td>{{item.${getSystemPath(property)}}}</td>
+                    <td>{{item.${getSystemPath(property, [], undefined, false)}}}</td>
                 `
             }
             return undefined;

@@ -73,6 +73,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateCustomEntryMjs(entry, id, data.destination);
     generateInitHookMjs(entry, id, data.destination);
     generateReadyHookMjs(entry, id, data.destination);
+    generateHotReloadHookMjs(entry, id, data.destination);
     generateChatCardClass(entry, data.destination);
     generateStandardChatCardTemplate(data.destination);
     generateRenderChatLogHookMjs(entry, id, data.destination);
@@ -213,9 +214,9 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                 "system/${id}-custom.mjs"
             ],
             "styles": [
+                "css/datatables.min.css",
                 "css/${id}.css",
-                "css/${id}-custom.css",
-                "css/datatables.min.css"
+                "css/${id}-custom.css"
             ],
             "license": "LICENSE",
             "readme": "README.md",
@@ -229,8 +230,8 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             ],
             "flags": {
                 "hotReload": {
-                    "extensions": ["css", "hbs", "json"],
-                    "paths": ["css", "system/templates", "lang"]
+                    "extensions": ["css", "hbs", "json", "mjs"],
+                    "paths": ["css", "system", "lang", "system", "system.json"]
                 },
                 "isdl-version": "${extensionVersion}"
             },
@@ -287,11 +288,13 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
         import {init} from "./hooks/init.mjs";
         import {ready} from "./hooks/ready.mjs";
         import {renderChatLog} from "./hooks/render-chat-log.mjs";
+        import {hotReload} from "./hooks/hot-reload.mjs";
 
         Hooks.once("init", init);
         Hooks.once("ready", ready);
         Hooks.on("devModeReady", ({registerPackageDebugFlag}) => registerPackageDebugFlag("${id}"));
         Hooks.on("renderChatMessage", renderChatLog);
+        Hooks.on("hotReload", hotReload);
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
@@ -419,6 +422,13 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                 default: 'selected',
                 type: String,
             });
+
+            game.settings.register('${id}', 'hotReloadLastState', {
+                scope: 'client',
+                config: false,
+                default: { openWindows: [] },
+                type: Object,
+            });
         }
         
         /* -------------------------------------------- */
@@ -504,9 +514,23 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             // Truncate a string to a certain length with an ellipsis
             Handlebars.registerHelper("truncate", (str, len) => {
                 if (str.length > len) {
-                return \`\${str.slice(0, len)}...\`;
+                    return \`\${str.slice(0, len)}...\`;
                 }
                 return str;
+            });
+
+            // Get a property on an object using a string key
+            Handlebars.registerHelper("getProperty", (obj, key) => {
+                if (obj == null) return "";
+                return foundry.utils.getProperty(obj, key);
+            });
+
+            // Humanize a string
+            Handlebars.registerHelper("humanize", (str) => {
+                let humanized = str.replace(/_/g, " ");
+                humanized = humanized.replace("system.", "").replaceAll(".", " ");
+                humanized = humanized.charAt(0).toUpperCase() + humanized.slice(1);
+                return humanized;
             });
         }
 
@@ -584,13 +608,14 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
             console.log('${id} | Ready');
 
             registerSockets();
+            reopenLastState();
         }
         
         /* -------------------------------------------- */
 
         function registerSockets() {
             game.socket.on("system.${id}", (data) => {
-                console.log(data);
+                console.log("Socket Data", data);
 
                 if (data.type === "prompt") {
                     _handlePrompt(data);
@@ -642,7 +667,65 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
             });
         }
 
+        /* -------------------------------------------- */
 
+        function reopenLastState() {
+            const lastState = game.settings.get("${id}", "hotReloadLastState");
+            if (lastState.openWindows.length > 0) {
+                for (const window of lastState.openWindows) {
+                    const document = fromUuidSync(window.uuid);
+                    const app = document.sheet;
+                    if (app) {
+                        try {
+                            app.render(true).setPosition(window.position);
+                        }
+                        catch (e) {}
+                    }
+                }
+            }
+            game.settings.set("${id}", "hotReloadLastState", { openWindows: [] });
+        }
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateHotReloadHookMjs(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "system", "hooks");
+    const generatedFilePath = path.join(generatedFileDir, `hot-reload.mjs`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+        export function hotReload(context) {
+            const reloadFileTypes = ["mjs", "json"];
+            if (!reloadFileTypes.includes(context.extension)) return;
+            
+            if (context.extension === "json") {
+                if (!context.path.endsWith("system.json")) return;
+                ui.notifications.warn("The system configuration has been updated. Please reload your world to apply changes.", { permanent: true });
+            }
+
+            ui.notifications.info("Reloading page to apply script changes", { permanent: true });
+
+            const lastState = {
+                openWindows: []
+            };
+            for (const window of Object.values(ui.windows)) {
+                const uuid = window.object.uuid;
+                lastState.openWindows.push({
+                    uuid: uuid,
+                    position: window.position
+                });
+            }
+            game.settings.set("${id}", "hotReloadLastState", lastState).then(() => 
+            {
+                // Reload the page
+                window.location.reload(true);
+            });
+        }
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
