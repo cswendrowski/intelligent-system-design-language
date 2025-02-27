@@ -28,10 +28,6 @@
         flex-grow: 0;
     }
 
-    .sheet-body {
-        flex-grow: 0;
-    }
-
     .window-app {
         min-width: 400px;
     }
@@ -222,7 +218,14 @@
         text-align: center;
     }
 
+    .pages-container {
+        > .tab {
+            height: 100%;
+        }
+    }
+
     .pages {
+        flex: 0;
         margin-left: -10px;
         margin-right: -10px;
         margin-top: 15px;
@@ -250,6 +253,7 @@
     }
 
     .tabs {
+        flex: 0;
         margin: 15px 2px 0;
 
         a.item {
@@ -281,6 +285,12 @@
 
     .tabs-container fieldset {
         border-top: 0;
+    }
+
+    .tabs-container {
+        > .tab {
+            height: 100%;
+        }
     }
 
     .attributeExp {
@@ -348,7 +358,8 @@
     .paper-doll {
         .paper-doll-container {
             position: relative;
-            height: 300px;
+            height: 275px;
+            width: 275px;
             background-size: contain;
             background-repeat: no-repeat;
         }
@@ -498,6 +509,11 @@
     }
 
     .numberExp {
+                
+        > label {
+            max-width: 40%;
+        }
+
         &.calc {
             input[type="number"] {
                 flex: 1 94px;

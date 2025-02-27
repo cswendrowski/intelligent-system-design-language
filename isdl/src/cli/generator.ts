@@ -242,6 +242,18 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                     "thumbnail": "systems/${id}/img/isdl.png"
                 }
             ],
+            "relationships": [
+                "recommends": [
+                    {
+                        "id": "intelligent-filepicker",
+                        "reason": "Makes it much faster to pick out Icons for your Documents"
+                    },
+                    {
+                        "id": "ric",
+                        "reason": "Adds an UI for managing invalid Documents, such as when fields change to become required but were not filled in"
+                    }
+                ]
+            ],
             "url": "This is auto replaced",
             "manifest": "This is auto replaced",
             "download": "This is auto replaced"
@@ -481,10 +493,10 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             CONFIG.Item.defaultType = "${itemDefaultType}";
 
             CONFIG.Actor.typeArtworks = {
-                ${joinToNode(actorArtworks, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                ${joinToNode(actorArtworks, document => `"${document.name.toLowerCase()}": "systems/${id}/${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
             }
             CONFIG.Item.typeArtworks = {
-                ${joinToNode(itemArtworks, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                ${joinToNode(itemArtworks, document => `"${document.name.toLowerCase()}": "systems/${id}/${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
             }
 
             CONFIG.Actor.typeDescriptions = {
@@ -714,6 +726,7 @@ function generateHotReloadHookMjs(entry: Entry, id: string, destination: string)
                 openWindows: []
             };
             for (const window of Object.values(ui.windows)) {
+                if (!window.object) continue;
                 const uuid = window.object.uuid;
                 lastState.openWindows.push({
                     uuid: uuid,

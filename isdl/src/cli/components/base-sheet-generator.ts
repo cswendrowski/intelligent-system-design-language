@@ -349,7 +349,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                 for ( let c of form.children ) {
                     calculatedInnerHeight += c.offsetHeight;
                 }
-                const formHeight = calculatedInnerHeight + 50;
+                const formHeight = calculatedInnerHeight + 75;
                 const maxHeight = window.innerHeight * 0.9; // 90% of the viewport height
 
                 this.setPosition({height: Math.min(formHeight, maxHeight)});

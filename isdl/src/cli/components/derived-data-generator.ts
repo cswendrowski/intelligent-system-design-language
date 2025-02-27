@@ -120,7 +120,14 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
                         ${translateMethodOrValueOrStored(property, valueParam)}
                     };
+                    ${valueParam != undefined ? expandToNode`
+                    Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
+                        get: () => ${property.name.toLowerCase()}CurrentValueFunc(this.system),
+                        configurable: true
+                    });
+                    `.appendNewLine() : expandToNode`
                     this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                    `.appendNewLine()}
 
                     ${minParam != undefined ? expandToNode`
                     const ${property.name.toLowerCase()}MinFunc = (system) => {
@@ -633,7 +640,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             arr.push({
                                 type: typer,
                                 label: game.i18n.has(typer) ? game.i18n.localize(typer) : typer,
-                                icon: this.getDefaultArtwork({ typer })?.img ?? "icons/svg/item-bag.svg",
+                                icon: this.getDefaultArtwork({ type: typer })?.img ?? "icons/svg/item-bag.svg",
                                 description: CONFIG[this.documentName]?.typeDescriptions?.[typer] ?? "",
                                 selected: type === typer
                             });

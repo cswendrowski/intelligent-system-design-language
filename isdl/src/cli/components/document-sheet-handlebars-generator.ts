@@ -606,7 +606,7 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
     function generateSheetBody(): CompositeGeneratorNode {
         function generatePage(property: Page): CompositeGeneratorNode {
             return expandToNode`
-                <div class="tab" data-group="primary" data-tab="${property.name.toLowerCase()}">
+                <div class="tab flexcol" data-group="primary" data-tab="${property.name.toLowerCase()}">
                     <div class="grid-container">
                         ${joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
                     </div>
@@ -639,7 +639,7 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
             `: expandToNode``}
 
             <section class="pages-container">
-                <div class="tab active" data-group="primary" data-tab="main">
+                <div class="tab flexcol active" data-group="primary" data-tab="main">
                     {{!-- Main Configuration --}}
                     <div class="grid-container">
                         ${joinToNode(document.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
@@ -727,7 +727,7 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
             `: expandToNode``}
 
             {{!-- Body --}}
-            <section class="sheet-body">
+            <section class="sheet-body flexcol">
                 ${generateSheetBody()}
             </section>
         </form>
