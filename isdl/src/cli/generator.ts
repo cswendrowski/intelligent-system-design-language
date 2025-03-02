@@ -39,6 +39,7 @@ import { generateBaseActorSheet } from './components/base-actor-sheet-generator.
 import { generateDocumentHandlebars } from './components/document-sheet-handlebars-generator.js';
 import { getAllOfType } from './components/utils.js';
 import { generateCanvasToken, generateTokenDocument } from './components/token-generator.js';
+import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
 
 export function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): string {
     const config = entry.config;
@@ -83,6 +84,7 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
     generateCombatant(entry, id, data.destination);
     generateCanvasToken(entry, id, data.destination);
     generateTokenDocument(entry, id, data.destination);
+    generateVue(entry, id, data.destination);
 
     // Documents
     entry.documents.forEach(x => {
@@ -91,6 +93,8 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
         generateDocumentHandlebars(id, x, data.destination, true);
         generateDocumentHandlebars(id, x, data.destination, false);
     });
+
+    runViteBuild(data.destination);
 
     return data.destination;
 }
@@ -197,7 +201,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             "description": "${entry.config.body.find(x => x.type == "description")?.value}",
             "version": "This is auto replaced",
             "compatibility": {
-                "minimum": 11,
+                "minimum": 12,
                 "verified": 12
             },
             "authors": [
@@ -242,7 +246,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                     "thumbnail": "systems/${id}/img/isdl.png"
                 }
             ],
-            "relationships": [
+            "relationships": {
                 "recommends": [
                     {
                         "id": "intelligent-filepicker",
@@ -253,7 +257,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                         "reason": "Adds an UI for managing invalid Documents, such as when fields change to become required but were not filled in"
                     }
                 ]
-            ],
+            },
             "url": "This is auto replaced",
             "manifest": "This is auto replaced",
             "download": "This is auto replaced"
@@ -381,6 +385,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
     const fileNode = expandToNode`
         ${joinToNode(entry.documents, document => `import ${document.name}TypeDataModel from "../datamodels/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}Sheet from "../sheets/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(entry.documents, document => `import ${document.name}VueSheet from "../sheets/vue/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
         import ${entry.config.name}EffectSheet from "../sheets/active-effect-sheet.mjs";
         import ${entry.config.name}Actor from "../documents/actor.mjs";
         import ${entry.config.name}Item from "../documents/item.mjs";
@@ -463,9 +468,11 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
             // Actors
             ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
 
             // Items
             ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
         
             // Active Effects
             DocumentSheetConfig.registerSheet(ActiveEffect, "${id}", ${entry.config.name}EffectSheet, { makeDefault: true });
@@ -601,7 +608,6 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                 toNearest: {value: toNearest}
             });
         }
-
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

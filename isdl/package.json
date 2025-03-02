@@ -3,7 +3,7 @@
     "displayName": "Intelligent System Design Language",
     "description": "Intelligent System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.1.40",
+    "version": "0.1.42",
     "repository": {
         "url": ""
     },
@@ -11,6 +11,7 @@
     "license": "LICENSE",
     "type": "module",
     "icon": "out/isdl.png",
+    "extensionDependencies": ["vite"],
     "scripts": {
         "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
         "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
@@ -29,7 +30,10 @@
         "rpg-awesome": "^0.2.0",
         "sass": "^1.77.4",
         "vscode-languageclient": "~9.0.1",
-        "vscode-languageserver": "~9.0.1"
+        "vscode-languageserver": "~9.0.1",
+        "vite": "^5.0.0",
+        "@vitejs/plugin-vue": "^5.0.0",
+        "vue": "^3.4.0"
     },
     "devDependencies": {
         "@types/node": "^18.19.34",

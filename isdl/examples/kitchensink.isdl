@@ -82,7 +82,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             self.Mana = self.Mana.Max
         }
         
-        pips DamageTrack(max: 5, style: circles)
+        pips DamageTrack(max: 5, style: circles, value: {
+            return self.Endure
+        })
         readonly number Crisis
         
         action Heal {
