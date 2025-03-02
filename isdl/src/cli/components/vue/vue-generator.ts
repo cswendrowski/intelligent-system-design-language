@@ -8,14 +8,15 @@ import { build, defineConfig } from "vite";
 import vue from '@vitejs/plugin-vue';
 import { titleize } from 'inflection';
 import { fileURLToPath } from 'node:url';
+import vuetify from 'vite-plugin-vuetify';
+import vueDevTools from 'vite-plugin-vue-devtools';
 
 export function generateVue(entry: Entry, id: string, destination: string) {
 
-    //copyViteConfig(destination);
     copyVueMixin(destination);
     copyVueBrowserJs(destination);
-    //copyVueGetTemplate(destination);
-    //copyVueHelpers(destination);
+    copyVuetifyJs(destination);
+    copyVuetifyCss(destination);
 
     generateIndexMjs(entry, destination);
 
@@ -27,9 +28,25 @@ export function generateVue(entry: Entry, id: string, destination: string) {
 
 export function runViteBuild(destination: string) {
     try {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        console.log(__filename, __dirname);
+
         const config = defineConfig({
             root: destination,
-            plugins: [vue()],
+            plugins: [
+                vue(),
+                vuetify({ autoImport: true }),
+                vueDevTools()
+            ],
+            optimizeDeps: {
+                include: ["vuetify"]
+            },
+            resolve: {
+                alias: {
+                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify")
+                }
+            },
             build: {
                 emptyOutDir: true, // Clears previous builds
                 sourcemap: true, // Optional: Enable for debugging
@@ -82,6 +99,7 @@ function copyVueMixin(description: string) {
 
     const fileNode = expandToNode`
         import { createApp } from "../../../lib/vue.esm-browser.js";
+        import { createVuetify } from "../../../lib/vuetify.esm.js";
 
         /**
          * Vue rendering mixin for ApplicationV2.
@@ -201,6 +219,9 @@ function copyVueMixin(description: string) {
                             }
                         }
                     });
+                    const vuetify = createVuetify();
+                    this.vueApp.use(vuetify);
+
                     // Expose global Foundry variables.
                     this.vueApp.config.globalProperties.game = game;
                     this.vueApp.config.globalProperties.CONFIG = CONFIG;
@@ -285,6 +306,36 @@ function copyVueBrowserJs(description: string) {
     const __dirname = path.dirname(__filename);
     const sourceFilePath = path.join(__dirname, "..", "..", "..", "..", "node_modules", "vue", "dist", "vue.esm-browser.js");
     fs.copyFileSync(sourceFilePath, generatedFilePath);
+}
+
+function copyVuetifyJs(description: string) {
+    const generatedFilePath = path.join(description, "lib", "vuetify.esm.js");
+
+    // Recursively create the directory if it doesn't exist
+    const generatedFileDir = path.dirname(generatedFilePath);
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    fs.copyFileSync(path.join(__dirname, "../../../vuetify.esm.js"), generatedFilePath);
+}
+
+function copyVuetifyCss(description: string) {
+    const generatedFilePath = path.join(description, "css", "vuetify.min.css");
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    // Recursively create the directory if it doesn't exist
+    const generatedFileDir = path.dirname(generatedFilePath);
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    fs.copyFileSync(path.join(__dirname, "../../../vuetify.min.css"), generatedFilePath);
 }
 
 function generateIndexMjs(entry: Entry, destination: string) {

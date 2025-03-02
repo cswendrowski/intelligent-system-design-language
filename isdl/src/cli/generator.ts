@@ -219,6 +219,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             ],
             "styles": [
                 "css/datatables.min.css",
+                "css/vuetify.min.css",
                 "css/${id}.css",
                 "css/${id}-custom.css"
             ],
@@ -408,6 +409,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerResourceBars();
             registerStatusEffects();
             registerUtils();
+            //addVueImportMap();
         }
 
         /* -------------------------------------------- */
@@ -567,6 +569,19 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             CONFIG.statusEffects = [
                 ${joinToNode(statusEffects, document => generateStatusEffect(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
             ];
+        }
+
+        /** -------------------------------------------- */
+
+        function addVueImportMap() {
+            let script = document.createElement('script');
+            script.type = 'importmap';
+            script.text = \`{
+                "imports": {
+                    "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+                }
+            }\`;
+            document.head.appendChild(script);
         }
 
         /* -------------------------------------------- */

@@ -11,7 +11,9 @@
     "license": "LICENSE",
     "type": "module",
     "icon": "out/isdl.png",
-    "extensionDependencies": ["vite"],
+    "extensionDependencies": [
+        "vite"
+    ],
     "scripts": {
         "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
         "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
@@ -23,17 +25,21 @@
         "fsdl:generate": "node ./bin/cli.js"
     },
     "dependencies": {
+        "@primeuix/themes": "^1.0.0",
+        "@vitejs/plugin-vue": "^5.0.0",
         "chalk": "~5.3.0",
         "commander": "~11.0.0",
         "inflection": "^3.0.0",
         "langium": "~3.0.0",
+        "primevue": "^4.3.1",
         "rpg-awesome": "^0.2.0",
         "sass": "^1.77.4",
+        "vite": "^5.0.0",
+        "vite-plugin-vuetify": "^2.1.0",
         "vscode-languageclient": "~9.0.1",
         "vscode-languageserver": "~9.0.1",
-        "vite": "^5.0.0",
-        "@vitejs/plugin-vue": "^5.0.0",
-        "vue": "^3.4.0"
+        "vue": "^3.4.0",
+        "vuetify": "^3.7.14"
     },
     "devDependencies": {
         "@types/node": "^18.19.34",
@@ -45,6 +51,7 @@
         "eslint": "~8.47.0",
         "langium-cli": "~3.0.0",
         "typescript": "~5.1.6",
+        "vite-plugin-vue-devtools": "^7.7.2",
         "vitest": "~1.4.0"
     },
     "engines": {
