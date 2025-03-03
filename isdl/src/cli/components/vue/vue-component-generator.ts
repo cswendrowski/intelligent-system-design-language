@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { CompositeGeneratorNode, expandToNode, toString } from 'langium/generate';
-import { Document, isActor } from "../../../language/generated/ast.js";
+import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
+import { Document, isActor, isPage, Page } from "../../../language/generated/ast.js";
+import { getAllOfType } from '../utils.js';
 
 export function generateDocumentVueComponent(id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -23,70 +24,57 @@ export function generateDocumentVueComponent(id: string, document: Document, des
 function generateVueComponentScript(id: string, document: Document): CompositeGeneratorNode {
     return expandToNode`
     <script setup>
-        import { ref } from 'vue';
-        const dialog = ref(false);
-        const items = ref([
-            { name: "Longsword", type: "Weapon", rarity: "Common" },
-            { name: "Health Potion", type: "Consumable", rarity: "Uncommon" },
-            { name: "Dragon Scale Armor", type: "Armor", rarity: "Rare" }
-        ]);
+        import { ref } from "vue";
+        const drawer = ref(false);
+        const props = defineProps(['context']);
     </script>
     `;
 }
 
 function generateVueComponentTemplate(id: string, document: Document): CompositeGeneratorNode {
+    const allPages = getAllOfType<Page>(document.body, isPage);
     return expandToNode`
     <template>
-        <div>
-            <h1>${document.name}</h1>
-            <div class="d-flex flex-column align-center pa-5">
-                <VCard class="pa-4" width="400">
-                <VCardTitle class="text-h5">Vuetify Test Card</VCardTitle>
-                <VCardText>
-                    <p>This card is styled with Vuetify.</p>
-                    <VBtn color="primary" @click="dialog = true">
-                    <VIcon left>mdi-information</VIcon> Open Dialog
-                    </VBtn>
-                </VCardText>
-                </VCard>
+        <v-app>
+            <!-- App Bar -->
+            <v-app-bar color="primary" density="comfortable">
+                <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+                <h2 class="ml-4"><v-text-field name="name" v-model="context.actor.name" density="compact" variant="solo"></v-text-field></h2>
+            </v-app-bar>
 
-                <VTable class="mt-4" density="compact">
-                <thead>
-                    <tr>
-                    <th class="text-left">Name</th>
-                    <th class="text-left">Type</th>
-                    <th class="text-left">Rarity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="item in items" :key="item.name">
-                    <td>{{ item.name }}</td>
-                    <td>{{ item.type }}</td>
-                    <td>{{ item.rarity }}</td>
-                    </tr>
-                </tbody>
-                </VTable>
+            <!-- Navigation Drawer -->
+            <v-navigation-drawer v-model="drawer" temporary>
+                <v-img :src="context.actor.img"></v-img>
+                <v-list>
+                    <v-list-item title="Character"></v-list-item>
+                    ${joinToNode(allPages, page => generateNavListItem(page), { appendNewLineIfNotEmpty: true})}
+                </v-list>
+            </v-navigation-drawer>
 
-                <VDialog v-model="dialog" width="400">
-                <VCard>
-                    <VCardTitle class="text-h5">Vuetify Dialog</VCardTitle>
-                    <VCardText>This confirms Vuetify is fully working!</VCardText>
-                    <div class="pa-4">
-                    <VBtn color="error" @click="dialog = false">Close</VBtn>
-                    </div>
-                </VCard>
-                </VDialog>
-            </div>
-        </div>
+            <!-- Main Content -->
+            <v-main class="d-flex">
+                <v-container class="bg-surface-variant">
+                    <v-row no-gutters>
+                        <v-col
+                            v-for="n in 4"
+                            :key="n"
+                            cols="12"
+                            sm="3"
+                        >
+                            <v-sheet class="ma-2 pa-2">
+                            One of four columns
+                            </v-sheet>
+                        </v-col>
+                    </v-row>
+                </v-container>
+            </v-main>
+        </v-app>
     </template>
-
-    <style>
-    .d-flex {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-    }
-    </style>
     `;
+
+    function generateNavListItem(page: Page): CompositeGeneratorNode {
+        return expandToNode`
+        <v-list-item title="${page.name}"></v-list-item>
+        `;
+    }
 }

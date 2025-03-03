@@ -220,6 +220,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             "styles": [
                 "css/datatables.min.css",
                 "css/vuetify.min.css",
+                "css/materialdesignicons.min.css",
                 "css/${id}.css",
                 "css/${id}-custom.css"
             ],

@@ -17,6 +17,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     copyVueBrowserJs(destination);
     copyVuetifyJs(destination);
     copyVuetifyCss(destination);
+    copyMaterialDesign(destination);
 
     generateIndexMjs(entry, destination);
 
@@ -191,6 +192,7 @@ function copyVueMixin(description: string) {
                 async _renderFrame(options) {
                     // Retrieve the context and element.
                     const context = await this._prepareContext(options);
+                    console.log("Vue App Context:", context);
                     const element = await super._renderFrame(options);
 
                     // Grab our application target and render our parts.
@@ -295,8 +297,12 @@ function copyVueMixin(description: string) {
 function copyVueBrowserJs(description: string) {
     const generatedFilePath = path.join(description, "lib", "vue.esm-browser.js");
 
+    copyFromNodeModules("vue/dist/vue.esm-browser.js", generatedFilePath);
+}
+
+function copyFromNodeModules(source: string, destination: string) {
     // Recursively create the directory if it doesn't exist
-    const generatedFileDir = path.dirname(generatedFilePath);
+    const generatedFileDir = path.dirname(destination);
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
@@ -304,38 +310,47 @@ function copyVueBrowserJs(description: string) {
     // Copy the file from our extension's node_modules
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
-    const sourceFilePath = path.join(__dirname, "..", "..", "..", "..", "node_modules", "vue", "dist", "vue.esm-browser.js");
-    fs.copyFileSync(sourceFilePath, generatedFilePath);
+    const sourceFilePath = path.join(__dirname, "..", "..", "..", "..", "node_modules", source);
+    fs.copyFileSync(sourceFilePath, destination);
 }
 
 function copyVuetifyJs(description: string) {
     const generatedFilePath = path.join(description, "lib", "vuetify.esm.js");
 
-    // Recursively create the directory if it doesn't exist
-    const generatedFileDir = path.dirname(generatedFilePath);
-    if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
-    }
-
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
-    fs.copyFileSync(path.join(__dirname, "../../../vuetify.esm.js"), generatedFilePath);
+    copyFile("../../../vuetify.esm.js", generatedFilePath);
 }
 
 function copyVuetifyCss(description: string) {
     const generatedFilePath = path.join(description, "css", "vuetify.min.css");
 
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
+    copyFile("../../../vuetify.min.css", generatedFilePath);
+}
 
+function copyFile(source: string, destination: string) {
     // Recursively create the directory if it doesn't exist
-    const generatedFileDir = path.dirname(generatedFilePath);
+    const generatedFileDir = path.dirname(destination);
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    fs.copyFileSync(path.join(__dirname, "../../../vuetify.min.css"), generatedFilePath);
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const sourceFilePath = path.join(__dirname, source);
+
+    console.log(`Copying ${sourceFilePath} to ${destination}`);
+
+    fs.copyFileSync(sourceFilePath, destination);
+}
+
+function copyMaterialDesign(destination: string) {
+    // Copy Css
+    copyFromNodeModules("@mdi/font/css/materialdesignicons.min.css", path.join(destination, "css", "materialdesignicons.min.css"));
+
+    // Copy Fonts
+    copyFromNodeModules("@mdi/font/fonts/materialdesignicons-webfont.eot", path.join(destination, "fonts", "materialdesignicons-webfont.eot"));
+    copyFromNodeModules("@mdi/font/fonts/materialdesignicons-webfont.ttf", path.join(destination, "fonts", "materialdesignicons-webfont.ttf"));
+    copyFromNodeModules("@mdi/font/fonts/materialdesignicons-webfont.woff", path.join(destination, "fonts", "materialdesignicons-webfont.woff"));
+    copyFromNodeModules("@mdi/font/fonts/materialdesignicons-webfont.woff2", path.join(destination, "fonts", "materialdesignicons-webfont.woff2"));
 }
 
 function generateIndexMjs(entry: Entry, destination: string) {
