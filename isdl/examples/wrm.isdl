@@ -7,7 +7,9 @@ config wrm {
 
 actor Character {
     section Attributes {
-        attribute Warrior(min: 0, max: 100)
+        attribute Warrior(min: 0, max: 100, mod: {
+            return self.Warrior
+        })
         attribute Rogue(min: 0, max: 100)
         attribute Mage(min: 0, max: 100)
     }
@@ -84,7 +86,7 @@ actor Character {
     Language[] Languages
     Project[] Projects
     // Page 2 -- Belongings
-    page Belongings(icon: "fa-solid fa-backpack", background: diamonds) {
+    page Belongings(icon: "mdi-sack", background: diamonds) {
         section Appearance {
             unlocked string Cleanliness(choices: ["Pristine","Clean","Grubby","Dirty","Grimy","Filthy"])
             Equipment Outerwear
@@ -166,7 +168,7 @@ actor Character {
         Weapon[] Weapons
     }
     // PAGE 3 -- COMBAT
-    page Combat(icon: "fa-solid fa-swords") {
+    page Combat(icon: "mdi-sword") {
         //section Resources {
             // Calculate total health for the character.
             health resource Health(max: {return 6 + self.Warrior.value})
@@ -229,7 +231,7 @@ actor Character {
         Weapon[] Weapons
     }
     // Page 4 -- MAGIC
-    page Magic(icon: "fa-solid fa-sparkles", background: temple) {
+    page Magic(icon: "mdi-magic-staff", background: temple) {
         section SpellSelection {
             Spell CastSpell
             number SpellCircle(value: {
@@ -377,7 +379,7 @@ item Skill(svg: "icons/svg/shield.svg", description: "A useful bit of training."
                 tag self.SkillLevel
             }
         }
-        
+
         action AdvRoll(icon: "fa-solid fa-dice") {
             fleeting Skill = self.SkillTotal
             fleeting Roll = roll(d6)

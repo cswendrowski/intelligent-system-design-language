@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
 import { Document, isActor } from "../../../language/generated/ast.js";
-import { titleize } from 'inflection';
+import { humanize, titleize } from 'inflection';
 
 export function generateDocumentVueSheet(id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -34,15 +34,16 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
 
             /** @override */
             static DEFAULT_OPTIONS = {
-                classes: ["${id}", "sheet", "${type}", "${document.name.toLowerCase()}-sheet"],
+                classes: ["${id}", "sheet", "vue-sheet", "${type}", "${document.name.toLowerCase()}-sheet"],
                 viewPermission: DOCUMENT_OWNERSHIP_LEVELS.LIMITED,
                 editPermission: DOCUMENT_OWNERSHIP_LEVELS.OWNER,
                 position: {
-                    width: 1000,
+                    width: 1200,
                     height: 950,
                 },
                 window: {
-                    resizable: true
+                    resizable: true,
+                    title: "${humanize(document.name)}",
                 },
                 tag: "form",
                 actions: {

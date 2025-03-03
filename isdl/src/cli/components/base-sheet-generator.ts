@@ -17,7 +17,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
             /** @override */
             static get defaultOptions() {
                 return foundry.utils.mergeObject(super.defaultOptions, {
-                    classes: ["${id}", "sheet"],
+                    classes: ["${id}", "sheet", "handlebars-sheet"],
                     width: 1000,
                     height: 950,
                     resizable: true,

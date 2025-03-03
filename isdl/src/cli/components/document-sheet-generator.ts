@@ -334,7 +334,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
             /** @override */
             static get defaultOptions() {
                 return foundry.utils.mergeObject(super.defaultOptions, {
-                    classes: ["${id}", "sheet", "${type}", "${document.name.toLowerCase()}-sheet"],
+                    classes: ["${id}", "sheet", "handlebars-sheet", "${type}", "${document.name.toLowerCase()}-sheet"],
                     tabs: [
                         {navSelector: ".pages", contentSelector: ".pages-container", initial: "main"},
                         {navSelector: ".tabs", contentSelector: ".tabs-container", initial: "description"},

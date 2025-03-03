@@ -3,7 +3,7 @@
 /*  System Stylesheet                           */
 /* -------------------------------------------- */
 
-.#{$dynamic-id} {
+.#{$dynamic-id}.handlebars-sheet {
 
     &.create-document {
         ol.unlist {
@@ -537,6 +537,191 @@
         }
     }
 
+    .single-document {
+
+        .single-document-content {
+            display: flex;
+            margin-left: 8px;
+
+            >.content-link {
+                flex: 3;
+                margin-left: -8px;
+                height: 26px;
+                line-height: 24px;
+            }
+        }
+
+        >.content-link {
+            height: 26px;
+            line-height: 22px;
+        }
+
+        .single-document-remove {
+            margin-left: 0.25rem;
+            flex: 0;
+            line-height: 26px;
+        }
+
+        .single-document-none {
+            padding-left: 0.25rem;
+            border: 1px gray dashed;
+            height: 26px;
+            line-height: 22px;
+            margin: 0;
+        }
+    }
+
+    /* Dark mode */
+    // @media (prefers-color-scheme: dark) {
+    //     .window-content {
+    //         @include background-topography-dark;
+    //         color: antiquewhite;
+
+    //         &.dead {
+
+    //         }
+    //     }
+    // }
+}
+
+// Copy of Foundry app styles for vue apps
+.#{$dynamic-id}.vue-application {
+
+    --header-height: 36px;
+    --minimized-width: 200px;
+    --background: var(--color-cool-5-90);
+    --color-text-primary: var(--color-light-2);
+    --color-header-background: rgba(0, 0, 0, 0.5);
+    --color-border: var(--color-cool-4);
+    --color-fieldset-border: var(--color-light-6);
+    --color-form-hint: var(--color-light-5);
+    --color-form-hint-hover: var(--color-light-4);
+    --color-form-label: var(--color-light-4);
+    --color-form-label-hover: var(--color-light-2);
+    --color-select-option-bg: transparent;
+
+    position: absolute;
+    z-index: var(--z-index-window);
+    transform-origin: top left;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    min-width: 200px;
+    max-height: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    background: var(--background);
+    font-size: var(--font-size-14);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow: 0 0 10px #000;
+
+    > .window-header {
+        --button-size: 24px;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        flex: 0 0 var(--header-height);
+        position: relative;
+        overflow: hidden;
+        padding: 0 0.5rem;
+        gap: 0.25rem;
+        z-index: 1;
+        cursor: grab;
+        background: var(--color-header-background);
+        font-size: var(--font-size-13);
+        color: var(--color-light-1);
+        border-bottom: 1px solid var(--color-border);
+
+        > .window-title {
+            flex: 1;
+            font-size: inherit;
+            font-family: inherit;
+            font-weight: inherit;
+            text-shadow: none;
+            margin: 0;
+            line-height: var(--header-height);
+            border: none;
+            overflow: hidden;
+            text-align: left;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        > .header-control {
+            flex: 0 0 var(--button-size);
+            height: var(--button-size);
+            padding: 0;
+            margin: 0;
+            border: none;
+            color: var(--color-light-text-heading);
+            background: none;
+        }
+    }
+
+    > .controls-dropdown {
+        position: absolute;
+        overflow: hidden auto;
+        top: var(--header-height);
+        right: 0;
+        width: max-content;
+        min-width: 100px;
+        max-width: 300px;
+        max-height: 0;
+        z-index: 1;
+        list-style: none;
+        margin: 0 0.25rem;
+        padding: 0;
+        background: var(--background);
+        border-radius: 0 0 4px 4px;
+        transition: max-height 0.5s;
+        pointer-events: none;
+
+        > .header-control {
+            margin: 0.25rem;
+
+            > button {
+                --button-background-color: none;
+                --button-text-color: var(--color-text-primary);
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                border: none;
+                font-size: var(--font-size-12);
+            }
+        }
+    }
+
+    > .window-content {
+        backdrop-filter: blur(4px);
+    }
+}
+
+// Vue Sheet Styles
+.#{$dynamic-id}.vue-sheet {
+    // .v-field-label--floating {
+    //     color: white;
+    // }
+
+    // .v-input__control {
+    //     max-height: 55px;
+    // }
+
+    // .v-number-input__control {
+    //     > .v-divider {
+    //         display: none;
+    //     }
+    // }
+
+    .v-slide-group__content {
+        > button {
+            width: unset;
+        }
+    }
+}
+
+.#{$dynamic-id} {
     &.chat-card {
 
         .chat-header {
@@ -721,52 +906,6 @@
             }
         }
     }
-
-    .single-document {
-
-        .single-document-content {
-            display: flex;
-            margin-left: 8px;
-
-            >.content-link {
-                flex: 3;
-                margin-left: -8px;
-                height: 26px;
-                line-height: 24px;
-            }
-        }
-
-        >.content-link {
-            height: 26px;
-            line-height: 22px;
-        }
-
-        .single-document-remove {
-            margin-left: 0.25rem;
-            flex: 0;
-            line-height: 26px;
-        }
-
-        .single-document-none {
-            padding-left: 0.25rem;
-            border: 1px gray dashed;
-            height: 26px;
-            line-height: 22px;
-            margin: 0;
-        }
-    }
-
-    /* Dark mode */
-    // @media (prefers-color-scheme: dark) {
-    //     .window-content {
-    //         @include background-topography-dark;
-    //         color: antiquewhite;
-
-    //         &.dead {
-
-    //         }
-    //     }
-    // }
 }
 
 

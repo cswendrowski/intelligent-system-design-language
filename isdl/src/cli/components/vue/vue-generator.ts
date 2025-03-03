@@ -10,6 +10,7 @@ import { titleize } from 'inflection';
 import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
 import vueDevTools from 'vite-plugin-vue-devtools';
+import { generateBaseVueComponents } from './vue-base-components-generator.js';
 
 export function generateVue(entry: Entry, id: string, destination: string) {
 
@@ -20,6 +21,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     copyMaterialDesign(destination);
 
     generateIndexMjs(entry, destination);
+    generateBaseVueComponents(destination);
 
     entry.documents.forEach(x => {
         generateDocumentVueSheet(id, x, destination);
@@ -31,7 +33,6 @@ export function runViteBuild(destination: string) {
     try {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        console.log(__filename, __dirname);
 
         const config = defineConfig({
             root: destination,
@@ -100,7 +101,8 @@ function copyVueMixin(description: string) {
 
     const fileNode = expandToNode`
         import { createApp } from "../../../lib/vue.esm-browser.js";
-        import { createVuetify } from "../../../lib/vuetify.esm.js";
+        import * as Vuetify from "../../../lib/vuetify.esm.js";
+        import { Attribute } from "./components/components.vue.es.mjs";
 
         /**
          * Vue rendering mixin for ApplicationV2.
@@ -221,7 +223,12 @@ function copyVueMixin(description: string) {
                             }
                         }
                     });
-                    const vuetify = createVuetify();
+                    this.vueApp.component("i-attribute", Attribute);
+                    const vuetify = Vuetify.createVuetify({
+                        components: {
+                            VNumberInput: Vuetify.components.VNumberInput
+                        }
+                    });
                     this.vueApp.use(vuetify);
 
                     // Expose global Foundry variables.
@@ -285,6 +292,14 @@ function copyVueMixin(description: string) {
                     if (this.vueApp) this.vueApp.unmount();
                     await super.close(options);
                 }
+
+                async _onFirstRender(context) {
+                    super._onFirstRender(context);
+
+                    // Replace the .application class with .vue-application
+                    this.element.classList.remove("application");
+                    this.element.classList.add("vue-application");
+                }
             }
 
             return VueApplication;
@@ -323,7 +338,7 @@ function copyVuetifyJs(description: string) {
 function copyVuetifyCss(description: string) {
     const generatedFilePath = path.join(description, "css", "vuetify.min.css");
 
-    copyFile("../../../vuetify.min.css", generatedFilePath);
+    copyFromNodeModules("vuetify/dist/vuetify-labs.min.css", generatedFilePath);
 }
 
 function copyFile(source: string, destination: string) {
@@ -362,6 +377,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     }
 
     const fileNode = expandToNode`
+    export { default as Attribute } from './components/attribute.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 

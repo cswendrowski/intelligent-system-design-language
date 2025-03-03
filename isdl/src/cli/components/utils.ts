@@ -40,7 +40,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return reference.name.toLowerCase();
     }
 
-    let basePath = isInitiativeProperty(propertyLookup) ? "" : (safeAccess ? "system?." : "system.");
+    let basePath = "system.";
     if (propertyLookup && !isInitiativeProperty(propertyLookup)) {
         basePath = `system[${propertyLookup.name.toLowerCase()}.toLowerCase()].`;
     }
