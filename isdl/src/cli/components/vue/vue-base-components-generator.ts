@@ -5,9 +5,10 @@ import { expandToNode, toString } from 'langium/generate';
 export function generateBaseVueComponents(destination: string) {
 
     generateAttributeComponent(destination);
+
 }
 
-export function generateAttributeComponent(destination: string) {
+function generateAttributeComponent(destination: string) {
     const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
     const generatedFilePath = path.join(generatedFileDir, `attribute.vue`);
 

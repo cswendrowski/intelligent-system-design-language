@@ -617,6 +617,16 @@
     border-radius: 6px;
     box-shadow: 0 0 10px #000;
 
+    > .window-resize-handle {
+        filter: invert(1);
+        position: absolute;
+        inset: auto -2px -3px auto;
+        width: 11px;
+        height: 11px;
+        cursor: nwse-resize;
+        background: transparent url(/ui/resize-handle.webp) no-repeat center / contain;
+    }
+
     > .window-header {
         --button-size: 24px;
         display: flex;

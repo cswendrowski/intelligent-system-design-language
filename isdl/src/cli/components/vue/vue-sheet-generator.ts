@@ -73,6 +73,7 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
 
                     // Add the actor document.
                     actor: this.actor.toObject(),
+                    document: this.document,
 
                     // Add the actor's data to context.data for easier access, as well as flags.
                     system: this.actor.system,

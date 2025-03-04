@@ -46,7 +46,13 @@ export function runViteBuild(destination: string) {
             },
             resolve: {
                 alias: {
-                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify")
+                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify"),
+                    "datatables.net-vue3": path.resolve(__dirname, "../../../../node_modules/datatables.net-vue3"),
+                    "datatables.net-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-dt"),
+                    "datatables.net-responsive-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-responsive-dt"),
+                    "datatables.net-buttons-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons-dt"),
+                    "datatables.net-colreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-colreorder-dt"),
+                    "datatables.net-rowreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-rowreorder-dt"),
                 }
             },
             build: {

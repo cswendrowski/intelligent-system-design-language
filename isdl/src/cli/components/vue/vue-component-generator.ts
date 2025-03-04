@@ -1,9 +1,10 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDocumentArrayExp, isIconParam, isNumberExp, isNumberParamMin, isPage, isProperty, isSection, isStringExp, isStringParamChoices, NumberParamMin, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isPage, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { humanize } from 'inflection';
+import { Reference } from 'langium';
 
 export function generateDocumentVueComponent(id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -24,13 +25,133 @@ export function generateDocumentVueComponent(id: string, document: Document, des
 
 function generateVueComponentScript(id: string, document: Document): CompositeGeneratorNode {
     const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
+
+    function generateDataTableSetup(table: DocumentArrayExp): CompositeGeneratorNode {
+
+        function generateDataTableColumn(refDoc: Reference<Document> | undefined, property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
+            if ( isSection(property) || isPage(property) ) {
+                return expandToNode`
+                    ${joinToNode(property.body, p => generateDataTableColumn(refDoc, p), { appendNewLineIfNotEmpty: true })}
+                `;
+            }
+            if ( isHtmlExp(property) || isInitiativeProperty(property) ) return undefined;
+
+            if ( isProperty(property) ) {
+                const isHidden = property.modifier == "hidden";
+                if (isHidden) return undefined;
+
+                const systemPath = getSystemPath(property, [], undefined, false);
+                let type = "string";
+
+                if (isNumberExp(property)) type = "num";
+                else if (isTimeExp(property) || isDateExp(property) || isDateTimeExp(property)) type = "time";
+
+                if (isStringExp(property)) {
+                    let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
+                    if (choices != undefined && choices.choices.length > 0 ) {
+                        return expandToNode`
+                            { data: '${systemPath}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}.label") },
+                        `;
+                    }
+                }
+                return expandToNode`
+                    { data: '${systemPath}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}"), type: '${type}' },
+                `;
+            }
+            return undefined;
+        }
+
+        return expandToNode`
+        const ${table.name.toLowerCase()}Columns = [
+            { 
+                data: 'img', 
+                title: game.i18n.localize("Image"),
+                render: '#image',
+                responsivePriority: 1,
+                orderable: false,
+            },
+            { 
+                data: 'name',
+                title: game.i18n.localize("Name"),
+                responsivePriority: 1,
+                width: '200px'
+            },
+            ${joinToNode(table.document.ref!.body, p => generateDataTableColumn(table.document, p), { appendNewLineIfNotEmpty: true })}
+            { 
+                data: null,
+                title: game.i18n.localize("Actions"),
+                render: '#actions',
+                orderable: false,
+                width: '200px'
+            }
+        ];
+
+        const ${table.name.toLowerCase()}Options = {
+            paging: false,
+            stateSave: true,
+            responsive: true,
+            colReorder: true,
+            scrollY: '250px',
+            order: [[1, 'asc']],
+            createdRow: (row, data) => {
+                row.setAttribute("data-id", data._id);
+                row.setAttribute("data-uuid", data.uuid);
+                row.setAttribute("data-type", data.type);
+            },
+            layout: {
+                topStart: {
+                    buttons: [
+                        {
+                            text: '<i class="fas fa-plus"></i> Add',
+                            action: (e, dt, node, config) => {
+                                // Find the parent tab so we know what type of Item to create
+                                const tab = e.currentTarget.closest(".v-window-item");
+                                const type = tab.dataset.type;
+                                if ( type == "ActiveEffect" ) {
+                                    ActiveEffect.createDocuments([{label: "New Effect"}], {parent: this.object}).then(effect => {
+                                        effect[0].sheet.render(true);
+                                    });
+                                }
+                                else {
+                                    Item.createDocuments([{type: type, name: "New " + type}], {parent: props.context.document}).then(item => {
+                                        item[0].sheet.render(true);
+                                    });
+                                }
+                            }
+                        },
+                        'colvis'
+                    ]
+                }
+            }
+        };
+        `;
+    }
+
     return expandToNode`
     <script setup>
         import { ref } from "vue";
+        import DataTable from 'datatables.net-vue3';
+        import DataTablesCore from 'datatables.net-dt';
+        import 'datatables.net-responsive-dt';
+        import 'datatables.net-colreorder-dt';
+        import 'datatables.net-rowreorder-dt';
+        import 'datatables.net-buttons-dt';
+
+        DataTable.use(DataTablesCore);
+
         const drawer = ref(false);
         const tab = ref('${tabs.length > 1 ? tabs[0].name.toLowerCase() : 'description'}');
         const props = defineProps(['context']);
+
+        ${joinToNode(tabs, generateDataTableSetup)}
     </script>
+    <style>
+        @import 'datatables.net-dt';
+        @import 'datatables.net-responsive-dt';
+        @import 'datatables.net-rowreorder-dt';
+        @import 'datatables.net-colreorder-dt';
+        @import 'datatables.net-buttons-dt';
+    </style>
     `;
 }
 
@@ -68,11 +189,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             `, { appendNewLineIfNotEmpty: true })}
                     </v-tabs>
                     <v-tabs-window v-model="tab">
-                        ${joinToNode(tabs, tab => expandToNode`
-                        <v-tabs-window-item value="${tab.name.toLowerCase()}">
-                            <h2>${humanize(tab.name)}</h2>
-                        </v-tabs-window-item>
-                        `, { appendNewLineIfNotEmpty: true })}
+                        ${joinToNode(tabs, generateDataTable)}
                     </v-tabs-window>
                 </v-container>
             </v-main>
@@ -90,6 +207,24 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         return expandToNode`
         <v-list-item title="${page.name}"></v-list-item>
         `;
+    }
+
+    function generateDataTable(element: DocumentArrayExp): CompositeGeneratorNode {
+
+        const systemPath = getSystemPath(element, [], undefined, false);
+
+        return expandToNode`
+        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="${element.document.ref?.name.toLowerCase()}">
+            <DataTable class="display" :data="context.${systemPath}" :columns="${element.name.toLowerCase()}Columns" :options="${element.name.toLowerCase()}Options">
+                <template #image="props">
+                    <img :src="props.cellData" width=40 height=40></img>
+                </template>
+                <template #actions="props">
+                    <div>Actions!</div>
+                </template>
+            </DataTable>
+        </v-tabs-window-item>
+        `.appendNewLine();
     }
 
     function generateElement(element: Page | ClassExpression | Section): CompositeGeneratorNode {
@@ -153,7 +288,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isNumberExp(element)) {
                 return expandToNode`
-                    <v-number-input controlVariant="stacked" v-model="context.${systemPath}" ${labelFragment}></v-number-input>
+                    <v-number-input controlVariant="stacked" density="compact" v-model="context.${systemPath}" ${labelFragment}></v-number-input>
                 `;
             }
 
