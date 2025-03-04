@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isPage, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { humanize } from 'inflection';
 import { Reference } from 'langium';
@@ -25,8 +25,8 @@ export function generateDocumentVueComponent(id: string, document: Document, des
 
 function generateVueComponentScript(id: string, document: Document): CompositeGeneratorNode {
     const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
-
-    function generateDataTableSetup(table: DocumentArrayExp): CompositeGeneratorNode {
+    const pages = getAllOfType<Page>(document.body, isPage);
+    function generateDataTableSetup(pageName: string, table: DocumentArrayExp): CompositeGeneratorNode {
 
         function generateDataTableColumn(refDoc: Reference<Document> | undefined, property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
             if ( isSection(property) || isPage(property) ) {
@@ -62,7 +62,7 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
         }
 
         return expandToNode`
-        const ${table.name.toLowerCase()}Columns = [
+        const ${pageName}${table.name}Columns = [
             { 
                 data: 'img', 
                 title: game.i18n.localize("Image"),
@@ -86,11 +86,11 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
             }
         ];
 
-        const ${table.name.toLowerCase()}Options = {
+        const ${pageName}${table.name}Options = {
             paging: false,
             stateSave: true,
             responsive: true,
-            colReorder: true,
+            colReorder: false,
             scrollY: '250px',
             order: [[1, 'asc']],
             createdRow: (row, data) => {
@@ -127,9 +127,23 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
         `;
     }
 
+    function generatePageDataTableSetup(page: Page): CompositeGeneratorNode {
+        const tables = getAllOfType<DocumentArrayExp>(page.body, isDocumentArrayExp, true);
+        return expandToNode`
+            ${joinToNode(tables, table => generateDataTableSetup(page.name.toLowerCase(), table))}
+        `;
+    }
+
+    function getPageFirstTab(page: Page): string {
+        const firstTab = page.body.find(x => isDocumentArrayExp(x)) as DocumentArrayExp | undefined;
+        const tab = firstTab?.name.toLowerCase() ?? 'description';
+
+        return `'${page.name.toLowerCase()}': '${tab}'`;
+    }
+
     return expandToNode`
     <script setup>
-        import { ref } from "vue";
+        import { ref, watch } from "vue";
         import DataTable from 'datatables.net-vue3';
         import DataTablesCore from 'datatables.net-dt';
         import 'datatables.net-responsive-dt';
@@ -140,10 +154,24 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
         DataTable.use(DataTablesCore);
 
         const drawer = ref(false);
+
+        const page = ref('character');
         const tab = ref('${tabs.length > 1 ? tabs[0].name.toLowerCase() : 'description'}');
+        const pageDefaultTabs = {
+            'character': 'description',
+            ${joinToNode(pages, getPageFirstTab, { appendNewLineIfNotEmpty: true, separator: ',\n' })}
+        }
+
+        // When the page changes, reset the tab to the first tab on that page
+        watch(page, () => {
+            tab.value = pageDefaultTabs[page.value.toLowerCase()];
+        });
+
+
         const props = defineProps(['context']);
 
-        ${joinToNode(tabs, generateDataTableSetup)}
+        ${joinToNode(tabs, tab => generateDataTableSetup("character", tab), { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(pages, generatePageDataTableSetup, { appendNewLineIfNotEmpty: true })}
     </script>
     <style>
         @import 'datatables.net-dt';
@@ -156,8 +184,8 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
 }
 
 function generateVueComponentTemplate(id: string, document: Document): CompositeGeneratorNode {
-    const allPages = getAllOfType<Page>(document.body, isPage);
-    const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
+    const pages = getAllOfType<Page>(document.body, isPage);
+    const firstPageTabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
     return expandToNode`
     <template>
         <v-app>
@@ -170,26 +198,35 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <!-- Navigation Drawer -->
             <v-navigation-drawer v-model="drawer" temporary>
                 <v-img :src="context.actor.img"></v-img>
-                <v-list>
-                    <v-list-item title="Character" prepend-icon="mdi-crown-circle-outline"></v-list-item>
-                    ${joinToNode(allPages, page => generateNavListItem(page), { appendNewLineIfNotEmpty: true})}
-                </v-list>
+                <v-tabs v-model="page" direction="vertical">
+                    <v-tab value="character" prepend-icon="mdi-crown-circle-outline">Character</v-tab>
+                    ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
+                </v-tabs>
             </v-navigation-drawer>
 
             <!-- Main Content -->
             <v-main class="d-flex">
                 <v-container class="bg-surface-variant" fluid>
-                    <v-row>
-                        ${joinToNode(document.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
-                    </v-row>
-                    <v-divider class="mt-4 mb-2"></v-divider>
-                    <v-tabs v-model="tab" grow always-center>
-                            ${joinToNode(tabs, tab => expandToNode`
-                            <v-tab value="${tab.name.toLowerCase()}">${humanize(tab.name)}</v-tab>
-                            `, { appendNewLineIfNotEmpty: true })}
-                    </v-tabs>
-                    <v-tabs-window v-model="tab">
-                        ${joinToNode(tabs, generateDataTable)}
+                    <v-tabs-window v-model="page">
+                        <v-tabs-window-item value="character" data-tab="character">
+                            <v-row>
+                                ${joinToNode(document.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                            </v-row>
+                            <v-divider class="mt-4 mb-2"></v-divider>
+                            <v-tabs v-model="tab" grow always-center>
+                                    <v-tab value="description">Description</v-tab>
+                                    ${joinToNode(firstPageTabs, tab => expandToNode`
+                                    <v-tab value="${tab.name.toLowerCase()}">${humanize(tab.name)}</v-tab>
+                                    `, { appendNewLineIfNotEmpty: true })}
+                            </v-tabs>
+                            <v-tabs-window v-model="tab">
+                                <v-tabs-window-item value="description" data-tab="description">
+                                    <v-textarea v-model="context.actor.description" label="Description" dense></v-textarea>
+                                </v-tabs-window-item>
+                                ${joinToNode(firstPageTabs, tab => generateDataTable("character", tab))}
+                            </v-tabs-window>
+                        </v-tabs-window-item>
+                    ${joinToNode(pages, generatePageBody, { appendNewLineIfNotEmpty: true })}
                     </v-tabs-window>
                 </v-container>
             </v-main>
@@ -201,7 +238,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const pageIconParam = page.params.find(p => isIconParam(p)) as IconParam | undefined;
         if (pageIconParam !== undefined) {
             return expandToNode`
-            <v-list-item title="${page.name}" prepend-icon="${pageIconParam.value}"></v-list-item>
+            <v-tab value="${page.name.toLowerCase()}" prepend-icon="${pageIconParam.value}">${humanize(page.name)}</v-tab>
             `;
         }
         return expandToNode`
@@ -209,13 +246,33 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         `;
     }
 
-    function generateDataTable(element: DocumentArrayExp): CompositeGeneratorNode {
+    function generatePageBody(page: Page): CompositeGeneratorNode {
+        const tabs = getAllOfType<DocumentArrayExp>(page.body, isDocumentArrayExp, true);
+        return expandToNode`
+        <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
+            <v-row>
+                ${joinToNode(page.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+            </v-row>
+            <v-divider class="mt-4 mb-2"></v-divider>
+            <v-tabs v-model="tab" grow always-center>
+                    ${joinToNode(tabs, tab => expandToNode`
+                    <v-tab value="${tab.name.toLowerCase()}">${humanize(tab.name)}</v-tab>
+                    `, { appendNewLineIfNotEmpty: true })}
+            </v-tabs>
+            <v-tabs-window v-model="tab">
+                ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
+            </v-tabs-window>
+        </v-tabs-window-item>
+        `;
+    }
+
+    function generateDataTable(pageName: string, element: DocumentArrayExp): CompositeGeneratorNode {
 
         const systemPath = getSystemPath(element, [], undefined, false);
 
         return expandToNode`
         <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="${element.document.ref?.name.toLowerCase()}">
-            <DataTable class="display" :data="context.${systemPath}" :columns="${element.name.toLowerCase()}Columns" :options="${element.name.toLowerCase()}Options">
+            <DataTable class="display" :data="context.${systemPath}" :columns="${pageName}${element.name}Columns" :options="${pageName}${element.name}Options">
                 <template #image="props">
                     <img :src="props.cellData" width=40 height=40></img>
                 </template>
@@ -231,11 +288,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
         if (isSection(element)) {
             return expandToNode`
-            <v-col cols="3" class="pl-1 pr-1">
+            <v-col cols=12 md=6 lg=3 class="pl-1 pr-1">
                 <v-card
                     elevation="16"
                 >
-                <v-card-title>${element.name}</v-card-title>
+                <v-card-title>${humanize(element.name)}</v-card-title>
 
                 <v-card-text>
                     ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
@@ -278,17 +335,22 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `'${c}'`).join(", ");
                     return expandToNode`
-                    <v-select clearable v-model="context.${systemPath}" :items="[${choices}]" ${labelFragment}></v-select>
+                    <v-select clearable v-model="context.${systemPath}" :items="[${choices}]" ${labelFragment} :disabled="${disabled}"></v-select>
                     `;
                 }
                 return expandToNode`
-                    <v-text-field clearable v-model="context.${systemPath}" ${labelFragment}></v-text-field>
+                    <v-text-field clearable v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-text-field>
                 `;
             }
 
             if (isNumberExp(element)) {
+                // If this is a calculated value, we don't want to allow editing
+                const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+                if (valueParam != undefined) {
+                    disabled = true;
+                }
                 return expandToNode`
-                    <v-number-input controlVariant="stacked" density="compact" v-model="context.${systemPath}" ${labelFragment}></v-number-input>
+                    <v-number-input controlVariant="stacked" density="compact" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-number-input>
                 `;
             }
 

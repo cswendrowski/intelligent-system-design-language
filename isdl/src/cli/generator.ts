@@ -596,7 +596,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                     throw new Error("Maximum depth exceeded");
                 }
                 for ( let [k, v] of Object.entries(obj) ) {
-                    let t = getType(v);
+                    let t = foundry.utils.getType(v);
                     if ( t === "Object" ) {
                         if ( k == "parent" ) continue;
                         if ( isEmpty(v) ) flat[k] = v;
