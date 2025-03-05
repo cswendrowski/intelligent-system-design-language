@@ -169,7 +169,7 @@ actor Character {
     }
     // PAGE 3 -- COMBAT
     page Combat(icon: "mdi-sword") {
-        //section Resources {
+        section Resources {
             // Calculate total health for the character.
             health resource Health(max: {return 6 + self.Warrior.value})
             resource Fate(max: {
@@ -177,7 +177,7 @@ actor Character {
                 else {return self.Rogue}
             })
             resource Mana(max: {return self.Mage * self.ManaMult})
-        //}
+        }
         section Defenses {
             readonly number Dodge(value: {return 3 + (self.Warrior + self.Rogue + self.Mage / 3) + self.ShieldBonus + self.DefenseMod})
             Equipment WornHelmet

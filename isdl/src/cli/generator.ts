@@ -599,7 +599,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                     let t = foundry.utils.getType(v);
                     if ( t === "Object" ) {
                         if ( k == "parent" ) continue;
-                        if ( isEmpty(v) ) flat[k] = v;
+                        if ( foundry.utils.isEmpty(v) ) flat[k] = v;
                         let inner = flattenObject(v, _d+1);
                         for ( let [ik, iv] of Object.entries(inner) ) {
                             flat[\`\${k}.\${ik}\`] = iv;

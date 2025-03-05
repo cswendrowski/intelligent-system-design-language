@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
 import vueDevTools from 'vite-plugin-vue-devtools';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
+import { copyVueMixin } from './vue-mixin.js';
 
 export function generateVue(entry: Entry, id: string, destination: string) {
 
@@ -103,218 +104,7 @@ export function runViteBuild(destination: string) {
 //     fs.writeFileSync(generatedFilePath, toString(fileNode));
 // }
 
-function copyVueMixin(description: string) {
-    const generatedFilePath = path.join(description, "system", "sheets", "vue", "VueRenderingMixin.mjs");
 
-    const fileNode = expandToNode`
-        import { createApp } from "../../../lib/vue.esm-browser.js";
-        import * as Vuetify from "../../../lib/vuetify.esm.js";
-        import { Attribute } from "./components/components.vue.es.mjs";
-
-        /**
-         * Vue rendering mixin for ApplicationV2.
-         *
-         * @param {Constructor} BaseApplication
-         * @returns {VueApplication}
-         */
-        export default function VueRenderingMixin(BaseApplication) {
-
-            class VueApplication extends BaseApplication {
-
-                /** Vue application instance created with createApp(). */
-                vueApp = null;
-
-                /** Vue root for the mounted application instance. */
-                vueRoot = null;
-
-                /** Constant to force updates on change. */
-                _renderKey = 0;
-
-                /**
-                 * Object to store vue parts.
-                 *
-                 * @example
-                 * vueParts = {
-                 *   'document-sheet': {
-                 *     component: DocumentSheetVue,
-                 *     template: \`<document-sheet :context="context">Failed to render</document-sheet>\`
-                 *   },
-                 *   'foobar': {
-                 *     component: Foobar,
-                 *     template: \`<foobar :context="context"/>\`
-                 *   }
-                 * }
-                 */
-                vueParts = {};
-
-                /**
-                 * Getter for vueComponents
-                 *
-                 * Retrieves an object of component tags to component instances from the vueParts property.
-                 *
-                 * @example
-                 * {
-                 *   'document-sheet': DocumentSheet,
-                 *   'foobar': Foobar,
-                 * }
-                 *
-                 * @returns {object} Object with component tags mapped to components.
-                 */
-                get vueComponents() {
-                    const components = {};
-                    for (let [key, part] of Object.entries(this.vueParts)) {
-                        if (part?.component) {
-                            components[key] = part.component;
-                        }
-                    }
-                    return components;
-                }
-
-                /**
-                 * Getter for vueTemplates
-                 *
-                 * Retrieves an array of template part strings to render.
-                 *
-                 * @example
-                 * [
-                 *   '<document-sheet :context="context">Failed to render</document-sheet>',
-                 *   '<foobar :context="context"/>'
-                 * ]
-                 *
-                 * @returns {Array} Array of vue template mount points.
-                 */
-                get vueTemplates() {
-                    return Object.values(this.vueParts).map((part) => part.template);
-                }
-
-                /**
-                 * Render the outer framing HTMLElement and mount the Vue application.
-                 *
-                 * This occurs when the application is opened, but not on subsequent renders.
-                 *
-                 * @param {RenderOptions} options
-                 * @returns {Promise<HTMLElement>}
-                 *
-                 * @protected
-                 * @override
-                 */
-                async _renderFrame(options) {
-                    // Retrieve the context and element.
-                    const context = await this._prepareContext(options);
-                    console.log("Vue App Context:", context);
-                    const element = await super._renderFrame(options);
-
-                    // Grab our application target and render our parts.
-                    const target = this.hasFrame ? element.querySelector(".window-content") : element;
-                    target.innerHTML = this.vueTemplates.join("");
-
-                    // Create and store the Vue application instance.
-                    this.vueApp = createApp({
-                        // Data available in the template.
-                        data() {
-                            return {
-                                context: context
-                            };
-                        },
-                        // Components allowed by the application.
-                        components: this.vueComponents,
-                        // Method to update the template data on subsequent changes.
-                        methods: {
-                            updateContext(newContext) {
-                                // Note that 'this' refers to this.vueApp, not the full AppV2 instance.
-                                for (let key of Object.keys(this.context)) {
-                                    if (newContext[key]) {
-                                        this.context[key] = newContext[key];
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    this.vueApp.component("i-attribute", Attribute);
-                    const vuetify = Vuetify.createVuetify({
-                        components: {
-                            VNumberInput: Vuetify.components.VNumberInput
-                        }
-                    });
-                    this.vueApp.use(vuetify);
-
-                    // Expose global Foundry variables.
-                    this.vueApp.config.globalProperties.game = game;
-                    this.vueApp.config.globalProperties.CONFIG = CONFIG;
-                    this.vueApp.config.globalProperties.foundry = foundry;
-
-                    // Expose the document.
-                    this.vueApp.provide("rawDocument", this.document);
-
-                    // Mount and store the vue application.
-                    this.vueRoot = this.vueApp.mount(target);
-
-                    return element;
-                }
-
-                /**
-                 * Handle updates for the Vue application instance.
-                 *
-                 * Normally, this would render the HTML for the content within the application.
-                 * However, for Vue, all we want to do is update the 'context' property that's
-                 * passed into the Vue application instance.
-                 *
-                 * Unlinke _renderFrame(), this occurs on every update for the application.
-                 *
-                 * @param {ApplicationRenderContext} context
-                 * @param {RenderOptions} options
-                 * @returns {Promise<string>}
-                 *
-                 * @protected
-                 * @override
-                 */
-                async _renderHTML(context, options) {
-                    // Force certain updates.
-                    this._renderKey++;
-                    context._renderKey = this._renderKey;
-                    // Update the application root with new values.
-                    this.vueRoot.updateContext(context);
-                    // Return doesn't matter, Vue handles updates.
-
-                }
-
-                /** @override */
-                _replaceHTML(result, content, options) {
-                    // Pass. We don't need this in Vue land! But Foundry itself does...
-                }
-
-                /**
-                 * Closes the application and unmounts the vue application instance.
-                 *
-                 * @param {ApplicationClosingOptions} options
-                 * @returns {Promise<BaseApplication>}
-                 *
-                 * @override
-                 */
-                async close(options = {}) {
-                    if (this.options.form.submitOnClose && this.isEditable) {
-                        await this.submit();
-                    }
-                    // Unmount the vue instance.
-                    if (this.vueApp) this.vueApp.unmount();
-                    await super.close(options);
-                }
-
-                async _onFirstRender(context) {
-                    super._onFirstRender(context);
-
-                    // Replace the .application class with .vue-application
-                    this.element.classList.remove("application");
-                    this.element.classList.add("vue-application");
-                }
-            }
-
-            return VueApplication;
-        }   
-    `.appendNewLine();
-    
-    fs.writeFileSync(generatedFilePath, toString(fileNode));
-}
 
 function copyVueBrowserJs(description: string) {
     const generatedFilePath = path.join(description, "lib", "vue.esm-browser.js");
@@ -385,6 +175,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
 
     const fileNode = expandToNode`
     export { default as Attribute } from './components/attribute.vue';
+    export { default as Resource } from './components/resource.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 

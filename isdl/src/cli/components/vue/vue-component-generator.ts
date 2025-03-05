@@ -1,9 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
-import { humanize } from 'inflection';
 import { Reference } from 'langium';
 
 export function generateDocumentVueComponent(id: string, document: Document, destination: string) {
@@ -91,7 +90,6 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
             stateSave: true,
             responsive: true,
             colReorder: false,
-            scrollY: '250px',
             order: [[1, 'asc']],
             createdRow: (row, data) => {
                 row.setAttribute("data-id", data._id);
@@ -218,7 +216,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             <v-tabs v-model="tab" grow always-center>
                                     <v-tab value="description">Description</v-tab>
                                     ${joinToNode(firstPageTabs, tab => expandToNode`
-                                    <v-tab value="${tab.name.toLowerCase()}">${humanize(tab.name)}</v-tab>
+                                    <v-tab value="${tab.name.toLowerCase()}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
                                     `, { appendNewLineIfNotEmpty: true })}
                             </v-tabs>
                             <v-tabs-window v-model="tab">
@@ -240,7 +238,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const pageIconParam = page.params.find(p => isIconParam(p)) as IconParam | undefined;
         if (pageIconParam !== undefined) {
             return expandToNode`
-            <v-tab value="${page.name.toLowerCase()}" prepend-icon="${pageIconParam.value}">${humanize(page.name)}</v-tab>
+            <v-tab value="${page.name.toLowerCase()}" prepend-icon="${pageIconParam.value}">{{ game.i18n.localize('${page.name}') }}</v-tab>
             `;
         }
         return expandToNode`
@@ -258,7 +256,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <v-divider class="mt-4 mb-2"></v-divider>
             <v-tabs v-model="tab" grow always-center>
                     ${joinToNode(tabs, tab => expandToNode`
-                    <v-tab value="${tab.name.toLowerCase()}">${humanize(tab.name)}</v-tab>
+                    <v-tab value="${tab.name.toLowerCase()}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
                     `, { appendNewLineIfNotEmpty: true })}
             </v-tabs>
             <v-tabs-window v-model="tab">
@@ -292,9 +290,9 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             return expandToNode`
             <v-col cols=12 md=6 lg=3 class="pl-1 pr-1">
                 <v-card
-                    elevation="16"
+                    elevation="8"
                 >
-                <v-card-title>${humanize(element.name)}</v-card-title>
+                <v-card-title>{{ game.i18n.localize('${element.name}') }}</v-card-title>
 
                 <v-card-text>
                     ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
@@ -337,7 +335,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `'${c}'`).join(", ");
                     return expandToNode`
-                    <v-select clearable v-model="context.${systemPath}" :items="[${choices}]" ${labelFragment} :disabled="${disabled}"></v-select>
+                    <v-select clearable v-model="context.${systemPath}" :items="[${choices}]" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}"></v-select>
                     `;
                 }
                 return expandToNode`
@@ -367,6 +365,16 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${systemPath}" :context="context" :min="${min}" :disabled="${disabled}"></i-attribute>
                 `;
             }
+
+            if (isResourceExp(element)) {
+                return expandToNode`
+                <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="${disabled}"></i-resource>
+                `;
+            }
+            
+            return expandToNode`
+            <v-alert text="Unknown Property ${element.name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
+            `;
         }
 
         return expandToNode`
