@@ -53,6 +53,7 @@ export function runViteBuild(destination: string) {
                     "datatables.net-buttons-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons-dt"),
                     "datatables.net-colreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-colreorder-dt"),
                     "datatables.net-rowreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-rowreorder-dt"),
+                    "datatables.net-buttons": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons"),
                 }
             },
             build: {

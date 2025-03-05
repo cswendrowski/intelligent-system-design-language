@@ -8,9 +8,6 @@ html {
     overflow: unset;
 }
 
-/* ---------------------------------------- */
-/* Form Inputs                              */
-/* ---------------------------------------- */
 input:focus {
     outline: none;
 }
@@ -425,8 +422,6 @@ input[type="range"]:focus::-moz-range-thumb {
 .dark select {
     background: rgba(255, 255, 240, 0.8);
 }
-
-.settings-sidebar {}
 
 .#{$dynamic-id}.vue-application {
 
@@ -1161,10 +1156,47 @@ input[type="range"]:focus::-moz-range-thumb {
     //     }
     // }
 
+    .v-application__wrap {
+        min-height: 0;
+    }
+
+    .v-container {
+        > .v-window {
+            height: 100%;
+
+            > .v-window__container {
+                > .v-window-item {
+                    height: 100%;
+                }
+            }
+        }
+    }
+
     .v-slide-group__content {
         >button {
             width: unset;
         }
+    }
+
+    .dt-body-center {
+        text-align: center;
+    }
+
+    .dt-buttons {
+        display: flex;
+        height: 52px;
+    }
+
+    table.dataTable th.dt-type-numeric {
+        text-align: center;
+    }
+
+    table.dataTable td.dt-type-numeric {
+        text-align: center;
+    }
+
+    .buttons-columnVisibility {
+        color: black
     }
 }
 

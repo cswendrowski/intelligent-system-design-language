@@ -150,8 +150,10 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
         import 'datatables.net-colreorder-dt';
         import 'datatables.net-rowreorder-dt';
         import 'datatables.net-buttons-dt';
+        import ColVis from "datatables.net-buttons/js/buttons.colVis";
 
         DataTable.use(DataTablesCore);
+        DataTable.use(ColVis);
 
         const drawer = ref(false);
 
@@ -272,7 +274,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
         return expandToNode`
         <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="${element.document.ref?.name.toLowerCase()}">
-            <DataTable class="display" :data="context.${systemPath}" :columns="${pageName}${element.name}Columns" :options="${pageName}${element.name}Options">
+            <DataTable class="display compact" :data="context.${systemPath}" :columns="${pageName}${element.name}Columns" :options="${pageName}${element.name}Options">
                 <template #image="props">
                     <img :src="props.cellData" width=40 height=40></img>
                 </template>
