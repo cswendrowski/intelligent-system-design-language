@@ -8,7 +8,7 @@ export function generateBaseVueComponents(destination: string) {
     generateResourceComponent(destination);
     generateDocumentLinkComponent(destination);
     generateProsemirrorComponent(destination);
-    
+
 }
 
 function generateAttributeComponent(destination: string) {
@@ -213,7 +213,11 @@ function generateDocumentLinkComponent(destination: string) {
 
             <div v-if="hasLink" class="d-flex">
                 <!-- Image -->
-                <v-img v-if="image" :src="image" class="avatar" width="36" height="36" />
+                <v-img v-if="image" :src="image" class="avatar" width="36" height="36" style="background-color: lightgray" >
+                    <template #error>
+                        <v-img src="/icons/vtt-512.png" class="avatar" width="36" height="36"></v-img>
+                    </template>
+                </v-img>
 
                 <!-- Document Link -->
                 <v-btn color="secondary">
