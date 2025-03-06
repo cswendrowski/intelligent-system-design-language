@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
@@ -156,17 +156,16 @@ function generateVueComponentScript(id: string, document: Document): CompositeGe
         const drawer = ref(false);
 
         const page = ref('character');
-        const tab = ref('${tabs.length > 1 ? tabs[0].name.toLowerCase() : 'description'}');
+        const tab = ref('description');
         const pageDefaultTabs = {
             'character': 'description',
-            ${joinToNode(pages, getPageFirstTab, { appendNewLineIfNotEmpty: true, separator: ',\n' })}
-        }
+            ${joinToNode(pages, getPageFirstTab, { separator: ',', appendNewLineIfNotEmpty: true })}
+        };
 
         // When the page changes, reset the tab to the first tab on that page
         watch(page, () => {
             tab.value = pageDefaultTabs[page.value.toLowerCase()];
         });
-
 
         const props = defineProps(['context']);
 
@@ -192,12 +191,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <!-- App Bar -->
             <v-app-bar color="primary" density="comfortable">
                 <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-                <v-text-field name="name" v-model="context.actor.name" variant="outlined" class="pt-6"></v-text-field>
+                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="pt-6"></v-text-field>
             </v-app-bar>
 
             <!-- Navigation Drawer -->
             <v-navigation-drawer v-model="drawer" temporary>
-                <v-img :src="context.actor.img"></v-img>
+                <v-img :src="context.document.img"></v-img>
                 <v-tabs v-model="page" direction="vertical">
                     <v-tab value="character" prepend-icon="mdi-crown-circle-outline">Character</v-tab>
                     ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
@@ -221,7 +220,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             </v-tabs>
                             <v-tabs-window v-model="tab">
                                 <v-tabs-window-item value="description" data-tab="description">
-                                    <v-textarea v-model="context.actor.description" label="Description" dense></v-textarea>
+                                    <i-prosemirror :field="context.editors['system.description']" :disabled="false"></i-prosemirror>
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable("character", tab))}
                             </v-tabs-window>
@@ -288,11 +287,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
         if (isSection(element)) {
             return expandToNode`
-            <v-col cols=12 md=6 lg=3 class="pl-1 pr-1">
+            <v-col class="pl-1 pr-1">
                 <v-card
                     elevation="8"
                 >
-                <v-card-title>{{ game.i18n.localize('${element.name}') }}</v-card-title>
+                <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 
                 <v-card-text>
                     ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
@@ -369,6 +368,18 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             if (isResourceExp(element)) {
                 return expandToNode`
                 <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="${disabled}"></i-resource>
+                `;
+            }
+
+            if (isSingleDocumentExp(element)) {
+                return expandToNode`
+                <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="${disabled}"></i-document-link>
+                `;
+            }
+
+            if (isDateExp(element) || isTimeExp(element) || isDateTimeExp(element)) {
+                return expandToNode`
+                <p>${label} - TODO</p>
                 `;
             }
             

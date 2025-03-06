@@ -6,7 +6,9 @@ export function generateBaseVueComponents(destination: string) {
 
     generateAttributeComponent(destination);
     generateResourceComponent(destination);
-
+    generateDocumentLinkComponent(destination);
+    generateProsemirrorComponent(destination);
+    
 }
 
 function generateAttributeComponent(destination: string) {
@@ -169,5 +171,96 @@ function generateResourceComponent(destination: string) {
         </v-card>
     </template>
     `;
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateDocumentLinkComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `document-link.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed } from "vue";
+
+        const props = defineProps({
+            label: String,
+            systemPath: String,
+            context: Object,
+            disabled: Boolean
+        });
+
+        const value = computed(() => {
+            return foundry.utils.getProperty(props.context, props.systemPath);
+        });
+
+        const image = computed(() => {
+            return value.value ? value.value.img : null;
+        });
+
+        const hasLink = computed(() => {
+            return !!value.value;
+        });
+    </script>
+
+    <template>
+        <v-container class="d-flex align-center ga-2 pa-2">
+            <!-- Label -->
+            <span class="font-weight-bold">{{ game.i18n.localize(label) }}</span>
+
+            <div v-if="hasLink" class="d-flex">
+                <!-- Image -->
+                <v-img v-if="image" :src="image" class="avatar" width="36" height="36" />
+
+                <!-- Document Link -->
+                <v-btn color="secondary">
+                    {{ value.name }}
+
+                    <v-menu activator="parent">
+                        <v-list>
+                            <v-list-item key="open" value="Open">
+                                <v-list-item-title><v-icon icon="mdi-open-in-app"></v-icon> Open</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item key="remove" value="Remove">
+                                <v-list-item-title><v-icon icon="mdi-selection-remove"></v-icon> Remove</v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                </v-btn>
+            </div>
+            <p v-else class="single-document-none">{{ game.i18n.localize('NoSingleDocument') }}</p>
+        </v-container>
+    </template>
+    `;
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateProsemirrorComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `prosemirror.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed } from "vue";
+
+        const props = defineProps({
+            field: Object,
+            disabled: Boolean
+        });
+    </script>
+
+    <template>
+        <div class="prose-mirror-wrapper" v-html="disabled ? field.enriched : field.element.outerHTML"></div>
+    </template>
+    `;
+
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }

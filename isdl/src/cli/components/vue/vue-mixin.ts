@@ -1,14 +1,21 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { expandToNode, toString } from 'langium/generate';
+import { expandToNode, joinToNode, toString } from 'langium/generate';
 
-export function copyVueMixin(description: string) {
+export function generateVueMixin(description: string) {
     const generatedFilePath = path.join(description, "system", "sheets", "vue", "VueRenderingMixin.mjs");
+
+    const customComponents = {
+        'i-attribute': 'Attribute',
+        'i-resource': 'Resource',
+        'i-document-link': 'DocumentLink',
+        'i-prosemirror': 'ProseMirror',
+    };
 
     const fileNode = expandToNode`
         import { createApp } from "../../../lib/vue.esm-browser.js";
         import * as Vuetify from "../../../lib/vuetify.esm.js";
-        import { Attribute, Resource } from "./components/components.vue.es.mjs";
+        import { ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
 
         /**
          * Vue rendering mixin for ApplicationV2.
@@ -129,8 +136,7 @@ export function copyVueMixin(description: string) {
                             }
                         }
                     });
-                    this.vueApp.component("i-attribute", Attribute);
-                    this.vueApp.component("i-resource", Resource);
+                    ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { separator: "\n" })}
                     const vuetify = Vuetify.createVuetify({
                         components: {
                             VNumberInput: Vuetify.components.VNumberInput

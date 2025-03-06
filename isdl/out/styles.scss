@@ -4,6 +4,7 @@
 /*  Vuetify Overrides                           */
 /* -------------------------------------------- */
 
+/* #region Vuetify Overrides */
 html {
     overflow: unset;
 }
@@ -430,6 +431,8 @@ input[type="range"]:focus::-moz-range-thumb {
         overflow-y: scroll;
     }
 }
+
+/* #endregion */
 
 /* -------------------------------------------- */
 /*  System Stylesheet                           */
@@ -1165,7 +1168,10 @@ input[type="range"]:focus::-moz-range-thumb {
     }
 
     .v-container {
+        padding: 0;
+
         > .v-window {
+            padding: 16px;
             height: 100%;
 
             > .v-window__container {

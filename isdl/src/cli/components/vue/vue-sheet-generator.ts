@@ -20,7 +20,7 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
         import { ${document.name}${titleize(type)}App } from "../components/components.vue.es.mjs";
         const { DOCUMENT_OWNERSHIP_LEVELS } = CONST;
 
-        export default class ${document.name}VueSheet extends VueRenderingMixin(foundry.applications.sheets.ActorSheetV2) {
+        export default class ${document.name}VueSheet extends VueRenderingMixin(foundry.applications.sheets.${titleize(type)}SheetV2) {
 
             vueParts = {
                 "${vueComponentName}": {
@@ -71,16 +71,19 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
                     owner: this.document.isOwner,
                     limited: this.document.limited,
 
-                    // Add the actor document.
-                    actor: this.actor.toObject(),
+                    // Add the document.
+                    object: this.document.toObject(),
                     document: this.document,
 
-                    // Add the actor's data to context.data for easier access, as well as flags.
-                    system: this.actor.system,
-                    flags: this.actor.flags,
+                    // Add the data to context.data for easier access, as well as flags.
+                    system: this.document.system,
+                    flags: this.document.flags,
 
                     // Roll data.
-                    rollData: this.actor.getRollData() ?? {},
+                    rollData: this.document.getRollData() ?? {},
+
+                    // Editors
+                    editors: {},
 
                     // Force re-renders. Defined in the vue mixin.
                     _renderKey: this._renderKey ?? 0,
@@ -92,7 +95,45 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
                     systemFields: this.document.system.schema.fields
                 };
 
+                // Enrich editors
+                await this._enrichEditor(context, "description");
+
+                // Make another pass through the editors to fix the element contents.
+                for (let [field, editor] of Object.entries(context.editors)) {
+                    if (context.editors[field].element) {
+                        context.editors[field].element.innerHTML = context.editors[field].enriched;
+                    }
+                }
+
                 return context;
+            }
+
+            async _enrichEditor(context, field) {
+                const enrichmentOptions = {
+                    // Whether to show secret blocks in the finished html
+                    secrets: this.document.isOwner,
+                    // Data to fill in for inline rolls
+                    rollData: this.document.getRollData() ?? {},
+                    // Relative UUID resolution
+                    relativeTo: this.document
+                };
+
+                const editorOptions = {
+                    toggled: true,
+                    collaborate: true,
+                    documentUUID: this.document.uuid,
+                    height: 300
+                };
+
+                const editorValue = this.document.system?.[field] ?? foundry.utils.getProperty(this.document.system, field);
+                context.editors[\`system.\${field}\`] = {
+                    enriched: await TextEditor.enrichHTML(editorValue, enrichmentOptions),
+                    element: foundry.applications.elements.HTMLProseMirrorElement.create({
+                        ...editorOptions,
+                        name: \`system.\${field}\`,
+                        value: editorValue ?? ""
+                    })
+                };
             }
         }
     `.appendNewLineIfNotEmpty();

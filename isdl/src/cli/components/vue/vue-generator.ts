@@ -11,16 +11,16 @@ import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
 import vueDevTools from 'vite-plugin-vue-devtools';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
-import { copyVueMixin } from './vue-mixin.js';
+import { generateVueMixin } from './vue-mixin.js';
 
 export function generateVue(entry: Entry, id: string, destination: string) {
 
-    copyVueMixin(destination);
     copyVueBrowserJs(destination);
     copyVuetifyJs(destination);
     copyVuetifyCss(destination);
     copyMaterialDesign(destination);
 
+    generateVueMixin(destination);
     generateIndexMjs(entry, destination);
     generateBaseVueComponents(destination);
 
@@ -176,6 +176,8 @@ function generateIndexMjs(entry: Entry, destination: string) {
     const fileNode = expandToNode`
     export { default as Attribute } from './components/attribute.vue';
     export { default as Resource } from './components/resource.vue';
+    export { default as DocumentLink } from './components/document-link.vue';
+    export { default as ProseMirror } from './components/prosemirror.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 
