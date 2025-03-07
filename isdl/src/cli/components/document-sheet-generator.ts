@@ -73,6 +73,9 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 let parentUpdate = {};
                 let selfDeleted = false;
                 let rerender = false;
+                const context = {
+                    object: this.object,
+                };
                 ${translateExpression(entry, id, action.method)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.object.update(update);

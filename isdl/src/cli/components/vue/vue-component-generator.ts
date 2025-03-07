@@ -1,11 +1,12 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { ClassExpression, Document, DocumentArrayExp, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { Action, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
+import { generateActionComponent } from './vue-action-component-generator.js';
 
-export function generateDocumentVueComponent(id: string, document: Document, destination: string) {
+export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type);
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}App.vue`);
@@ -15,16 +16,17 @@ export function generateDocumentVueComponent(id: string, document: Document, des
     }
 
     const fileNode = expandToNode`
-        ${generateVueComponentScript(id, document, destination)}
+        ${generateVueComponentScript(entry, id, document, destination)}
         ${generateVueComponentTemplate(id, document)}
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }
 
-function generateVueComponentScript(id: string, document: Document, destination: string): CompositeGeneratorNode {
+function generateVueComponentScript(entry: Entry, id: string, document: Document, destination: string): CompositeGeneratorNode {
     const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
     const pages = getAllOfType<Page>(document.body, isPage);
+    const actions = getAllOfType<Action>(document.body, isAction);
 
     function getPageFirstTab(page: Page): string {
         const firstTab = page.body.find(x => isDocumentArrayExp(x)) as DocumentArrayExp | undefined;
@@ -47,11 +49,20 @@ function generateVueComponentScript(id: string, document: Document, destination:
         `;
     }
 
+    function importActionComponent(action: Action): CompositeGeneratorNode {
+        generateActionComponent(entry, id, document, action, destination);
+        const componentName = `${document.name.toLowerCase()}${action.name}Action`;
+        return expandToNode`
+        import ${componentName} from './components/${componentName}.vue';
+        `;
+    }
+
     return expandToNode`
     <script setup>
         import { ref, watch } from "vue";
         ${joinToNode(tabs, tab => importDataTable("character", tab), { appendNewLineIfNotEmpty: true })}
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
 
         const drawer = ref(false);
 
@@ -196,8 +207,9 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         }
 
         if (isAction(element)) {
+            const componentName = `${document.name.toLowerCase()}${element.name}Action`;
             return expandToNode`
-            <v-btn color="primary" class="ma-1">{{game.i18n.localize('${document.name}.${element.name}')}}</v-btn>
+            <${componentName} :context="context"></${componentName}>
             `;
         }
 

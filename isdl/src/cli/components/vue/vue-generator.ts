@@ -26,7 +26,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
 
     entry.documents.forEach(x => {
         generateDocumentVueSheet(id, x, destination);
-        generateDocumentVueComponent(id, x, destination);
+        generateDocumentVueComponent(entry, id, x, destination);
     });
 }
 

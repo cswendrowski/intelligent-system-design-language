@@ -394,6 +394,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         import ${entry.config.name}Combatant from "../documents/combatant.mjs";
         import ${entry.config.name}TokenDocument from "../documents/token.mjs";
         import ${entry.config.name}Token from "../canvas/token.mjs";
+        import ${id}Roll from "../rolls/roll.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -411,6 +412,8 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerStatusEffects();
             registerUtils();
             //addVueImportMap();
+
+            game.system.rollClass = ${id}Roll;
         }
 
         /* -------------------------------------------- */
