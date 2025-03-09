@@ -90,6 +90,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         {
             "NoSingleDocument": "No Linked Document",
             "EditModeWarning": "Active Effects are not applied while in Edit mode. Base values are displayed and used for all rolls, calculations and actions.",
+            "SendToChat": "Send to Chat",
             "SETTINGS": {
                 "RoundUpDamageApplicationName": "Round Up Damage",
                 "RoundUpDamageApplicationHint": "When enabled, damage is rounded up to the nearest whole number. When disabled, damage is rounded down.",

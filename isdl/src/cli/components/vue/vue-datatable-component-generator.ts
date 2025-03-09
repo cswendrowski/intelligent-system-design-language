@@ -50,7 +50,7 @@ export function generateDatatableComponent(document: Document, pageName: string,
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed } from "vue";
+        import { ref, computed, inject } from "vue";
         import DataTable from 'datatables.net-vue3';
         import DataTablesCore from 'datatables.net-dt';
         import 'datatables.net-responsive-dt';
@@ -66,6 +66,7 @@ export function generateDatatableComponent(document: Document, pageName: string,
             systemPath: String,
             context: Object
         });
+        const document = inject('rawDocument');
 
         const data = computed(() => {
             return foundry.utils.getProperty(props.context, props.systemPath);
@@ -115,16 +116,9 @@ export function generateDatatableComponent(document: Document, pageName: string,
                                 // Find the parent tab so we know what type of Item to create
                                 const tab = e.currentTarget.closest(".v-window-item");
                                 const type = tab.dataset.type;
-                                if ( type == "ActiveEffect" ) {
-                                    ActiveEffect.createDocuments([{label: "New Effect"}], {parent: this.object}).then(effect => {
-                                        effect[0].sheet.render(true);
-                                    });
-                                }
-                                else {
-                                    Item.createDocuments([{type: type, name: "New " + type}], {parent: props.context.document}).then(item => {
-                                        item[0].sheet.render(true);
-                                    });
-                                }
+                                Item.createDocuments([{type: type, name: "New " + type}], {parent: document}).then(item => {
+                                    item[0].sheet.render(true);
+                                });
                             }
                         },
                         'colvis'

@@ -1,9 +1,9 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { Document, Entry, isActor } from "../../../language/generated/ast.js";
-import { generateDocumentVueComponent } from "./vue-component-generator.js";
+import { generateDocumentVueComponent } from "./vue-sheet-application-generator.js";
 import { expandToNode, joinToNode, toString } from 'langium/generate';
-import { generateDocumentVueSheet } from './vue-sheet-generator.js';
+import { generateDocumentVueSheet } from './vue-sheet-class-generator.js';
 import { build, defineConfig } from "vite";
 import vue from '@vitejs/plugin-vue';
 import { titleize } from 'inflection';

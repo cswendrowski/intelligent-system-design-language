@@ -59,10 +59,20 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
     return expandToNode`
     <script setup>
-        import { ref, watch } from "vue";
+        import { ref, watch, inject, computed } from "vue";
         ${joinToNode(tabs, tab => importDataTable("character", tab), { appendNewLineIfNotEmpty: true })}
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
+        import DataTable from 'datatables.net-vue3';
+        import DataTablesCore from 'datatables.net-dt';
+        import 'datatables.net-responsive-dt';
+        import 'datatables.net-colreorder-dt';
+        import 'datatables.net-rowreorder-dt';
+        import 'datatables.net-buttons-dt';
+        import ColVis from "datatables.net-buttons/js/buttons.colVis";
+
+        DataTable.use(DataTablesCore);
+        DataTable.use(ColVis);
 
         const drawer = ref(false);
 
@@ -79,6 +89,112 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         });
 
         const props = defineProps(['context']);
+        const document = inject('rawDocument');
+
+        const effects = computed(() => {
+            const data = foundry.utils.getProperty(props.context.object, 'effects');
+            // Origin might be empty, if it is, set it to "Self"
+            data.forEach(x => {
+                if (!x.origin) {
+                    x.origin = "Self";
+                }
+            });
+            return data;
+        });
+
+        const editEffect = (rowData) => {
+            const effect = document.effects.get(rowData._id);
+            effect.sheet.render(true);
+        };
+
+        const toggleEffect = (rowData) => {
+            const effect = document.effects.get(rowData._id);
+            effect.disabled = !effect.disabled;
+            rowData.disabled = effect.disabled;
+            document.updateEmbeddedDocuments("ActiveEffect", [effect]);
+        };
+
+        const sendEffectToChat = async (rowData) => {
+            const effect = document.effects.get(rowData._id);
+            const chatDescription = effect.description ?? effect.system.description;
+            const content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
+                cssClass: "${id}",
+                document: effect,
+                hasEffects: false,
+                description: chatDescription,
+                hasDescription: chatDescription != ""
+            });
+            ChatMessage.create({
+                content: content,
+                speaker: ChatMessage.getSpeaker(),
+                style: CONST.CHAT_MESSAGE_STYLES.IC
+            });
+        };
+
+        const deleteEffect = async (rowData) => {
+            const effect = document.effects.get(rowData._id);
+            const shouldDelete = await Dialog.confirm({
+                title: "Delete Confirmation",
+                content: \`<p>Are you sure you would like to delete the "\${effect.name}" Active Effect?</p>\`,
+                defaultYes: false
+            });
+            if ( shouldDelete ) effect.delete();
+        };
+
+        const effectsColumns = [
+            { 
+                data: 'img', 
+                title: game.i18n.localize("Image"),
+                render: '#image',
+                responsivePriority: 1,
+                orderable: false,
+            },
+            { 
+                data: 'name',
+                title: game.i18n.localize("Name"),
+                responsivePriority: 1,
+                width: '200px'
+            },
+            {
+                data: 'origin',
+                title: game.i18n.localize("Source"),
+            },
+            { 
+                data: null,
+                title: game.i18n.localize("Actions"),
+                render: '#actions',
+                orderable: false,
+                width: '200px'
+            }
+        ];
+
+        const effectsOptions = {
+            paging: false,
+            stateSave: true,
+            responsive: true,
+            colReorder: false,
+            order: [[1, 'asc']],
+            createdRow: (row, data) => {
+                row.setAttribute("data-id", data._id);
+                row.setAttribute("data-uuid", data.uuid);
+                row.setAttribute("data-type", data.type);
+            },
+            layout: {
+                topStart: {
+                    buttons: [
+                        {
+                            text: '<i class="fas fa-plus"></i> Add',
+                            action: (e, dt, node, config) => {
+                                ActiveEffect.createDocuments([{label: "New Effect"}], {parent: document}).then(effect => {
+                                    effect[0].sheet.render(true);
+                                });
+                            }
+                        },
+                        'colvis'
+                    ]
+                }
+            }
+        };
     </script>
     <style>
     </style>
@@ -120,16 +236,33 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             </v-row>
                             <v-divider class="mt-4 mb-2"></v-divider>
                             <v-tabs v-model="tab" grow always-center>
-                                    <v-tab value="description">Description</v-tab>
+                                    <v-tab value="description" prepend-icon="mdi-book-education">Description</v-tab>
                                     ${joinToNode(firstPageTabs, tab => expandToNode`
                                     <v-tab value="${tab.name.toLowerCase()}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
                                     `, { appendNewLineIfNotEmpty: true })}
+                                    <v-tab value="effects" prepend-icon="mdi-creation-outline">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab">
                                 <v-tabs-window-item value="description" data-tab="description">
                                     <i-prosemirror :field="context.editors['system.description']" :disabled="false"></i-prosemirror>
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable("character", tab))}
+                                <v-tabs-window-item value="effects" data-tab="effects">
+                                    <DataTable class="display compact" :data="effects" :columns="effectsColumns" :options="effectsOptions">
+                                        <template #image="props">
+                                            <img :src="props.cellData" width=40 height=40></img>
+                                        </template>
+                                        <template #actions="props">
+                                            <div class="flexrow">
+                                                <a class="row-action" data-action="toggle" @click="toggleEffect(props.rowData)" :data-tooltip="game.i18n.localize('Enable')" v-if="props.rowData.disabled"><i class="fas fa-toggle-off"></i></a>
+                                                <a class="row-action" data-action="toggle" @click="toggleEffect(props.rowData)" :data-tooltip="game.i18n.localize('Disable')" v-if="!props.rowData.disabled"><i class="fas fa-toggle-on"></i></a>
+                                                <a class="row-action" data-action="edit" @click="editEffect(props.rowData)" :data-tooltip="game.i18n.localize('Edit')"><i class="fas fa-edit"></i></a>
+                                                <a class="row-action" data-action="sendToChat" @click="sendEffectToChat(props.rowData)" :data-tooltip="game.i18n.localize('SendToChat')"><i class="fas fa-message"></i></a>
+                                                <a class="row-action" data-action="delete" @click="deleteEffect(props.rowData)" :data-tooltip="game.i18n.localize('Delete')"><i class="fas fa-delete-left"></i></a>
+                                            </div>
+                                        </template>
+                                    </DataTable>
+                                </v-tabs-window-item>
                             </v-tabs-window>
                         </v-tabs-window-item>
                     ${joinToNode(pages, generatePageBody, { appendNewLineIfNotEmpty: true })}
