@@ -1,8 +1,9 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { expandToNode, toString } from 'langium/generate';
-import { Document, isActor } from "../../../language/generated/ast.js";
+import { expandToNode, joinToNode, toString } from 'langium/generate';
+import { Document, HtmlExp, isActor, isHtmlExp } from "../../../language/generated/ast.js";
 import { humanize, titleize } from 'inflection';
+import { getAllOfType } from '../utils.js';
 
 export function generateDocumentVueSheet(id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -14,6 +15,8 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
     }
 
     const vueComponentName = `${document.name.toLowerCase()}-${type}-app`;
+
+    const htmlElements = getAllOfType<HtmlExp>(document.body, isHtmlExp, false);
 
     const fileNode = expandToNode`
         import VueRenderingMixin from '../VueRenderingMixin.mjs';
@@ -97,6 +100,7 @@ export function generateDocumentVueSheet(id: string, document: Document, destina
 
                 // Enrich editors
                 await this._enrichEditor(context, "description");
+                ${joinToNode(htmlElements, htmlElement => expandToNode`await this._enrichEditor(context, "${htmlElement.name.toLowerCase()}");`, { appendNewLineIfNotEmpty: true })}
 
                 // Make another pass through the editors to fix the element contents.
                 for (let [field, editor] of Object.entries(context.editors)) {

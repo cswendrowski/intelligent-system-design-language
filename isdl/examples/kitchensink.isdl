@@ -8,10 +8,12 @@ config KitchenSink {
 actor Hero(icon: "fa-solid fa-sword", background: texture) {
     
     page Info(background: hideout) {
-        string Type(choices: ["A", "B", "C"])
-        string Summary
-        
-        html Background
+        section BasicInfo {
+            string Type(choices: ["A", "B", "C"])
+            string Summary
+            
+            html Background
+        }
         
         section Level {
             number Experience
@@ -20,6 +22,18 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             action LevelUp(disabled: self.Experience < 10) {
                 self.Experience -= 10
                 self.Level++
+            }
+        }
+
+        action FlipACoin {
+            fleeting result = roll(d2)
+            fleeting resultText = "Heads"
+            if (result.Total == 1) {
+                resultText = "Tails"
+            }
+            chat CoinFlip {
+                resultText
+                result
             }
         }
     }
@@ -38,11 +52,44 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             attribute Persuade(min: 1, max: 30, mod: {
                 return (self.Persuade - 10) / 2
             })
+            attribute Grit(min: 1, max: 6)
         }
         
         section StatusEffects {
             boolean Slowed
             boolean Dazed
+        }
+
+        section Counter {
+            readonly number Count
+            action Increment {
+                self.Count++
+            }
+            action Decrement {
+                self.Count--
+            }
+            action Reset {
+                self.Count = 0
+            }
+        }
+
+        section FancyCounter {
+            readonly number Count2
+            unlocked number FancyCounterAmount
+            action Increment2 {
+                self.Count2 += self.FancyCounterAmount
+            }
+            action Decrement2 {
+                self.Count2 -= self.FancyCounterAmount
+            }
+            action Reset2 {
+                self.Count2 = 0
+            }
+        }
+
+        section Test {
+            number SomeThing
+            unlocked number AnotherThing
         }
     }
     

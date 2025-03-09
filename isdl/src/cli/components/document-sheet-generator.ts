@@ -70,6 +70,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
             async _on${action.name}Action(event, system) {
                 event.preventDefault();
                 let update = {};
+                let embeddedUpdate = {};
                 let parentUpdate = {};
                 let selfDeleted = false;
                 let rerender = false;
@@ -79,6 +80,12 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 ${translateExpression(entry, id, action.method)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.object.update(update);
+                    rerender = true;
+                }
+                if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
+                    for (let key of Object.keys(embeddedUpdate)) {
+                        await this.object.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
+                    }
                     rerender = true;
                 }
                 if (Object.keys(parentUpdate).length > 0) {

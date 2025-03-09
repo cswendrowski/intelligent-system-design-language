@@ -166,7 +166,12 @@ function copyMaterialDesign(destination: string) {
 }
 
 function generateIndexMjs(entry: Entry, destination: string) {
-    const generatedFilePath = path.join(destination, "system", "templates", "vue", "index.mjs");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue");
+    const generatedFilePath = path.join(generatedFileDir, "index.mjs");
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
 
     function generateExport(document: Document) {
         const type = isActor(document) ? 'actor' : 'item';

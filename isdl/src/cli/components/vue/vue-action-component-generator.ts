@@ -16,21 +16,36 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref } from "vue";
+        import { ref, inject } from "vue";
 
         const props = defineProps({
             context: Object
         });
 
+        const document = inject('rawDocument');
+
         const onClick = async () => {
             console.log("Clicked ${action.name}");
-            const system = props.context.system;
-            const ${id}Roll = game.system.rollClass;
+            let system = props.context.system;
+            const ${entry.config.name}Roll = game.system.rollClass;
             const context = props.context;
+            context.object.system = props.context.system;
             let update = {};
+            let embeddedUpdate = {};
+            let parentUpdate = {};
+            let selfDeleted = false;
             ${translateBodyExpressionToJavascript(entry, id, action.method.body, false, undefined, true)}
-            const document = await fromUuid(context.document.uuid);
-            document.update(update);
+            if (!selfDeleted && Object.keys(update).length > 0) {
+                await document.update(update);
+            }
+            if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
+                for (let key of Object.keys(embeddedUpdate)) {
+                    await document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
+                }
+            }
+            if (Object.keys(parentUpdate).length > 0) {
+                await document.parent.update(parentUpdate);
+            }
         };
     </script>
     <template>

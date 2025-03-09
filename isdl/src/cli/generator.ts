@@ -53,14 +53,21 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
         fs.mkdirSync(path.join(data.destination, "system"), { recursive: true });
     }
 
-    // Generic shared components
+    // Libraries
     copyDataTableFiles(data.destination);
     copyProgressBarJs(data.destination);
-    copyLogo(data.destination);
-    copyPaperDoll(data.destination);
+
+    // Images
+    copyImage("isdl.png", data.destination);
+    copyImage("paperdoll_default.png", data.destination);
+    copyImage("missing-character.png", data.destination);
+
+
+    // Generic shared components
     generateSystemCss(entry, id, data.destination);
     generateCustomCss(entry, id, data.destination);
     generateUuidDocumentField(data.destination);
+
     //generateRpgAwesomeCss(data.destination);
     generateActiveEffectBaseSheet(entry, id, data.destination);
     generateActiveEffectHandlebars(id, entry, data.destination);
@@ -141,12 +148,10 @@ function copyProgressBarJs(destination: string) {
     fs.copyFileSync(path.join(__dirname, "../progressbar.min.js"), jsFilePath);
 }
 
-function copyLogo(destination: string) {
-
+function copyImage(source: string, destination: string) {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
-    // Make the scripts and css directories
     const imgDir = path.join(destination, "img");
 
     if (!fs.existsSync(imgDir)) {
@@ -154,27 +159,9 @@ function copyLogo(destination: string) {
     }
 
     // Copy the files
-    const imgFilePath = path.join(destination, "img", "isdl.png");
+    const imgFilePath = path.join(imgDir, source);
 
-    fs.copyFileSync(path.join(__dirname, "../isdl.png"), imgFilePath);
-}
-
-function copyPaperDoll(destination: string) {
-
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
-    // Make the scripts and css directories
-    const imgDir = path.join(destination, "img");
-
-    if (!fs.existsSync(imgDir)) {
-        fs.mkdirSync(imgDir, { recursive: true });
-    }
-
-    // Copy the files
-    const imgFilePath = path.join(destination, "img", "paperdoll_default.png");
-
-    fs.copyFileSync(path.join(__dirname, "../paperdoll_default.png"), imgFilePath);
+    fs.copyFileSync(path.join(__dirname, "../" + source), imgFilePath);
 }
 
 function getExtensionVersion(): string | undefined {
@@ -394,7 +381,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         import ${entry.config.name}Combatant from "../documents/combatant.mjs";
         import ${entry.config.name}TokenDocument from "../documents/token.mjs";
         import ${entry.config.name}Token from "../canvas/token.mjs";
-        import ${id}Roll from "../rolls/roll.mjs";
+        import ${entry.config.name}Roll from "../rolls/roll.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -413,7 +400,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerUtils();
             //addVueImportMap();
 
-            game.system.rollClass = ${id}Roll;
+            game.system.rollClass = ${entry.config.name}Roll;
         }
 
         /* -------------------------------------------- */

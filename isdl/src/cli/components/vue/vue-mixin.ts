@@ -3,7 +3,12 @@ import * as fs from 'node:fs';
 import { expandToNode, joinToNode, toString } from 'langium/generate';
 
 export function generateVueMixin(description: string) {
-    const generatedFilePath = path.join(description, "system", "sheets", "vue", "VueRenderingMixin.mjs");
+    const generatedFileDir = path.join(description, "system", "sheets", "vue");
+    const generatedFilePath = path.join(generatedFileDir, "VueRenderingMixin.mjs");
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
 
     const customComponents = {
         'i-attribute': 'Attribute',
@@ -107,7 +112,7 @@ export function generateVueMixin(description: string) {
                 async _renderFrame(options) {
                     // Retrieve the context and element.
                     const context = await this._prepareContext(options);
-                    console.log("Vue App Context:", context);
+                    console.log("Vue App Context:", context, this.document);
                     const element = await super._renderFrame(options);
 
                     // Grab our application target and render our parts.
@@ -134,9 +139,20 @@ export function generateVueMixin(description: string) {
                                     }
                                 }
                             }
+                        },
+                        watch: {
+                            "context.system": {
+                                handler: function (newVal, oldVal) {
+                                    this.$nextTick(() => {
+                                        const changeEvent = new Event("change", { bubbles: true });
+                                        this.$el.dispatchEvent(changeEvent);
+                                    });
+                                },
+                                deep: true
+                            }
                         }
                     });
-                    ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { separator: "\n" })}
+                    ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { appendNewLineIfNotEmpty: true})}
                     const vuetify = Vuetify.createVuetify({
                         components: {
                             VNumberInput: Vuetify.components.VNumberInput

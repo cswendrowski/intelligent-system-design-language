@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Document, IfStatement, isAccess, isAssignment, isDocument, isEntry, isIfStatement, isParentAccess, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isStatusProperty, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
+import { Document, IfStatement, isAccess, isAssignment, isDocument, isEntry, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isStatusProperty, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -10,30 +10,35 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
 
         this.astNodeDescriptionProvider = services.workspace.AstNodeDescriptionProvider;
     }
-    
+
     override getScope(context: ReferenceInfo): Scope {
 
-        if (isAccess(context.container) || isAssignment(context.container) || isParentAccess(context.container) || isParentPropertyRefChoice(context.container)) {
+        if (isAccess(context.container) ||
+            isAssignment(context.container) ||
+            isParentAccess(context.container) ||
+            isParentPropertyRefChoice(context.container) ||
+            isParentAssignment(context.container)) {
+
             return this.getAccessScope(context);
         }
 
         // if (isFleetingAccess(context.container) || isRef(context.container)) {
         //     return this.getAccessScope(context);
         // }
-        
+
         return super.getScope(context);
     }
 
     private getAccessScope(context: ReferenceInfo): Scope {
 
         // When resolving a parent access, we look for an if statement that contains the parent type check expression
-        if (isParentAccess(context.container)) {
+        if (isParentAccess(context.container) || isParentAssignment(context.container)) {
             const ifStatement = AstUtils.getContainerOfType(context.container, (n: AstNode): n is IfStatement => {
                 const isIf = isIfStatement(n);
                 if (!isIf) return false;
                 return isParentTypeCheckExpression((n as IfStatement).expression);
             })!;
-            const parentTypeCheck = ifStatement.expression as ParentTypeCheckExpression;
+            const parentTypeCheck = ifStatement?.expression as ParentTypeCheckExpression;
             if (parentTypeCheck == undefined) {
                 console.error("Parent type check not found");
                 return new MapScope([]);
@@ -72,7 +77,7 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         //         descriptions.push(this.astNodeDescriptionProvider.createDescription(eachVariable, eachVariable.name));
         //     }
         // }
-  
+
         return new MapScope(descriptions);
     }
 

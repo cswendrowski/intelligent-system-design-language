@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isDateExp, isDateTimeExp, isDocumentArrayExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { Action, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStatusProperty, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { generateActionComponent } from './vue-action-component-generator.js';
@@ -99,7 +99,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             <!-- Navigation Drawer -->
             <v-navigation-drawer v-model="drawer" temporary>
-                <v-img :src="context.document.img"></v-img>
+                <v-img :src="context.document.img" style="background-color: lightgray" >
+                    <template #error>
+                        <v-img src="/systems/${id}/missing-character.png"></v-img>
+                    </template>
+                </v-img>
                 <v-tabs v-model="page" direction="vertical">
                     <v-tab value="character" prepend-icon="mdi-crown-circle-outline">Character</v-tab>
                     ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
@@ -138,13 +142,9 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
     function generateNavListItem(page: Page): CompositeGeneratorNode {
         const pageIconParam = page.params.find(p => isIconParam(p)) as IconParam | undefined;
-        if (pageIconParam !== undefined) {
-            return expandToNode`
-            <v-tab value="${page.name.toLowerCase()}" prepend-icon="${pageIconParam.value}">{{ game.i18n.localize('${page.name}') }}</v-tab>
-            `;
-        }
+        const icon = pageIconParam?.value ?? "mdi-book-open-page-variant";
         return expandToNode`
-        <v-list-item title="${page.name}"></v-list-item>
+            <v-tab value="${page.name.toLowerCase()}" prepend-icon="${icon}">{{ game.i18n.localize('${page.name}') }}</v-tab>
         `;
     }
 
@@ -196,13 +196,8 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             `;
         }
 
-        if (isPage(element)) {
-            // Do nothing for now
-            return expandToNode``;
-        }
-
         // We don't render these elements as part of this function
-        if (isAccess(element) || isDocumentArrayExp(element)) {
+        if (isPage(element) || isAccess(element) || isDocumentArrayExp(element) || isStatusProperty(element)) {
             return expandToNode``;
         }
 
@@ -230,11 +225,23 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `'${c}'`).join(", ");
                     return expandToNode`
-                    <v-select clearable v-model="context.${systemPath}" :items="[${choices}]" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}"></v-select>
+                    <v-select clearable name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}"></v-select>
                     `;
                 }
                 return expandToNode`
-                    <v-text-field clearable v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-text-field>
+                    <v-text-field clearable  name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-text-field>
+                `;
+            }
+
+            if (isHtmlExp(element)) {
+                return expandToNode`
+                <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="false"></i-prosemirror>
+                `;
+            }
+
+            if (isBooleanExp(element)) {
+                return expandToNode`
+                <v-checkbox v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="${disabled}" color="primary"></v-checkbox>
                 `;
             }
 
@@ -245,7 +252,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     disabled = true;
                 }
                 return expandToNode`
-                    <v-number-input controlVariant="stacked" density="compact" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-number-input>
+                    <v-number-input controlVariant="stacked" density="compact" v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="${disabled}"></v-number-input>
                 `;
             }
 

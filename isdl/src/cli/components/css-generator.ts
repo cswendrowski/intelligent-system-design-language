@@ -28,9 +28,15 @@ export function compileSCSS(dynamicId: string) {
     fs.writeFileSync(tempScssFilePath, scssContent);
 
     // Copy the _backgrounds.scss file to the same directory as the temp SCSS file
-    const backgroundsFilePath = path.join(__dirname, '../../_backgrounds.scss');
-    const tempBackgroundsFilePath = path.join(__dirname, '_backgrounds.scss');
-    fs.copyFileSync(backgroundsFilePath, tempBackgroundsFilePath);
+    copyScssFile('../../_backgrounds.scss', '_backgrounds.scss');
+    copyScssFile('../../_handlebars.scss', '_handlebars.scss');
+    copyScssFile('../../_vuetifyOverrides.scss', '_vuetifyOverrides.scss');
+
+    function copyScssFile(source: string, destination: string) {
+        const filePath = path.join(__dirname, source);
+        const tempFilePath = path.join(__dirname, destination);
+        fs.copyFileSync(filePath, tempFilePath);
+    }
 
     // Compile SCSS to CSS
     const result = sass.compile(tempScssFilePath);

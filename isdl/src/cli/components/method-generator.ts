@@ -223,10 +223,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         // TODO: Not all references are to a system property - some will be to fleeting variables
 
-        let systemPath = `system.${expression.property?.ref?.name?.toLowerCase()}`;
-        for (const subProperty of expression.subProperties ?? []) {
-            systemPath = `${systemPath}.${subProperty}`;
-        }
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
 
         if (isParentIncrementAssignment(expression)) {
             return expandToNode`
@@ -975,15 +972,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
         switch (expression.method) {
             case "delete()": {
                 return expandToNode`
-                    await context.object.delete();
+                    await document.delete();
                     selfDeleted = true;
                 `;
             }
             case "update()": {
                 return expandToNode`
-                    if (Object.keys(update).length > 0) {
-                        await context.object.update(update);
-                        system = context.object.system;
+                    if (selfDeleted) {
+                        ui.notifications.error("Cannot update a deleted document");
+                    }
+                    else if (Object.keys(update).length > 0) {
+                        await document.update(update);
+                        context.object.system = document.system;
                     }
                     update = {};
                 `.appendNewLine();
@@ -1001,10 +1001,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     if (isEach(expression)) {
+        const collection = translateExpression(entry, id, expression.collection, preDerived, generatingProperty);
         return expandToNode`
-            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${translateExpression(entry, id, expression.collection, preDerived, generatingProperty)} ?? []) {
+            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of context.object.${collection} ?? []) {
                 ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
             }
+            embeddedUpdate["${collection}"] = context.object.${collection};
         `;
     }
 
@@ -1205,13 +1207,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
         if (isUpdateParent(expression)) {
+            // TODO: I think this is wrong
             return expandToNode`
                 parentUpdate["${path}"] = foundry.utils.getProperty(context.object.parent, "system.${path}");
             `;
         }
         else if (isUpdateSelf(expression)) {
             return expandToNode`
-                update["system.${path}"] = foundry.utils.getProperty(system, "${path}");
+                update["system.${path}"] = system.${path});
             `;
         }
     }

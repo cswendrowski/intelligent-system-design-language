@@ -37,7 +37,7 @@ actor PC {
     }
 
     section Resources {
-        resource HP
+        health resource HP
         resource MP
     }
 
@@ -53,26 +53,28 @@ item PrimaryAbility {
     string Target
     string Range
     boolean Invoked
-    string CheckAttribute(choices: ["STR", "DEX", "VIT", "INT", "MND"])
+    parent<attribute> CheckAttribute(choices: [PC])
     string CR(choices: ["Defense", "MagicDefense"])
     html BaseEffect
     html DirectHit
     string Limitation
 
     action Roll(icon: "fa-solid fa-dice-d20") {
-        fleeting attack = roll(d20 + parent[self.CheckAttribute].mod)
-        parent.MP -= self.Cost
+        if (parent is PC) {
+            fleeting attack = roll(d20 + self.CheckAttribute.mod)
+            parent.MP -= self.Cost
 
-        chat AbilityRoll {
-            attack
-            tag self.Cost
-            tag self.Target
-            tag self.Invoked
-            tag self.Range
-            tag self.CR
-            self.BaseEffect
-            self.DirectHit
-            tag self.Limitation
+            chat AbilityRoll {
+                attack
+                tag self.Cost
+                tag self.Target
+                tag self.Invoked
+                tag self.Range
+                tag self.CR
+                self.BaseEffect
+                self.DirectHit
+                tag self.Limitation
+            }
         }
     }
 }
@@ -90,15 +92,17 @@ item SecondaryAbility {
     }, style: circles)
 
     action Use(icon: "fa-solid fa-fire") {
-        parent.MP -= self.Cost
-        self.UsesLeft--
-        chat AbilityUse {
-            tag self.Cost
-            tag self.Target
-            tag self.Invoked
-            self.BaseEffect
-            tag self.Limitation
-            tag self.UsesLeft
+        if (parent is PC) {
+            parent.MP -= self.Cost
+            self.UsesLeft--
+            chat AbilityUse {
+                tag self.Cost
+                tag self.Target
+                tag self.Invoked
+                self.BaseEffect
+                tag self.Limitation
+                tag self.UsesLeft
+            }
         }
     }
 
@@ -120,14 +124,16 @@ item InstantAbility {
     })
 
     action Use(icon: "fa-solid fa-fire") {
-        parent.MP -= self.Cost
-        self.UsesLeft--
-        chat AbilityUse {
-            tag self.Cost
-            tag self.Target
-            tag self.Trigger
-            self.BaseEffect
-            self.Limitation
+        if (parent is PC) {
+            parent.MP -= self.Cost
+            self.UsesLeft--
+            chat AbilityUse {
+                tag self.Cost
+                tag self.Target
+                tag self.Trigger
+                self.BaseEffect
+                self.Limitation
+            }
         }
     }
 
@@ -140,7 +146,7 @@ item InstantAbility {
 
 actor NPC {
 
-    resource HP
+    health resource HP
     string Size(choices: ["Medium", "Large", "Huge"])
     string Species
 
@@ -179,14 +185,14 @@ item NpcAbility {
     string Range
     string Aspect
     boolean Invoked
-    string CheckAttribute(choices: ["STR", "DEX", "VIT", "INT", "MND"])
+    parent<attribute> CheckAttribute(choices: [NPC])
     string CR(choices: ["Defense", "MagicDefense"])
     html BaseEffect
     html DirectHit
     string Limitation
 
     action Roll(icon: "fa-solid fa-dice-d20") {
-        fleeting attack = roll((parent[self.CheckAttribute])d20 + parent[self.CheckAttribute].mod)
+        fleeting attack = roll(d20 + self.CheckAttribute.mod)
 
         chat AbilityRoll {
             attack

@@ -80,6 +80,7 @@ function generateAttributeComponent(destination: string) {
             type="number"
             variant="outlined"
             class="inline-input"
+            :name="systemPath"
         />
     </template>
     `;
@@ -162,9 +163,9 @@ function generateResourceComponent(destination: string) {
                 <div v-show="expanded">
                     <v-divider></v-divider>
                     <v-card-text>
-                        <v-number-input v-model="value" label="Value" :max="max" :disabled="disabled" controlVariant="stacked" density="compact" />
-                        <v-number-input v-model="temp" label="Temp" :disabled="disabled" controlVariant="stacked" density="compact" />
-                        <v-number-input v-model="max" label="Max" :disabled="disabled" controlVariant="stacked" density="compact" />
+                        <v-number-input v-model="value" :name="systemPath + '.value'" label="Value" :max="max" :disabled="disabled" controlVariant="stacked" density="compact" />
+                        <v-number-input v-model="temp" :name="systemPath + '.temp'" label="Temp" :disabled="disabled" controlVariant="stacked" density="compact" />
+                        <v-number-input v-model="max" :name="systemPath + '.max'" label="Max" :disabled="disabled" controlVariant="stacked" density="compact" />
                     </v-card-text>
                 </div>
             </v-expand-transition>
@@ -256,12 +257,14 @@ function generateProsemirrorComponent(destination: string) {
         import { ref, computed } from "vue";
 
         const props = defineProps({
+            label: String,
             field: Object,
             disabled: Boolean
         });
     </script>
 
     <template>
+        <label>{{ label }}</label>
         <div class="prose-mirror-wrapper" v-html="disabled ? field.enriched : field.element.outerHTML"></div>
     </template>
     `;

@@ -3,7 +3,7 @@
     "displayName": "Intelligent System Design Language",
     "description": "Intelligent System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.1.42",
+    "version": "0.1.43",
     "repository": {
         "url": ""
     },
@@ -11,9 +11,6 @@
     "license": "LICENSE",
     "type": "module",
     "icon": "out/isdl.png",
-    "extensionDependencies": [
-        "vite"
-    ],
     "scripts": {
         "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
         "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
