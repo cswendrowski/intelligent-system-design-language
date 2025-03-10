@@ -1026,7 +1026,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 return expandToNode`
                     <div class="form-group">
                         <label>${humanize(expression.name)}</label>
-                        <input type="number" name="${expression.name.toLowerCase()}" />
+                        <input type="number" name="${expression.name.toLowerCase()}" value="0" />
                     </div>
                 `;
             }

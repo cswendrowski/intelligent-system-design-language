@@ -1,11 +1,11 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { ClassExpression, Document, DocumentArrayExp, isActor, isDateExp, isDateTimeExp, isHtmlExp, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
-import { getSystemPath } from '../utils.js';
+import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
-export function generateDatatableComponent(document: Document, pageName: string, table: DocumentArrayExp, destination: string) {
+export function generateDatatableComponent(id: string, document: Document, pageName: string, table: DocumentArrayExp, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${pageName}${table.name}Datatable.vue`);
@@ -48,6 +48,9 @@ export function generateDatatableComponent(document: Document, pageName: string,
         return undefined;
     }
 
+    let tableDocBody = table.document.ref?.body ?? [];
+    const actions = getAllOfType<Action>(tableDocBody, isAction, false);
+
     const fileNode = expandToNode`
     <script setup>
         import { ref, computed, inject } from "vue";
@@ -71,6 +74,43 @@ export function generateDatatableComponent(document: Document, pageName: string,
         const data = computed(() => {
             return foundry.utils.getProperty(props.context, props.systemPath);
         });
+
+        const editItem = (rowData) => {
+            const item = document.items.get(rowData._id);
+            item.sheet.render(true);
+        };
+
+        const sendItemToChat = async (rowData) => {
+            const item = document.items.get(rowData._id);
+            const chatDescription = item.description ?? item.system.description;
+            const content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
+                cssClass: "${id}",
+                document: item,
+                hasItems: false,
+                description: chatDescription,
+                hasDescription: chatDescription != ""
+            });
+            ChatMessage.create({
+                content: content,
+                speaker: ChatMessage.getSpeaker(),
+                style: CONST.CHAT_MESSAGE_STYLES.IC
+            });
+        };
+
+        const deleteItem = async (rowData) => {
+            const item = document.items.get(rowData._id);
+            const shouldDelete = await Dialog.confirm({
+                title: "Delete Confirmation",
+                content: \`<p>Are you sure you would like to delete the "\${item.name}" Item?</p>\`,
+                defaultYes: false
+            });
+            if ( shouldDelete ) item.delete();
+        };
+
+        const customItemAction = async (rowData, event) => {
+            const item = document.items.get(rowData._id);
+            item.sheet._onAction(event);
+        };
 
         const columns = [
             { 
@@ -131,10 +171,15 @@ export function generateDatatableComponent(document: Document, pageName: string,
     <template>
         <DataTable class="display compact" :data="data" :columns="columns" :options="options">
             <template #image="props">
-                <img :src="props.cellData" width=40 height=40></img>
+                <img :src="props.cellData" width=40 height=40 />
             </template>
             <template #actions="props">
-                <div>Actions!</div>
+                <div class="flexrow">
+                    ${joinToNode(actions, generateActionRow, { appendNewLineIfNotEmpty: true })}
+                    <a class="row-action" data-action="edit" @click="editItem(props.rowData)" :data-tooltip="game.i18n.localize('Edit')"><i class="fas fa-edit"></i></a>
+                    <a class="row-action" data-action="sendToChat" @click="sendItemToChat(props.rowData)" :data-tooltip="game.i18n.localize('SendToChat')"><i class="fas fa-message"></i></a>
+                    <a class="row-action" data-action="delete" @click="deleteItem(props.rowData)" :data-tooltip="game.i18n.localize('Delete')"><i class="fas fa-delete-left"></i></a>
+                </div>
             </template>
         </DataTable>
     </template>
@@ -148,4 +193,12 @@ export function generateDatatableComponent(document: Document, pageName: string,
     </style>
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));
+
+    function generateActionRow(action: Action): CompositeGeneratorNode {
+        const icon = (action.conditions.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
+        const color = (action.conditions.find(x => isColorParam(x)) as ColorParam)?.value ?? "#000000";
+        return expandToNode`
+            <a class="row-action" data-action="${action.name.toLowerCase()}" @click="customItemAction(props.rowData, $event)" :data-tooltip="game.i18n.localize('${action.name}')"><i class="fas ${icon}" style="color: ${color};"></i></a>
+        `;
+    }
 }

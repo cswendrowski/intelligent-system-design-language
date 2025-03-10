@@ -119,6 +119,55 @@ export function generateVueMixin(description: string) {
                     const target = this.hasFrame ? element.querySelector(".window-content") : element;
                     target.innerHTML = this.vueTemplates.join("");
 
+                    const aliases = {
+                        collapse: 'fas fa-chevron-up',
+                        complete: 'fas fa-check',
+                        cancel: 'fas fa-times-circle',
+                        close: 'fas fa-times',
+                        delete: 'fas fa-times-circle',
+                        // delete (e.g. v-chip close)
+                        clear: 'fas fa-times-circle',
+                        // delete (e.g. v-chip close)
+                        success: 'fas fa-check-circle',
+                        info: 'fas fa-info-circle',
+                        warning: 'fas fa-exclamation',
+                        error: 'fas fa-exclamation-triangle',
+                        prev: 'fas fa-chevron-left',
+                        next: 'fas fa-chevron-right',
+                        checkboxOn: 'fas fa-check-square',
+                        checkboxOff: 'far fa-square',
+                        // note 'far'
+                        checkboxIndeterminate: 'fas fa-minus-square',
+                        delimiter: 'fas fa-circle',
+                        // for carousel
+                        sortAsc: 'fas fa-arrow-up',
+                        sortDesc: 'fas fa-arrow-down',
+                        expand: 'fas fa-chevron-down',
+                        menu: 'fas fa-bars',
+                        subgroup: 'fas fa-caret-down',
+                        dropdown: 'fas fa-caret-down',
+                        radioOn: 'far fa-dot-circle',
+                        radioOff: 'far fa-circle',
+                        edit: 'fas fa-edit',
+                        ratingEmpty: 'far fa-star',
+                        ratingFull: 'fas fa-star',
+                        ratingHalf: 'fas fa-star-half',
+                        loading: 'fas fa-sync',
+                        first: 'fas fa-step-backward',
+                        last: 'fas fa-step-forward',
+                        unfold: 'fas fa-arrows-alt-v',
+                        file: 'fas fa-paperclip',
+                        plus: 'fas fa-plus',
+                        minus: 'fas fa-minus',
+                        calendar: 'fas fa-calendar',
+                        treeviewCollapse: 'fas fa-caret-down',
+                        treeviewExpand: 'fas fa-caret-right',
+                        eyeDropper: 'fas fa-eye-dropper'
+                    };
+                    const fa = {
+                        component: Vuetify.components.VClassIcon
+                    };
+
                     // Create and store the Vue application instance.
                     this.vueApp = createApp({
                         // Data available in the template.
@@ -154,6 +203,13 @@ export function generateVueMixin(description: string) {
                     });
                     ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { appendNewLineIfNotEmpty: true})}
                     const vuetify = Vuetify.createVuetify({
+                        icons: {
+                            defaultSet: 'fa',
+                            aliases,
+                            sets: {
+                                fa,
+                            },
+                        },
                         components: {
                             VNumberInput: Vuetify.components.VNumberInput
                         }

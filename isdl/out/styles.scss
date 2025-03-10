@@ -1,3 +1,4 @@
+@use "./backgrounds";
 @use "./handlebars";
 @use "./vuetifyOverrides";
 
@@ -167,8 +168,69 @@
         overflow-y: scroll;
     }
 
-    .v-application__wrap {
+    .v-container {
         min-height: 0;
+    }
+
+    .v-main > .v-container {
+        background-repeat: repeat;
+        @include backgrounds.topography;
+
+        &.dead {
+            @include backgrounds.skulls;
+        }
+
+        &.hideout {
+            @include backgrounds.hideout;
+        }
+
+        &.graphpaper {
+            @include backgrounds.graphpaper;
+        }
+
+        &.texture {
+            @include backgrounds.texture;
+        }
+
+        &.squares {
+            @include backgrounds.squares;
+        }
+
+        &.dominoes {
+            @include backgrounds.dominoes;
+        }
+
+        &.temple {
+            @include backgrounds.temple;
+        }
+
+        &.food {
+            @include backgrounds.food;
+        }
+
+        &.anchors {
+            @include backgrounds.anchors;
+        }
+
+        &.bubbles {
+            @include backgrounds.bubbles;
+        }
+
+        &.diamonds {
+            @include backgrounds.diamonds;
+        }
+
+        &.circuitboard {
+            @include backgrounds.circuitboard;
+        }
+
+        &.bricks {
+            @include backgrounds.bricks;
+        }
+
+        &.signal {
+            @include backgrounds.signal;
+        }
     }
 
     .v-container {
@@ -220,6 +282,10 @@
         .editor-menu {
             color: white;
         }
+    }
+
+    .resource-card {
+        min-width: 300px;
     }
 }
 

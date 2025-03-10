@@ -671,6 +671,10 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
                             data[key] = parseInt(value);
                             data.system[key] = parseInt(value);
                         }
+                        else if (value === "null") {
+                            data[key] = null;
+                            data.system[key] = null;
+                        }
                         else {
                             data[key] = value;
                             data.system[key] = value;

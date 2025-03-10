@@ -64,7 +64,7 @@ function generateAttributeComponent(destination: string) {
 
             <!-- Edit Button (Toggles between edit and save) -->
             <v-btn icon size="small" @click="isEditing = !isEditing" color="secondary">
-                <v-icon>{{ isEditing ? 'mdi-check' : 'mdi-pencil' }}</v-icon>
+                <v-icon>{{ isEditing ? 'fa-solid fa-check' : 'fa-solid fa-pencil' }}</v-icon>
             </v-btn>
         </v-container>
 
@@ -134,7 +134,7 @@ function generateResourceComponent(destination: string) {
     </script>
 
     <template>
-        <v-card elevation="16" class="ma-2">
+        <v-card elevation="16" class="ma-2 resource-card">
             <v-card-title>
                 {{ game.i18n.localize(label) }}
             </v-card-title>
@@ -155,7 +155,7 @@ function generateResourceComponent(destination: string) {
                 >
                 </v-progress-linear>
                 <v-spacer></v-spacer>
-                <v-btn :icon="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" @click="expanded = !expanded" color="primary">
+                <v-btn :icon="expanded ? 'fa-chevron-up' : 'fa-chevron-down'" @click="expanded = !expanded" color="primary">
                 </v-btn>
             </v-card-actions>
 
@@ -171,6 +171,12 @@ function generateResourceComponent(destination: string) {
             </v-expand-transition>
         </v-card>
     </template>
+
+    <style>
+        .resource-card {
+            min-width: 300px;
+        }
+    </style>
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }
@@ -227,10 +233,10 @@ function generateDocumentLinkComponent(destination: string) {
                     <v-menu activator="parent">
                         <v-list>
                             <v-list-item key="open" value="Open">
-                                <v-list-item-title><v-icon icon="mdi-open-in-app"></v-icon> Open</v-list-item-title>
+                                <v-list-item-title><v-icon icon="fa-solid fa-up-right-from-square"></v-icon> Open</v-list-item-title>
                             </v-list-item>
                             <v-list-item key="remove" value="Remove">
-                                <v-list-item-title><v-icon icon="mdi-selection-remove"></v-icon> Remove</v-list-item-title>
+                                <v-list-item-title><v-icon icon="fa-solid fa-delete-left"></v-icon> Remove</v-list-item-title>
                             </v-list-item>
                         </v-list>
                     </v-menu>

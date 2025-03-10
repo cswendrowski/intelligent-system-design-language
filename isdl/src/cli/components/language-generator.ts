@@ -28,7 +28,10 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
 
     function humanize(string: string) {
         // Turn TitleCase into Title Case
-        return string.replace(/([a-z])([A-Z])/g, '$1 $2');
+        return string
+            .replace(/([a-z])([A-Z])/g, '$1 $2')  // Handle lowercase followed by uppercase
+            .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')  // Handle multiple uppercase followed by lowercase
+            .replace(/([a-zA-Z])(\d)/g, '$1 $2');  // Handle letter followed by digit
     }
 
     function generateDocument(document: Document): CompositeGeneratorNode | undefined {

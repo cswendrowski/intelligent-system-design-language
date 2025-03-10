@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStatusProperty, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { Action, BackgroundParam, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStatusProperty, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { generateActionComponent } from './vue-action-component-generator.js';
@@ -35,8 +35,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         return `'${page.name.toLowerCase()}': '${tab}'`;
     }
 
+    function getPageBackground(page: Page): string {
+        const background = (page.params.find(x => isBackgroundParam(x)) as BackgroundParam)?.background ?? 'topography';
+        return `'${page.name.toLowerCase()}': '${background}'`;
+    }
+
     function importDataTable(pageName: string, tab: DocumentArrayExp): CompositeGeneratorNode {
-        generateDatatableComponent(document, pageName, tab, destination);
+        generateDatatableComponent(id, document, pageName, tab, destination);
         return expandToNode`
         import ${document.name}${pageName}${tab.name}Datatable from './components/${document.name.toLowerCase()}${pageName}${tab.name}Datatable.vue';
         `;
@@ -86,6 +91,15 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         // When the page changes, reset the tab to the first tab on that page
         watch(page, () => {
             tab.value = pageDefaultTabs[page.value.toLowerCase()];
+        });
+
+        const pageBackgrounds = {
+            'character': 'topography',
+            ${joinToNode(pages, getPageBackground, { separator: ',', appendNewLineIfNotEmpty: true })}
+        };
+
+        const pageBackground = computed(() => {
+            return pageBackgrounds[page.value];
         });
 
         const props = defineProps(['context']);
@@ -221,26 +235,24 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     </template>
                 </v-img>
                 <v-tabs v-model="page" direction="vertical">
-                    <v-tab value="character" prepend-icon="mdi-crown-circle-outline">Character</v-tab>
+                    <v-tab value="character" prepend-icon="fa-solid fa-circle-user">Character</v-tab>
                     ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
                 </v-tabs>
             </v-navigation-drawer>
 
             <!-- Main Content -->
             <v-main class="d-flex">
-                <v-container class="bg-surface-variant" fluid>
+                <v-container :class="pageBackground" fluid>
                     <v-tabs-window v-model="page">
                         <v-tabs-window-item value="character" data-tab="character">
-                            <v-row>
+                            <v-row dense>
                                 ${joinToNode(document.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
                             </v-row>
                             <v-divider class="mt-4 mb-2"></v-divider>
                             <v-tabs v-model="tab" grow always-center>
-                                    <v-tab value="description" prepend-icon="mdi-book-education">Description</v-tab>
-                                    ${joinToNode(firstPageTabs, tab => expandToNode`
-                                    <v-tab value="${tab.name.toLowerCase()}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
-                                    `, { appendNewLineIfNotEmpty: true })}
-                                    <v-tab value="effects" prepend-icon="mdi-creation-outline">Effects</v-tab>
+                                    <v-tab value="description" prepend-icon="fa-solid fa-book">Description</v-tab>
+                                    ${joinToNode(firstPageTabs, generateTab, { appendNewLineIfNotEmpty: true })}
+                                    <v-tab value="effects" prepend-icon="fa-solid fa-sparkles">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab">
                                 <v-tabs-window-item value="description" data-tab="description">
@@ -273,9 +285,17 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     </template>
     `;
 
+    function generateTab(tab: DocumentArrayExp): CompositeGeneratorNode {
+        const iconParam = tab.params.find(p => isIconParam(p)) as IconParam | undefined;
+        const icon = iconParam?.value ?? "fa-solid fa-table";
+        return expandToNode`
+            <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
+        `;
+    }
+
     function generateNavListItem(page: Page): CompositeGeneratorNode {
         const pageIconParam = page.params.find(p => isIconParam(p)) as IconParam | undefined;
-        const icon = pageIconParam?.value ?? "mdi-book-open-page-variant";
+        const icon = pageIconParam?.value ?? "fa-solid fa-page";
         return expandToNode`
             <v-tab value="${page.name.toLowerCase()}" prepend-icon="${icon}">{{ game.i18n.localize('${page.name}') }}</v-tab>
         `;
@@ -290,9 +310,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             </v-row>
             <v-divider class="mt-4 mb-2"></v-divider>
             <v-tabs v-model="tab" grow always-center>
-                    ${joinToNode(tabs, tab => expandToNode`
-                    <v-tab value="${tab.name.toLowerCase()}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
-                    `, { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(tabs, generateTab, { appendNewLineIfNotEmpty: true })}
             </v-tabs>
             <v-tabs-window v-model="tab">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
@@ -316,14 +334,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         if (isSection(element)) {
             return expandToNode`
             <v-col class="pl-1 pr-1">
-                <v-card
-                    elevation="8"
-                >
-                <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
+                <v-card variant="outlined" elevation="4">
+                    <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 
-                <v-card-text>
-                    ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
-                </v-card-text>
+                    <v-card-text>
+                        ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                    </v-card-text>
                 </v-card>
             </v-col>
             `;
