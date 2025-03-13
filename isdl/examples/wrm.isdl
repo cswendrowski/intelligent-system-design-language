@@ -7,8 +7,6 @@ config wrm {
 
 actor Character {
 
-           string RollVisualizer
-
     // PAGE 1 - CHARACTER DEFAULT
     section Attributes {
         attribute Warrior(min: 0, max: 100)
@@ -35,6 +33,8 @@ actor Character {
                 AtbRoll
             }
            }
+
+        
         //number Warrior(min: 0, initial: 0, max: {return self.MaxWarrior})
         //readonly number MaxWarrior(value: 6)
     }
@@ -141,6 +141,11 @@ actor Character {
         Equipment AccessoryII
         Equipment AccessoryIII
         Equipment AccessoryIV
+                    paperdoll Equipped {
+                Armor Head(left: 123px, top: 15px)
+                Armor Chest(left: 123px, top: 72px)
+                Weapon Primary(left: 80px, top: 130px)
+            }
         }
     //Unused Slots For Accessories
     //    Equipment Facewear

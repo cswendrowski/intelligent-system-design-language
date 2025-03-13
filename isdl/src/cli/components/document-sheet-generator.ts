@@ -74,6 +74,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 let parentUpdate = {};
                 let selfDeleted = false;
                 let rerender = false;
+                let document = this.document;
                 const context = {
                     object: this.object,
                 };

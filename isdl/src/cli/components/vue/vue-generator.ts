@@ -9,7 +9,6 @@ import vue from '@vitejs/plugin-vue';
 import { titleize } from 'inflection';
 import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
-import vueDevTools from 'vite-plugin-vue-devtools';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
 import { generateVueMixin } from './vue-mixin.js';
 
@@ -39,8 +38,7 @@ export function runViteBuild(destination: string) {
             root: destination,
             plugins: [
                 vue(),
-                vuetify({ autoImport: true }),
-                vueDevTools()
+                vuetify({ autoImport: true })
             ],
             optimizeDeps: {
                 include: ["vuetify"]

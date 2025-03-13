@@ -2,3 +2,15 @@
 .vscode-test/**
 .gitignore
 langium-quickstart.md
+esbuild.mjs
+languim-config.json
+language-configuration.json
+tsconfig.json
+tsconfig.src.json
+vitest.config.ts
+.idea/**
+bin/**
+examples/**
+src/**
+test/**
+syntaxes/**
