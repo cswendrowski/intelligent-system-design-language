@@ -9,7 +9,7 @@
 @include vuetifyOverrides.vuetifyOverrides;
 
 .#{$dynamic-id}.vue-application {
-    
+
     html {
         overflow-x: hidden;
         overflow-y: scroll;
@@ -286,6 +286,35 @@
 
     .resource-card {
         min-width: 300px;
+    }
+
+    .v-label {
+        color: black;
+    }
+
+    .v-number-input {
+        .v-field__input {
+            padding-left: 16px;
+            padding-top: 2px;
+        }
+    }
+
+    .v-input {
+        flex: 1;
+    }
+
+    .v-input, .isdl-single-document, .v-col {
+        min-width: 300px;
+    }
+
+    .action-btn, .isdl-property {
+        min-width: 150px;
+    }
+
+    .v-card {
+        .v-card-text {
+            column-gap: 1rem;
+        }
     }
 }
 

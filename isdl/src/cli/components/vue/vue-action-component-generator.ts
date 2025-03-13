@@ -49,7 +49,7 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
         };
     </script>
     <template>
-        <v-btn color="primary" class="ma-1" @click="onClick">{{game.i18n.localize('${document.name}.${action.name}')}}</v-btn>
+        <v-btn color="primary" class="ma-1 action-btn" @click="onClick">{{game.i18n.localize('${document.name}.${action.name}')}}</v-btn>
     </template>
     `;
 

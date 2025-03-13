@@ -6,6 +6,9 @@ config wrm {
 }
 
 actor Character {
+
+           string RollVisualizer
+
     // PAGE 1 - CHARACTER DEFAULT
     section Attributes {
         attribute Warrior(min: 0, max: 100)
@@ -400,7 +403,7 @@ actor Character {
 //        }    
         section RollBasics {
             parent<attribute> Attribute(choices: [Character.Warrior, Character.Rogue, Character.Mage])
-            string Advantage(choices: ["None","Advantage","Disadvantage"])
+            string Advantage2(choices: ["None","Advantage","Disadvantage"])
             // One-time modifier to the roll. Should default to 0.
             number Modifier
         }

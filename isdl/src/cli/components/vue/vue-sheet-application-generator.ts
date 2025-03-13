@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { Action, BackgroundParam, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStatusProperty, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
-import { getAllOfType, getSystemPath } from '../utils.js';
+import { getAllOfType, getSystemPath, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { generateActionComponent } from './vue-action-component-generator.js';
 
@@ -337,7 +337,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 <v-card variant="outlined" elevation="4">
                     <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 
-                    <v-card-text>
+                    <v-card-text class="flexrow">
                         ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
                     </v-card-text>
                 </v-card>
@@ -359,7 +359,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
         if (isProperty(element)) {
             if (element.modifier == "hidden") return expandToNode``;
-
+            
+            if (element.name == "RollVisualizer") {
+                return expandToNode`
+                <i-roll-visualizer :context="context"></i-roll-visualizer>
+                `;
+            }
             let disabled = element.modifier == "readonly" || element.modifier == "locked"; // TODO: Edit mode
             if (element.modifier == "unlocked") disabled = false;
 
@@ -372,13 +377,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                 if (choicesParam !== undefined) {
                     // Map the choices to a string array
-                    const choices = choicesParam.choices.map(c => `'${c}'`).join(", ");
+                    const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
                     return expandToNode`
-                    <v-select clearable name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}"></v-select>
+                    <v-select clearable name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}"></v-select>
                     `;
                 }
                 return expandToNode`
-                    <v-text-field clearable  name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-text-field>
+                    <v-text-field clearable name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-text-field>
                 `;
             }
 
@@ -397,11 +402,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             if (isNumberExp(element)) {
                 // If this is a calculated value, we don't want to allow editing
                 const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+
                 if (valueParam != undefined) {
                     disabled = true;
                 }
                 return expandToNode`
-                    <v-number-input controlVariant="stacked" density="compact" v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="${disabled}"></v-number-input>
+                    <v-number-input controlVariant="stacked" density="compact" variant="outlined" v-model="context.${systemPath}" ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden"` : ""} name="${systemPath}" ${labelFragment} :disabled="${disabled}"></v-number-input>
                 `;
             }
 

@@ -183,6 +183,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as Resource } from './components/resource.vue';
     export { default as DocumentLink } from './components/document-link.vue';
     export { default as ProseMirror } from './components/prosemirror.vue';
+    export { default as RollVisualizer } from './components/roll-visualizer.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 

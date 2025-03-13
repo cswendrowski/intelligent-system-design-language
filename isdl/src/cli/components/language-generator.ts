@@ -69,7 +69,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                     return expandToNode`
                     "${property.name}": {
                         "label": "${humanize(property.name)}",
-                        ${joinToNode(choices.choices, choice => `"${choice}": "${choice}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                        ${joinToNode(choices.choices, choice => `"${choice}": "${humanize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
                     }
                 `;
                 }

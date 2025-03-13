@@ -632,6 +632,7 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
             console.log('${id} | Ready');
 
             registerSockets();
+            moveVuetifyStyles();
             reopenLastState();
         }
         
@@ -693,6 +694,39 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
                     classes: ["${id}", "dialog"]
                 }
             });
+        }
+
+        /* -------------------------------------------- */
+
+        function moveVuetifyStyles() {
+
+            const observer = new MutationObserver((mutationsList) => {
+                for (const mutation of mutationsList) {
+                    if (mutation.type === "childList") {
+                        const themeStylesheet = document.getElementById("vuetify-theme-stylesheet");
+                        if (themeStylesheet) {
+                            console.log("Vuetify theme stylesheet loaded:", themeStylesheet);
+                            
+                            // Create a new style node
+                            const vuetifyThemeOverrides = document.createElement("style");
+                            vuetifyThemeOverrides.id = "vuetify-theme-overrides";
+                            vuetifyThemeOverrides.innerHTML = \`
+                                .v-theme--light {
+                                    --v-disabled-opacity: 0.7;
+                                }
+                            \`;
+
+                            document.head.insertAdjacentElement('beforeEnd', vuetifyThemeOverrides);
+                            
+                            // Perform any modifications or actions here
+                            observer.disconnect(); // Stop observing once found
+                        }
+                    }
+                }
+            });
+
+            // Observe the <head> for new styles being added
+            observer.observe(document.head, { childList: true, subtree: true });
         }
 
         /* -------------------------------------------- */
