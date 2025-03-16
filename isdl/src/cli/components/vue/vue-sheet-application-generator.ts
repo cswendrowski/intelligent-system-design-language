@@ -99,14 +99,24 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         const pageBackground = computed(() => {
+            if (editMode.value) {
+                return 'edit-mode';
+            }
             return pageBackgrounds[page.value];
         });
 
         const props = defineProps(['context']);
         const document = inject('rawDocument');
 
+        const editMode = ref(document.getFlag('${id}', 'edit-mode') ?? true);
+
+        const toggleEditMode = () => {
+            editMode.value = !editMode.value;
+            document.setFlag('${id}', 'edit-mode', editMode.value);
+        };
+
         const effects = computed(() => {
-            const data = foundry.utils.getProperty(props.context.object, 'effects');
+            const data = document.effects;
             // Origin might be empty, if it is, set it to "Self"
             data.forEach(x => {
                 if (!x.origin) {
@@ -218,13 +228,20 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 function generateVueComponentTemplate(id: string, document: Document): CompositeGeneratorNode {
     const pages = getAllOfType<Page>(document.body, isPage);
     const firstPageTabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
+    const type = isActor(document) ? 'actor' : 'item';
     return expandToNode`
     <template>
         <v-app>
             <!-- App Bar -->
-            <v-app-bar color="primary" density="comfortable">
+            <v-app-bar :color="editMode ? 'amber-accent-3' : 'primary'" density="comfortable">
                 <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="pt-6"></v-text-field>
+                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="pt-6 document-name"></v-text-field>
+                <v-alert :text="game.i18n.localize('EditModeWarning')" type="warning" density="compact" class="ga-2 ma-1" color="amber-accent-3" v-if="editMode"></v-alert>
+                ${type == "actor" ? expandToNode`
+                <template v-slot:append>
+                    <v-btn :icon="editMode ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20'" @click="toggleEditMode" :data-tooltip="editMode ? 'Swap to Play mode' : 'Swap to Edit mode'"></v-btn>
+                </template>
+                ` : expandToNode``}
             </v-app-bar>
 
             <!-- Navigation Drawer -->
@@ -235,14 +252,14 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     </template>
                 </v-img>
                 <v-tabs v-model="page" direction="vertical">
-                    <v-tab value="character" prepend-icon="fa-solid fa-circle-user">Character</v-tab>
+                    <v-tab value="character" prepend-icon="fa-solid fa-circle-user">${type == "actor" ? "Character" : "Item"}</v-tab>
                     ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
                 </v-tabs>
             </v-navigation-drawer>
 
             <!-- Main Content -->
             <v-main class="d-flex">
-                <v-container :class="pageBackground" fluid>
+                <v-container :key="editMode" :class="pageBackground" fluid>
                     <v-tabs-window v-model="page">
                         <v-tabs-window-item value="character" data-tab="character">
                             <v-row dense>
@@ -305,7 +322,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const tabs = getAllOfType<DocumentArrayExp>(page.body, isDocumentArrayExp, true);
         return expandToNode`
         <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
-            <v-row>
+            <v-row dense>
                 ${joinToNode(page.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
             </v-row>
             <v-divider class="mt-4 mb-2"></v-divider>
@@ -379,11 +396,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
                     return expandToNode`
-                    <v-select clearable name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}"></v-select>
+                    <v-select clearable name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}" variant="outlined"></v-select>
                     `;
                 }
                 return expandToNode`
-                    <v-text-field clearable name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}"></v-text-field>
+                    <v-text-field clearable name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}" variant="outlined"></v-text-field>
                 `;
             }
 

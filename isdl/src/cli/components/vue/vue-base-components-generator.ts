@@ -135,7 +135,7 @@ function generateResourceComponent(destination: string) {
     </script>
 
     <template>
-        <v-card elevation="16" class="ma-2 resource-card" variant="outlined">
+        <v-card elevation="4" class="ml-1 mr-1 resource-card" variant="outlined">
             <v-card-title>
                 {{ game.i18n.localize(label) }}
             </v-card-title>

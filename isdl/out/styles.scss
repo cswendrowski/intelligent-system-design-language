@@ -168,13 +168,29 @@
         overflow-y: scroll;
     }
 
+    .v-input {
+        &:not(.document-name) {
+            .v-input__control {
+                background-color: #e9e9e9;
+            }
+        }
+    }
+
     .v-container {
         min-height: 0;
+    }
+
+    .v-alert__prepend {
+        padding-top: 8px;
     }
 
     .v-main > .v-container {
         background-repeat: repeat;
         @include backgrounds.topography;
+
+        &.edit-mode {
+            @include backgrounds.cogs;
+        }
 
         &.dead {
             @include backgrounds.skulls;
@@ -286,16 +302,27 @@
 
     .resource-card {
         min-width: 300px;
+        flex: 1;
     }
 
     .v-label {
         color: black;
     }
 
+    .v-field-label--floating {
+        font-weight: bold;
+    }
+
     .v-number-input {
         .v-field__input {
             padding-left: 16px;
             padding-top: 2px;
+        }
+
+        .v-field__field {
+            input {
+                border: none;
+            }
         }
     }
 

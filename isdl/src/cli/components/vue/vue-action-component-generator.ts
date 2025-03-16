@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { Action, Document, Entry, isActor } from "../../../language/generated/ast.js";
-import { translateBodyExpressionToJavascript } from '../method-generator.js';
+import { Action, DisabledCondition, Document, Entry, HiddenCondition, isActor, isDisabledCondition, isHiddenCondition } from "../../../language/generated/ast.js";
+import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
 
 
 export function generateActionComponent(entry: Entry, id: string, document: Document, action: Action, destination: string) {
@@ -16,7 +16,7 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, inject } from "vue";
+        import { ref, inject, computed } from "vue";
 
         const props = defineProps({
             context: Object
@@ -47,9 +47,19 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
                 await document.parent.update(parentUpdate);
             }
         };
+
+        const disabled = computed(() => {
+            let system = props.context.system;
+            return ${translateExpression(entry, id, (action.conditions.filter(x => isDisabledCondition(x))[0] as DisabledCondition)?.when) ?? false}
+        });
+
+        const hidden = computed(() => {
+            let system = props.context.system;
+            return ${translateExpression(entry, id, (action.conditions.filter(x => isHiddenCondition(x))[0] as HiddenCondition)?.when) ?? false}
+        });
     </script>
     <template>
-        <v-btn color="primary" class="ma-1 action-btn" @click="onClick">{{game.i18n.localize('${document.name}.${action.name}')}}</v-btn>
+        <v-btn color="primary" class="ma-1 action-btn" @click="onClick" v-if="!hidden" :disabled="disabled">{{game.i18n.localize('${document.name}.${action.name}')}}</v-btn>
     </template>
     `;
 
