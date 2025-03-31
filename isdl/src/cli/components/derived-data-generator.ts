@@ -18,7 +18,7 @@ import {
     Property,
     NumberParamMax,
     NumberParamMin,
-    NumberParamValue,
+    NumberParamValue
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -248,12 +248,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 }
                 return expandToNode`
                     // ${property.name} Document Array Derived Data
-                    // this.system.${property.name.toLowerCase()} = this.system.${property.name.toLowerCase()}.map((item) => {
-                    //     return item();
-                    // });
                     this.system.${property.name.toLowerCase()} = this.items.filter((item) => item.type == "${property.document.ref?.name.toLowerCase()}");
                 `.appendNewLineIfNotEmpty();
             }
+
 
             // if (isParentPropertyRefExp(property)) {
             //     console.log("Processing Derived Parent Property: " + property.name);
@@ -553,12 +551,15 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     for ( const effect of this.effects ) {
                         yield getTypedEffect(this.type, edit, effect, game.i18n.localize("Self"));
                     }
+                    ${type == "Actor" ? expandToNode`
                     for ( const item of this.items ) {
                         for ( const effect of item.effects ) {
                             if ( effect.transfer ) yield getTypedEffect(this.type, edit, effect, item.name);
                         }
                     }
+                    `.appendNewLine() : ""}
                 }
+
 
                 /* -------------------------------------------- */
 
@@ -672,7 +673,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             return this.create(createData, { parent, pack, renderSheet: true });
                         },
                         rejectClose: false,
-                        options: { ...options, jQuery: false, width: 700, classes: ["${id}", "create-document", "dialog"] }
+                        options: { ...options, jQuery: false, width: 700, height: 'auto', classes: ["${id}", "create-document", "dialog"] }
                     });
                 }
 

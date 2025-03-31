@@ -584,7 +584,7 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
     }
 
     function translateArrayTabHeader(property: DocumentArrayExp): CompositeGeneratorNode | undefined {
-        const iconParam = property.params.find(x => isIconParam(x)) as IconParam;
+        const iconParam = property.params?.find(x => isIconParam(x)) as IconParam;
         const icon = iconParam?.value ?? "fa-solid fa-table";
         return expandToNode`
             <a class="item" data-tab="${property.name.toLowerCase()}"><i class="${icon}"></i> {{ localize "${document.name}.${property.name}" }}</a>
@@ -594,9 +594,9 @@ export function generateDocumentHandlebars(id: string, document: Document, desti
     const pages = getAllOfType<Page>(document.body, isPage);
 
     function generatePageTabHeader(property: Page): CompositeGeneratorNode | undefined {
-        const iconParam = property.params.find(x => isIconParam(x)) as IconParam;
+        const iconParam = property.params?.find(x => isIconParam(x)) as IconParam;
         const icon = iconParam?.value ?? "fa-solid fa-book";
-        const backgroundParam = property.params.find(x => isBackgroundParam(x)) as BackgroundParam;
+        const backgroundParam = property.params?.find(x => isBackgroundParam(x)) as BackgroundParam;
         const background = backgroundParam?.background ?? "topography";
         return expandToNode`
             <a class="item" data-tab="${property.name.toLowerCase()}" data-background="${background}"><i class="${icon}"></i> {{ localize "${document.name}.${property.name}" }}</a>

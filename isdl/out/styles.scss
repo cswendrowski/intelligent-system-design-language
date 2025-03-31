@@ -139,17 +139,36 @@
                 justify-content: space-between;
                 border: none;
                 font-size: var(--font-size-12);
+
+                > i {
+                    line-height: 28px;
+                }
             }
+        }
+
+        &.expanded {
+            max-height: calc(100% - var(--header-height));
+            pointer-events: all;
+            box-shadow: 0 0 8px var(--color-cool-3);
         }
     }
 
     >.window-content {
         backdrop-filter: blur(4px);
     }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="password"]:focus,
+    input[type="date"]:focus,
+    input[type="time"]:focus,
+    input[type="search"]:focus {
+        box-shadow: none;
+    }
 }
 
 // Vue Sheet Styles
-.#{$dynamic-id}.vue-sheet {
+.#{$dynamic-id}.vue-sheet, .v-overlay-container {
     // .v-field-label--floating {
     //     color: white;
     // }
@@ -279,6 +298,28 @@
         height: 52px;
     }
 
+    .dtr-control {
+        padding: 0;
+
+        > div {
+            > div {
+                display: flex;
+            }
+        }
+    }
+
+    .tabs-window {
+        height: 100%;
+        > .v-window__container {
+            height: 100%;
+        }
+
+        .dt-button-background {
+            display: none;
+            height: 0px;
+        }
+    }
+
     table.dataTable th.dt-type-numeric {
         text-align: center;
     }
@@ -292,17 +333,25 @@
     }
 
     .prose-mirror-wrapper {
-        background-color: #ededed;
+        background-color: #dddddd;
         border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: inset 0px 0px 2px 0px black;
+        height: 100%;
+        padding: 1rem;
 
         .editor-menu {
-            color: white;
+            color: #dddddd;
         }
     }
 
     .resource-card {
         min-width: 300px;
         flex: 1;
+
+        .v-progress-linear__background {
+            opacity: 0.2;
+        }
     }
 
     .v-label {
@@ -310,7 +359,16 @@
     }
 
     .v-field-label--floating {
+        font-size: 14px;
         font-weight: bold;
+    }
+
+    .v-text-field {
+        .v-field__field {
+            input {
+                padding-left: 16px;
+            }
+        }
     }
 
     .v-number-input {
@@ -319,6 +377,20 @@
             padding-top: 2px;
         }
 
+        &.calculated-number {
+            .v-field__field {
+                margin-right: -36px;
+            }
+        }
+
+        .v-field__field {
+            input {
+                border: none;
+            }
+        }
+    }
+
+    .v-text-field {
         .v-field__field {
             input {
                 border: none;
@@ -330,12 +402,27 @@
         flex: 1;
     }
 
-    .v-input, .isdl-single-document, .v-col {
+    .v-col {
+        min-width: 316px;
+        max-width: 616px;
+    }
+
+    .v-input {
+        min-width: 300px;
+        max-width: 600px;
+    }
+
+    .isdl-html {
         min-width: 300px;
     }
 
-    .action-btn, .isdl-property {
+    .action-btn, .isdl-property, .isdl-single-document {
         min-width: 150px;
+    }
+
+    .isdl-single-document {
+        margin-bottom: 1rem;
+        max-width: 50%;
     }
 
     .v-card {
@@ -343,9 +430,155 @@
             column-gap: 1rem;
         }
     }
+
+    .calc-button:hover {
+        background: rgba(50, 50, 50, 0.7);
+    }
+
+    .v-field, .v-field__field {
+        z-index: 10;
+    }
+
+    .v-btn-group, .v-card-actions {
+        .v-btn {
+            width: unset;
+        }
+    }
+
+    .v-btn-group {
+        min-width: 300px;
+    }
+
+    .calculator {
+        position: absolute;
+        top: 50px;
+        left: 50px;
+        background: rgba(30, 30, 30, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        z-index: 20;
+
+        input {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: none;
+            margin-bottom: 5px;
+            background-color: #dddddd;
+        }
+
+        .calc-buttons {
+            display: flex;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.4);
+            border: none;
+            padding: 8px;
+            font-size: 16px;
+            margin: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+
+            &.active {
+                background: rgba(195, 111, 110, 0.8);
+            }
+        }
+    }
+
+    .attributeExp {
+        display: flex;
+        flex-direction: column;
+        margin: 5px;
+        border: 3px solid #333;
+        border-radius: 4px;
+        min-width: 150px;
+
+        &.no-mod {
+            max-height: 70px;
+        }
+
+        >label {
+            justify-content: center;
+            background: #333;
+            color: #fff;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        .v-input {
+            min-width: 100px;
+            max-width: 100%;
+            text-align: center;
+        }
+
+        .v-field__input {
+            padding: 0 !important;
+        }
+
+        >.mod {
+            font-size: 26px;
+            font-weight: bold;
+            margin: 10px 0;
+            text-align: center;
+        }
+    }
+
+    .isdl-paperdoll {
+        min-width: 307px;
+        width: 307px;
+        max-width: 307px;
+
+        .paper-doll-container {
+            position: relative;
+            height: 275px;
+            width: 275px;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .paper-doll-slot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px dashed rgba(0, 0, 0, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+        }
+    }
+
+    .v-autocomplete {
+        .v-field__input {
+            input {
+                border: none;
+                background: none
+            }
+        }
+    }
 }
 
 .#{$dynamic-id} {
+
+    &.create-document {
+        ol.unlist {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 1rem;
+            list-style: none;
+
+            label {
+                display: block;
+                padding-bottom: 5px;
+            }
+
+            img {
+                border-bottom: none;
+            }
+        }
+    }
+
     &.chat-card {
 
         .chat-header {

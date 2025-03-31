@@ -16,6 +16,9 @@ export function generateVueMixin(description: string) {
         'i-document-link': 'DocumentLink',
         'i-prosemirror': 'ProseMirror',
         'i-roll-visualizer': 'RollVisualizer',
+        'i-paperdoll': 'Paperdoll',
+        "i-calculator": "Calculator",
+        "i-text-field": "TextField",
     };
 
     const fileNode = expandToNode`

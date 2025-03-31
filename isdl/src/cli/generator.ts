@@ -358,13 +358,13 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
 
     let actorDocs = entry.documents.filter(d => isActor(d)).map(d => d as Actor);
-    let actorDefaultType = actorDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value.toLowerCase() == "true"))?.name.toLowerCase() ?? actorDocs[0]?.name.toLowerCase();
+    let actorDefaultType = actorDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value))?.name.toLowerCase() ?? actorDocs[0]?.name.toLowerCase();
     let actorArtworks = actorDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
     let actorDescriptions = actorDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
     let actorCreatables = actorDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
 
     let itemDocs = entry.documents.filter(d => isItem(d)).map(d => d as Item);
-    let itemDefaultType = itemDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value.toLowerCase() == "true"))?.name.toLowerCase() ?? itemDocs[0]?.name.toLowerCase();
+    let itemDefaultType = itemDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value))?.name.toLowerCase() ?? itemDocs[0]?.name.toLowerCase();
     let itemArtworks = itemDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
     let itemDescriptions = itemDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
     let itemCreatables = itemDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
@@ -401,6 +401,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             //addVueImportMap();
 
             game.system.rollClass = ${entry.config.name}Roll;
+            CONFIG.Dice.rolls.push(${entry.config.name}Roll);
         }
 
         /* -------------------------------------------- */
@@ -430,14 +431,21 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                 scope: 'client',
                 config: false,
                 default: 'selected',
-                type: String,
+                type: String
             });
 
             game.settings.register('${id}', 'hotReloadLastState', {
                 scope: 'client',
                 config: false,
                 default: { openWindows: [] },
-                type: Object,
+                type: Object
+            });
+
+            game.settings.register('${id}', 'documentColorThemes', {
+                scope: 'client',
+                config: false,
+                default: {},
+                type: Object
             });
         }
         
@@ -634,6 +642,7 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
             registerSockets();
             moveVuetifyStyles();
             reopenLastState();
+            indexPacks();
         }
         
         /* -------------------------------------------- */
@@ -746,6 +755,14 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
                 }
             }
             game.settings.set("${id}", "hotReloadLastState", { openWindows: [] });
+        }
+
+        /* -------------------------------------------- */
+
+        function indexPacks() {
+            for (const pack of game.packs) {
+                pack.getIndex({ fields: ['system.description', 'system'] });
+            }
         }
     `.appendNewLineIfNotEmpty();
 

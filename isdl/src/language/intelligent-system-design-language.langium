@@ -46,7 +46,7 @@ ClassExpression:
     (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp);
 
 fragment Self:
     (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
@@ -126,7 +126,7 @@ fragment VariableAccessFrag:
     variable=[VariableAccess:ID] ("." subProperties+=ID)*;
 
 VariableExpressionAssignment:
-   VariableAccessFrag "=" exp=Expression;
+    VariableAccessFrag "=" exp=Expression;
 
 VariableIncrementAssignment:
     VariableAccessFrag "++";
@@ -141,7 +141,7 @@ VariableDecrementValAssignment:
     VariableAccessFrag "-=" exp=Expression;
 
 Action:
-    "action" name=ID ("(" conditions+=ActionCondition ("," conditions+=ActionCondition)* ")")? method=MethodBlock;
+    (modifier="unlocked")? "action" name=ID ("(" conditions+=ActionCondition ("," conditions+=ActionCondition)* ")")? method=MethodBlock;
 
 ActionCondition:
     (DisabledCondition | HiddenCondition | IconParam | ColorParam);
@@ -285,6 +285,13 @@ DocumentArrayExp: ExpressionModifier document=[Document:ID] "[]" name=ID ("(" pa
 
 SingleDocumentExp: ExpressionModifier document=[Document:ID] name=ID;
 
+DocumentChoiceExp: ExpressionModifier "choice" "<" document=[Document:ID]  ">" name=ID ("(" params+=DocumentChoiceParms ("," params+=DocumentChoiceParms)* ")")?;
+
+DocumentChoicesExp: ExpressionModifier "choices" "<" document=[Document:ID]  ">" name=ID ("(" params+=DocumentChoiceParms ("," params+=DocumentChoiceParms)* ")")?;
+
+DocumentChoiceParms:
+    (WhereParam | IconParam | DisabledCondition | HiddenCondition | GlobalParam);
+
 DateExp: ExpressionModifier "date" name=ID;
 
 TimeExp: ExpressionModifier "time" name=ID;
@@ -379,12 +386,15 @@ ImageParam:
 WhereParam:
     "where:" value=WhenExpressions;
 
+GlobalParam:
+    "global:" value=BOOLEAN;
+
 Parameter: name=ID;
 
 hidden terminal WS: /\s+/;
 terminal NOTHING: "nothing";
 terminal BACKGROUND: "topography" | "hideout" | "graphpaper" | "texture" | "squares" | "dominoes" | "temple" | "food" | "anchors" | "bubbles" | "diamonds" | "circuitboard" | "bricks" | "signal" ;
-terminal BOOLEAN: "true" | "false";
+terminal BOOLEAN returns boolean: "true" | "false";
 terminal DICE: /(\d+)?d(\d+)(\w+)?/;
 terminal ID: /[_a-zA-Z][\w_]*/;
 terminal PX: /(-)?[0-9]+px/;

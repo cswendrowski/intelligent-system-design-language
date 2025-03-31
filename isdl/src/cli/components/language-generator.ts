@@ -13,6 +13,8 @@ import {
     isProperty,
     isPage,
     isStringParamChoices,
+    isActor,
+    isItem,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -89,6 +91,9 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         return
     }
 
+    const actors = entry.documents.filter(d => isActor(d));
+    const items = entry.documents.filter(d => isItem(d));
+
     const fileNode = expandToNode`
         {
             "NoSingleDocument": "No Linked Document",
@@ -109,6 +114,16 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             "NOTIFICATIONS": {
                 "NoTokenSelected": "No Token is currently selected",
                 "NoTokenTargeted": "No Token is currently targeted"
+            },
+            "TYPES": {
+                "Actor": {
+                    "actor": "Actor",
+                    ${joinToNode(actors, actor => expandToNode`"${actor.name.toLowerCase()}": "${humanize(actor.name)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                },
+                "Item": {
+                    "item": "Item",
+                    ${joinToNode(items, item => expandToNode`"${item.name.toLowerCase()}": "${humanize(item.name)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                }
             },
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
         }

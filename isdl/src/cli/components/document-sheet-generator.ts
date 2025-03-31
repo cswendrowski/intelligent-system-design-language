@@ -72,6 +72,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 let update = {};
                 let embeddedUpdate = {};
                 let parentUpdate = {};
+                let parentEmbeddedUpdate = {};
                 let selfDeleted = false;
                 let rerender = false;
                 let document = this.document;
@@ -92,6 +93,11 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 if (Object.keys(parentUpdate).length > 0) {
                     await this.object.parent.update(parentUpdate);
                     rerender = true;
+                }
+                if (Object.keys(parentEmbeddedUpdate).length > 0) {
+                    for (let key of Object.keys(parentEmbeddedUpdate)) {
+                        await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                    }
                 }
                 if (rerender) {
                     this.render();

@@ -36,6 +36,7 @@ import {
     isDateTimeExp,
     isPaperDollExp,
     isParentPropertyRefExp,
+    isDocumentChoiceExp
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -182,6 +183,20 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             return expandToNode`
                 ${property.name.toLowerCase()}: new UuidDocumentField(),
             `;   
+        }
+
+        if (isDocumentChoiceExp(property)) {
+            // const multiple = (property.params.find(p => isMultipleParam(p)) as MultipleParam | undefined)?.value ?? false;
+
+            // if (multiple) {
+            //     return expandToNode`
+            //         ${property.name.toLowerCase()}: new fields.ArrayField(new UuidDocumentField()),
+            //     `;
+            // }
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new UuidDocumentField(),
+            `;
         }
 
         if (isPaperDollExp(property)) {

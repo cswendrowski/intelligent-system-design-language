@@ -24,7 +24,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     generateBaseVueComponents(destination);
 
     entry.documents.forEach(x => {
-        generateDocumentVueSheet(id, x, destination);
+        generateDocumentVueSheet(entry, id, x, destination);
         generateDocumentVueComponent(entry, id, x, destination);
     });
 }
@@ -182,6 +182,9 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as DocumentLink } from './components/document-link.vue';
     export { default as ProseMirror } from './components/prosemirror.vue';
     export { default as RollVisualizer } from './components/roll-visualizer.vue';
+    export { default as Paperdoll } from './components/paperdoll.vue';
+    export { default as Calculator } from './components/calculator.vue';
+    export { default as TextField } from './components/text-field.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 

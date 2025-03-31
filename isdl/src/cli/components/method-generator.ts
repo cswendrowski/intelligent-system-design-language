@@ -419,6 +419,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateComparisonExpression(expression: WhenExpressions): CompositeGeneratorNode | undefined {
        
+        console.log("Translating Comparison Expression: ");
+
         if (isParentTypeCheckExpression(expression)) {
             return expandToNode`
                 context.object.parent.type == "${expression.document.ref?.name?.toLowerCase()}"
@@ -434,6 +436,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         // TODO: has, excludes, exists, startsWith, endsWith, isEmpty, isNotEmpty
 
         if (isShorthandComparisonExpression(expression)) {
+            console.log("Shorthand Comparison Expression: ", term);
             if (term == "exists") {
                 return expandToNode`
                     ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} != undefined
@@ -449,7 +452,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             `;
         }
 
-        console.log("Translating Comparison Expression: ", expression.e1.$type, term, expression.e2.$type);
+        console.log("Comparison Expression: ", expression.e1.$type, term, expression.e2.$type);
 
         return expandToNode`
             ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${term} ${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)}
@@ -649,7 +652,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         return expandToNode`
             // Create the chat message
             const ${expression.name}Description = context.object.description ?? context.object.system.description;
-            const ${expression.name}Content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
+            const ${expression.name}Context = { 
                 cssClass: "${id} ${toMachineIdentifier(expression.name)}",
                 document: context.object,
                 description: ${expression.name}Description,
@@ -660,7 +663,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 tags: [
                     ${joinToNode(expression.body.chatExp.filter(x => x.type == "tag"), (expression) => translateChatBodyExpression(expression), { appendNewLineIfNotEmpty: true })}
                 ]
-            });
+            };
+            const ${expression.name}Content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", ${expression.name}Context);
             const ${expression.name}ChatFlavor = (system) => {
                 return ${flavorTag != undefined ? translateChatBodyExpressionForFlavor(flavorTag) : `""`}
             }
@@ -669,6 +673,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 speaker: ChatMessage.getSpeaker(),
                 content: ${expression.name}Content,
                 flavor: ${expression.name}ChatFlavor(context.object.system),
+                type: ${expression.name}Context.parts.find(x => x.isRoll) ? CONST.CHAT_MESSAGE_STYLES.ROLL : CONST.CHAT_MESSAGE_STYLES.IC,
+                rolls: Array.from(${expression.name}Context.parts.filter(x => x.isRoll).map(x => x.value)),
             });
         `;
     }
@@ -1003,10 +1009,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isEach(expression)) {
         const collection = translateExpression(entry, id, expression.collection, preDerived, generatingProperty);
         return expandToNode`
-            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of context.object.${collection} ?? []) {
+            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${collection} ?? []) {
                 ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
             }
-            embeddedUpdate["${collection}"] = context.object.${collection};
+            ${isParentAccess(expression.collection) ? expandToNode`
+                parentEmbeddedUpdate["${getSystemPath(expression.collection.property?.ref, [], undefined, false)}"] = ${collection};
+            ` : expandToNode`embeddedUpdate["${collection}"] = ${collection};`}
         `;
     }
 

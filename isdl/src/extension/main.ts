@@ -39,7 +39,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         });
 
         cliProcess.stdout.on('data', (data) => {
-            vscode.window.showInformationMessage(`CLI Output: ${data}`);
+            //vscode.window.showInformationMessage(`CLI Output: ${data}`);
         });
 
         cliProcess.stderr.on('data', (data) => {

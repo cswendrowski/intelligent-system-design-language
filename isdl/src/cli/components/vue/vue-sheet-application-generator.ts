@@ -1,10 +1,12 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, BackgroundParam, ClassExpression, Document, DocumentArrayExp, Entry, IconParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isHtmlExp, isIconParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isSingleDocumentExp, isStatusProperty, isStringExp, isStringParamChoices, isTimeExp, NumberParamMin, NumberParamValue, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
-import { getAllOfType, getSystemPath, toMachineIdentifier } from '../utils.js';
+import { Action, AttributeExp, BackgroundParam, ClassExpression, Document, DocumentArrayExp, DocumentChoiceExp, Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHtmlExp, isIconParam, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, NumberExp, NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
+import { AstUtils } from 'langium';
 import { generateActionComponent } from './vue-action-component-generator.js';
+import { generateDocumentChoiceComponent } from './vue-document-choice-component-generator.js';
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -27,6 +29,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
     const pages = getAllOfType<Page>(document.body, isPage);
     const actions = getAllOfType<Action>(document.body, isAction);
+    const paperDoll = getAllOfType<PaperDollExp>(document.body, isPaperDollExp);
+    const documentChoices = getAllOfType<DocumentChoiceExp>(document.body, isDocumentChoiceExp);
 
     function getPageFirstTab(page: Page): string {
         const firstTab = page.body.find(x => isDocumentArrayExp(x)) as DocumentArrayExp | undefined;
@@ -36,7 +40,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     }
 
     function getPageBackground(page: Page): string {
-        const background = (page.params.find(x => isBackgroundParam(x)) as BackgroundParam)?.background ?? 'topography';
+        const background = (page.params?.find(x => isBackgroundParam(x)) as BackgroundParam)?.background ?? 'topography';
         return `'${page.name.toLowerCase()}': '${background}'`;
     }
 
@@ -62,12 +66,48 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         `;
     }
 
+    function importDocumentChoiceComponent(documentChoice: DocumentChoiceExp): CompositeGeneratorNode {
+        generateDocumentChoiceComponent(entry, id, document, documentChoice, destination);
+        const componentName = `${document.name.toLowerCase()}${documentChoice.name}DocumentChoice`;
+        return expandToNode`
+        import ${componentName} from './components/document-choices/${componentName}.vue';
+        `;
+    }
+
+    function paperDollSlots(element: PaperDollExp): CompositeGeneratorNode {
+
+        let slots = [];
+        for (const property of element.elements) {
+            slots.push({
+                name: property.name,
+                systemPath: `system.${element.name.toLowerCase()}.${property.name.toLowerCase()}`,
+                type: property.document.ref?.name.toLowerCase(),
+                left: property.left ?? "0px",
+                top: property.top ?? "0px",
+            });
+        }
+
+        return expandToNode`
+        const ${element.name.toLowerCase()}Slots = [
+            ${joinToNode(slots, slot => expandToNode`
+            {
+                name: '${slot.name}',
+                systemPath: '${slot.systemPath}',
+                type: '${slot.type}',
+                left: '${slot.left}',
+                top: '${slot.top}'
+            }`, { separator: ',', appendNewLineIfNotEmpty: true })}
+        ];
+        `;
+    }
+
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed } from "vue";
         ${joinToNode(tabs, tab => importDataTable("character", tab), { appendNewLineIfNotEmpty: true })}
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(documentChoices, importDocumentChoiceComponent, { appendNewLineIfNotEmpty: true })}
         import DataTable from 'datatables.net-vue3';
         import DataTablesCore from 'datatables.net-dt';
         import 'datatables.net-responsive-dt';
@@ -79,8 +119,36 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         DataTable.use(DataTablesCore);
         DataTable.use(ColVis);
 
-        const drawer = ref(false);
+        const document = inject('rawDocument');
+        const props = defineProps(['context']);
 
+        // Colors
+        var storedColors = game.settings.get('${id}', 'documentColorThemes');
+        const primaryColor = ref(storedColors[document.uuid]?.primary ?? '#1867c0');
+        const secondaryColor = ref(storedColors[document.uuid]?.secondary ?? '#4faca9');
+
+        const setupColors = () => {
+            const colors = {
+                primary: primaryColor.value,
+                secondary: secondaryColor.value
+            };
+            game.settings.set('${id}', 'documentColorThemes', { ...storedColors, [document.uuid]: colors });
+        };
+        const resetColors = () => {
+            primaryColor.value = '#1867c0';
+            secondaryColor.value = '#4faca9';
+            setupColors();
+        };
+
+        watch(primaryColor, () => {
+            setupColors();
+        });
+        watch(secondaryColor, () => {
+            setupColors();
+        });
+
+        // Pages and Tabs
+        const drawer = ref(false);
         const page = ref('character');
         const tab = ref('description');
         const pageDefaultTabs = {
@@ -91,6 +159,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         // When the page changes, reset the tab to the first tab on that page
         watch(page, () => {
             tab.value = pageDefaultTabs[page.value.toLowerCase()];
+            document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+            // Dismiss the drawer when the page changes
+            drawer.value = false;
+        });
+
+        watch(tab, () => {
+            document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
         });
 
         const pageBackgrounds = {
@@ -105,41 +180,53 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             return pageBackgrounds[page.value];
         });
 
-        const props = defineProps(['context']);
-        const document = inject('rawDocument');
-
+        // Edit Mode
         const editMode = ref(document.getFlag('${id}', 'edit-mode') ?? true);
+        const hovered = ref(false);
 
         const toggleEditMode = () => {
             editMode.value = !editMode.value;
             document.setFlag('${id}', 'edit-mode', editMode.value);
         };
 
-        const effects = computed(() => {
-            const data = document.effects;
-            // Origin might be empty, if it is, set it to "Self"
-            data.forEach(x => {
-                if (!x.origin) {
-                    x.origin = "Self";
-                }
-            });
-            return data;
-        });
+        // Effects
+        const effects = ref([]);
+
+        function updateEffects() {
+            effects.value = Array.from(document.allApplicableEffects());
+        }
+
+        updateEffects();
+
+        Hooks.on("createActiveEffect", updateEffects);
+        Hooks.on("updateActiveEffect", updateEffects);
+        Hooks.on("deleteActiveEffect", updateEffects);
+
+        const getEffect = (id) => {
+            let ae = document.effects.get(id);
+            if (ae) return ae;
+            ae = document.items.find(i => i.effects.has(id)).effects.get(id);
+            if (!ae) {
+                console.error("Could not find effect with id: " + id);
+                return;
+            }
+            return ae;
+        }
 
         const editEffect = (rowData) => {
-            const effect = document.effects.get(rowData._id);
+            const effect = getEffect(rowData._id);
             effect.sheet.render(true);
         };
 
         const toggleEffect = (rowData) => {
-            const effect = document.effects.get(rowData._id);
+            const effect = getEffect(rowData._id);
             effect.disabled = !effect.disabled;
             rowData.disabled = effect.disabled;
             document.updateEmbeddedDocuments("ActiveEffect", [effect]);
         };
 
         const sendEffectToChat = async (rowData) => {
-            const effect = document.effects.get(rowData._id);
+            const effect = getEffect(rowData._id);
             const chatDescription = effect.description ?? effect.system.description;
             const content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
                 cssClass: "${id}",
@@ -156,13 +243,16 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         const deleteEffect = async (rowData) => {
-            const effect = document.effects.get(rowData._id);
+            const effect = getEffect(rowData._id);
             const shouldDelete = await Dialog.confirm({
                 title: "Delete Confirmation",
                 content: \`<p>Are you sure you would like to delete the "\${effect.name}" Active Effect?</p>\`,
                 defaultYes: false
             });
-            if ( shouldDelete ) effect.delete();
+            if ( shouldDelete ) {
+                effect.delete();
+                updateEffects();
+            }
         };
 
         const effectsColumns = [
@@ -219,6 +309,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 }
             }
         };
+
+        // Paper Doll Slots
+        ${joinToNode(paperDoll, paperDollSlots, { appendNewLineIfNotEmpty: true })}
     </script>
     <style>
     </style>
@@ -233,28 +326,71 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     <template>
         <v-app>
             <!-- App Bar -->
-            <v-app-bar :color="editMode ? 'amber-accent-3' : 'primary'" density="comfortable">
+            <v-app-bar :color="editMode ? 'amber-accent-3' : primaryColor" density="comfortable">
                 <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="pt-6 document-name"></v-text-field>
+                <v-app-bar-title v-if="!editMode">{{ context.document.name }}</v-app-bar-title>
+                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="pt-6 document-name" v-if="editMode" density="compact"></v-text-field>
                 <v-alert :text="game.i18n.localize('EditModeWarning')" type="warning" density="compact" class="ga-2 ma-1" color="amber-accent-3" v-if="editMode"></v-alert>
-                ${type == "actor" ? expandToNode`
                 <template v-slot:append>
-                    <v-btn :icon="editMode ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20'" @click="toggleEditMode" :data-tooltip="editMode ? 'Swap to Play mode' : 'Swap to Edit mode'"></v-btn>
+                    <v-btn
+                        :icon="hovered ? (editMode ? 'fa-solid fa-dice-d20' : 'fa-solid fa-pen-to-square') : (editMode ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20')"
+                        @click="toggleEditMode"
+                        @mouseover="hovered = true"
+                        @mouseleave="hovered = false"
+                        :data-tooltip="editMode ? 'Swap to Play mode' : 'Swap to Edit mode'"
+                    ></v-btn>
                 </template>
-                ` : expandToNode``}
             </v-app-bar>
 
             <!-- Navigation Drawer -->
-            <v-navigation-drawer v-model="drawer" temporary>
-                <v-img :src="context.document.img" style="background-color: lightgray" >
+            <v-navigation-drawer v-model="drawer" temporary style="background-color: #dddddd">
+                <v-img :src="context.document.img" style="background-color: lightgray" data-edit='img' data-action='onEditImage'>
                     <template #error>
-                        <v-img src="/systems/${id}/missing-character.png"></v-img>
+                        <v-img src="/systems/${id}/img/missing-character.png" data-edit='img' data-action='onEditImage'></v-img>
                     </template>
                 </v-img>
                 <v-tabs v-model="page" direction="vertical">
                     <v-tab value="character" prepend-icon="fa-solid fa-circle-user">${type == "actor" ? "Character" : "Item"}</v-tab>
                     ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
                 </v-tabs>
+                <template v-slot:append>
+                    <div class="pa-2">
+                        <v-btn block @click="setupColors" :color="secondaryColor">
+                        Setup Colors
+
+                        <v-dialog activator="parent" max-width="700">
+                        <template v-slot:default="{ isActive }">
+                        <v-card
+                            title="Setup Colors"
+                        >
+                            <v-card-text>
+                                <div class="d-flex flex-row">
+                                    <div class="d-flex flex-column">
+                                        <v-label>Primary Color</v-label>
+                                        <v-color-picker hide-inputs hide-sliders hide-canvas show-swatches v-model="primaryColor" swatches-max-height="500px"></v-color-picker>
+                                    </div>
+                                    <v-spacer></v-spacer>
+                                    <div class="d-flex flex-column">
+                                        <v-label>Secondary Color</v-label>
+                                        <v-color-picker hide-inputs hide-sliders hide-canvas show-swatches v-model="secondaryColor" swatches-max-height="500px"></v-color-picker>
+                                    </div>
+                                </div>
+                            </v-card-text>
+                            <v-card-actions>
+                                <v-btn
+                                    variant="tonal"
+                                    prepend-icon="fa-solid fa-sync"
+                                    text="Reset"
+                                    :color="secondaryColor"
+                                    @click="resetColors"
+                                ></v-btn>
+                            </v-card-actions>
+                        </v-card>
+                        </template>
+                    </v-dialog>
+                        </v-btn>
+                    </div>
+                </template>
             </v-navigation-drawer>
 
             <!-- Main Content -->
@@ -271,20 +407,25 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                     ${joinToNode(firstPageTabs, generateTab, { appendNewLineIfNotEmpty: true })}
                                     <v-tab value="effects" prepend-icon="fa-solid fa-sparkles">Effects</v-tab>
                             </v-tabs>
-                            <v-tabs-window v-model="tab">
-                                <v-tabs-window-item value="description" data-tab="description">
-                                    <i-prosemirror :field="context.editors['system.description']" :disabled="false"></i-prosemirror>
+                            <v-tabs-window v-model="tab" class="tabs-window">
+                                <v-tabs-window-item value="description" data-tab="description" class="tabs-container">
+                                    <i-prosemirror :field="context.editors['system.description']" :disabled="!editMode"></i-prosemirror>
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable("character", tab))}
-                                <v-tabs-window-item value="effects" data-tab="effects">
+                                <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
                                     <DataTable class="display compact" :data="effects" :columns="effectsColumns" :options="effectsOptions">
                                         <template #image="props">
                                             <img :src="props.cellData" width=40 height=40></img>
                                         </template>
                                         <template #actions="props">
                                             <div class="flexrow">
-                                                <a class="row-action" data-action="toggle" @click="toggleEffect(props.rowData)" :data-tooltip="game.i18n.localize('Enable')" v-if="props.rowData.disabled"><i class="fas fa-toggle-off"></i></a>
-                                                <a class="row-action" data-action="toggle" @click="toggleEffect(props.rowData)" :data-tooltip="game.i18n.localize('Disable')" v-if="!props.rowData.disabled"><i class="fas fa-toggle-on"></i></a>
+                                                <a 
+                                                    class="row-action" 
+                                                    data-action="toggle" 
+                                                    @click="toggleEffect(props.rowData)" 
+                                                    :data-tooltip="game.i18n.localize(props.rowData.disabled ? 'Enable' : 'Disable')">
+                                                    <i :class="props.rowData.disabled ? 'fas fa-toggle-off' : 'fas fa-toggle-on'"></i>
+                                                </a>
                                                 <a class="row-action" data-action="edit" @click="editEffect(props.rowData)" :data-tooltip="game.i18n.localize('Edit')"><i class="fas fa-edit"></i></a>
                                                 <a class="row-action" data-action="sendToChat" @click="sendEffectToChat(props.rowData)" :data-tooltip="game.i18n.localize('SendToChat')"><i class="fas fa-message"></i></a>
                                                 <a class="row-action" data-action="delete" @click="deleteEffect(props.rowData)" :data-tooltip="game.i18n.localize('Delete')"><i class="fas fa-delete-left"></i></a>
@@ -311,7 +452,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     }
 
     function generateNavListItem(page: Page): CompositeGeneratorNode {
-        const pageIconParam = page.params.find(p => isIconParam(p)) as IconParam | undefined;
+        const pageIconParam = page.params?.find(p => isIconParam(p)) as IconParam | undefined;
         const icon = pageIconParam?.value ?? "fa-solid fa-page";
         return expandToNode`
             <v-tab value="${page.name.toLowerCase()}" prepend-icon="${icon}">{{ game.i18n.localize('${page.name}') }}</v-tab>
@@ -329,7 +470,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <v-tabs v-model="tab" grow always-center>
                 ${joinToNode(tabs, generateTab, { appendNewLineIfNotEmpty: true })}
             </v-tabs>
-            <v-tabs-window v-model="tab">
+            <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
             </v-tabs-window>
         </v-tabs-window-item>
@@ -340,7 +481,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const systemPath = getSystemPath(element, [], undefined, false);
 
         return expandToNode`
-        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="${element.document.ref?.name.toLowerCase()}">
+        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="${element.document.ref?.name.toLowerCase()}" class="tabs-container">
             <${document.name}${pageName}${element.name}Datatable systemPath="${systemPath}" :context="context"></${document.name}${pageName}${element.name}Datatable>
         </v-tabs-window-item>
         `.appendNewLine();
@@ -370,7 +511,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         if (isAction(element)) {
             const componentName = `${document.name.toLowerCase()}${element.name}Action`;
             return expandToNode`
-            <${componentName} :context="context"></${componentName}>
+            <${componentName} :context="context" :color="primaryColor" :editMode="editMode"></${componentName}>
             `;
         }
 
@@ -389,30 +530,85 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             const labelFragment = `:label="game.i18n.localize('${label}')"`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
+            const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;
+
+            if (isParentPropertyRefExp(element)) {
+                let allChoices: Property[] = [];
+                switch (element.propertyType) {
+                    case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
+                    case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
+                    case "number": allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp); break;
+                    default: console.error("Unsupported parent property type: " + element.propertyType); break;
+                }
+                let refChoices = allChoices.map(x => {
+                    let parentDocument = getDocument(x);
+        
+                    if (element.choices.length > 0) {
+                        if (!element.choices.find(y => {
+                            const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
+        
+                            if (y.property != undefined) {
+                                const propertyNameMatches = y.property.ref?.name.toLowerCase() == x.name.toLowerCase();
+                                return documentNameMatches && propertyNameMatches;
+                            }
+                            // Just check document name
+                            return documentNameMatches;
+                        })) {
+                            return undefined;
+                        }
+                    }
+        
+                    return {
+                        path: `system.${x.name.toLowerCase()}`,
+                        parent: parentDocument?.name,
+                        name: x.name
+                    };
+                });
+                refChoices = refChoices.filter(x => x != undefined);
+                const choices = refChoices.map(c => `{ label: '${c?.parent} - ${c?.name}', value: '${c?.path}' }`).join(", ");
+                return expandToNode`
+                <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
+                `;
+            }
+
             if (isStringExp(element)) {
                 const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
+                const valueParam = element.params.find(p => isStringParamValue(p)) as StringParamValue | undefined;
+
+                if (valueParam !== undefined) {
+                    return expandToNode`
+                    <v-text-field name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="true" variant="outlined" density="compact" append-inner-icon="fa-solid fa-function" :data-tooltip="context.${systemPath}"></v-text-field>
+                    `;
+                }
 
                 if (choicesParam !== undefined) {
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
                     return expandToNode`
-                    <v-select clearable name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="${disabled}" variant="outlined"></v-select>
+                    <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
                     `;
                 }
                 return expandToNode`
-                    <v-text-field clearable name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="${disabled}" variant="outlined"></v-text-field>
+                    <i-text-field label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-text-field>
+                `;
+            }
+
+            if (isDocumentChoiceExp(element)) {
+                const componentName = `${document.name.toLowerCase()}${element.name}DocumentChoice`;
+                return expandToNode`
+                    <${componentName} :context="context" :editMode="editMode" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></${componentName}>
                 `;
             }
 
             if (isHtmlExp(element)) {
                 return expandToNode`
-                <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="false"></i-prosemirror>
+                <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="!editMode"></i-prosemirror>
                 `;
             }
 
             if (isBooleanExp(element)) {
                 return expandToNode`
-                <v-checkbox v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="${disabled}" color="primary"></v-checkbox>
+                <v-checkbox v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="!editMode || ${disabled}" :color="primaryColor"></v-checkbox>
                 `;
             }
 
@@ -423,8 +619,24 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 if (valueParam != undefined) {
                     disabled = true;
                 }
+
                 return expandToNode`
-                    <v-number-input controlVariant="stacked" density="compact" variant="outlined" v-model="context.${systemPath}" ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden"` : ""} name="${systemPath}" ${labelFragment} :disabled="${disabled}"></v-number-input>
+                <v-number-input
+                    controlVariant="stacked"
+                    density="compact"
+                    variant="outlined"
+                    v-model="context.${systemPath}"
+                    ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number"` : ``}
+                    name="${systemPath}"
+                    ${labelFragment}
+                    :disabled="!editMode || ${disabled}"
+                >
+                ${valueParam == undefined ? `
+                <template #append-inner>
+                    <i-calculator v-if="editMode" :context="context" :systemPath="'${systemPath}'" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-calculator>
+                </template>
+                ` : ``}
+                </v-number-input>
                 `;
             }
 
@@ -434,27 +646,40 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const hasMod = element.params.find(x => isAttributeParamMod(x)) != undefined;
 
                 const modSystemPath = getSystemPath(element, ["mod"], undefined, false);
+                const valueSystemPath = getSystemPath(element, ["value"], undefined, false);
 
                 return expandToNode`
-                    <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${systemPath}" :context="context" :min="${min}" :disabled="${disabled}"></i-attribute>
+                    <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${valueSystemPath}" :context="context" :min="${min}" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
                 `;
             }
 
             if (isResourceExp(element)) {
                 return expandToNode`
-                <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="${disabled}"></i-resource>
+                <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
                 `;
             }
 
             if (isSingleDocumentExp(element)) {
                 return expandToNode`
-                <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="${disabled}"></i-document-link>
+                <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" documentName="${element.document.ref?.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :secondaryColor="secondaryColor"></i-document-link>
                 `;
             }
 
             if (isDateExp(element) || isTimeExp(element) || isDateTimeExp(element)) {
                 return expandToNode`
                 <p>${label} - TODO</p>
+                `;
+            }
+
+            if (isPaperDollExp(element)) {
+                let sizeParam = element.params.find(x => isSizeParam(x)) as SizeParam;
+                let size = sizeParam?.value ?? "40px";
+
+                let imageParam = element.params.find(x => isImageParam(x)) as ImageParam;
+                let image = imageParam?.value ?? `systems/${id}/img/paperdoll_default.png`;
+
+                return expandToNode`
+                <i-paperdoll label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" image="${image}" size="${size}" :slots="${element.name.toLowerCase()}Slots"></i-paperdoll>
                 `;
             }
             

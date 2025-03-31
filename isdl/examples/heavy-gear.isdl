@@ -1,0 +1,85 @@
+config HeavyGear {
+    label = "Heavy Gear"
+    id = "heavygear"
+    description = "https://www.kickstarter.com/projects/heavygearblitz/heavy-gear-roleplaying-game-fourth-edition"
+    author = "Cody Swendrowski"
+}
+
+actor PC {
+    section Basic {
+        string Genotype(choices: ["Human", "Utopian", "Caprice", "Coral", "NuCoal", "South", "Peacekeeper", "Black Talon", "C.E.F.", "Eden", "Port Arthur", "Polaris", "Venusian", "Mars", "Jovian", "Mercury", "Ceres", "Luna", "Asteroid", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Kuiper", "Oort", "Other"])
+        string Gender(choices: ["Male", "Female", "Non-Binary", "Other"])
+        number Age(min: 0, max: 300)
+        string NationalOrigin
+        string Archetype
+        string Lifepath
+    }
+
+    section Boons {
+        html Aptitudes
+        html Contacts
+    }
+
+    section Banes {
+        html Quirks
+        html Adversities
+    }
+
+    Perk[] Perks
+    Flaw[] Flaws
+    Skill[] Skills
+
+    page Combat(background: hideout) {
+        section DamageResults {
+            html System1
+            html System2
+            html System3
+        }
+        section DamageResults {
+            html System4
+            html System5
+        }
+        PersonalGear[] PersonalGear
+            Weapon[] Weapons
+            Armor[] Armor
+    }
+}
+
+item Skill {
+    string Domain
+    number Level(min: 0, max: 10)
+    number Exp(min: 0)
+
+    action Roll {
+        fleeting gmPrompt = prompt(label: "Threshold", target: gm) {
+            number Threshold
+        }
+        fleeting threshold = gmPrompt.Threshold // TODO: Fix tag output on prompt values
+        fleeting result = roll((self.Level)d6kh)
+        chat Roll {
+            result
+            tag self.Domain
+            tag threshold
+        }
+    }
+}
+
+item Perk {
+    number Level(min: 0, max: 10)
+}
+
+item Flaw {
+    number Level(min: 0, max: 10)
+}
+
+item PersonalGear {
+    number Quantity
+}
+
+item Weapon {
+    boolean Equipped
+}
+
+item Armor {
+    boolean Equipped
+}

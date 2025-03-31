@@ -9,6 +9,10 @@ export function generateBaseVueComponents(destination: string) {
     generateDocumentLinkComponent(destination);
     generateProsemirrorComponent(destination);
     generateRollVisualizerComponent(destination);
+    generatePaperdollComponent(destination);
+    generateCalculator(destination);
+    generateDocumentChoiceComponent(destination);
+    generateTextFieldComponent(destination);
 
 }
 
@@ -31,58 +35,23 @@ function generateAttributeComponent(destination: string) {
             systemPath: String,
             context: Object,
             min: Number,
-            disabled: Boolean
+            disabled: Boolean,
+            primaryColor: String,
+            secondaryColor: String
         });
-
-        const isEditing = ref(false);
 
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
         });
-        
-        const chipContent = computed(() => {
-            if (props.hasMod) {
-                return props.mod;
-            }
-            return value.value;
-        });
     </script>
 
     <template>
-        <v-container class="d-flex align-center ga-2 pa-2 isdl-property">
-            <!-- Label -->
-            <span class="font-weight-bold">{{ game.i18n.localize(label) }}</span>
-
-            <!-- Modifier / Value Chip (Hidden when editing) -->
-            <v-chip v-if="!isEditing" class="mod" color="secondary" data-tooltip="Value">
-                {{ value }}
-            </v-chip>
-
-            <v-chip v-if="hasMod" class="mod" color="primary" data-tooltip="Mod">
-                {{ mod }}
-            </v-chip>
-
-            <!-- Edit Button (Toggles between edit and save) -->
-            <v-btn icon size="small" @click="isEditing = !isEditing" color="secondary">
-                <v-icon>{{ isEditing ? 'fa-solid fa-check' : 'fa-solid fa-pencil' }}</v-icon>
-            </v-btn>
+        <v-container :class="['isdl-property', 'attributeExp', { 'no-mod': !hasMod }]">
+            <v-label>{{ game.i18n.localize(label) }}</v-label>
+            <div class="mod" v-if="hasMod">{{ mod }}</div>
+            <v-number-input v-model="value" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
         </v-container>
-
-        <!-- Inline Number Input (Only visible when editing) -->
-        <v-number-input
-            v-if="isEditing"
-            v-model="value"
-            name="systemPath"
-            controlVariant="stacked"
-            :step="1"
-            :min="min"
-            :disabled="disabled"
-            type="number"
-            variant="outlined"
-            class="inline-input"
-            :name="systemPath"
-        />
     </template>
     `;
 
@@ -105,7 +74,9 @@ function generateResourceComponent(destination: string) {
             label: String,
             systemPath: String,
             context: Object,
-            disabled: Boolean
+            disabled: Boolean,
+            primaryColor: String,
+            secondaryColor: String
         });
 
         const value = computed({
@@ -141,9 +112,9 @@ function generateResourceComponent(destination: string) {
             </v-card-title>
 
             <v-card-actions>
-             <v-progress-linear
-                    :height="12"
-                    color="primary"
+                <v-progress-linear
+                    :height="18"
+                    :color="primaryColor"
                     bg-color="#92aed9"
                     rounded
                     :model-value="value"
@@ -151,9 +122,13 @@ function generateResourceComponent(destination: string) {
                     :max="barMax"
                     :buffer-value="value + temp"
                     buffer-opacity="1"
-                    buffer-color="secondary"
+                    :buffer-color="secondaryColor"
                     :data-tooltip="\`Value: \${value} / Temp: \${temp} / Max: \${max}\`"
+                    style="font-weight: bold;"
                 >
+                    <template v-slot:default>
+                        {{ value }} / {{ max }}
+                    </template>
                 </v-progress-linear>
                 <v-spacer></v-spacer>
                 <v-btn :icon="expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" @click="expanded = !expanded" color="primary">
@@ -162,11 +137,44 @@ function generateResourceComponent(destination: string) {
 
             <v-expand-transition>
                 <div v-show="expanded">
-                    <v-divider></v-divider>
                     <v-card-text>
-                        <v-number-input v-model="value" :name="systemPath + '.value'" label="Value" :max="max" :disabled="disabled" controlVariant="stacked" density="compact" />
-                        <v-number-input v-model="temp" :name="systemPath + '.temp'" label="Temp" :disabled="disabled" controlVariant="stacked" density="compact" />
-                        <v-number-input v-model="max" :name="systemPath + '.max'" label="Max" :disabled="disabled" controlVariant="stacked" density="compact" />
+                        <div class="d-flex flex-row">
+                            <v-number-input
+                                v-model="value"
+                                :name="systemPath + '.value'"
+                                label="Value"
+                                :max="max"
+                                controlVariant="stacked"
+                                density="compact"
+                                variant="outlined"
+                                class="flex-grow-1"
+                                style="min-width: 100px;"
+                                hide-details="true"
+                            />
+                            <v-number-input
+                                v-model="temp"
+                                :name="systemPath + '.temp'"
+                                label="Temp"
+                                controlVariant="stacked"
+                                density="compact"
+                                variant="outlined"
+                                class="flex-grow-1"
+                                style="min-width: 100px;"
+                                hide-details="true"
+                            />
+                            <v-number-input
+                                v-model="max"
+                                :name="systemPath + '.max'"
+                                label="Max"
+                                :disabled="disabled"
+                                controlVariant="stacked"
+                                density="compact"
+                                variant="outlined"
+                                class="flex-grow-1"
+                                style="min-width: 100px;"
+                                hide-details="true"
+                            />
+                        </div>
                     </v-card-text>
                 </div>
             </v-expand-transition>
@@ -198,7 +206,9 @@ function generateDocumentLinkComponent(destination: string) {
             label: String,
             systemPath: String,
             context: Object,
-            disabled: Boolean
+            disabled: Boolean,
+            documentName: String,
+            secondaryColor: String
         });
 
         const value = computed(() => {
@@ -216,7 +226,7 @@ function generateDocumentLinkComponent(destination: string) {
         const document = inject("rawDocument");
 
         const open = () => {
-            const item = document.items.get(value.value._id);
+            const item = fromUuidSync(value.value.uuid);
             item.sheet.render(true);
         };
 
@@ -229,36 +239,24 @@ function generateDocumentLinkComponent(destination: string) {
     </script>
 
     <template>
-        <v-container class="d-flex align-center ga-2 pa-2 isdl-single-document">
-            <!-- Label -->
-            <span class="font-weight-bold">{{ game.i18n.localize(label) }}</span>
-
-            <div v-if="hasLink" class="d-flex" style="flex: 2; padding-right: 2rem;">
-                <!-- Image -->
-                <v-img v-if="image" :src="image" class="avatar" width="36" height="36" style="background-color: lightgray" >
-                    <template #error>
-                        <v-img src="/icons/vtt-512.png" class="avatar" width="36" height="36"></v-img>
-                    </template>
-                </v-img>
-
-                <!-- Document Link -->
-                <v-btn color="secondary">
-                    {{ value.name }}
-
-                    <v-menu activator="parent">
-                        <v-list>
-                            <v-list-item key="open" value="Open" @click="open">
-                                <v-list-item-title><v-icon icon="fa-solid fa-up-right-from-square"></v-icon> Open</v-list-item-title>
-                            </v-list-item>
-                            <v-list-item key="remove" value="Remove" @click="remove">
-                                <v-list-item-title><v-icon icon="fa-solid fa-delete-right"></v-icon> Remove</v-list-item-title>
-                            </v-list-item>
-                        </v-list>
-                    </v-menu>
+        <v-card class="isdl-single-document single-document" :data-type="documentName" :data-name="systemPath">
+            <v-img v-if="image" :src="image" class="align-end" cover style="background-color: lightgray" >
+                <template v-slot:error>
+                    <v-img src="/icons/vtt-512.png" class="align-end" cover></v-img>
+                </template>
+            </v-img>
+            <v-img v-else src="/icons/containers/boxes/crates-wooden-stacked.webp" class="align-end" cover></v-img>
+            <v-card-title>{{ game.i18n.localize(label) }}</v-card-title>
+            <v-card-subtitle v-if="hasLink">{{ value.name }}</v-card-subtitle>
+            <v-card-text v-else>{{ game.i18n.localize('NoSingleDocument') }}</v-card-text>
+            <v-card-actions v-if="hasLink">
+                <v-btn :color="secondaryColor" @click="open" icon="fa-solid fa-up-right-from-square" size="small">
                 </v-btn>
-            </div>
-            <p v-else class="single-document-none">{{ game.i18n.localize('NoSingleDocument') }}</p>
-        </v-container>
+                <v-spacer></v-spacer>
+                <v-btn :color="secondaryColor" @click="remove" icon="fa-solid fa-delete-left" size="small">
+                </v-btn>
+            </v-card-actions>
+        </v-card>
     </template>
     `;
 
@@ -285,8 +283,10 @@ function generateProsemirrorComponent(destination: string) {
     </script>
 
     <template>
-        <label>{{ label }}</label>
-        <div class="prose-mirror-wrapper" v-html="disabled ? field.enriched : field.element.outerHTML"></div>
+        <div class="isdl-html flexcol">
+            <label style="font-weight: bold">{{ label }}</label>
+            <div class="prose-mirror-wrapper" v-html="disabled ? field.enriched : field.element.outerHTML"></div>
+        </div>
     </template>
     `;
 
@@ -408,6 +408,272 @@ function generateRollVisualizerComponent(destination: string) {
                 </span>
             </v-card-text>
         </v-card>
+    </template>
+    `;
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generatePaperdollComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `paperdoll.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed } from "vue";
+
+        const props = defineProps({
+            label: String,
+            systemPath: String,
+            context: Object,
+            disabled: Boolean,
+            slots: Array,
+            image: String,
+            size: String
+        });
+
+        const value = computed(() => {
+            return foundry.utils.getProperty(props.context, props.systemPath);
+        });
+
+        const slotValue = (systemPath) => {
+            return foundry.utils.getProperty(props.context, systemPath);
+        };
+
+        const openSlot = (slot) => {
+            const item = slotValue(slot.systemPath);
+            if (item) {
+                const fromUuid = fromUuidSync(item.uuid);
+                fromUuid.sheet.render(true);
+            }
+        };
+    </script>
+
+    <template>
+        <v-card class="isdl-paperdoll">
+            <v-card-title>{{ game.i18n.localize(label) }}</v-card-title>
+            <v-card-text>
+                <div class="paper-doll-container" :data-name="systemPath" :style="{ backgroundImage: 'url(' + image + ')' }">
+                    <div class="paper-doll-slot" v-for="slot in slots" :key="slot.name" :data-name="slot.systemPath" @click="openSlot(slot)" :data-tooltip="slot.name" :data-type="slot.type" :style="{ left: slot.left, top: slot.top, width: size, height: size }">
+                        <img :src="slotValue(slot.systemPath)?.img" :data-tooltip="slotValue(slot.systemPath)?.name" />
+                    </div>
+                </div>
+            </v-card-text>
+        </v-card>
+    </template>
+    `;
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateCalculator(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `calculator.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed, inject } from "vue";
+
+        const props = defineProps({
+            systemPath: String,
+            context: Object,
+            primaryColor: String,
+            secondaryColor: String
+        });
+
+        const document = inject("rawDocument");
+
+        const open = ref(false);
+        const value = ref(0);
+        const mode = ref("add");
+        const btn = ref(null);
+
+        const toggleCalculator = () => {
+            open.value = !open.value;
+        };
+
+        const swapMode = (modeName) => {
+            mode.value = modeName;
+            console.log("Swapping mode to", modeName);
+        };
+
+        const isActive = (modeName) => {
+            return mode.value === modeName ? "active" : "";
+        };
+
+        const submit = () => {
+            const update = {};
+            const currentValue = foundry.utils.getProperty(document, props.systemPath);
+            let updateValue = value.value;
+            if (mode.value === "add") {
+                updateValue = currentValue + value.value;
+            } else if (mode.value === "subtract") {
+                updateValue = currentValue - value.value;
+            } else if (mode.value === "multiply") {
+                updateValue = currentValue * value.value;
+            } else if (mode.value === "divide") {
+                updateValue = currentValue / value.value;
+            }
+            if (isNaN(updateValue)) {
+                console.error("Invalid value", updateValue);
+                updateValue = 0;
+            }
+            update[props.systemPath] = updateValue;
+            document.update(update);
+            open.value = false;
+        };
+    </script>
+
+    <template>
+        <div>
+            <v-icon icon="fa-solid fa-calculator" @click="toggleCalculator">  
+            </v-icon>
+            <v-dialog v-model="open" max-width="340">
+                <template v-slot:default="{ open }">
+                <v-card title="Calculator">
+                    <v-card-text>
+                        <v-number-input
+                            v-model="value"
+                            label="Value" 
+                            controlVariant="stacked"
+                            density="compact"
+                            variant="outlined"
+                        ></v-number-input>
+                        <v-btn-toggle v-model="mode" class="flexrow" mandatory divided>
+                            <v-btn value="add" data-tooltip="Add" :color="primaryColor">
+                                <v-icon icon="fa-solid fa-plus"></v-icon>
+                            </v-btn>
+                            <v-btn value="subtract" data-tooltip="Subtract" :color="primaryColor">
+                                <v-icon icon="fa-solid fa-minus"></v-icon>
+                            </v-btn>
+                            <v-btn value="multiply" data-tooltip="Multiply" :color="primaryColor">
+                                <v-icon icon="fa-solid fa-times"></v-icon>
+                            </v-btn>
+                            <v-btn value="divide" data-tooltip="Divide" :color="primaryColor">
+                                <v-icon icon="fa-solid fa-divide"></v-icon>
+                            </v-btn>
+                        </v-btn-toggle>
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-btn text="Submit" @click="submit" prepend-icon="fa-solid fa-check" :color="primaryColor"></v-btn>
+                        <v-btn text="Cancel" @click="toggleCalculator" prepend-icon="fa-solid fa-xmark" :color="secondaryColor"></v-btn>
+                    </v-card-actions>
+                </v-card>
+                </template>
+            </v-dialog>
+        </div>
+    </template>
+    `;
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateDocumentChoiceComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `document-choice.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed, inject } from "vue";
+
+        const props = defineProps({
+            label: String,
+            systemPath: String,
+            context: Object,
+            disabled: Boolean,
+            multiple: Boolean,
+            documentName: String
+        });
+
+        const value = computed(() => {
+            return foundry.utils.getProperty(props.context, props.systemPath);
+        });
+
+        const choices
+
+        const hasLink = computed(() => {
+            return !!value.value;
+        });
+
+        const document = inject("rawDocument");
+
+        const open = () => {
+            const item = fromUuidSync(value.value.uuid);
+            item.sheet.render(true);
+        };
+
+        const remove = async () => {
+            const update = {};
+            value.value = null;
+            update[props.systemPath] = null;
+            await document.update(update);
+        };
+    </script>
+
+    <template>
+        </template>
+    `;
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateTextFieldComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `text-field.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed, inject } from "vue";
+
+        const props = defineProps({
+            label: String,
+            systemPath: String,
+            context: Object,
+            disabled: Boolean,
+            editMode: Boolean
+        });
+
+        const value = ref(foundry.utils.getProperty(props.context, props.systemPath));
+        const document = inject("rawDocument");
+
+        const debouncedPersist = foundry.utils.debounce((newValue) => {
+            const update = {};
+            value.value = newValue;
+            update[props.systemPath] = newValue;
+            document.update(update);
+        }, 150);
+
+        const update = (newValue) => {
+            value.value = newValue;
+            debouncedPersist(newValue);
+        };
+    </script>
+    <template>
+        <v-text-field
+            v-model="value"
+            :label="game.i18n.localize(label)"
+            :disabled="!editMode || disabled"
+            :dense="true"
+            variant="outlined"
+            @update:modelValue="update"
+            :data-tooltip="value"
+        ></v-text-field>
     </template>
     `;
 

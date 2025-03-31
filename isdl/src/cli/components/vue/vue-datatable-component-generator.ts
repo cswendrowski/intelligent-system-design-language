@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isParentPropertyRefExp, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
@@ -41,6 +41,15 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 }
             }
 
+            if (isParentPropertyRefExp(property)) {
+                return expandToNode`
+                    { data: '${systemPath}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}"), render: (data, type, row) => {
+                            return humanize(data);
+                        }
+                    },
+                `;
+            }
+
             return expandToNode`
                 { data: '${systemPath}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}"), type: '${type}' },
             `;
@@ -74,6 +83,13 @@ export function generateDatatableComponent(id: string, document: Document, pageN
         const data = computed(() => {
             return foundry.utils.getProperty(props.context, props.systemPath);
         });
+
+        const humanize = (str) => {
+            let humanized = str.replace(/_/g, " ");
+            humanized = humanized.replace("system.", "").replaceAll(".", " ");
+            humanized = humanized.charAt(0).toUpperCase() + humanized.slice(1);
+            return humanized;
+        };
 
         const editItem = (rowData) => {
             const item = document.items.get(rowData._id);
@@ -112,6 +128,10 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             item.sheet._onAction(event);
         };
 
+        function bindDragDrop() {
+            document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+        };
+
         const columns = [
             { 
                 data: 'img', 
@@ -131,6 +151,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 data: null,
                 title: game.i18n.localize("Actions"),
                 render: '#actions',
+                responsivePriority: 1,
                 orderable: false,
                 width: '200px'
             }
@@ -146,6 +167,9 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 row.setAttribute("data-id", data._id);
                 row.setAttribute("data-uuid", data.uuid);
                 row.setAttribute("data-type", data.type);
+            },
+            initComplete: (settings, json) => {
+                bindDragDrop();
             },
             layout: {
                 topStart: {
@@ -169,7 +193,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
     </script>
 
     <template>
-        <DataTable class="display compact" :data="data" :columns="columns" :options="options">
+        <DataTable class="display compact" :data="data" :columns="columns" :options="options" @draw="bindDragDrop">
             <template #image="props">
                 <img :src="props.cellData" width=40 height=40 />
             </template>

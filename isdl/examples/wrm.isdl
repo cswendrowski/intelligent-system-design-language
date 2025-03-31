@@ -9,7 +9,7 @@ actor Character {
 
     // PAGE 1 - CHARACTER DEFAULT
     section Attributes {
-        attribute Warrior(min: 0, max: 100)
+        attribute Warrior(min: 0, max: 100, mod: { return self.Warrior })
         attribute Rogue(min: 0, max: 100)
         attribute Mage(min: 0, max: 100)
            action WARRIOR(icon: "fa-solid fa-helmet-battle"){
@@ -169,10 +169,10 @@ actor Character {
     section CostOfLiving {
         unlocked string LodgingQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
         hidden number LodgingQualityCost(value: {
-            if (self.LodgingQuality == "Extravagant") {return 600}
-            if (self.LodgingQuality == "Rich") {return 300}
-            if (self.LodgingQuality == "Good") {return 150}
-            if (self.LodgingQuality == "Modest") {return 75}
+            if (self.LodgingQuality == "Extravagant") {return 800}
+            if (self.LodgingQuality == "Rich") {return 400}
+            if (self.LodgingQuality == "Good") {return 200}
+            if (self.LodgingQuality == "Modest") {return 100}
             if (self.LodgingQuality == "Bare") {return 50}
             else {return 0}
         })
@@ -185,16 +185,15 @@ actor Character {
             if (self.MealQuality == "Bare") {return 10}
             else {return 0}
         })
-        unlocked number Days
+        string Breakdown(value: {return self.LodgingQualityCost + "sp + " + self.MealQualityCost + "sp"})
+        unlocked number Days(min:1)
         readonly number Cost(value: {return (self.LodgingQualityCost + self.MealQualityCost) * self.Days})
-        unlocked string PayWith(choices: ["Silver","Banked Silver"])
         action PayCash(icon: "fa-duotone fa-solid fa-coins", disabled: self.Silver < self.Cost) {
             self.Silver -= self.Cost
             self.update()
             chat Paid {
                 flavor ("I paid " + self.Cost + " Silver out of pocket for cost of living!" )
                 tag self.Cost
-                tag self.PayWith
                 }
         }
         action UseBank(icon: "fa-solid fa-building-columns", disabled: self.BankedSilver < self.Cost) {
@@ -203,7 +202,6 @@ actor Character {
             chat Paid {
                 flavor ("I paid " + self.Cost + " Silver from my bank for cost of living!" )
                 tag self.Cost
-                tag self.PayWith
                 }
             }
     }
@@ -283,17 +281,17 @@ actor Character {
     // Page 4 -- MAGIC
     page Magic(icon: "fa-solid fa-sparkles") {
         section SpellSelection {
-            Spell CastSpell
+            choice<Spell> CastSpell(global: true, where: item.Type equals "Spell")
             number SpellCircle(value: {
-                if (self.CastSpell exists) {return self.CastSpell.system.circle}
+                if (self.CastSpell exists) {return self.CastSpell.Circle}
                 else {return 0}
             })
             number ManaCost(value: {
-                if (self.CastSpell exists) {return self.CastSpell.system.mana}
+                if (self.CastSpell exists) {return self.CastSpell.Mana}
                 else {return 0}
             })
             number DL(value: {
-                if (self.CastSpell exists) {return self.CastSpell.system.difficulty}
+                if (self.CastSpell exists) {return self.CastSpell.Difficulty}
                 else {return 0}
             })
             unlocked number Enhancements
