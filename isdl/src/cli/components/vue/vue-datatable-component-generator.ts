@@ -7,7 +7,7 @@ import { Reference } from 'langium';
 
 export function generateDatatableComponent(id: string, document: Document, pageName: string, table: DocumentArrayExp, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "datatables");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${pageName}${table.name}Datatable.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
@@ -129,7 +129,12 @@ export function generateDatatableComponent(id: string, document: Document, pageN
         };
 
         function bindDragDrop() {
-            document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+            try {
+                document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+            }
+            catch (e) {
+                console.error(e);
+            }
         };
 
         const columns = [

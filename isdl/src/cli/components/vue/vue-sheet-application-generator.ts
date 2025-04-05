@@ -47,7 +47,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function importDataTable(pageName: string, tab: DocumentArrayExp): CompositeGeneratorNode {
         generateDatatableComponent(id, document, pageName, tab, destination);
         return expandToNode`
-        import ${document.name}${pageName}${tab.name}Datatable from './components/${document.name.toLowerCase()}${pageName}${tab.name}Datatable.vue';
+        import ${document.name}${pageName}${tab.name}Datatable from './components/datatables/${document.name.toLowerCase()}${pageName}${tab.name}Datatable.vue';
         `;
     }
 
@@ -62,7 +62,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         generateActionComponent(entry, id, document, action, destination);
         const componentName = `${document.name.toLowerCase()}${action.name}Action`;
         return expandToNode`
-        import ${componentName} from './components/${componentName}.vue';
+        import ${componentName} from './components/actions/${componentName}.vue';
         `;
     }
 
@@ -148,12 +148,25 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         });
 
         // Pages and Tabs
+
+        const lastStates = game.settings.get('${id}', 'documentLastState');
+        const lastState = lastStates[document.uuid] ?? {
+            page: 'character',
+            tab: 'description'
+        };
+
         const drawer = ref(false);
-        const page = ref('character');
-        const tab = ref('description');
+        const page = ref(lastState.page);
+        const tab = ref(lastState.tab);
         const pageDefaultTabs = {
             'character': 'description',
             ${joinToNode(pages, getPageFirstTab, { separator: ',', appendNewLineIfNotEmpty: true })}
+        };
+
+        const updateLastState = () => {
+            const lastStates = game.settings.get('${id}', 'documentLastState');
+            lastStates[document.uuid] = { page: page.value, tab: tab.value };
+            game.settings.set('${id}', 'documentLastState', lastStates);
         };
 
         // When the page changes, reset the tab to the first tab on that page
@@ -162,10 +175,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
             // Dismiss the drawer when the page changes
             drawer.value = false;
+            updateLastState();
         });
 
         watch(tab, () => {
             document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+            updateLastState();
         });
 
         const pageBackgrounds = {

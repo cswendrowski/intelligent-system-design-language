@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { Document, Entry, isActor } from "../../../language/generated/ast.js";
+import { Action, Document, Entry, isAction, isActor, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
 import { generateDocumentVueComponent } from "./vue-sheet-application-generator.js";
-import { expandToNode, joinToNode, toString } from 'langium/generate';
+import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { generateDocumentVueSheet } from './vue-sheet-class-generator.js';
 import { build, defineConfig } from "vite";
 import vue from '@vitejs/plugin-vue';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
 import { generateVueMixin } from './vue-mixin.js';
+import { getAllOfType } from '../utils.js';
 
 export function generateVue(entry: Entry, id: string, destination: string) {
 
@@ -176,6 +177,19 @@ function generateIndexMjs(entry: Entry, destination: string) {
         return `export { default as ${document.name}${titleize(type)}App } from './${type}/${document.name.toLowerCase()}App.vue';`;
     }
 
+    function generateDocumentPromptExports(document: Document): CompositeGeneratorNode | undefined {
+        const actions = getAllOfType<Action>(document.body, isAction, false);
+        return joinToNode(actions.map(x => generatePromptExports(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generatePromptExports(action: Action, document: Document): CompositeGeneratorNode | undefined {
+        const type = isActor(document) ? 'actor' : 'item';
+        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+        
+        return joinToNode(prompts.map(x => `export { default as ${document.name}${titleize(type)}${action.name}Prompt } from './${type}/components/prompts/${document.name.toLowerCase()}${action.name}Prompt.vue';`), { appendNewLineIfNotEmpty: true });
+    }
+
     const fileNode = expandToNode`
     export { default as Attribute } from './components/attribute.vue';
     export { default as Resource } from './components/resource.vue';
@@ -186,6 +200,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as Calculator } from './components/calculator.vue';
     export { default as TextField } from './components/text-field.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
+    ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

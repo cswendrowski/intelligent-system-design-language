@@ -14,7 +14,13 @@ import {
     DocumentDescriptionParam,
     StatusProperty,
     isStatusProperty,
-    isStatusParamWhen
+    isStatusParamWhen,
+    Action,
+    isAction,
+    isVariableExpression,
+    isPrompt,
+    VariableExpression,
+    Prompt
 } from '../language/generated/ast.js';
 import {
     isActor,
@@ -371,10 +377,36 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
     let statusEffects = getAllOfType<StatusProperty>(entry.documents, isStatusProperty);
 
+    function generateDocumentPromptImports(document: Document): CompositeGeneratorNode | undefined {
+        const actions = getAllOfType<Action>(document.body, isAction, false);
+        return joinToNode(actions.map(x => generatePromptImports(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generatePromptImports(action: Action, document: Document): CompositeGeneratorNode | undefined {
+        const type = isActor(document) ? 'actor' : 'item';
+        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+
+        return joinToNode(prompts.map(x => `import ${document.name}${action.name}PromptApp from "../sheets/vue/${type}/prompts/${document.name.toLowerCase()}-${action.name}-prompt-app.mjs";`), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generateDocumentPromptAssignment(document: Document): CompositeGeneratorNode | undefined {
+        const actions = getAllOfType<Action>(document.body, isAction, false);
+        return joinToNode(actions.map(x => generatePromptAssignments(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+    }
+    
+    function generatePromptAssignments(action: Action, document: Document): CompositeGeneratorNode | undefined {
+        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+
+        return joinToNode(prompts.map(x => `${document.name.toLowerCase()}${action.name}: ${document.name}${action.name}PromptApp`), { appendNewLineIfNotEmpty: true, separator: ',' });
+    }
+
     const fileNode = expandToNode`
         ${joinToNode(entry.documents, document => `import ${document.name}TypeDataModel from "../datamodels/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}Sheet from "../sheets/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}VueSheet from "../sheets/vue/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(entry.documents, generateDocumentPromptImports, { appendNewLineIfNotEmpty: true })}
         import ${entry.config.name}EffectSheet from "../sheets/active-effect-sheet.mjs";
         import ${entry.config.name}Actor from "../documents/actor.mjs";
         import ${entry.config.name}Item from "../documents/item.mjs";
@@ -392,6 +424,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerDataModels();
             registerDocumentSheets();
             registerDocumentClasses();
+            registerPromptClasses();
             registerCanvasClasses();
             registerTypeInfo();
             registerHandlebarsHelpers();
@@ -447,6 +480,13 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                 default: {},
                 type: Object
             });
+
+            game.settings.register('${id}', 'documentLastState', {
+                scope: 'client',
+                config: false,
+                default: {},
+                type: Object
+            });
         }
         
         /* -------------------------------------------- */
@@ -468,12 +508,12 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             Items.unregisterSheet("core", ItemSheet);
 
             // Actors
-            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
-            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
 
             // Items
-            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
-            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
         
             // Active Effects
             DocumentSheetConfig.registerSheet(ActiveEffect, "${id}", ${entry.config.name}EffectSheet, { makeDefault: true });
@@ -486,6 +526,14 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             CONFIG.Item.documentClass = ${entry.config.name}Item;
             CONFIG.Combatant.documentClass = ${entry.config.name}Combatant;
             CONFIG.Token.documentClass = ${entry.config.name}TokenDocument;
+        }
+
+        /* -------------------------------------------- */
+
+        function registerPromptClasses() {
+            game.system.prompts = {
+                ${joinToNode(entry.documents, document => generateDocumentPromptAssignment(document), { appendNewLineIfNotEmpty: true })}
+            };
         }
 
         /* -------------------------------------------- */
@@ -844,11 +892,10 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
                 const parts = [];
 
                 for ( const term of this.terms ) {
-                    console.log(term.constructor.name);
-                    if ( foundry.utils.isSubclass(term.constructor, DiceTerm) ) {
+                    if ( foundry.utils.isSubclass(term.constructor, foundry.dice.terms.DiceTerm) ) {
                         parts.push(term.getTooltipData());
                     }
-                    else if ( foundry.utils.isSubclass(term.constructor, NumericTerm) ) {
+                    else if ( foundry.utils.isSubclass(term.constructor, foundry.dice.terms.NumericTerm) ) {
                         parts.push({
                             formula: term.flavor,
                             total: term.total,
@@ -859,8 +906,6 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
                     }
                 }
 
-                console.dir(parts);
-
                 return renderTemplate(this.constructor.TOOLTIP_TEMPLATE, { parts });
             }
 
@@ -870,7 +915,7 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
                 // Replace flavor terms such as 5[STR] with just the flavor text
                 let cleanFormula = this._formula;
                 for ( const term of this.terms ) {
-                    if ( term instanceof NumericTerm ) {
+                    if ( term instanceof foundry.dice.terms.NumericTerm ) {
                         cleanFormula = cleanFormula.replace(term.formula, term.flavor);
                     }
                 }

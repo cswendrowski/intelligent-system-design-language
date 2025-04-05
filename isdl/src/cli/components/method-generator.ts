@@ -673,7 +673,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 speaker: ChatMessage.getSpeaker(),
                 content: ${expression.name}Content,
                 flavor: ${expression.name}ChatFlavor(context.object.system),
-                type: ${expression.name}Context.parts.find(x => x.isRoll) ? CONST.CHAT_MESSAGE_STYLES.ROLL : CONST.CHAT_MESSAGE_STYLES.IC,
+                type: ${expression.name}Context.parts.find(x => x.isRoll) ? null : CONST.CHAT_MESSAGE_STYLES.IC,
                 rolls: Array.from(${expression.name}Context.parts.filter(x => x.isRoll).map(x => x.value)),
             });
         `;

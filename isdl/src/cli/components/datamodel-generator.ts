@@ -1,4 +1,5 @@
 import type {
+    Action,
     ClassExpression,
     Document,
     Entry,
@@ -7,9 +8,11 @@ import type {
     NumberParamMin,
     Page,
     PaperDollElement,
+    Prompt,
     Section,
     StatusParamWhen,
     StringParamChoices,
+    VariableExpression,
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -36,13 +39,17 @@ import {
     isDateTimeExp,
     isPaperDollExp,
     isParentPropertyRefExp,
-    isDocumentChoiceExp
+    isDocumentChoiceExp,
+    isAction,
+    isVariableExpression,
+    isPrompt
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getAllOfType, toMachineIdentifier } from './utils.js';
 import { translateExpression } from './method-generator.js';
+import { AstUtils } from 'langium';
 
 export function generateDocumentDataModel(entry: Entry, document: Document, destination: string) {
     const typePath = isActor(document) ? 'actor' : 'item';
@@ -286,6 +293,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 return {
                     description: new fields.HTMLField({required: false, blank: true, initial: ""}),
                     ${joinToNode(document.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
+                    ${expandToNode`${generateDocumentPromptModels(document)}`.appendNewLineIfNotEmpty()}
                 };
             }
 
@@ -300,6 +308,28 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         fs.mkdirSync(dataModelPath, { recursive: true });
     }
     fs.writeFileSync(generatedFilePath, toString(fileNode));
+
+    function generateDocumentPromptModels(document: Document): CompositeGeneratorNode | undefined {
+        const actions = getAllOfType<Action>(document.body, isAction, false);
+        return joinToNode(actions.map(x => generatePromptModels(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generatePromptModels(action: Action, document: Document): CompositeGeneratorNode | undefined {
+        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[]
+        
+        return joinToNode(prompts.map(p => generatePromptModel(p)), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generatePromptModel(prompt: Prompt) {
+        const variable = AstUtils.getContainerOfType(prompt.$container, isVariableExpression);
+        const action = AstUtils.getContainerOfType(prompt.$container, isAction);
+        return expandToNode`
+            ${action?.name.toLowerCase()}${variable?.name.toLowerCase()}: new foundry.data.fields.SchemaField({
+                ${joinToNode(prompt.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
+            }),
+        `;
+    }
 }
 
 export function generateUuidDocumentField(destination: string) {

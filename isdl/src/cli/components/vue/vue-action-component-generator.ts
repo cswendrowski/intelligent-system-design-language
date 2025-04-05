@@ -1,15 +1,23 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { Action, DisabledCondition, Document, Entry, HiddenCondition, IconParam, isActor, isDisabledCondition, isHiddenCondition, isIconParam } from "../../../language/generated/ast.js";
+import { Action, DisabledCondition, Document, Entry, HiddenCondition, IconParam, isActor, isDisabledCondition, isHiddenCondition, isIconParam, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
 import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
-
+import { generatePromptApp } from './vue-prompt-generator.js';
+import { generatePromptSheetClass } from './vue-prompt-sheet-class-generator.js';
 
 export function generateActionComponent(entry: Entry, id: string, document: Document, action: Action, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "actions");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${action.name}Action.vue`);
     const iconParam = action.conditions.find(x => isIconParam(x)) as IconParam;
+
+    const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+    const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+    for ( const prompt of prompts ) {
+        generatePromptSheetClass(action.name, entry, id, document, prompt, destination);
+        generatePromptApp(action.name, entry, id, document, prompt, destination);
+    }
 
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
