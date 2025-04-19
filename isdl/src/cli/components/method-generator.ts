@@ -23,10 +23,8 @@ import type {
     WhenExpressions,
     Parameter,
     Prompt,
-    ClassExpression,
     VariableAccess,
     MathExpression,
-    StringParamChoices,
     InitiativeProperty,
     StatusProperty,
     ParentAccess,
@@ -76,15 +74,12 @@ import {
     isParameter,
     isPrompt,
     isLabelParam,
-    isNumberExp,
-    isStringExp,
     isTargetParam,
     IntelligentSystemDesignLanguageTerminals,
     isMathExpression,
     isMathEmptyExpression,
     isMathSingleExpression,
     isMathParamExpression,
-    isStringParamChoices,
     isInitiativeProperty,
     isStatusProperty,
     isUpdate,
@@ -92,6 +87,8 @@ import {
     isUpdateSelf,
     isParentTypeCheckExpression,
     isParentPropertyRefExp,
+    isAction,
+    isDocument,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
@@ -1025,53 +1022,58 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const targetParam = expression.params.find(x => isTargetParam(x));
         const target = targetParam?.value ?? "self";
 
+        const document = AstUtils.getContainerOfType(expression.$container, isDocument)!;
+        const action = AstUtils.getContainerOfType(expression.$container, isAction)!;
+
+        const name = `${document.name.toLowerCase()}${action.name}`;
+
         // const iconParam = expression.params.find(x => isIconParam(x));
         // const icon = iconParam?.value ?? "fa-solid fa-comment-dots";
 
-        function translateDialogBody(expression: ClassExpression): CompositeGeneratorNode | undefined {
+        // function translateDialogBody(expression: ClassExpression): CompositeGeneratorNode | undefined {
 
-            if (isNumberExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="number" name="${expression.name.toLowerCase()}" value="0" />
-                    </div>
-                `;
-            }
+        //     if (isNumberExp(expression)) {
+        //         return expandToNode`
+        //             <div class="form-group">
+        //                 <label>${humanize(expression.name)}</label>
+        //                 <input type="number" name="${expression.name.toLowerCase()}" value="0" />
+        //             </div>
+        //         `;
+        //     }
 
-            if (isBooleanExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="checkbox" name="${expression.name.toLowerCase()}" />
-                    </div>
-                `;
-            }
+        //     if (isBooleanExp(expression)) {
+        //         return expandToNode`
+        //             <div class="form-group">
+        //                 <label>${humanize(expression.name)}</label>
+        //                 <input type="checkbox" name="${expression.name.toLowerCase()}" />
+        //             </div>
+        //         `;
+        //     }
 
-            if (isStringExp(expression)) {
-                let choices = expression.params.find(x => isStringParamChoices(x)) as StringParamChoices;
-                if (choices != undefined && choices.choices.length > 0) {
-                    return expandToNode`
-                        <div class="form-group">
-                            <label>${humanize(expression.name)}</label>
-                            <select name="${expression.name.toLowerCase()}">
-                                ${joinToNode(choices.choices, (choice) => expandToNode`
-                                    <option value="${choice}">${choice}</option>
-                                `)}
-                            </select>
-                        </div>
-                    `;
-                }
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="text" name="${expression.name.toLowerCase()}" />
-                    </div>
-                `;
-            }
+        //     if (isStringExp(expression)) {
+        //         let choices = expression.params.find(x => isStringParamChoices(x)) as StringParamChoices;
+        //         if (choices != undefined && choices.choices.length > 0) {
+        //             return expandToNode`
+        //                 <div class="form-group">
+        //                     <label>${humanize(expression.name)}</label>
+        //                     <select name="${expression.name.toLowerCase()}">
+        //                         ${joinToNode(choices.choices, (choice) => expandToNode`
+        //                             <option value="${choice}">${choice}</option>
+        //                         `)}
+        //                     </select>
+        //                 </div>
+        //             `;
+        //         }
+        //         return expandToNode`
+        //             <div class="form-group">
+        //                 <label>${humanize(expression.name)}</label>
+        //                 <input type="text" name="${expression.name.toLowerCase()}" />
+        //             </div>
+        //         `;
+        //     }
 
-            return undefined;
-        }
+        //     return undefined;
+        // }
 
         if (target == "gm") {
             return expandToNode`
@@ -1093,7 +1095,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         type: "prompt",
                         userId: game.user.id,
                         title: "${title}",
-                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                        prompt: "${name}",
                     }, {recipients: [firstGm.id]});
                 });
             `;
@@ -1137,45 +1139,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     type: "prompt",
                     userId: game.user.id,
                     title: "${title}",
-                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    prompt: "${name}",
                 }, {recipients: [targetedUser]});
             });
         `;
         }
 
         return expandToNode`
-            await Dialog.prompt({
-                title: "${title}",
-                content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
-                callback: (html, event) => {
-                    // Grab the form data
-                    const formData = new FormDataExtended(html[0].querySelector("form"));
-                    const data = { system: {} };
-                    for (const [key, value] of formData.entries()) {
-                        // Translate values to more helpful ones, such as booleans and numbers
-                        if (value === "true") {
-                            data[key] = true;
-                            data.system[key] = true;
-                        }
-                        else if (value === "false") {
-                            data[key] = false;
-                            data.system[key] = false;
-                        }
-                        else if (!isNaN(value)) {
-                            data[key] = parseInt(value);
-                            data.system[key] = parseInt(value);
-                        }
-                        else {
-                            data[key] = value;
-                            data.system[key] = value;
-                        }
-                    }
-                    return data;
-                },
-                options: {
-                    classes: ["${id}", "dialog"]
-                }
-            });
+            await game.system.prompts.${name}.prompt(context.object);
         `;
     }
 

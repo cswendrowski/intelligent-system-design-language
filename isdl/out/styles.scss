@@ -183,6 +183,12 @@
     //     }
     // }
 
+    &.isdl-prompt {
+        .v-application__wrap {
+            min-height: 100%;
+        }
+    }
+
     .window-content {
         overflow-y: scroll;
     }

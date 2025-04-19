@@ -392,7 +392,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
     function generateDocumentPromptAssignment(document: Document): CompositeGeneratorNode | undefined {
         const actions = getAllOfType<Action>(document.body, isAction, false);
-        return joinToNode(actions.map(x => generatePromptAssignments(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+        return joinToNode(actions.map(x => generatePromptAssignments(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true, separator: ',' });
     }
     
     function generatePromptAssignments(action: Action, document: Document): CompositeGeneratorNode | undefined {
@@ -532,7 +532,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
         function registerPromptClasses() {
             game.system.prompts = {
-                ${joinToNode(entry.documents, document => generateDocumentPromptAssignment(document), { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(entry.documents, document => generateDocumentPromptAssignment(document), { separator: ',\n' })}
             };
         }
 
@@ -707,7 +707,16 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
 
         /* -------------------------------------------- */
 
-        function _handlePrompt(message) {
+        async function _handlePrompt(message) {
+            const response = await game.system.prompts[message.prompt].prompt(game.user.character);
+
+            game.socket.emit("system.${id}", {
+                        type: "promptResponse",
+                        uuid: message.uuid,
+                        data: response
+            }, { recipients: [message.userId] });
+            return;
+
             Dialog.prompt({
                 title: message.title,
                 content: message.content,

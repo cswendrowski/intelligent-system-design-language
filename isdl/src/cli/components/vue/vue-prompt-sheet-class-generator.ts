@@ -22,10 +22,12 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
         export default class ${document.name}${name}PromptApp extends VueRenderingMixin(foundry.applications.api.ApplicationV2) {
             
             document;
-            constructor(document, options = {}) {
+            constructor(document, resolve, reject, options = {}) {
                 super(options);
                 this.#dragDrop = this.#createDragDropHandlers();
                 this.document = document;
+                this.resolve = resolve;
+                this.reject = reject;
             }
 
             vueParts = {
@@ -34,6 +36,53 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                     template: "<${vueComponentName} :context=\\"context\\">Vue rendering for application failed.</${vueComponentName}>"
                 }
             };
+
+            static async prompt(document) {
+                return new Promise((resolve, reject) => {
+                    const app = new this(document, resolve, reject);
+                    app.render({force: true, focus: true});
+                });
+            }
+
+            close() {
+                this.reject(new Error("The Dialog was closed without a choice being made."));
+                super.close();
+            }
+
+            submit() {
+                const formData = new FormDataExtended(this.element);
+                const data = { system: {} };
+                for (const [key, value] of formData.entries()) {
+                    const keys = key.split(".");
+                    const lastKey = keys.pop();
+                    // Translate values to more helpful ones, such as booleans and numbers
+                    if (value === "true") {
+                        data[key] = true;
+                        data[lastKey] = true;
+                    }
+                    else if (value === "false") {
+                        data[key] = false;
+                        data[lastKey] = false;
+                    }
+                    else if (!isNaN(value)) {
+                        data[key] = parseInt(value);
+                        data[lastKey] = parseInt(value);
+                    }
+                    else {
+                        data[key] = value;
+                        data[lastKey] = value;
+                    }
+                }
+                console.log("Submit", data);
+                this.resolve(data);
+                this.close();
+            }
+
+            cancel() {
+                console.log("cancel");
+                this.reject(new Error("The Dialog was closed without a choice being made."));
+                this.close();
+            }
 
             _arrayEntryKey = 0;
             _renderKey = 0;
@@ -62,7 +111,7 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 form: {
                     submitOnChange: false,
                     submitOnClose: true,
-                    closeOnSubmit: true,
+                    closeOnSubmit: true
                 }
             };
 
@@ -113,7 +162,6 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 // Foundry comes with a large number of utility classes, e.g. SearchFilter
                 // That you may want to implement yourself.
             }
-
             
             // Drag and Drop
  

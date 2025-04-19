@@ -1,10 +1,13 @@
+import { AstUtils } from 'langium';
 import type {
     ClassExpression,
     Document,
     Entry,
     Page,
+    Prompt,
     Section,
     StringParamChoices,
+    VariableExpression,
 } from '../../language/generated/ast.js';
 import {
     isSection,
@@ -15,6 +18,8 @@ import {
     isStringParamChoices,
     isActor,
     isItem,
+    isVariableExpression,
+    isPrompt,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -83,9 +88,41 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         }
 
         if (isAction(property)) {
+
+            const variables = property.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+            const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+
+            if (prompts.length > 0) {
+                return expandToNode`
+                    "${property.name}": "${humanize(property.name)}",
+                    ${joinToNode(prompts, prompt => generatePrompt(prompt), { appendNewLineIfNotEmpty: true, separator: ',' })}
+                `;
+            }
+
             return expandToNode`
                 "${property.name}": "${humanize(property.name)}"
             `;
+
+            function generatePrompt(prompt: Prompt): CompositeGeneratorNode | undefined {
+                const variable = AstUtils.getContainerOfType(prompt, isVariableExpression);
+                const action = AstUtils.getContainerOfType(variable, isAction);
+                const name = `${action?.name}${variable?.name}`;
+
+                if (prompt.body.length == 0) {
+                    return expandToNode`
+                    "${name}": {
+                        "label": "${humanize(name)}"
+                    }
+                `;
+                }
+
+                return expandToNode`
+                    "${name}": {
+                        "label": "${humanize(name)}",
+                        ${joinToNode(prompt.body, body => generateProperty(body), { appendNewLineIfNotEmpty: true, separator: ',' })}
+                    }
+                `;
+            }
         }
 
         return

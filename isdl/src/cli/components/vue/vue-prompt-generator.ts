@@ -1,29 +1,52 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { AttributeExp, ClassExpression, Document, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
-import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
+import { AttributeExp, ClassExpression, Document, DocumentChoiceExp, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { AstUtils } from 'langium';
+import { generateDocumentChoiceComponent } from './vue-document-choice-component-generator.js';
 
 
 export function generatePromptApp(name: string, entry: Entry, id: string, document: Document, prompt: Prompt, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "prompts");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${name}Prompt.vue`);
+    const documentChoices = getAllOfType<DocumentChoiceExp>(prompt.body, isDocumentChoiceExp);
 
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
+    function importDocumentChoiceComponent(documentChoice: DocumentChoiceExp): CompositeGeneratorNode {
+        generateDocumentChoiceComponent(entry, id, document, documentChoice, destination);
+        const componentName = `${document.name.toLowerCase()}${documentChoice.name}DocumentChoice`;
+        return expandToNode`
+        import ${componentName} from '../document-choices/${componentName}.vue';
+        `;
+    }
+
     const fileNode = expandToNode`
     <script setup>
         import { ref, inject, computed } from "vue";
+        ${joinToNode(documentChoices, importDocumentChoiceComponent, { appendNewLineIfNotEmpty: true })}
 
         const props = defineProps({
             context: Object,
             primaryColor: String,
-            secondaryColor: String,
+            secondaryColor: String
         });
+
+        const sheet = inject("rawSheet");
+
+        const submit = () => {
+            console.log("Submitted ${name}");
+            sheet.submit();
+        };
+
+        const cancel = () => {
+            console.log("Cancelled ${name}");
+            sheet.cancel();
+        };
 
         const editMode = true;
     </script>
@@ -33,8 +56,8 @@ export function generatePromptApp(name: string, entry: Entry, id: string, docume
                 <v-container class="topography" fluid style="padding: 1rem; height: 100%;">
                     ${joinToNode(prompt.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
                     <v-row class="flexrow">
-                        <v-btn @click="console.log('Clicked ${name}')" color="primary" class="ma-1 action-btn">Submit</v-btn>
-                        <v-btn @click="console.log('Clicked ${name}')" color="error" class="ma-1 action-btn">Cancel</v-btn>
+                        <v-btn @click="submit" color="primary" class="ma-1 action-btn">Submit</v-btn>
+                        <v-btn @click="submit" color="error" class="ma-1 action-btn">Cancel</v-btn>
                     </v-row>
                 </v-container>                
             </v-main>
@@ -60,7 +83,7 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
         const variable = AstUtils.getContainerOfType(prompt.$container, isVariableExpression);
         const action = AstUtils.getContainerOfType(prompt.$container, isAction);
 
-        const label = `${document.name}.${element.name}`;
+        const label = `${document.name}.${action?.name}${variable?.name}.${element.name}`;
         const labelFragment = `:label="game.i18n.localize('${label}')"`;
         const systemPath = `system.${action?.name.toLowerCase()}${variable?.name.toLowerCase()}.${element.name.toLowerCase()}`;
 
@@ -115,7 +138,7 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
 
             if (choicesParam !== undefined) {
                 // Map the choices to a string array
-                const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
+                const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${label}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
                 return expandToNode`
                 <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
                 `;
