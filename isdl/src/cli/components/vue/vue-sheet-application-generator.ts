@@ -538,8 +538,9 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 <i-roll-visualizer :context="context"></i-roll-visualizer>
                 `;
             }
-            let disabled = element.modifier == "readonly" || element.modifier == "locked"; // TODO: Edit mode
+            let disabled = element.modifier == "readonly" || element.modifier == "locked";
             if (element.modifier == "unlocked") disabled = false;
+            let unlocked = element.modifier == "unlocked";
 
             const label = `${document.name}.${element.name}`;
             const labelFragment = `:label="game.i18n.localize('${label}')"`;
@@ -582,7 +583,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 refChoices = refChoices.filter(x => x != undefined);
                 const choices = refChoices.map(c => `{ label: '${c?.parent} - ${c?.name}', value: '${c?.path}' }`).join(", ");
                 return expandToNode`
-                <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
+                <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" ${labelFragment} :disabled="(!editMode && !${unlocked}) || ${disabled}" variant="outlined" density="compact"></v-select>
                 `;
             }
 
@@ -600,7 +601,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
                     return expandToNode`
-                    <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
+                    <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="(!editMode && !${unlocked}) || ${disabled}" variant="outlined" density="compact"></v-select>
                     `;
                 }
                 return expandToNode`
@@ -617,13 +618,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isHtmlExp(element)) {
                 return expandToNode`
-                <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="!editMode"></i-prosemirror>
+                <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="(!editMode && !${unlocked})"></i-prosemirror>
                 `;
             }
 
             if (isBooleanExp(element)) {
                 return expandToNode`
-                <v-checkbox v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="!editMode || ${disabled}" :color="primaryColor"></v-checkbox>
+                <v-checkbox v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="(!editMode && !${unlocked}) || ${disabled}" :color="primaryColor"></v-checkbox>
                 `;
             }
 
@@ -644,7 +645,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number"` : ``}
                     name="${systemPath}"
                     ${labelFragment}
-                    :disabled="!editMode || ${disabled}"
+                    :disabled="(!editMode && !${unlocked}) || ${disabled}"
                 >
                 ${valueParam == undefined ? `
                 <template #append-inner>
@@ -664,19 +665,19 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const valueSystemPath = getSystemPath(element, ["value"], undefined, false);
 
                 return expandToNode`
-                    <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${valueSystemPath}" :context="context" :min="${min}" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
+                    <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${valueSystemPath}" :context="context" :min="${min}" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
                 `;
             }
 
             if (isResourceExp(element)) {
                 return expandToNode`
-                <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
+                <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
                 `;
             }
 
             if (isSingleDocumentExp(element)) {
                 return expandToNode`
-                <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" documentName="${element.document.ref?.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :secondaryColor="secondaryColor"></i-document-link>
+                <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" documentName="${element.document.ref?.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :secondaryColor="secondaryColor"></i-document-link>
                 `;
             }
 
@@ -694,7 +695,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 let image = imageParam?.value ?? `systems/${id}/img/paperdoll_default.png`;
 
                 return expandToNode`
-                <i-paperdoll label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" image="${image}" size="${size}" :slots="${element.name.toLowerCase()}Slots"></i-paperdoll>
+                <i-paperdoll label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" image="${image}" size="${size}" :slots="${element.name.toLowerCase()}Slots"></i-paperdoll>
                 `;
             }
             

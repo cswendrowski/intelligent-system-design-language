@@ -227,6 +227,7 @@ export function generateVueMixin(description: string) {
 
                     // Expose the document.
                     this.vueApp.provide("rawDocument", this.document);
+                    this.vueApp.provide("rawSheet", this);
 
                     // Mount and store the vue application.
                     this.vueRoot = this.vueApp.mount(target);

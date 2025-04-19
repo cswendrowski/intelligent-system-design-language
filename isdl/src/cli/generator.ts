@@ -613,9 +613,14 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         /* -------------------------------------------- */
 
         function registerStatusEffects() {
+            ${statusEffects.length > 0 ? `
             CONFIG.statusEffects = [
+                {"id":"dead","name":"EFFECT.StatusDead","img":"icons/svg/skull.svg"},
+                {"id":"unconscious","name":"EFFECT.StatusUnconscious","img":"icons/svg/unconscious.svg"},
+                {"id":"invisible","name":"EFFECT.StatusInvisible","img":"icons/svg/invisible.svg"},
                 ${joinToNode(statusEffects, document => generateStatusEffect(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
             ];
+            ` : ""}
         }
 
         /** -------------------------------------------- */
