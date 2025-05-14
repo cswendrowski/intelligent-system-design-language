@@ -254,9 +254,30 @@ export function translateExpression(entry: Entry, id: string, expression: string
         console.log("Translating Binary Expression: ", expression.e1.$type, expression.op, expression.e2.$type);
         let a = translateExpression(entry, id, expression.e1, preDerived, generatingProperty);
         let b = translateExpression(entry, id, expression.e2, preDerived, generatingProperty);
-        return expandToNode`
-            ${a} ${expression.op} ${b}
-        `;
+
+        let op = `${expression.op}`;
+
+        // If the term is "equals" or "==", we need to translate it to "===" in JavaScript
+        if (op == "equals" || op == "==") {
+            op = "===";
+        }
+
+        // !equals
+        if (op == "!equals" || op == "!=") {
+            op = "!==";
+        }
+
+        // Or
+        if (op == "or") {
+            op = "||";
+        }
+
+        // And
+        if (op == "and") {
+            op = "&&";
+        }
+
+        return expandToNode`${a} ${op} ${b}`;
     }
 
     function translateLiteralExpression(expression: Literal): CompositeGeneratorNode | undefined {

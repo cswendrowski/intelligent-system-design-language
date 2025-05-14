@@ -19,6 +19,7 @@ export function generateVueMixin(description: string) {
         'i-paperdoll': 'Paperdoll',
         "i-calculator": "Calculator",
         "i-text-field": "TextField",
+        "i-datetime": "DateTime",
     };
 
     const fileNode = expandToNode`

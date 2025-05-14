@@ -115,19 +115,56 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 const minParam = property.params.find(p => isNumberParamMin(p));
                 const maxParam = property.params.find(p => isNumberParamMax(p));
 
+                if (valueParam) {
+                    return expandToNode`
+                    // ${property.name} Number Calculated Data
+
+
+                    ${minParam != undefined ? expandToNode`
+                        const ${property.name.toLowerCase()}MinFunc = (system) => {
+                            ${translateMethodOrValueOrStored(property, minParam)}
+                        };
+                        const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
+                        `.appendNewLine() : ""}
+    
+                    ${maxParam != undefined ? expandToNode`
+                        const ${property.name.toLowerCase()}MaxFunc = (system) => {
+                            ${translateMethodOrValueOrStored(property, maxParam)}
+                        };
+                        const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
+                        `.appendNewLine() : ""}
+
+                    // ${property.name} Number Derived Data
+                    const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        ${translateMethodOrValueOrStored(property, valueParam)}
+                    };
+                    Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
+                        get: () => {
+                            let current = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                            ${minParam != undefined ? expandToNode`
+                                if ( current < ${property.name.toLowerCase()}Min ) {
+                                    current = ${property.name.toLowerCase()}Min;
+                                }
+                            `.appendNewLine() : ""}
+                            ${maxParam != undefined ? expandToNode`
+                                if ( current > ${property.name.toLowerCase()}Max ) {
+                                    current = ${property.name.toLowerCase()}Max;
+                                }
+                            `.appendNewLine() : ""}
+                            return current;
+                        },
+                        configurable: true
+                    });
+
+                    `.appendNewLineIfNotEmpty();
+                }
+
                 return expandToNode`
                     // ${property.name} Number Derived Data
                     const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
                         ${translateMethodOrValueOrStored(property, valueParam)}
                     };
-                    ${valueParam != undefined ? expandToNode`
-                    Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
-                        get: () => ${property.name.toLowerCase()}CurrentValueFunc(this.system),
-                        configurable: true
-                    });
-                    `.appendNewLine() : expandToNode`
                     this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
-                    `.appendNewLine()}
 
                     ${minParam != undefined ? expandToNode`
                     const ${property.name.toLowerCase()}MinFunc = (system) => {
@@ -189,7 +226,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         max: ${property.name.toLowerCase()}MaxFunc(this.system)
                     };
                     this.reapplyActiveEffectsForName("system.${property.name.toLowerCase()}.max");
-                    if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
+                    if ( !editMode && this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
                     }
                 `.appendNewLineIfNotEmpty();
@@ -273,6 +310,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
         function generateDerivedData(document: Document): CompositeGeneratorNode | undefined {
             return expandToNode`
                 async _prepare${document.name}DerivedData() {
+                    const editMode = this.flags["${id}"]?.["edit-mode"] ?? true;
+
                     ${joinToNode(document.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true })}
 
                     ${isActor(document) ? expandToNode`

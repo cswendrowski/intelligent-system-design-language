@@ -199,6 +199,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as Paperdoll } from './components/paperdoll.vue';
     export { default as Calculator } from './components/calculator.vue';
     export { default as TextField } from './components/text-field.vue';
+    export { default as DateTime } from './components/date-time.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();

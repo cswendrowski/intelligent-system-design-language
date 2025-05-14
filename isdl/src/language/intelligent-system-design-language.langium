@@ -214,7 +214,13 @@ AddOrSubtract infers Expression:
     MultiplyOrDivide ({infer BinaryExpression.e1=current} op=('+'|'-') e2=MultiplyOrDivide)*;
 
 MultiplyOrDivide infers Expr:
-    PrimitiveExpression ({infer BinaryExpression.e1=current} op=('*'|'/') e2=PrimitiveExpression)*;
+    Logical ({infer BinaryExpression.e1=current} op=('*'|'/') e2=Logical)*;
+
+Logical infers Expr:
+    Comparison ({infer BinaryExpression.e1=current} op=('and' | 'or') e2=Comparison)*;
+
+Comparison infers Expr:
+    PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 
 PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression;
 

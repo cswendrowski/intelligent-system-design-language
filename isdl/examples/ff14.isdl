@@ -61,7 +61,7 @@ item PrimaryAbility {
 
     action Roll(icon: "fa-solid fa-dice-d20") {
         if (parent is PC) {
-            fleeting attack = roll(d20 + self.CheckAttribute.mod)
+            fleeting attack = roll(d20 + 5)
             parent.MP -= self.Cost
 
             chat AbilityRoll {

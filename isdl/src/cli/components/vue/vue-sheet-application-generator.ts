@@ -593,7 +593,15 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                 if (valueParam !== undefined) {
                     return expandToNode`
-                    <v-text-field name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="true" variant="outlined" density="compact" append-inner-icon="fa-solid fa-function" :data-tooltip="context.${systemPath}"></v-text-field>
+                    <v-text-field 
+                        name="${systemPath}"
+                        v-model="context.${systemPath}" 
+                        ${labelFragment} 
+                        :disabled="true" 
+                        variant="outlined" 
+                        density="compact"
+                        append-inner-icon="fa-solid fa-function" 
+                        :data-tooltip="context.${systemPath}"></v-text-field>
                     `;
                 }
 
@@ -601,7 +609,16 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
                     return expandToNode`
-                    <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="(!editMode && !${unlocked}) || ${disabled}" variant="outlined" density="compact"></v-select>
+                    <v-select 
+                        name="${systemPath}" 
+                        v-model="context.${systemPath}" 
+                        :items="[${choices}]" 
+                        item-title="label" 
+                        item-value="value" 
+                        :label="game.i18n.localize('${label}.label')"
+                        :disabled="(!editMode && !${unlocked}) || ${disabled}"
+                        variant="outlined" 
+                        density="compact"></v-select>
                     `;
                 }
                 return expandToNode`
@@ -681,9 +698,22 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 `;
             }
 
-            if (isDateExp(element) || isTimeExp(element) || isDateTimeExp(element)) {
+            if (isDateExp(element)) {
                 return expandToNode`
-                <p>${label} - TODO</p>
+                <i-datetime type="date" label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-datetime>
+
+                `;
+            }
+
+            if (isTimeExp(element)) {
+                return expandToNode`
+                <i-datetime type="time" label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-datetime>
+                `;
+            }
+
+            if (isDateTimeExp(element)) {
+                return expandToNode`
+                <i-datetime type="datetime-local" label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-datetime>
                 `;
             }
 

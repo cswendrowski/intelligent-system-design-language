@@ -570,6 +570,9 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         })
     action Damage(icon: "fa-solid fa-heart-crack" ){
         fleeting damageRoll = roll(self.DamageRoll + self.DamageMod)
+        if (5 < 7 and (4 > 1 or self.DiceCount > 1)) {
+            self.DamageRoll = self.DamageRoll + 1
+        }
         chat AttackOutcome {
             damageRoll
             tag self.DamageType
@@ -640,6 +643,8 @@ item Advancement(svg: "icons/svg/progression.svg", description: "A record of a c
     }
     section Logging {
     date Awarded
+    time AwardedTime
+    datetime AwardedDateTime
     string IngameDate
     }
 }

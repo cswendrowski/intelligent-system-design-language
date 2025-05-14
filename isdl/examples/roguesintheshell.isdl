@@ -1,0 +1,132 @@
+config RougesInTheShell {
+    label = "Rouges In The Shell"
+    id = "rogues-in-the-shell"
+    description = "An experimental d100 mech combat system."
+    author = "Cody Swendrowski"
+}
+
+actor Mech {
+    section Resources {
+        health resource Hull
+        resource Armor
+        resource ElectricDefense
+    }
+
+    section Stats {
+        string Size(choices: ["Small", "Medium", "Large"])
+        attribute Evasion
+        attribute Speed
+    }
+
+    Mount[] Mounts
+    Module[] Modules
+}
+
+item Mount {
+    string Type(choices: ["Weapon", "Attachment"])
+    string Size(choices: ["Small", "Medium", "Large"])
+    Weapon Weapon
+    Attachment Attachment
+}
+
+item Module {
+    string Size(choices: ["Small", "Medium", "Large"])
+}
+
+item Weapon {
+    string Size(choices: ["Small", "Medium", "Large"])
+    string Type(choices: ["Melee", "Ranged"])
+    string Targets
+    string DamageType(choices: ["Physical", "Electric"])
+    string Damage
+    number Accuracy
+    html Tags
+    number ModuleSlots
+
+    Module[] Modules
+    Ammo Ammo
+
+    action Attack {
+        fleeting attackRoll = roll(d100)
+        fleeting damageRoll = roll(self.Damage)
+        fleeting target = @js{game.actors.get(game.user.targets.first().document.actorId)}
+        fleeting evasion = target.system.evasion.value
+        fleeting targetName = target.name
+        fleeting targetAmount = 100 - @js{context.object.system.accuracy}
+
+        fleeting hit = false
+        fleeting resultStatus = 0
+        if (attackRoll.total >= targetAmount) {
+            hit = true
+        }
+        
+        fleeting evaded = false
+        if (attackRoll.total <= evasion) {
+            evaded = true
+        }
+
+        fleeting message = ""
+        if ( hit ) {
+            if ( evaded ) {
+                message = "Partially Evaded, half damage"
+            } else {
+                message = "Direct Hit, full damage"
+            }
+        }
+        else {
+            if ( evaded ) {
+                message = "Evaded, no damage"
+            } else {
+                message = "Glancing blow, half damage"
+            }
+        }
+
+        chat AttackRoll {
+            flavor "vs " + targetName
+            attackRoll
+            "vs " + targetName + "'s Evasion: " + evasion
+            message
+            damageRoll
+            self.Tags
+            tag self.Targets
+            tag self.Type
+            tag self.Accuracy
+            tag self.DamageType
+        }
+    }
+}
+
+item Ammo {
+    string Size(choices: ["Small", "Medium", "Large"])
+    string Type(choices: ["Physical", "Electric"])
+}
+
+item Attachment {
+    string Type(choices: ["Armor", "Shield", "Engine"])
+    number Armor
+    number Shield
+    number Speed
+    number ModuleSlots
+
+    Module[] Modules
+}
+
+actor Monster {
+    string Size(choices: ["Small", "Medium", "Large"])
+
+    section Stats {
+        health resource Hull
+        resource Armor
+        resource ElectricDefense
+        attribute Evasion
+        attribute Speed
+    }
+}
+
+item MonsterAttack {
+    string Range(choices: ["Melee", "Ranged"])
+    number Accuracy
+    number Damage
+    string DamageType(choices: ["Physical", "Electric"])
+    html Tags
+}
