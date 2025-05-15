@@ -570,7 +570,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         })
     action Damage(icon: "fa-solid fa-heart-crack" ){
         fleeting damageRoll = roll(self.DamageRoll + self.DamageMod)
-        if (5 < 7 and (4 > 1 or self.DiceCount > 1)) {
+        if (damageRoll.total < 7 and (damageRoll > 1 or self.DiceCount > 1)) {
             self.DamageRoll = self.DamageRoll + 1
         }
         chat AttackOutcome {

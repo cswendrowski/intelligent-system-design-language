@@ -169,15 +169,6 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 };
             }
 
-            ${type == "item" ? expandToNode`` : 
-            expandToNode`
-            _onUpdateBaseActor(update={}, options={}) {
-                if (foundry.utils.isEmpty(update)) return;
-                if (!this.isEditable) return;
-                super._onUpdateBaseActor(update, options);
-            }
-            `}
-
             /**
              * Actions performed after any render of the Application.
              * Post-render steps are not awaited by the render process.

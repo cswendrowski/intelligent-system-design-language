@@ -134,6 +134,12 @@ export function generateTokenDocument(entry: Entry, id: string, destination: str
             data.value += resource.temp;
             return data;
         }
+
+        _onUpdateBaseActor(update={}, options={}) {
+            if (foundry.utils.isEmpty(update)) return;
+            if (!this.isEditable) return;
+            super._onUpdateBaseActor(update, options);
+        }
     }`.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode), 'utf-8');

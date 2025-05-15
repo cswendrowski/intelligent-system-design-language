@@ -282,7 +282,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 data: 'name',
                 title: game.i18n.localize("Name"),
                 responsivePriority: 1,
-                width: '200px'
+                width: '200px',
+                render: function (data, type, context) {
+                    if (type === 'display') {
+                        return \`<span data-tooltip="\${context.description}">\${data}</span>\`;
+                    }
+                    return data;
+                }
             },
             {
                 data: 'origin',

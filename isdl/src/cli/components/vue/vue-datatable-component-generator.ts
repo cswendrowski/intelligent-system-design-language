@@ -149,7 +149,14 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 data: 'name',
                 title: game.i18n.localize("Name"),
                 responsivePriority: 1,
-                width: '200px'
+                width: '200px',
+                render: function (data, type, context) {
+                    console.dir(data, type, context);
+                    if (type === 'display') {
+                        return \`<span data-tooltip="\${context.system.description}">\${data}</span>\`;
+                    }
+                    return data;
+                }
             },
             ${joinToNode(table.document.ref!.body, p => generateDataTableColumn(table.document, p), { appendNewLineIfNotEmpty: true })}
             { 
@@ -169,6 +176,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             colReorder: false,
             order: [[1, 'asc']],
             createdRow: (row, data) => {
+                //row.setAttribute('data-tooltip', data.description);
                 row.setAttribute("data-id", data._id);
                 row.setAttribute("data-uuid", data.uuid);
                 row.setAttribute("data-type", data.type);
