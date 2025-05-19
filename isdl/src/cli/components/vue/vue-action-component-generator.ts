@@ -8,7 +8,7 @@ import { generatePromptSheetClass } from './vue-prompt-sheet-class-generator.js'
 
 export function generateActionComponent(entry: Entry, id: string, document: Document, action: Action, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "actions");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "actions");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${action.name}Action.vue`);
     const iconParam = action.conditions.find(x => isIconParam(x)) as IconParam;
 

@@ -17,7 +17,7 @@ const packageContent = await fs.readFile(packagePath, 'utf-8');
 export const generateAction = async (fileName: string, opts: GenerateOptions): Promise<void> => {
     const services = createIntelligentSystemDesignLanguageServices(NodeFileSystem).IntelligentSystemDesignLanguage;
     const model = await extractAstNode<Entry>(fileName, services);
-    const generatedFilePath = generateJavaScript(model, fileName, opts.destination);
+    const generatedFilePath = await generateJavaScript(model, fileName, opts.destination);
     console.log(chalk.green(`Intelligent System generated successfully: ${generatedFilePath}`));
 };
 

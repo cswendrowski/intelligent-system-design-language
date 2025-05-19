@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { Action, Document, Entry, isAction, isActor, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
+import { Action, Document, DocumentArrayExp, Entry, isAction, isActor, isDocumentArrayExp, isPage, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
 import { generateDocumentVueComponent } from "./vue-sheet-application-generator.js";
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { generateDocumentVueSheet } from './vue-sheet-class-generator.js';
@@ -12,8 +12,20 @@ import vuetify from 'vite-plugin-vuetify';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
 import { generateVueMixin } from './vue-mixin.js';
 import { getAllOfType } from '../utils.js';
+import { generateDatatableVueSheet } from './vue-datatable-sheet-class-generator.js';
+import { AstUtils } from 'langium';
 
 export function generateVue(entry: Entry, id: string, destination: string) {
+
+    // Clear the vue directory
+    const vueDir = path.join(destination, "system", "templates", "vue");
+    try {
+        if (fs.existsSync(vueDir)) {
+            fs.rmSync(vueDir, { recursive: true, force: true });
+        }
+    } catch (err) {
+        console.error(`Error while deleting directory ${vueDir}:`, err);
+    }
 
     copyVueBrowserJs(destination);
     copyVuetifyJs(destination);
@@ -24,13 +36,15 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     generateIndexMjs(entry, destination);
     generateBaseVueComponents(destination);
 
+    generateDatatableVueSheet(entry, id, destination);
+
     entry.documents.forEach(x => {
         generateDocumentVueSheet(entry, id, x, destination);
         generateDocumentVueComponent(entry, id, x, destination);
     });
 }
 
-export function runViteBuild(destination: string) {
+export async function runViteBuild(destination: string) {
     try {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
@@ -58,7 +72,7 @@ export function runViteBuild(destination: string) {
             },
             build: {
                 emptyOutDir: true, // Clears previous builds
-                sourcemap: true, // Optional: Enable for debugging
+                sourcemap: false, // Optional: Enable for debugging
                 outDir: "./system/sheets/vue/components",
                 lib: {
                     entry: "./system/templates/vue/index.mjs", // Entry point
@@ -79,7 +93,8 @@ export function runViteBuild(destination: string) {
                 }
             }
         });
-        build(config);
+        process.env.DEBUG = '*';
+        await build(config);
     }
     catch (e) {
         console.error(e);
@@ -174,7 +189,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
 
     function generateExport(document: Document) {
         const type = isActor(document) ? 'actor' : 'item';
-        return `export { default as ${document.name}${titleize(type)}App } from './${type}/${document.name.toLowerCase()}App.vue';`;
+        return `export { default as ${document.name}${titleize(type)}App } from './${type}/${document.name.toLowerCase()}/${document.name.toLowerCase()}App.vue';`;
     }
 
     function generateDocumentPromptExports(document: Document): CompositeGeneratorNode | undefined {
@@ -187,7 +202,25 @@ function generateIndexMjs(entry: Entry, destination: string) {
         const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
         const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
         
-        return joinToNode(prompts.map(x => `export { default as ${document.name}${titleize(type)}${action.name}Prompt } from './${type}/components/prompts/${document.name.toLowerCase()}${action.name}Prompt.vue';`), { appendNewLineIfNotEmpty: true });
+        return joinToNode(prompts.map(x => `export { default as ${document.name}${titleize(type)}${action.name}Prompt } from './${type}/${document.name.toLowerCase()}/components/prompts/${document.name.toLowerCase()}${action.name}Prompt.vue';`), { appendNewLineIfNotEmpty: true });
+    }
+
+    function generateDatatableExportForDocument(document: Document): CompositeGeneratorNode {
+
+        function generateDatatableExport(datatable: DocumentArrayExp): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(datatable, isPage);
+            const pageName = page ? page.name : document.name;
+
+            return expandToNode`
+                export { default as ${type}${document.name}${pageName}${datatable.name}Datatable } from "./${type}/${document.name.toLowerCase()}/components/datatables/${document.name.toLowerCase()}${pageName.toLowerCase()}${datatable.name}Datatable.vue";
+            `;
+        }
+
+        const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
+        return expandToNode`
+            ${joinToNode(datatables, generateDatatableExport, { separator: "\n" })}
+        `;
     }
 
     const fileNode = expandToNode`
@@ -202,6 +235,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as DateTime } from './components/date-time.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
+    ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
     `.appendNewLine();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

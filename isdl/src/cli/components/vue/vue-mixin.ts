@@ -103,6 +103,18 @@ export function generateVueMixin(description: string) {
                     return Object.values(this.vueParts).map((part) => part.template);
                 }
 
+                vueData(context) {
+                    return {
+                        context: context
+                    };
+                }
+
+                _getProvidedData() {
+                    // This is a placeholder for any data you want to provide to the Vue app.
+                    // You can override this method in your subclass to provide additional data.
+                    return {};
+                }
+
                 /**
                  * Render the outer framing HTMLElement and mount the Vue application.
                  *
@@ -117,7 +129,6 @@ export function generateVueMixin(description: string) {
                 async _renderFrame(options) {
                     // Retrieve the context and element.
                     const context = await this._prepareContext(options);
-                    console.log("Vue App Context:", context, this.document);
                     const element = await super._renderFrame(options);
 
                     // Grab our application target and render our parts.
@@ -173,13 +184,14 @@ export function generateVueMixin(description: string) {
                         component: Vuetify.components.VClassIcon
                     };
 
+                    const vueData = this.vueData(context);
+                    console.log("Vue App Data:", vueData, this.document);
+
                     // Create and store the Vue application instance.
                     this.vueApp = createApp({
                         // Data available in the template.
                         data() {
-                            return {
-                                context: context
-                            };
+                            return vueData;
                         },
                         // Components allowed by the application.
                         components: this.vueComponents,
@@ -229,6 +241,12 @@ export function generateVueMixin(description: string) {
                     // Expose the document.
                     this.vueApp.provide("rawDocument", this.document);
                     this.vueApp.provide("rawSheet", this);
+
+                    // Expose any extras
+                    const providedData = this._getProvidedData();
+                    for (let key of Object.keys(providedData)) {
+                        this.vueApp.provide(key, providedData[key]);
+                    }
 
                     // Mount and store the vue application.
                     this.vueRoot = this.vueApp.mount(target);

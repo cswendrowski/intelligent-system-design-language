@@ -7,7 +7,7 @@ import { Reference } from 'langium';
 
 export function generateDatatableComponent(id: string, document: Document, pageName: string, table: DocumentArrayExp, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "datatables");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "datatables");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${pageName}${table.name}Datatable.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
@@ -79,9 +79,13 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             context: Object
         });
         const document = inject('rawDocument');
+        const injectedSystemPath = inject('systemPath');
 
         const data = computed(() => {
-            return foundry.utils.getProperty(props.context, props.systemPath);
+            const systemPath = props.systemPath ?? injectedSystemPath;
+            console.log(props.systemPath, injectedSystemPath, systemPath);
+            console.log("Getting data for datatable", systemPath, props.context);
+            return foundry.utils.getProperty(props.context, systemPath);
         });
 
         const humanize = (str) => {
@@ -136,6 +140,15 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 console.error(e);
             }
         };
+        
+        function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
 
         const columns = [
             { 
@@ -151,9 +164,9 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 responsivePriority: 1,
                 width: '200px',
                 render: function (data, type, context) {
-                    console.dir(data, type, context);
                     if (type === 'display') {
-                        return \`<span data-tooltip="\${context.system.description}">\${data}</span>\`;
+                        const description = escapeHtml(context.system?.description || "");
+                        return \`<span data-tooltip='\${description}'>\${data}</span>\`;
                     }
                     return data;
                 }
@@ -190,9 +203,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                         {
                             text: '<i class="fas fa-plus"></i> Add',
                             action: (e, dt, node, config) => {
-                                // Find the parent tab so we know what type of Item to create
-                                const tab = e.currentTarget.closest(".v-window-item");
-                                const type = tab.dataset.type;
+                                const type = '${table.document.ref?.name.toLowerCase()}';
                                 Item.createDocuments([{type: type, name: "New " + type}], {parent: document}).then(item => {
                                     item[0].sheet.render(true);
                                 });

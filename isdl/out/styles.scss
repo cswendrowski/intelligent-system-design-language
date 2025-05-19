@@ -183,6 +183,22 @@
     //     }
     // }
 
+    &.isdl-prompt, .isdl-datatable {
+        .v-application__wrap {
+            min-height: 100%;
+        }
+    }
+    
+    &.isdl-datatable {
+        color: black;
+        background-repeat: repeat;
+        @include backgrounds.topography;
+
+        > .window-content {
+            padding: 16px;
+        }
+    }
+
     .window-content {
         overflow-y: scroll;
     }

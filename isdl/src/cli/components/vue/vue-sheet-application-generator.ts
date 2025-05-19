@@ -10,7 +10,7 @@ import { generateDocumentChoiceComponent } from './vue-document-choice-component
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type);
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase());
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}App.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
@@ -203,6 +203,18 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             editMode.value = !editMode.value;
             document.setFlag('${id}', 'edit-mode', editMode.value);
         };
+
+        function spawnDatatableWindow(e, pageName, tabName) {
+            if (event.button === 1) {
+                event.preventDefault();
+                event.stopPropagation();
+                const tableName = \`${isActor(document) ? 'actor' : 'item'}${document.name}\${pageName}\${tabName}\`;
+                const systemName = "system." + tabName.toLowerCase();
+                console.log("Spawning datatable window for " + tableName, systemName);
+                const sheet = new game.system.datatableApp(document, tableName, systemName, tabName);
+                sheet.render(true);
+            }
+        }
 
         // Effects
         const effects = ref([]);
@@ -467,8 +479,10 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     function generateTab(tab: DocumentArrayExp): CompositeGeneratorNode {
         const iconParam = tab.params.find(p => isIconParam(p)) as IconParam | undefined;
         const icon = iconParam?.value ?? "fa-solid fa-table";
+        const page = AstUtils.getContainerOfType(tab, isPage) as Page;
+        const pageName = page ? page.name : document.name;
         return expandToNode`
-            <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}">{{ game.i18n.localize('${tab.name}') }}</v-tab>
+            <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${pageName}', '${tab.name}')">{{ game.i18n.localize('${tab.name}') }}</v-tab>
         `;
     }
 

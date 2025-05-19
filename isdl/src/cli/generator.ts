@@ -47,7 +47,7 @@ import { getAllOfType } from './components/utils.js';
 import { generateCanvasToken, generateTokenDocument } from './components/token-generator.js';
 import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
 
-export function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): string {
+export async function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): Promise<string> {
     const config = entry.config;
 
     const data = extractDestinationAndName(filePath, destination);
@@ -107,7 +107,9 @@ export function generateJavaScript(entry: Entry, filePath: string, destination: 
         generateDocumentHandlebars(id, x, data.destination, false);
     });
 
-    runViteBuild(data.destination);
+    console.log("Running Vite build");
+    await runViteBuild(data.destination);
+    console.log("Vite build complete");
 
     return data.destination;
 }
@@ -406,6 +408,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         ${joinToNode(entry.documents, document => `import ${document.name}TypeDataModel from "../datamodels/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}Sheet from "../sheets/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}VueSheet from "../sheets/vue/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
+        import DataTableApp from "../sheets/vue/datatable-app.mjs";
         ${joinToNode(entry.documents, generateDocumentPromptImports, { appendNewLineIfNotEmpty: true })}
         import ${entry.config.name}EffectSheet from "../sheets/active-effect-sheet.mjs";
         import ${entry.config.name}Actor from "../documents/actor.mjs";
@@ -433,6 +436,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerUtils();
             //addVueImportMap();
 
+            game.system.datatableApp = DataTableApp;
             game.system.rollClass = ${entry.config.name}Roll;
             CONFIG.Dice.rolls.push(${entry.config.name}Roll);
         }

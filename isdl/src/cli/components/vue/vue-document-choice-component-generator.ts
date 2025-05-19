@@ -8,7 +8,7 @@ import { getSystemPath } from '../utils.js';
 
 export function generateDocumentChoiceComponent(entry: Entry, id: string, document: Document, documentChoice: DocumentChoiceExp, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "document-choices");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "document-choices");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${documentChoice.name}DocumentChoice.vue`);
 
     const iconParam = documentChoice.params.find(isIconParam) as IconParam | undefined;

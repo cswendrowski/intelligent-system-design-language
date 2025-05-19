@@ -8,7 +8,7 @@ import { AstUtils } from 'langium';
 
 export function generatePromptApp(name: string, entry: Entry, id: string, document: Document, prompt: Prompt, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, "components", "prompts");
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "prompts");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${name}Prompt.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
