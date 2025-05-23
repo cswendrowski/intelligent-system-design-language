@@ -1,7 +1,7 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isNumberParamValue, isPage, isResourceExp, isSection, isStatusProperty, isStringExp } from '../../language/generated/ast.js';
+import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHookHandler, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isNumberParamValue, isPage, isResourceExp, isSection, isStatusProperty, isStringExp } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -14,7 +14,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
     function generateAddValue(document: Document, property: ClassExpression | Page |Section): CompositeGeneratorNode | undefined {
 
-        if ( isAccess(property) || isAction(property) || isIfStatement(property) ) return undefined;
+        if ( isAccess(property) || isAction(property) || isIfStatement(property) || isHookHandler(property) ) return undefined;
 
         if ( isSection(property) ) {
             return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
@@ -237,7 +237,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
             return joinToNode(property.body, property => generateField(document, property), { appendNewLineIfNotEmpty: true });
         }
 
-        if ( isHtmlExp(property) || isInitiativeProperty(property) || isStatusProperty(property) ) return;
+        if ( isHtmlExp(property) || isInitiativeProperty(property) || isStatusProperty(property) || isHookHandler(property) ) return;
         if ( property.modifier == "locked" ) return;
 
         if ( isNumberExp(property) ) {

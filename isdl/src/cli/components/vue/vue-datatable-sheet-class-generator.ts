@@ -63,8 +63,6 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
                 this.tabName = tabName;
 
                 const component = this._chooseComponent(table);
-                console.log("Component: ", component);
-                console.log("System Path: ", this.systemPath);
                 this.vueParts = {
                     "datatable": {
                         component,
@@ -128,8 +126,7 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             };
 
             get title() {
-                //return \`\${this.document.name} - \${this.tabName}\`;
-                return this.document.name;
+                return \`\${this.document.name} - \${this.tabName}\`;
             }
 
             async _prepareContext(options) {

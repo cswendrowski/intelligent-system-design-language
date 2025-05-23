@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { AttributeExp, ClassExpression, Document, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import { AttributeExp, ClassExpression, Document, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHookHandler, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
 import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { AstUtils } from 'langium';
 
@@ -47,6 +47,7 @@ export function generatePromptApp(name: string, entry: Entry, id: string, docume
     
 function generateElement(element: ClassExpression): CompositeGeneratorNode {
     if (isProperty(element)) {
+        if (isHookHandler(element)) return expandToNode``;
         if (element.modifier == "hidden") return expandToNode``;
         
         if (element.name == "RollVisualizer") {

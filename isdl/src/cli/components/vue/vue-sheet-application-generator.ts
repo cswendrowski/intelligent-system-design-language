@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, BackgroundParam, ClassExpression, Document, DocumentArrayExp, DocumentChoiceExp, Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHtmlExp, isIconParam, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, NumberExp, NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import { Action, AttributeExp, BackgroundParam, ClassExpression, Document, DocumentArrayExp, DocumentChoiceExp, Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHookHandler, isHtmlExp, isIconParam, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, NumberExp, NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
 import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { AstUtils } from 'langium';
@@ -104,7 +104,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed } from "vue";
-        ${joinToNode(tabs, tab => importDataTable("character", tab), { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(tabs, tab => importDataTable(document.name, tab), { appendNewLineIfNotEmpty: true })}
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, { appendNewLineIfNotEmpty: true })}
@@ -148,7 +148,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         });
 
         // Pages and Tabs
-
         const lastStates = game.settings.get('${id}', 'documentLastState');
         const lastState = lastStates[document.uuid] ?? {
             page: 'character',
@@ -184,13 +183,18 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         });
 
         const pageBackgrounds = {
-            'character': 'topography',
+            '${document.name.toLowerCase()}': 'topography',
             ${joinToNode(pages, getPageBackground, { separator: ',', appendNewLineIfNotEmpty: true })}
         };
 
+
         const pageBackground = computed(() => {
+            console.log("Computing page background for: " + page.value);
             if (editMode.value) {
                 return 'edit-mode';
+            }
+            if (props.context.system.dead) {
+                return 'dead';
             }
             return pageBackgrounds[page.value];
         });
@@ -210,7 +214,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 event.stopPropagation();
                 const tableName = \`${isActor(document) ? 'actor' : 'item'}${document.name}\${pageName}\${tabName}\`;
                 const systemName = "system." + tabName.toLowerCase();
-                console.log("Spawning datatable window for " + tableName, systemName);
                 const sheet = new game.system.datatableApp(document, tableName, systemName, tabName);
                 sheet.render(true);
             }
@@ -438,7 +441,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             <v-tabs v-model="tab" grow always-center>
                                     <v-tab value="description" prepend-icon="fa-solid fa-book">Description</v-tab>
                                     ${joinToNode(firstPageTabs, generateTab, { appendNewLineIfNotEmpty: true })}
-                                    <v-tab value="effects" prepend-icon="fa-solid fa-sparkles">Effects</v-tab>
+                                    <v-tab value="effects" prepend-icon="fa-solid fa-sparkles" @mousedown="spawnDatatableWindow($event, '${document.name}', 'effects')">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
                                 <v-tabs-window-item value="description" data-tab="description" class="tabs-container">
@@ -551,6 +554,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         }
 
         if (isProperty(element)) {
+            if (isHookHandler(element)) return expandToNode``;
             if (element.modifier == "hidden") return expandToNode``;
             
             if (element.name == "RollVisualizer") {

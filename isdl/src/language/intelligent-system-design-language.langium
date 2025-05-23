@@ -46,12 +46,12 @@ ClassExpression:
     (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp | DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp |
+     DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp |
+      DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp | HookHandler);
 
 fragment Self:
-    (( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )) ("." subProperties+=ID)*;
-
-// | ("self." access=("Name" | "Description" | "Image" | "Type" ))
+    (("self." access=("Name" | "Description" | "Image" | "DocumentType" )) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=ID)*;
 
 Access:
     Self;
@@ -165,7 +165,7 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update );
+    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression );
 
 JS: js=JS_LINE;
 
@@ -246,6 +246,9 @@ MathSingleExpression:
 
 MathParamExpression:
     "Math." operation=("max" | "min") "(" params+=Expression ("," params+=Expression)* ")";
+
+LogExpression:
+    "log" "(" params+=Expression ("," params+=Expression)* ")";
 
 // literal
 Literal:        val=(INT|STRING|DICE|NOTHING|BOOLEAN);
@@ -340,6 +343,12 @@ StatusPropertyParameter:
 
 StatusParamWhen:
     "when:" when=(WhenExpressions | MethodBlock);
+
+HookHandler:
+    "on" name=('combatStart' | 'combatEnd' | 'turnIsNext' | 'turnStart' | 'turnEnd' | 'roundStart' | 'roundEnd' | 'death' | ID) ("(" params+=MethodParam ("," params+= MethodParam)* ")")? "{" body+=(MethodBlockExpression)* "}";
+
+MethodParam:
+    name=ID;
 
 fragment ExpressionModifier:
     (modifier=("hidden" | "readonly" | "unlocked" | "locked"))?;

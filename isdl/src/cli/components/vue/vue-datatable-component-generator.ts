@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isParentPropertyRefExp, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHookHandler, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isParentPropertyRefExp, isProperty, isSection, isStringExp, isStringParamChoices, isTimeExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
@@ -20,7 +20,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 ${joinToNode(property.body, p => generateDataTableColumn(refDoc, p), { appendNewLineIfNotEmpty: true })}
             `;
         }
-        if ( isHtmlExp(property) || isInitiativeProperty(property) || isPaperDollElement(property) ) return undefined;
+        if ( isHtmlExp(property) || isInitiativeProperty(property) || isPaperDollElement(property) || isHookHandler(property) ) return undefined;
 
         if ( isProperty(property) ) {
             const isHidden = property.modifier == "hidden";

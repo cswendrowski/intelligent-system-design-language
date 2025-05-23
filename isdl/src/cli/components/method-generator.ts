@@ -92,6 +92,7 @@ import {
     isUpdateSelf,
     isParentTypeCheckExpression,
     isParentPropertyRefExp,
+    isLogExpression,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
@@ -356,6 +357,22 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateAccessExpression(expression: Access, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined): CompositeGeneratorNode | undefined {
+        
+        // If we are accessing special values, we need to handle them differently
+        if ( expression.access != undefined ) {
+            let accessName = expression.access.toString();
+
+            switch (accessName) {
+                case "DocumentType": accessName = "type"; break;
+                default: accessName = accessName.toLowerCase(); break;
+            }
+
+            console.log("Access Name: ", accessName);
+            return expandToNode`
+                context.object.${accessName}
+            `;
+        }
+        
         if (expression.property?.ref == undefined) {
             return;
         }
@@ -1221,6 +1238,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
             `;
         }
         throw new Error("Unknown Math Expression type encountered while translating to JavaScript ");
+    }
+
+    if (isLogExpression(expression)) {
+        console.log("Translating Log Expression: ");
+        return expandToNode`
+            console.log(${joinToNode(expression.params, x => translateExpression(entry, id, x, preDerived, generatingProperty), {separator: ", "})})
+        `;
     }
 
     if (isUpdate(expression)) {

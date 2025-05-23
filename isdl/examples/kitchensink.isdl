@@ -71,6 +71,41 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             action Reset {
                 self.Count = 0
             }
+
+            on combatStart {
+                log("Combat started")
+                self.Count = 0
+            }
+
+            on combatEnd {
+                log("Combat ended")
+                self.Count = 0
+            }
+
+            on roundStart (roundNumber) {
+                log("Round " + roundNumber)
+                self.Count = 0
+            }
+
+            on roundEnd (roundNumber) {
+                log("Round " + roundNumber + " ended")
+            }
+
+            on turnStart {
+                log("Turn of " + self.Name)
+            }
+
+            on turnEnd {
+                log("Turn of " + self.Name + " ended")
+            }
+
+            on turnIsNext {
+                log("Turn of " + self.Name + " is next")
+            }
+
+            on death {
+                log("Death of " + self.Name)
+            }
         }
 
         section FancyCounter {
@@ -96,6 +131,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     
     
     section Health {
+        death status Dead(when: self.HP <= 0)
+        status Staggered
+
         health resource HP(max: {
             return self.Endure + 6
         })

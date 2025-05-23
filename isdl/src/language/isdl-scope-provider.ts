@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Document, IfStatement, isAccess, isAssignment, isDocument, isEntry, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isStatusProperty, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
+import { Document, IfStatement, isAccess, isAssignment, isDocument, isEntry, isHookHandler, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isVariableAccess, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -19,7 +19,11 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
             isParentPropertyRefChoice(context.container) ||
             isParentAssignment(context.container)) {
 
-            return this.getAccessScope(context);
+            return this.getPropertyAccessScope(context);
+        }
+
+        if (isVariableAccess(context.container) || isRef(context.container)) {
+            return this.getVariableAccessScope(context);
         }
 
         // if (isFleetingAccess(context.container) || isRef(context.container)) {
@@ -29,7 +33,7 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         return super.getScope(context);
     }
 
-    private getAccessScope(context: ReferenceInfo): Scope {
+    private getPropertyAccessScope(context: ReferenceInfo): Scope {
 
         // When resolving a parent access, we look for an if statement that contains the parent type check expression
         if (isParentAccess(context.container) || isParentAssignment(context.container)) {
@@ -92,5 +96,17 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         descriptions.push(...statuses.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
 
         return descriptions;
+    }
+
+    private getVariableAccessScope(context: ReferenceInfo): Scope {
+        
+        // If we are in a method block belonging to a hook, add the variables of the hook to the scope
+        const hook = AstUtils.getContainerOfType(context.container, isHookHandler);
+
+        if (hook != undefined) {
+            return new MapScope(hook.params.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
+        }
+
+        return super.getScope(context);
     }
 }

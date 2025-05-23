@@ -350,7 +350,10 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
     function generateStatusEffect(document: StatusProperty): CompositeGeneratorNode {
         let svg = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value;
-        if (!svg) svg = "icons/svg/upgrade.svg";
+        if (!svg) {
+            if (document.name.toLowerCase() === "dead") svg = "icons/svg/skull.svg";
+            else svg = "icons/svg/upgrade.svg";
+        }
         let calculated = document.params.find(p => isStatusParamWhen(p)) ? true : false;
         return expandToNode`
             {
@@ -362,6 +365,24 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                 calculated: ${calculated}
             }
         `;
+    }
+
+    function generateRegisterStatusEffects(): CompositeGeneratorNode {
+        let statusEffects = getAllOfType<StatusProperty>(entry.documents, isStatusProperty, false);
+        if (statusEffects.length === 0) return expandToNode``;
+
+        let hasDead = statusEffects.find(x => x.name.toLowerCase() === "dead");
+
+        return expandToNode`
+        function registerStatusEffects() {
+            CONFIG.statusEffects = [
+                ${hasDead ? '' : `{"id":"dead","name":"EFFECT.StatusDead","img":"icons/svg/skull.svg"},`}
+                {"id":"unconscious","name":"EFFECT.StatusUnconscious","img":"icons/svg/unconscious.svg"},
+                {"id":"invisible","name":"EFFECT.StatusInvisible","img":"icons/svg/invisible.svg"},
+                ${joinToNode(statusEffects, generateStatusEffect, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            ];
+        }
+        `.appendNewLine();
     }
 
 
@@ -376,8 +397,6 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
     let itemArtworks = itemDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
     let itemDescriptions = itemDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
     let itemCreatables = itemDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
-
-    let statusEffects = getAllOfType<StatusProperty>(entry.documents, isStatusProperty);
 
     function generateDocumentPromptImports(document: Document): CompositeGeneratorNode | undefined {
         const actions = getAllOfType<Action>(document.body, isAction, false);
@@ -616,16 +635,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
         /* -------------------------------------------- */
 
-        function registerStatusEffects() {
-            ${statusEffects.length > 0 ? `
-            CONFIG.statusEffects = [
-                {"id":"dead","name":"EFFECT.StatusDead","img":"icons/svg/skull.svg"},
-                {"id":"unconscious","name":"EFFECT.StatusUnconscious","img":"icons/svg/unconscious.svg"},
-                {"id":"invisible","name":"EFFECT.StatusInvisible","img":"icons/svg/invisible.svg"},
-                ${joinToNode(statusEffects, document => generateStatusEffect(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
-            ];
-            ` : ""}
-        }
+        ${generateRegisterStatusEffects()}
 
         /** -------------------------------------------- */
 

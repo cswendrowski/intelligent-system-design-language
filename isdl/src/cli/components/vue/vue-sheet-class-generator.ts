@@ -55,7 +55,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 window: {
                     resizable: true,
                     title: "${humanize(document.name)}",
-                    controls: [
+                    controls: ${type == "item" ? expandToNode`[]` : expandToNode`[
                         {
                             action: "configurePrototypeToken",
                             icon: "fa-solid fa-user-circle",
@@ -74,7 +74,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                             label: "SIDEBAR.TokenArt",
                             ownership: "OWNER"
                         }
-                    ]
+                    ]`}
                 },
                 tag: "form",
                 actions: {

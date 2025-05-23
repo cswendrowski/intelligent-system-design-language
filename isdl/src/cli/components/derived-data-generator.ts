@@ -18,7 +18,9 @@ import {
     Property,
     NumberParamMax,
     NumberParamMin,
-    NumberParamValue
+    NumberParamValue,
+    HookHandler,
+    isHookHandler
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -38,7 +40,7 @@ import {
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { translateExpression } from './method-generator.js';
+import { translateBodyExpressionToJavascript, translateExpression } from './method-generator.js';
 import { getAllOfType } from './utils.js';
 
 export function generateExtendedDocumentClasses(entry: Entry, id: string, destination: string) {
@@ -471,6 +473,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         delete createData.id;
                         createData.name = game.i18n.localize(createData.name);
                         await cls.create(createData, {parent: this});
+                        if (key == "dead") Hooks.callAll("death", this);
                     }
 
                     // If the effect is active the AE doesn't exist, add it
@@ -538,6 +541,143 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             `.appendNewLineIfNotEmpty();
         }
 
+        function generateDocumentHooks(document: Document): CompositeGeneratorNode | undefined {
+            const hooks = getAllOfType<HookHandler>(document.body, isHookHandler);
+
+            function generateHook(hook: HookHandler): CompositeGeneratorNode | undefined {
+                let name = hook.name;
+
+                function generateBody() {
+                    return expandToNode`
+                        const ${entry.config.name}Roll = game.system.rollClass;
+                        const context = {
+                            object: document,
+                        };
+                        let update = {};
+                        let embeddedUpdate = {};
+                        let parentUpdate = {};
+                        let parentEmbeddedUpdate = {};
+                        let selfDeleted = false;
+
+                        ${translateBodyExpressionToJavascript(entry, id, hook.body, false, hook)}
+
+                        if (!selfDeleted && Object.keys(update).length > 0) {
+                            await document.update(update);
+                        }
+                        if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
+                            for (let key of Object.keys(embeddedUpdate)) {
+                                await document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
+                            }
+                        }
+                        if (Object.keys(parentUpdate).length > 0) {
+                            await document.parent.update(parentUpdate);
+                        }
+                        if (Object.keys(parentEmbeddedUpdate).length > 0) {
+                            for (let key of Object.keys(parentEmbeddedUpdate)) {
+                                await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                            }
+                        }
+                    `;
+                }
+
+                switch (name) {
+                    case "combatStart":
+                        return expandToNode`
+                            Hooks.on("combatStart", async (${hook.params.map(p => p.name).join(", ")}) => {
+                                ${generateBody()}
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "combatEnd":
+                        return expandToNode`
+                            Hooks.on("deleteCombat", async (${hook.params.map(p => p.name).join(", ")}) => {
+                                ${generateBody()}
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "roundStart":
+                        return expandToNode`
+                            Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
+                                const roundStart = async (${hook.params.map(p => p.name).join(", ")}) => {
+                                    ${generateBody()}
+                                }
+
+                                if (updateData.turn == 0) {
+                                    await roundStart(updateData.round);
+                                }
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "roundEnd":
+                        return expandToNode`
+                            Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
+                                const roundEnd = async (${hook.params.map(p => p.name).join(", ")}) => {
+                                    ${generateBody()}
+                                }
+                            
+                                if (updateData.round > 0) {
+                                    roundEnd(updateData.round - 1);
+                                }
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "turnStart":
+                        return expandToNode`
+                            Hooks.on("combatTurnChange", async (combat, updateData, updateOptions) => {
+                                const turnStart = async () => {
+                                    ${generateBody()}
+                                }
+                                if (combat.combatant.actor.uuid == document.uuid) {
+                                    await turnStart();
+                                }
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "turnEnd":
+                        return expandToNode`
+                            Hooks.on("combatTurnChange", async (combat, updateData, updateOptions) => {
+                                const turnEnd = async () => {
+                                    ${generateBody()}
+                                }
+                                const previousCombatant = combat.combatants.get(combat.previous.combatantId);
+                                if (previousCombatant.actor.uuid == document.uuid) {
+                                    await turnEnd();
+                                }
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "turnIsNext":
+                        return expandToNode`
+                            Hooks.on("combatTurnChange", async (combat, updateData, updateOptions) => {
+                                const turnIsNext = async () => {
+                                    ${generateBody()}
+                                };
+                                if (combat.nextCombatant.actor.uuid == document.uuid) {
+                                    await turnIsNext();
+                                }
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    case "death":
+                        return expandToNode`
+                            Hooks.on("death", async (deadDocument) => {
+                                const onDeath = async () => {
+                                    ${generateBody()}
+                                };
+                                if ( deadDocument.uuid == document.uuid ) {
+                                    await onDeath();
+                                }
+                            });
+                        `.appendNewLineIfNotEmpty();
+                    default:
+                        return expandToNode`
+                        Hooks.on("${name}", async (${hook.params.map(p => p.name).join(", ")}) => { 
+                            ${generateBody()}
+                        });
+                        `.appendNewLineIfNotEmpty();
+                }
+            }
+
+            return expandToNode`
+                _register${document.name}Hooks(document) {
+                    ${joinToNode(hooks, generateHook, { appendNewLineIfNotEmpty: true })}
+                }
+            `.appendNewLineIfNotEmpty().appendNewLine();
+        }
+
         const fileNode = expandToNode`
             export default class ${entry.config.name}${type} extends ${type} {
                 /** @override */
@@ -567,6 +707,21 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         }
                     }
                 }
+
+                /* -------------------------------------------- */
+
+                /** @override */
+                _initialize(options = {}) {
+                    super._initialize(options);
+                    
+                    switch ( this.type ) {
+                        ${joinToNode(entry.documents.filter(d => type == "Actor" ? isActor(d) : isItem(d)), document => `case "${document.name.toLowerCase()}": return this._register${document.name}Hooks(this);`, { appendNewLineIfNotEmpty: true })}
+                    }
+                }
+
+                /* -------------------------------------------- */
+
+                ${joinToNode(entry.documents.filter(d => type == "Actor" ? isActor(d) : isItem(d)), generateDocumentHooks, { appendNewLineIfNotEmpty: true })}
 
                 /* -------------------------------------------- */
 
