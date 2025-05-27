@@ -747,13 +747,14 @@ function generateTrackerComponent(destination: string) {
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed } from "vue";
+        import { ref, computed, inject } from "vue";
 
         const props = defineProps({
             label: String,
             systemPath: String,
             context: Object,
-            disabled: Boolean,
+            visibility: String,
+            editMode: Boolean,
             primaryColor: String,
             secondaryColor: String,
             trackerStyle: String,
@@ -762,6 +763,47 @@ function generateTrackerComponent(destination: string) {
             disableValue: Boolean,
             disableMax: Boolean,
             segments: Number
+        });
+
+        const document = inject("rawDocument");
+
+        const isHidden = computed(() => {
+            if (props.visibility === "hidden") {
+                return true;
+            }
+            if (props.visibility === "gmOnly") {
+                return !game.user.isGM;
+            }
+            if (props.visibility === "secret") {
+                const isGm = game.user.isGM;
+                const isOwner = document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+                return !isGm && !isOwner;
+            }
+            if (props.visibility === "edit") {
+                return !props.editMode;
+            }
+
+            // Default to visible
+            return false;
+        });
+
+        const isDisabled = computed(() => {
+            const disabledStates = ["readonly", "locked"];
+            if (disabledStates.includes(props.visibility)) {
+                return true;
+            }
+            if (props.visibility === "gmEdit") {
+                const isGm = game.user.isGM;
+                const isEditMode = props.editMode;
+                return !isGm && !isEditMode;
+            }
+
+            if (props.visibility === "unlocked") {
+                return false;
+            }
+            
+            // Default to enabled while in editMode
+            return props.editMode;
         });
 
         const min = computed({
@@ -803,12 +845,14 @@ function generateTrackerComponent(destination: string) {
         });
 
         const add = () => {
+            if (props.disableValue || isDisabled.value) return;
             if (value.value < max.value) {
                 value.value++;
             }
         }
 
         const remove = () => {
+            if (props.disableValue || isDisabled.value) return;
             if (value.value > min.value) {
                 value.value--;
             }
@@ -851,7 +895,7 @@ function generateTrackerComponent(destination: string) {
     </script>
 
     <template>
-        <v-card elevation="4" :class="[trackerStyle, 'ml-1', 'm4-1', 'tracker-card']" variant="outlined">
+        <v-card elevation="4" :class="[trackerStyle, 'ml-1', 'm4-1', 'tracker-card']" variant="outlined" v-if="!isHidden">
             <v-card-title>
                 {{ game.i18n.localize(label) }}
             </v-card-title>
@@ -955,7 +999,7 @@ function generateTrackerComponent(destination: string) {
                                 class="flex-grow-1"
                                 style="min-width: 100px;"
                                 hide-details="true"
-                                :disabled="disabled  || disableMin"
+                                :disabled="isDisabled  || disableMin"
                             />
                             <v-number-input
                                 v-model="value"
@@ -967,7 +1011,7 @@ function generateTrackerComponent(destination: string) {
                                 class="flex-grow-1"
                                 style="min-width: 100px;"
                                 hide-details="true"
-                                :disabled="disabled  || disableValue"
+                                :disabled="isDisabled  || disableValue"
                             />
                             <v-number-input
                                 v-model="max"
@@ -979,10 +1023,10 @@ function generateTrackerComponent(destination: string) {
                                 class="flex-grow-1"
                                 style="min-width: 100px;"
                                 hide-details="true"
-                                :disabled="disabled || disableMax"
+                                :disabled="isDisabled || disableMax"
                             />
-                            <v-btn icon="fa-solid fa-battery-empty" @click="empty" :disabled="disabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
-                            <v-btn icon="fa-solid fa-battery-full" @click="refill" :disabled="disabled || disableValue" data-tooltip="Refill" :color="secondaryColor" />
+                            <v-btn icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
+                            <v-btn icon="fa-solid fa-battery-full" @click="refill" :disabled="isDisabled || disableValue" data-tooltip="Refill" :color="secondaryColor" />
                         </div>
                     </v-card-text>
                 </div>

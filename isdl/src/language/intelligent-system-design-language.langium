@@ -43,12 +43,12 @@ ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
 
 ClassExpression:
-    (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
+    (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty | HookHandler);
 
 Property:
     (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | TrackerExp | AttributeExp |
      DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp |
-      DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp | HookHandler);
+      DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp);
 
 fragment Self:
     (("self." access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" )) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=ID)*;
@@ -156,7 +156,7 @@ VisibilityParam:
     "visibility:" visibility=(VisibilityValue | MethodBlock);
 
 VisibilityValue:
-    "Visibility" "." visibility=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "locked" | "hidden");
+    "Visibility" "." visibility=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden");
 
 WhenExpressions:
     (ShorthandComparisonExpression | ComparisonExpression | ParentTypeCheckExpression);
@@ -368,7 +368,7 @@ MethodParam:
     name=ID;
 
 fragment ExpressionModifier:
-    (modifier=("hidden" | "readonly" | "unlocked" | "locked"))?;
+    (modifier=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 
 fragment StringParameters:
     ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;

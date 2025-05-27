@@ -15,6 +15,7 @@ import {
     isStringParamChoices,
     isActor,
     isItem,
+    isHookHandler,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -41,7 +42,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             "${document.name.toLowerCase()}": "${humanize(document.name)}",
             "${document.name}": {
                 "${document.name}": "${humanize(document.name)}" ${document.body.length > 0 ? ',' : ''}
-                ${joinToNode(document.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}  
+                ${joinToNode(document.body, generateProperty, { appendNewLineIfNotEmpty: true, separator: ',' })}
             }
         `;
     }
@@ -82,7 +83,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             `;
         }
 
-        if (isAction(property)) {
+        if (isAction(property) || isHookHandler(property)) {
             return expandToNode`
                 "${property.name}": "${humanize(property.name)}"
             `;

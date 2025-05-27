@@ -17,7 +17,6 @@ import type {
     Roll,
     ParentAssignment,
     Entry,
-    Property,
     ElseIf,
     VariableAssignment,
     WhenExpressions,
@@ -28,9 +27,7 @@ import type {
     MathExpression,
     StringParamChoices,
     InitiativeProperty,
-    StatusProperty,
     ParentAccess,
-    Document,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -95,13 +92,13 @@ import {
     isParentPropertyRefExp,
     isLogExpression,
     isTrackerExp,
-    isDocument,
+    isVisibilityValue
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
-export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -359,7 +356,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
-    function translateAccessExpression(expression: Access, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined): CompositeGeneratorNode | undefined {
+    function translateAccessExpression(expression: Access, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
         
         // If we are accessing special values, we need to handle them differently
         if ( expression.access != undefined ) {
@@ -1277,11 +1274,19 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
     }
 
+    if (isVisibilityValue(expression)) {
+        console.log("Translating Visibility Value Expression: ", expression.visibility);
+
+        return expandToNode`
+            "${expression.visibility}"
+        `;
+    }
+
     //console.log(expression.$type);
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
 }
 
-export function translateBodyExpressionToJavascript(entry: Entry, id: string, body: MethodBlockExpression[], preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined, isVue = false): CompositeGeneratorNode | undefined {
+export function translateBodyExpressionToJavascript(entry: Entry, id: string, body: MethodBlockExpression[], preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined, isVue = false): CompositeGeneratorNode | undefined {
 
     //     /**
     //      * A method body consists of a list of Expressions that ultimately return a value.

@@ -1,12 +1,21 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, BackgroundParam, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp, Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHookHandler, isHtmlExp, isIconParam, isImageParam, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isSegmentsParameter, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isTrackerExp, isTrackerStyleParameter, NumberExp, NumberParamMax, NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SegmentsParameter, SizeParam, StringParamChoices, StringParamValue, TrackerStyleParameter } from "../../../language/generated/ast.js";
+import { Action, AttributeExp, BackgroundParam, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp,
+     Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp
+     , isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHookHandler, isHtmlExp, isIconParam,
+      isImageParam, isMethodBlock, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp,
+       isProperty, isResourceExp, isSection, isSegmentsParameter, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp,
+        isStringParamChoices, isStringParamValue, isTimeExp, isTrackerExp, isTrackerStyleParameter, isVisibilityParam, NumberExp, NumberParamMax,
+         NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SegmentsParameter, SizeParam
+         , StringParamChoices, StringParamValue, TrackerStyleParameter, 
+         VisibilityParam} from "../../../language/generated/ast.js";
 import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { AstUtils } from 'langium';
 import { generateActionComponent } from './vue-action-component-generator.js';
 import { generateDocumentChoiceComponent } from './vue-document-choice-component-generator.js';
+import { translateBodyExpressionToJavascript } from '../method-generator.js';
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -98,6 +107,47 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 top: '${slot.top}'
             }`, { separator: ',', appendNewLineIfNotEmpty: true })}
         ];
+        `;
+    }
+
+    const properties = getAllOfType<Property>(document.body, isProperty, false);
+    function generateVisibilityState(element: Property): CompositeGeneratorNode {
+        if (element.modifier != undefined) {
+            return expandToNode`
+            '${element.name.toLowerCase()}': () => {
+                return '${element.modifier}';
+            }
+            `;
+        }
+
+        if (isTrackerExp(element)) {
+            const visibilityParam = element.params.find(p => isVisibilityParam(p)) as VisibilityParam | undefined;
+            if (visibilityParam) {
+
+                if (isMethodBlock(visibilityParam.visibility)) {
+                    // If the visibility is a method block, we need to return a function that returns the visibility
+                    return expandToNode`
+                    '${element.name.toLowerCase()}': (editMode) => {
+                        const visibility = (system) => {
+                            ${translateBodyExpressionToJavascript(entry, id, visibilityParam.visibility.body, false, element)}
+                        };
+                        return visibility(props.context.system);
+                    }
+                    `;
+                }
+
+                return expandToNode`
+                '${element.name.toLowerCase()}': (editMode) => {
+                    return '${visibilityParam.visibility}';
+                }
+                `;
+            }
+        }
+
+        return expandToNode`
+        '${element.name.toLowerCase()}': (editMode) => {
+            return 'default';
+        }
         `;
     }
 
@@ -348,6 +398,11 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
         // Paper Doll Slots
         ${joinToNode(paperDoll, paperDollSlots, { appendNewLineIfNotEmpty: true })}
+
+        // Visibility states
+        const visibilityStates = {
+            ${joinToNode(properties, generateVisibilityState, { separator: ',', appendNewLineIfNotEmpty: true })}
+        };
     </script>
     <style>
     </style>
@@ -739,8 +794,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const segments = segmentParm?.segments ?? 1;
 
                 return expandToNode`
-                <i-tracker label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" 
-                    :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" trackerStyle="${style}" icon="${icon}" 
+                <i-tracker label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" 
+                    :visibility="visibilityStates['${element.name.toLowerCase()}'](editMode)"
+                    :editMode="editMode"
+                    :primaryColor="${primaryColor}" :secondaryColor="secondaryColor"
+                    trackerStyle="${style}" icon="${icon}" 
                     :disableMin="${disableMin}" :disableValue="${disableValue}" :disableMax="${disableMax}"
                     :segments="${segments}"
                     ></i-tracker>
