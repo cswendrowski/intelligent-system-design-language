@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, BackgroundParam, ClassExpression, Document, DocumentArrayExp, DocumentChoiceExp, Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHookHandler, isHtmlExp, isIconParam, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, NumberExp, NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import { Action, AttributeExp, BackgroundParam, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp, Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp, isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHookHandler, isHtmlExp, isIconParam, isImageParam, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isSegmentsParameter, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isTrackerExp, isTrackerStyleParameter, NumberExp, NumberParamMax, NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SegmentsParameter, SizeParam, StringParamChoices, StringParamValue, TrackerStyleParameter } from "../../../language/generated/ast.js";
 import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { AstUtils } from 'langium';
@@ -713,6 +713,37 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             if (isResourceExp(element)) {
                 return expandToNode`
                 <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
+                `;
+            }
+
+            if (isTrackerExp(element)) {
+                const styleParam = element.params.find(x => isTrackerStyleParameter(x)) as TrackerStyleParameter;
+                const style = styleParam?.style ?? "bar";
+
+                const iconParam = element.params.find(x => isIconParam(x)) as IconParam | undefined;
+                const icon = iconParam?.value ?? "fa-star";
+
+                const minParam = element.params.find(x => isNumberParamMin(x)) as NumberParamMin;
+                const disableMin = minParam?.value != undefined;
+
+                const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+                const disableValue = valueParam?.value != undefined;
+
+                const maxParam = element.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+                const disableMax = maxParam?.value != undefined;
+
+                const colorParam = element.params.find(x => isColorParam(x)) as ColorParam | undefined;
+                const primaryColor = colorParam?.value ?? "primaryColor";
+
+                const segmentParm = element.params.find(x => isSegmentsParameter(x)) as SegmentsParameter | undefined;
+                const segments = segmentParm?.segments ?? 1;
+
+                return expandToNode`
+                <i-tracker label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" 
+                    :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" trackerStyle="${style}" icon="${icon}" 
+                    :disableMin="${disableMin}" :disableValue="${disableValue}" :disableMax="${disableMax}"
+                    :segments="${segments}"
+                    ></i-tracker>
                 `;
             }
 

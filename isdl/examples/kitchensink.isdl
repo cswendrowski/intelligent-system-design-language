@@ -16,7 +16,17 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
         
         section Level {
-            number Experience
+            tracker Experience(min: 0, max: 100)
+            tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
+            tracker Shield(min: 0, style: segmented, segments: 5)
+            tracker Heat(style: dial)
+            tracker Time(style: clock, segments: 5, visibility: {
+                if (self.OutOfTime) {
+                    return Visibility.hidden
+                }
+                return Visibility.gmEdit
+            })
+            boolean OutOfTime
             number Level(min: 1, max: 10)
             
             action LevelUp(disabled: self.Experience < 10) {

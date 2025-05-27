@@ -46,12 +46,12 @@ ClassExpression:
     (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty);
 
 Property:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | AttributeExp |
+    (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | TrackerExp | AttributeExp |
      DamageTrackExp | PipsExp | DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp |
       DateExp | TimeExp | DateTimeExp | PaperDollExp | ParentPropertyRefExp | HookHandler);
 
 fragment Self:
-    (("self." access=("Name" | "Description" | "Image" | "DocumentType" )) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=ID)*;
+    (("self." access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" )) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=ID)*;
 
 Access:
     Self;
@@ -152,6 +152,12 @@ DisabledCondition:
 HiddenCondition:
     "hidden:" when=WhenExpressions;
 
+VisibilityParam:
+    "visibility:" visibility=(VisibilityValue | MethodBlock);
+
+VisibilityValue:
+    "Visibility" "." visibility=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "locked" | "hidden");
+
 WhenExpressions:
     (ShorthandComparisonExpression | ComparisonExpression | ParentTypeCheckExpression);
 
@@ -222,7 +228,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 
-PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression;
+PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue;
 
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==") e2=Expression;
@@ -253,7 +259,7 @@ LogExpression:
 // literal
 Literal:        val=(INT|STRING|DICE|NOTHING|BOOLEAN);
 // cross-reference to a parameter
-Ref:        val=[VariableAccess:ID] ("." subProperties+=ID)*;
+Ref:        val=[VariableAccess:ID] ("." subProperties+=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | ID))*;
 // grouped expression with parentheses
 Group:      '(' ge=Expression ')';
 // negated expression
@@ -268,6 +274,17 @@ BooleanExp: ExpressionModifier "boolean" name=ID;
 HtmlExp: ExpressionModifier "html" name=ID;
 
 ResourceExp: ExpressionModifier (tag=("health" | "wounds"))? "resource" name=ID ("(" ("max:" max=(MethodBlock | INT))? & ("color:" color=HEX_COLOR)? ")")?;
+
+TrackerExp: ExpressionModifier "tracker" name=ID ("(" params+=TrackerParameter ("," params+=TrackerParameter)* ")")?;
+
+TrackerParameter:
+    (IconParam | VisibilityParam | NumberParamMin | NumberParamMax | NumberParamInitial | NumberParamValue | ColorParam | TrackerStyleParameter | SegmentsParameter);
+
+TrackerStyleParameter:
+    "style:" style=("bar" | "dial" | "icons" | "slashes" | "segmented" | "clock");
+
+SegmentsParameter:
+    "segments:" segments=INT;
 
 AttributeExp: ExpressionModifier "attribute" name=ID AttributeParameters;
 

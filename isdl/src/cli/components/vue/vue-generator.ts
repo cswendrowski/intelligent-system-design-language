@@ -233,6 +233,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as Calculator } from './components/calculator.vue';
     export { default as TextField } from './components/text-field.vue';
     export { default as DateTime } from './components/date-time.vue';
+    export { default as Tracker } from './components/tracker.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}

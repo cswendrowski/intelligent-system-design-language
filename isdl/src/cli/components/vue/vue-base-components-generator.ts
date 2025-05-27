@@ -14,7 +14,7 @@ export function generateBaseVueComponents(destination: string) {
     generateDocumentChoiceComponent(destination);
     generateTextFieldComponent(destination);
     generateDateTimeComponent(destination);
-
+    generateTrackerComponent(destination);
 }
 
 function generateAttributeComponent(destination: string) {
@@ -733,5 +733,262 @@ function generateDateTimeComponent(destination: string) {
     </template>
     `;
 
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+
+function generateTrackerComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `tracker.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed } from "vue";
+
+        const props = defineProps({
+            label: String,
+            systemPath: String,
+            context: Object,
+            disabled: Boolean,
+            primaryColor: String,
+            secondaryColor: String,
+            trackerStyle: String,
+            icon: String,
+            disableMin: Boolean,
+            disableValue: Boolean,
+            disableMax: Boolean,
+            segments: Number
+        });
+
+        const min = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".min"),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".min", newValue)
+        });
+
+        const value = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".value"),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".value", newValue)
+        });
+
+
+        const max = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".max"),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".max", newValue)
+        });
+
+        const circleValue = computed(() => {
+            // We need to calculate the percentage of the value in relation to the min to max range
+            const percentage = (value.value - min.value) / (max.value - min.value);
+            return Math.round(percentage * 100);
+        });
+
+        const refill = () => value.value = max.value;
+        const empty = () => value.value = 0;
+
+        const filledIcon = computed(() => {
+            return "fa-solid " + props.icon;
+        });
+        const emptyIcon = computed(() => {
+            return "fa-regular " + props.icon;
+        });
+
+        const expanded = ref(false);
+
+        const displayText = computed(() => {
+            return value.value + " / " + max.value;
+        });
+
+        const add = () => {
+            if (value.value < max.value) {
+                value.value++;
+            }
+        }
+
+        const remove = () => {
+            if (value.value > min.value) {
+                value.value--;
+            }
+        }
+
+        const getSegmentFill = (segmentIndex) => {
+            const filled = value.value;
+            const segmentStart = (segmentIndex - 1) * props.segments;
+            const segmentEnd = segmentIndex * props.segments;
+            const filledInSegment = Math.min(Math.max(filled - segmentStart, 0), props.segments);
+            const percentage = (filledInSegment / props.segments) * 100;
+            const fill = \`linear-gradient(to right, \${props.primaryColor} \${percentage}%, transparent \${percentage}%)\`
+            const segmentLines = \`repeating-linear-gradient(to right, \${props.secondaryColor} 0, \${props.secondaryColor} 1px, transparent 1px, transparent calc(100% / \${props.segments}))\`;
+
+            return \`\${segmentLines}, \${fill}\`;
+        };
+
+        const size = 80;
+        const radius = size / 2 - 2;
+
+        function describeSlice(index, total, r, center) {
+            const anglePer = (2 * Math.PI) / total;
+            const startAngle = anglePer * index - Math.PI / 2;
+            const endAngle = startAngle + anglePer;
+
+            const x1 = center + r * Math.cos(startAngle);
+            const y1 = center + r * Math.sin(startAngle);
+            const x2 = center + r * Math.cos(endAngle);
+            const y2 = center + r * Math.sin(endAngle);
+
+            const largeArcFlag = anglePer > Math.PI ? 1 : 0;
+
+            return \`
+                M \${center} \${center}
+                L \${x1} \${y1}
+                A \${r} \${r} 0 \${largeArcFlag} 1 \${x2} \${y2}
+                Z
+            \`;
+        }
+    </script>
+
+    <template>
+        <v-card elevation="4" :class="[trackerStyle, 'ml-1', 'm4-1', 'tracker-card']" variant="outlined">
+            <v-card-title>
+                {{ game.i18n.localize(label) }}
+            </v-card-title>
+
+            <v-card-actions>
+                <v-progress-linear
+                    v-if="trackerStyle == 'bar'"
+                    :height="18"
+                    :color="primaryColor"
+                    bg-color="#92aed9"
+                    rounded
+                    :model-value="value"
+                    min="0"
+                    :max="max"
+                >
+                    <template v-slot:default>
+                        {{ displayText }}
+                    </template>
+                </v-progress-linear>
+                <v-progress-circular 
+                    v-if="trackerStyle == 'dial'"
+                    :model-value="circleValue" 
+                    :rotate="360" 
+                    :size="100" 
+                    :width="15" 
+                    :color="primaryColor">
+                    <template v-slot:default> {{ displayText }} </template>
+                </v-progress-circular>
+                <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" style="max-width: 95%; overflow-x: scroll;" @click.stop="add" @contextmenu.prevent.stop="remove">
+                    <v-icon v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                    <v-icon v-for="i in max - value" :key="i + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                </div>
+                <div v-if="trackerStyle == 'slashes'" class="d-flex flex-row" style="width: 95%; max-width: 95%; overflow-x: scroll; padding-left: 1rem; padding-right: 1rem;" @click.stop="add" @contextmenu.prevent.stop="remove">
+                    <div
+                        v-for="i in max"
+                        :data-tooltip="displayText"
+                        :key="i"
+                        :style="{
+                            flex: 1,
+                            minWidth: '5px',
+                            flexShrink: 0,
+                            height: '30px',
+                            backgroundColor: i <= value ? primaryColor : 'transparent',
+                            border: i <= value ? 'none' : '2px solid ' + secondaryColor,
+                            transform: 'skewX(-20deg)',
+                            borderRadius: '2px',
+                            marginRight: '0.25rem'
+                        }"
+                    />
+                </div>
+                <div v-if="trackerStyle == 'segmented'" class="d-flex flex-row" style="width: 95%; max-width: 95%; overflow-x: scroll; padding-left: 1rem; padding-right: 1rem;" @click.stop="add" @contextmenu.prevent.stop="remove">
+                    <div
+                        v-for="i in Math.ceil(max / segments)"
+                        :key="i"
+                        :data-tooltip="displayText"
+                        :style="{
+                        flex: 1,
+                        minWidth: '15px',
+                        flexShrink: 0,
+                        height: '30px',
+                        border: '2px solid ' + secondaryColor,
+                        borderRadius: '2px',
+                        marginRight: '0.25rem',
+                        background: getSegmentFill(i)
+                        }"
+                    />
+                </div>
+                <svg
+                    v-if="trackerStyle === 'clock'"
+                    :width="size"
+                    :height="size"
+                    :viewBox="\`0 0 \${size} \${size}\`"
+                    @click.stop="add"
+                    @contextmenu.prevent.stop="remove"
+                    :data-tooltip="displayText"
+                    >
+                    <g v-for="i in max" :key="i">
+                        <path
+                            :d="describeSlice(i - 1, max, radius, size / 2)"
+                            :fill="i <= value ? primaryColor : 'transparent'"
+                            :stroke="secondaryColor"
+                            stroke-width="2"
+                        />
+                    </g>
+                </svg>
+                <v-spacer></v-spacer>
+                <v-btn :icon="expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" @click="expanded = !expanded" color="primaryColor" />
+            </v-card-actions>
+
+            <v-expand-transition>
+                <div v-show="expanded">
+                    <v-card-text>
+                        <div class="d-flex flex-row">
+                            <v-number-input
+                                v-model="min"
+                                :name="systemPath + '.min'"
+                                label="Min"
+                                controlVariant="stacked"
+                                density="compact"
+                                variant="outlined"
+                                class="flex-grow-1"
+                                style="min-width: 100px;"
+                                hide-details="true"
+                                :disabled="disabled  || disableMin"
+                            />
+                            <v-number-input
+                                v-model="value"
+                                :name="systemPath + '.value'"
+                                label="Value"
+                                controlVariant="stacked"
+                                density="compact"
+                                variant="outlined"
+                                class="flex-grow-1"
+                                style="min-width: 100px;"
+                                hide-details="true"
+                                :disabled="disabled  || disableValue"
+                            />
+                            <v-number-input
+                                v-model="max"
+                                :name="systemPath + '.max'"
+                                label="Max"
+                                controlVariant="stacked"
+                                density="compact"
+                                variant="outlined"
+                                class="flex-grow-1"
+                                style="min-width: 100px;"
+                                hide-details="true"
+                                :disabled="disabled || disableMax"
+                            />
+                            <v-btn icon="fa-solid fa-battery-empty" @click="empty" :disabled="disabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
+                            <v-btn icon="fa-solid fa-battery-full" @click="refill" :disabled="disabled || disableValue" data-tooltip="Refill" :color="secondaryColor" />
+                        </div>
+                    </v-card-text>
+                </div>
+            </v-expand-transition>
+        </v-card>
+    </template>
+    `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }

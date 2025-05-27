@@ -20,7 +20,8 @@ import {
     NumberParamMin,
     NumberParamValue,
     HookHandler,
-    isHookHandler
+    isHookHandler,
+    isTrackerExp
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -207,6 +208,50 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         mod: ${property.name.toLowerCase()}ModFunc(this.system)
                     };
                     if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
+                        this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
+                    }
+                `.appendNewLineIfNotEmpty();
+            };
+
+            if ( isTrackerExp(property) ) {
+                console.log("Processing Derived Tracker: " + property.name);
+                const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+                const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
+                const valueParam = property.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+
+                if (maxParam == undefined && minParam == undefined && valueParam == undefined) return;
+
+                function generateValueOrMethod(value: number | MethodBlock): CompositeGeneratorNode {
+                    if (isMethodBlock(value)) {
+                        return expandToNode`
+                            ${translateExpression(entry, id, value, true, undefined)}
+                        `;
+                    }
+                    return expandToNode`
+                        return ${value};
+                    `;
+                }
+
+                return expandToNode`
+                    // ${property.name} Tracker Derived Data
+                    const ${property.name.toLowerCase()}CurrentMin = (system) => {
+                        ${minParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.min ?? 0;` : generateValueOrMethod(minParam.value)};
+                    }
+                    const ${property.name.toLowerCase()}CurrentValue = (system) => {
+                        ${valueParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.value ?? 0;` : generateValueOrMethod(valueParam.value)};
+                    }
+                    const ${property.name.toLowerCase()}CurrentMax = (system) => {
+                        ${maxParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.max ?? 0;` : generateValueOrMethod(maxParam.value)};
+                    }
+                    this.system.${property.name.toLowerCase()} = {
+                        min: ${property.name.toLowerCase()}CurrentMin(this.system),
+                        value: ${property.name.toLowerCase()}CurrentValue(this.system),
+                        max: ${property.name.toLowerCase()}CurrentMax(this.system),
+                    };
+                    if ( this.system.${property.name.toLowerCase()}.value < this.system.${property.name.toLowerCase()}.min ) {
+                        this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.min;
+                    }
+                    else if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
                     }
                 `.appendNewLineIfNotEmpty();

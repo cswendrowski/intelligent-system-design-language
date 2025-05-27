@@ -20,6 +20,7 @@ export function generateVueMixin(description: string) {
         "i-calculator": "Calculator",
         "i-text-field": "TextField",
         "i-datetime": "DateTime",
+        "i-tracker": "Tracker",
     };
 
     const fileNode = expandToNode`
@@ -261,7 +262,7 @@ export function generateVueMixin(description: string) {
                  * However, for Vue, all we want to do is update the 'context' property that's
                  * passed into the Vue application instance.
                  *
-                 * Unlinke _renderFrame(), this occurs on every update for the application.
+                 * Unlike _renderFrame(), this occurs on every update for the application.
                  *
                  * @param {ApplicationRenderContext} context
                  * @param {RenderOptions} options
@@ -278,6 +279,12 @@ export function generateVueMixin(description: string) {
                     this.vueRoot.updateContext(context);
                     // Return doesn't matter, Vue handles updates.
 
+                    // If game.tooltip has an element, reactivate it
+                    if (game.tooltip.element) {
+                        const element = game.tooltip.element;
+                        game.tooltip.deactivate();
+                        game.tooltip.activate(element);
+                    }
                 }
 
                 /** @override */

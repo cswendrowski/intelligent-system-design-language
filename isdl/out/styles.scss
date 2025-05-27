@@ -361,8 +361,9 @@
         }
     }
 
-    .resource-card {
+    .resource-card, .tracker-card {
         min-width: 300px;
+        margin-bottom: 1rem;
         flex: 1;
 
         .v-progress-linear__background {

@@ -30,6 +30,7 @@ import type {
     InitiativeProperty,
     StatusProperty,
     ParentAccess,
+    Document,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -93,12 +94,14 @@ import {
     isParentTypeCheckExpression,
     isParentPropertyRefExp,
     isLogExpression,
+    isTrackerExp,
+    isDocument,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
-export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty |undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: Property | InitiativeProperty | StatusProperty | undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -364,6 +367,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
             switch (accessName) {
                 case "DocumentType": accessName = "type"; break;
+                case "EditMode": 
+                    return expandToNode`context.object.getFlag('${id}', 'editMode') ?? true`;
                 default: accessName = accessName.toLowerCase(); break;
             }
 
@@ -880,10 +885,10 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if (expression.property?.ref.propertyType == "resource" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path} + ".value"`;
                     }
-                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
                         path = `${path} + ".mod"`;
                     }
                     
@@ -896,7 +901,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if ((isResourceExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path}.value`;
                     }
                     if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {

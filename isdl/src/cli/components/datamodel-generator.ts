@@ -42,7 +42,8 @@ import {
     isDocumentChoiceExp,
     isAction,
     isVariableExpression,
-    isPrompt
+    isPrompt,
+    isTrackerExp
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -132,6 +133,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 }),
             `;
         }
+
         if (isAttributeExp(property)) {
             const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
             const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
@@ -140,6 +142,23 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.SchemaField({
                     value: new fields.NumberField({integer: true, min: ${min}, initial: ${min}}),
+                    max: new fields.NumberField({integer: true, min: 0, initial: ${max}}),
+                }),
+            `;
+        }
+
+        if (isTrackerExp(property)) {
+            const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
+            const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
+            const initialParam = property.params.find(p => isNumberParamInitial(p)) as NumberParamInitial;
+            const min = minParam?.value ?? 0;
+            const max = maxParam?.value ?? 100;
+            const initial = initialParam?.value ?? min;
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    min: new fields.NumberField({integer: true, initial: ${min}}),
+                    value: new fields.NumberField({integer: true, min: ${min}, initial: ${initial}}),
                     max: new fields.NumberField({integer: true, min: 0, initial: ${max}}),
                 }),
             `;
