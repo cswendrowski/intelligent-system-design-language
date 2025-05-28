@@ -19,6 +19,7 @@ import {
     isDocument,
     isIfStatement,
     isParentTypeCheckExpression,
+    isTrackerExp,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -59,7 +60,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return systemPath;
     }
 
-    if (isResourceExp(reference)) {
+    if (isResourceExp(reference) || isTrackerExp(reference)) {
         return `${basePath}${reference.name.toLowerCase()}.value`;
     }
     if (isAttributeExp(reference)) {

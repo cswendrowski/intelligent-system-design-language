@@ -152,7 +152,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
             const initialParam = property.params.find(p => isNumberParamInitial(p)) as NumberParamInitial;
             const min = minParam?.value ?? 0;
-            const max = maxParam?.value ?? 100;
+            const max = maxParam?.value ?? 10;
             const initial = initialParam?.value ?? min;
 
             return expandToNode`

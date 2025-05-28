@@ -200,7 +200,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         // Pages and Tabs
         const lastStates = game.settings.get('${id}', 'documentLastState');
         const lastState = lastStates[document.uuid] ?? {
-            page: 'character',
+            page: '${document.name.toLowerCase()}',
             tab: 'description'
         };
 
@@ -208,7 +208,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const page = ref(lastState.page);
         const tab = ref(lastState.tab);
         const pageDefaultTabs = {
-            'character': 'description',
+            '${document.name.toLowerCase()}': 'description',
             ${joinToNode(pages, getPageFirstTab, { separator: ',', appendNewLineIfNotEmpty: true })}
         };
 
@@ -412,7 +412,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 function generateVueComponentTemplate(id: string, document: Document): CompositeGeneratorNode {
     const pages = getAllOfType<Page>(document.body, isPage);
     const firstPageTabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
-    const type = isActor(document) ? 'actor' : 'item';
     return expandToNode`
     <template>
         <v-app>
@@ -441,7 +440,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     </template>
                 </v-img>
                 <v-tabs v-model="page" direction="vertical">
-                    <v-tab value="character" prepend-icon="fa-solid fa-circle-user">${type == "actor" ? "Character" : "Item"}</v-tab>
+                    <v-tab value="${document.name.toLowerCase()}" prepend-icon="fa-solid fa-circle-user">${document.name}</v-tab>
                     ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
                 </v-tabs>
                 <template v-slot:append>
@@ -488,7 +487,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <v-main class="d-flex">
                 <v-container :key="editMode" :class="pageBackground" fluid>
                     <v-tabs-window v-model="page">
-                        <v-tabs-window-item value="character" data-tab="character">
+                        <v-tabs-window-item value="${document.name.toLowerCase()}" data-tab="${document.name.toLowerCase()}">
                             <v-row dense>
                                 ${joinToNode(document.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
                             </v-row>
@@ -502,7 +501,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                 <v-tabs-window-item value="description" data-tab="description" class="tabs-container">
                                     <i-prosemirror :field="context.editors['system.description']" :disabled="!editMode"></i-prosemirror>
                                 </v-tabs-window-item>
-                                ${joinToNode(firstPageTabs, tab => generateDataTable("character", tab))}
+                                ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
                                 <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
                                     <DataTable class="display compact" :data="effects" :columns="effectsColumns" :options="effectsOptions">
                                         <template #image="props">

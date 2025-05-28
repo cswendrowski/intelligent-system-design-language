@@ -264,6 +264,7 @@ item Skill {
     parent<attribute> Ability(choices: [Hero.Fight, Hero.Flight])
     boolean Trained
     number SkillMod
+    tracker UsesLeft(style: slashes)
     readonly number Skill(value: {
         if (self.Trained > 0) {return 2 + self.SkillMod}
         return 0 + self.SkillMod
