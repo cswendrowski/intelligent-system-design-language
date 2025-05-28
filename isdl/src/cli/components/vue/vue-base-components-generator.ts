@@ -787,7 +787,7 @@ function generateTrackerComponent(destination: string) {
             return false;
         });
 
-        const isDisabled = computed(() => {
+        const isDisabled = (type) => {
             const disabledStates = ["readonly", "locked"];
             if (disabledStates.includes(props.visibility)) {
                 return true;
@@ -803,8 +803,9 @@ function generateTrackerComponent(destination: string) {
             }
             
             // Default to enabled while in editMode
-            return props.editMode;
-        });
+            if (type == "value") return false;
+            return !props.editMode;
+        };
 
         const min = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath + ".min"),
@@ -845,14 +846,14 @@ function generateTrackerComponent(destination: string) {
         });
 
         const add = () => {
-            if (props.disableValue || isDisabled.value) return;
+            if (props.disableValue || isDisabled('value')) return;
             if (value.value < max.value) {
                 value.value++;
             }
         }
 
         const remove = () => {
-            if (props.disableValue || isDisabled.value) return;
+            if (props.disableValue || isDisabled('value')) return;
             if (value.value > min.value) {
                 value.value--;
             }
@@ -999,7 +1000,7 @@ function generateTrackerComponent(destination: string) {
                                 class="flex-grow-1"
                                 style="min-width: 100px;"
                                 hide-details="true"
-                                :disabled="isDisabled  || disableMin"
+                                :disabled="isDisabled('min')  || disableMin"
                             />
                             <v-number-input
                                 v-model="value"
@@ -1011,7 +1012,7 @@ function generateTrackerComponent(destination: string) {
                                 class="flex-grow-1"
                                 style="min-width: 100px;"
                                 hide-details="true"
-                                :disabled="isDisabled  || disableValue"
+                                :disabled="isDisabled('value') || disableValue"
                             />
                             <v-number-input
                                 v-model="max"
@@ -1023,7 +1024,7 @@ function generateTrackerComponent(destination: string) {
                                 class="flex-grow-1"
                                 style="min-width: 100px;"
                                 hide-details="true"
-                                :disabled="isDisabled || disableMax"
+                                :disabled="isDisabled('max') || disableMax"
                             />
                             <v-btn icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
                             <v-btn icon="fa-solid fa-battery-full" @click="refill" :disabled="isDisabled || disableValue" data-tooltip="Refill" :color="secondaryColor" />
