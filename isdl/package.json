@@ -3,7 +3,7 @@
     "displayName": "Intelligent System Design Language",
     "description": "Intelligent System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.1.71",
+    "version": "0.1.73",
     "repository": {
         "url": ""
     },
@@ -123,7 +123,9 @@
             }
         }
     },
-    "activationEvents": [],
+    "activationEvents": [
+        "onLanguage:intelligent-system-design-language"
+    ],
     "main": "./out/extension/main.cjs",
     "bin": {
         "intelligent-system-design-language-cli": "./bin/cli.js"

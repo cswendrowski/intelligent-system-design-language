@@ -1,6 +1,8 @@
 import type { ValidationAcceptor, ValidationChecks } from 'langium';
-import type { IntelligentSystemDesignLanguageAstType, Actor, Property, Item } from './generated/ast.js';
+import { type IntelligentSystemDesignLanguageAstType, type Actor, type Property, type Item, type Entry, isProperty, Config, TrackerExp, isSegmentsParameter, isTrackerStyleParameter, PipsExp, isNumberParamMin, isNumberParamValue, isNumberParamMax, isNumberParamInitial, PipsStyleParameter, NumberParamMin, NumberParamValue, NumberParamInitial, NumberParamMax, isPipsStyleParameter, isDocumentArrayExp } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
+import { getAllOfType } from '../cli/components/utils.js';
+import { DiagnosticTag } from 'vscode-languageserver';
 
 /**
  * Register custom validation checks.
@@ -9,9 +11,13 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
     const registry = services.validation.ValidationRegistry;
     const validator = services.validation.IntelligentSystemDesignLanguageValidator;
     const checks: ValidationChecks<IntelligentSystemDesignLanguageAstType> = {
+        Entry: validator.validateEntry,
+        Config: validator.validateConfig,
         Actor: validator.validateActor,
         Item: validator.validateItem,
         Property: validator.validateProperty,
+        TrackerExp: validator.validateTracker,
+        PipsExp: validator.validatePips,
     };
     registry.register(checks, validator);
 }
@@ -20,6 +26,20 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
  * Implementation of custom validations.
  */
 export class IntelligentSystemDesignLanguageValidator {
+
+    validateEntry(entry: Entry, accept: ValidationAcceptor): void {
+        if (!entry.config) {
+            accept('error', 'Entry requires a config.', { node: entry, property: 'config' });
+        }
+    }
+
+    validateConfig(config: Config, accept: ValidationAcceptor): void {
+        const id = config.body.find(x => x.type == "id");
+        if (!id) {
+            accept('error', 'Config requires an id.', { node: config, property: 'body' });
+        }
+    }
+
     validateActor(actor: Actor, accept: ValidationAcceptor): void {
         const discoveredPropertyNames = new Set();
 
@@ -29,21 +49,12 @@ export class IntelligentSystemDesignLanguageValidator {
             }
             discoveredPropertyNames.add(name);
         }
-
-        if (!actor.body) accept('error', 'Actor requires at least one property.', { node: actor, property: 'body' });
-
-        actor.body.forEach(x => {
-            if (x.$type == "NumberExp" || x.$type == "StringExp") {
-                validateUniqueName(x, x.name);
-            }
-            else if (x.$type == "Section") {
-                x.body.forEach(y => {
-                    if (y.$type == "NumberExp" || y.$type == "StringExp") {
-                        validateUniqueName(y, y.name);
-                    }
-                });
-            }
-        })
+        
+        const properties = getAllOfType<Property>(actor.body, isProperty, false);
+        for (const property of properties) {
+            if (isDocumentArrayExp(property)) continue; // We allow multiple copies of the same document array exp in an actor
+            validateUniqueName(property, property.name);
+        }
     }
 
     validateProperty(property: Property, accept: ValidationAcceptor): void {
@@ -66,18 +77,55 @@ export class IntelligentSystemDesignLanguageValidator {
         }
 
         // If the item has a body, validate the names of the properties
-        if (!item.body) accept('error', 'Item requires at least one property.', { node: item, property: 'body' });
-        item.body.forEach(x => {
-            if (x.$type == "NumberExp" || x.$type == "StringExp") {
-                validateUniqueName(x, x.name);
-            }
-            else if (x.$type == "Section") {
-                x.body.forEach(y => {
-                    if (y.$type == "NumberExp" || y.$type == "StringExp") {
-                        validateUniqueName(y, y.name);
-                    }
+        //if (!item.body) accept('error', 'Item requires at least one property.', { node: item, property: 'body' });
+        
+        const properties = getAllOfType<Property>(item.body, isProperty, false);
+        for (const property of properties) {
+            validateUniqueName(property, property.name);
+        }
+    }
+
+    validateTracker(tracker: TrackerExp, accept: ValidationAcceptor): void {
+        const segmentsParam = tracker.params.find(isSegmentsParameter);
+        const styleParam = tracker.params.find(isTrackerStyleParameter);
+
+        if (styleParam && styleParam.style !== 'segmented' && segmentsParam) {
+            accept('hint', 'The segments param is only supported on the segmented style and will do nothing for other styles', 
+                { 
+                    node: segmentsParam,
+                    code: 'tracker-segments-unnecessary',
+                    tags: [DiagnosticTag.Unnecessary],
                 });
+        }
+    }
+
+    validatePips(pips: PipsExp, accept: ValidationAcceptor): void {
+        const styleParam = pips.params.find(isPipsStyleParameter) as PipsStyleParameter | undefined;
+        const minParam = pips.params.find(isNumberParamMin) as NumberParamMin | undefined;
+        const valueParam = pips.params.find(isNumberParamValue) as NumberParamValue | undefined;
+        const initialParam = pips.params.find(isNumberParamInitial) as NumberParamInitial | undefined;
+        const maxParam = pips.params.find(isNumberParamMax) as NumberParamMax | undefined;
+
+        function numberOrMethodBlockToString(param: NumberParamMin | NumberParamValue | NumberParamInitial | NumberParamMax | undefined): string | undefined {
+            if (param && param.value) {
+                return param.$cstNode?.text
             }
-        })
+            return undefined;
+        }
+
+        accept('warning', 'Pips are deprecated in favor of Trackers and will be removed in a future version.', 
+            { 
+                node: pips,
+                code: 'pips-deprecated',
+                tags: [DiagnosticTag.Deprecated],
+                data: {
+                    name: pips.name,
+                    style: styleParam ? styleParam.style : undefined,
+                    min: numberOrMethodBlockToString(minParam),
+                    value: numberOrMethodBlockToString(valueParam),
+                    initial: initialParam ? initialParam.value.toString() : undefined,
+                    max: numberOrMethodBlockToString(maxParam)
+                }
+            });
     }
 }

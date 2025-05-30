@@ -8,6 +8,7 @@ config FabulaUltima {
 actor Hero {
     
     string Type(choices: ["A", "B", "C"])
+
     
     section Level {
         number Experience

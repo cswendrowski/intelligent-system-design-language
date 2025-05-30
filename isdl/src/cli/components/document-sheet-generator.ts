@@ -79,7 +79,7 @@ export function generateDocumentSheet(document: Document, entry: Entry, id: stri
                 const context = {
                     object: this.object,
                 };
-                ${translateExpression(entry, id, action.method)}
+                ${translateExpression(entry, id, action.method, false, action)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.object.update(update);
                     rerender = true;

@@ -6,6 +6,15 @@ config KitchenSink {
 }
 
 actor Hero(icon: "fa-solid fa-sword", background: texture) {
+
+    function Print(number value) {
+        log("Leveled up to Level " + value)
+    }
+
+    function FightFightFight(number mod) returns number {
+        fleeting rollResult = roll(d6 + self.Fight + mod)
+        return rollResult.total
+    }
     
     page Info(background: hideout) {
         section BasicInfo {
@@ -14,7 +23,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             
             html Background
         }
-        
+ 
         section Level {
             readonly tracker Experience(min: 0, max: 100)
             gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
@@ -32,7 +41,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             action LevelUp(disabled: self.Experience < 10) {
                 self.Experience -= 10
                 self.Level++
+                self.update()
+                self.Print(self.Level)
+                fleeting amount = self.FightFightFight(self.Level)
+                log("Leveled up to Level " + self.Level + " with a Fight bonus of " + amount)
             }
+            pips ExperienceTrack(max: 10, style: circles, value: {
+                return self.Experience
+            })  
         }
 
         action FlipACoin {

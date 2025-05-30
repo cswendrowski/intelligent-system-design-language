@@ -92,7 +92,9 @@ import {
     isParentPropertyRefExp,
     isLogExpression,
     isTrackerExp,
-    isVisibilityValue
+    isVisibilityValue,
+    isFunctionCall,
+    isAction
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
@@ -309,7 +311,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateReferenceExpression(expression: Ref): CompositeGeneratorNode | undefined {
-        let accessPath = expression.val.ref?.name;
+        let accessPath = expression.val.ref?.name ?? expression.val.$refText;
+        if (!accessPath) {
+            console.log(expression);
+            throw new Error("Reference expression has no reference");
+        }
         console.log("Translating Reference Expression: " + accessPath);
 
         // Check if we are in an each loop
@@ -411,6 +417,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 @${systemPath}
             `;
         }
+
+        if (isAction(generatingProperty)) {
+            return expandToNode`
+                context.object.${systemPath}
+            `;
+        }
+
         return expandToNode`
             ${systemPath}
         `;
@@ -760,7 +773,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
 
                 return expandToNode`
-                    "@${expression.val.ref?.name.toLowerCase()}[${humanize(expression.val.ref?.name)}]"
+                    "@${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}[${humanize(expression.val.ref?.name ?? expression.val.$refText)}]"
                 `;
             }
             if (isParentAccess(expression)) {
@@ -988,7 +1001,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
                 console.log(expression.val.ref?.name, expression.val.ref?.$type);
                 return expandToNode`
-                    "${expression.val.ref?.name.toLowerCase()}": ${expression.val.ref?.name} ?? 0
+                    "${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}": ${expression.val.ref?.name ?? expression.val.$refText} ?? 0
                 `;
             }
 
@@ -1282,7 +1295,20 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
-    //console.log(expression.$type);
+    if (isFunctionCall(expression)) {
+        console.log("Translating Function Call Expression: ");
+
+        // If this is a function call, we need to translate it to a JavaScript function call
+        const args = joinToNode(expression.params, (arg) => {
+            console.log("Translating Function Call Argument: ", arg.$type, generatingProperty?.$type);
+            return translateExpression(entry, id, arg, preDerived, generatingProperty)
+        }, { separator: ", " });
+        return expandToNode`
+            await this.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${args})
+        `;
+    }
+
+    console.log(expression.$type);
     throw new Error("Unknown expression type encountered while translating to JavaScript ");
 }
 

@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { spawn } from 'child_process';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
+import { IntelligentSystemDesignLanguageQuickfixes } from '../language/intelligent-system-design-language-quickfixes.js';
 
 let client: LanguageClient;
 
@@ -10,6 +11,7 @@ let client: LanguageClient;
 export function activate(context: vscode.ExtensionContext): void {
     registerCommands(context);
     registerFormatter(context);
+    registerCodeActions(context);
     client = startLanguageClient(context);
 }
 
@@ -230,4 +232,10 @@ function registerFormatter(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(disposable);
+}
+
+function registerCodeActions(context: vscode.ExtensionContext) {
+    vscode.languages.registerCodeActionsProvider('intelligent-system-design-language', new IntelligentSystemDesignLanguageQuickfixes(), {
+        providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+    });
 }

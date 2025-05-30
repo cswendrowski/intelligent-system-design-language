@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Document, IfStatement, isAccess, isAssignment, isDocument, isEntry, isHookHandler, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isVariableAccess, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
+import { Document, FunctionDefinition, IfStatement, isAccess, isAssignment, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isVariableAccess, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -91,22 +91,35 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         }
         const properties = getAllOfType<Property>(document.body, isProperty, false);
         const statuses = getAllOfType<StatusProperty>(document.body, isStatusProperty, false);
+        const functionDefinitions = getAllOfType<FunctionDefinition>(document.body, isFunctionDefinition, false);
 
         const descriptions = properties.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name));
         descriptions.push(...statuses.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
+        descriptions.push(...functionDefinitions.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
 
         return descriptions;
     }
 
     private getVariableAccessScope(context: ReferenceInfo): Scope {
+
+        let scope = super.getScope(context);
+        const additionalDescriptions: AstNodeDescription[] = [];
         
         // If we are in a method block belonging to a hook, add the variables of the hook to the scope
         const hook = AstUtils.getContainerOfType(context.container, isHookHandler);
 
         if (hook != undefined) {
-            return new MapScope(hook.params.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
+            additionalDescriptions.push(...hook.params.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
         }
 
-        return super.getScope(context);
+        // If we are in a function block, add the variables of the function to the scope
+        const functionDefinition = AstUtils.getContainerOfType(context.container, isFunctionDefinition);
+        if (functionDefinition != undefined) {
+            additionalDescriptions.push(...functionDefinition.params.map(a => this.astNodeDescriptionProvider.createDescription(a, a.param.name)));
+        }
+
+        additionalDescriptions.push(...scope.getAllElements().toArray());
+
+        return new MapScope(additionalDescriptions);
     }
 }

@@ -43,7 +43,7 @@ ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
 
 ClassExpression:
-    (Property | Action | Access | IfStatement | InitiativeProperty | StatusProperty | HookHandler);
+    (Property | Action | InitiativeProperty | StatusProperty | HookHandler | FunctionDefinition);
 
 Property:
     (StringExp | NumberExp | HtmlExp | BooleanExp | ResourceExp | TrackerExp | AttributeExp |
@@ -55,6 +55,9 @@ fragment Self:
 
 Access:
     Self;
+
+FunctionCall:
+    "self." method=ID ("(" params+=Expression ("," params+=Expression)* ")")?;
 
 FleetingAccess:
     variable=[VariableExpression] (("." subProperty=ID)? | ("[" arrayAccess=Expression "]")?);
@@ -73,6 +76,12 @@ IfStatement:
     elseIfs+=(ElseIf)*
     ("else" elseMethod=MethodBlock)?
     ;
+
+FunctionDefinition:
+    "function" name=ID ("(" params+=FunctionParam ("," params+=FunctionParam)* ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
+
+FunctionParam:
+    param=(Property) ("=" defaultValue=Expression)?;
 
 Assignment:
     (ExpressionAssignment | IncrementAssignment | DecrementAssignment | IncrementValAssignment | DecrementValAssignment);
@@ -171,7 +180,7 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression );
+    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | IncrementAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | FunctionCall );
 
 JS: js=JS_LINE;
 
@@ -228,7 +237,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 
-PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue;
+PrimitiveExpression: Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall;
 
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==") e2=Expression;

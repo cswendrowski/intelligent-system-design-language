@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
 import { Action, DisabledCondition, Document, Entry, HiddenCondition, IconParam, isActor, isDisabledCondition, isHiddenCondition, isIconParam, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
-import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
+import { translateExpression } from '../method-generator.js';
 import { generatePromptApp } from './vue-prompt-generator.js';
 import { generatePromptSheetClass } from './vue-prompt-sheet-class-generator.js';
 
@@ -37,35 +37,8 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
 
         const document = inject('rawDocument');
 
-        const onClick = async () => {
-            console.log("Clicked ${action.name}");
-            let system = props.context.system;
-            const ${entry.config.name}Roll = game.system.rollClass;
-            const context = {
-                object: document,
-            };
-            let update = {};
-            let embeddedUpdate = {};
-            let parentUpdate = {};
-            let parentEmbeddedUpdate = {};
-            let selfDeleted = false;
-            ${translateBodyExpressionToJavascript(entry, id, action.method.body, false, undefined, true)}
-            if (!selfDeleted && Object.keys(update).length > 0) {
-                await document.update(update);
-            }
-            if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
-                for (let key of Object.keys(embeddedUpdate)) {
-                    await document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
-                }
-            }
-            if (Object.keys(parentUpdate).length > 0) {
-                await document.parent.update(parentUpdate);
-            }
-            if (Object.keys(parentEmbeddedUpdate).length > 0) {
-                for (let key of Object.keys(parentEmbeddedUpdate)) {
-                    await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
-                }
-            }
+        const onClick = async (e) => {
+            document.sheet._on${action.name}Action(e, props.context);
         };
 
         const unlocked = ${unlocked};

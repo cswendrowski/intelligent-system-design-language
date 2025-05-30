@@ -607,6 +607,8 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             `;
         }
 
+        if (!isProperty(element)) return expandToNode``;
+
         if (isProperty(element)) {
             if (isHookHandler(element)) return expandToNode``;
             if (element.modifier == "hidden") return expandToNode``;

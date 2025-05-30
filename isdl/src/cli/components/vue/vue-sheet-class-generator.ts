@@ -1,10 +1,10 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, Document, Entry, HtmlExp, isAction, isActor, isHtmlExp } from "../../../language/generated/ast.js";
+import { Action, Document, Entry, FunctionDefinition, HtmlExp, isAction, isActor, isFunctionDefinition, isHtmlExp } from "../../../language/generated/ast.js";
 import { humanize, titleize } from 'inflection';
-import { getAllOfType } from '../utils.js';
-import { translateExpression } from '../method-generator.js';
+import { getAllOfType, toMachineIdentifier } from '../utils.js';
+import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
 
 export function generateDocumentVueSheet(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -19,6 +19,28 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
 
     const htmlElements = getAllOfType<HtmlExp>(document.body, isHtmlExp);
     let actions = getAllOfType<Action>(document.body, isAction);
+
+    const functions = getAllOfType<FunctionDefinition>(document.body, isFunctionDefinition, false);
+    function generateFunctionDefinition(functionDef: FunctionDefinition): CompositeGeneratorNode {
+        const functionName = toMachineIdentifier(functionDef.name);
+        console.log(`Generating function ${functionName} for ${document.name} Vue sheet.`);
+        if (functionDef.params.length > 0) {
+
+            return expandToNode`
+            async function_${functionName}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${joinToNode(functionDef.params, param => expandToNode`${param.param.name}`, { separator: ', ' })}) {
+                ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, false, functionDef)}
+            }
+            `.appendNewLine();
+        }
+        return expandToNode`
+        async function_${functionName}(system, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate) {
+            const context = {
+                object: system
+            };
+            ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, false, functionDef)}
+        }
+        `.appendNewLine();
+    }
     
     const fileNode = expandToNode`
         import VueRenderingMixin from '../VueRenderingMixin.mjs';
@@ -360,12 +382,18 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
             }
 
             ${joinToNode(actions, property => generateAction(property), { appendNewLineIfNotEmpty: true })}
+
+            /* -------------------------------------------- */
+
+            // User defined methods
+            ${joinToNode(functions, generateFunctionDefinition, { appendNewLineIfNotEmpty: true })}
         }
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 
     function generateAction(action: Action): CompositeGeneratorNode | undefined {
+        console.log(`Generating action ${action.name} for ${document.name} Vue sheet.`);
         return expandToNode`
 
             /* -------------------------------------------- */
@@ -382,7 +410,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 const context = {
                     object: this.document,
                 };
-                ${translateExpression(entry, id, action.method)}
+                ${translateExpression(entry, id, action.method, false, action)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.document.update(update);
                     rerender = true;
