@@ -369,7 +369,9 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
     function generateRegisterStatusEffects(): CompositeGeneratorNode {
         let statusEffects = getAllOfType<StatusProperty>(entry.documents, isStatusProperty, false);
-        if (statusEffects.length === 0) return expandToNode``;
+        if (statusEffects.length === 0) return expandToNode`
+            function registerStatusEffects() { }
+        `;
 
         let hasDead = statusEffects.find(x => x.name.toLowerCase() === "dead");
 

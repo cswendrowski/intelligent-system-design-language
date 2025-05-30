@@ -747,7 +747,7 @@ function generateTrackerComponent(destination: string) {
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed, inject } from "vue";
+        import { ref, computed, inject, watchEffect } from "vue";
 
         const props = defineProps({
             label: String,
@@ -766,20 +766,25 @@ function generateTrackerComponent(destination: string) {
         });
 
         const document = inject("rawDocument");
+        const visibility = ref('default');
+
+        watchEffect(async () => {
+            visibility.value = await props.visibility;
+        })
 
         const isHidden = computed(() => {
-            if (props.visibility === "hidden") {
+            if (visibility.value === "hidden") {
                 return true;
             }
-            if (props.visibility === "gmOnly") {
+            if (visibility.value === "gmOnly") {
                 return !game.user.isGM;
             }
-            if (props.visibility === "secret") {
+            if (visibility.value === "secret") {
                 const isGm = game.user.isGM;
                 const isOwner = document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
                 return !isGm && !isOwner;
             }
-            if (props.visibility === "edit") {
+            if (visibility.value === "edit") {
                 return !props.editMode;
             }
 
@@ -789,16 +794,16 @@ function generateTrackerComponent(destination: string) {
 
         const isDisabled = (type) => {
             const disabledStates = ["readonly", "locked"];
-            if (disabledStates.includes(props.visibility)) {
+            if (disabledStates.includes(visibility.value)) {
                 return true;
             }
-            if (props.visibility === "gmEdit") {
+            if (visibility.value === "gmEdit") {
                 const isGm = game.user.isGM;
                 const isEditMode = props.editMode;
                 return !isGm && !isEditMode;
             }
 
-            if (props.visibility === "unlocked") {
+            if (visibility.value === "unlocked") {
                 return false;
             }
             

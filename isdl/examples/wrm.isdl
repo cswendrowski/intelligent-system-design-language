@@ -413,20 +413,37 @@ item Talent(svg: "icons/svg/upgrade.svg", description: "A useful ability or impr
         string PreReq
         string Kind(choices: ["Standard","Inherent","Free","Special","Negative","Temporary"])
     }
+    section Tracking {
+        tracker Combo(style: icons, icon: "fa-hand-back-fist", min: 0, max: {return self.MaxUses}, visibility: {
+            if (!self.HasCombo) {return Visibility.hidden}
+            })
+        tracker Resource(min: 0, max: {return self.MaxUses}, visibility: {
+            if (!self.HasResource) {return Visibility.hidden}
+            })
+        tracker Uses(min: 0, max: {return self.MaxUses}, visibility: {
+            if (!self.HasFreeUses) {return Visibility.hidden}
+            })
+    }
     section Usage {
         string Trigger
         string Requirement
         string Activation(choices: ["Passive", "Action", "Reaction", "Special"])
         string UseLimit(choices: ["Passive","At-Will","Turn","Round","Battle","Day","Session"])
-        number MaxUses
-        number UsesLeft(max: {return self.MaxUses})
-        action UseTalent(icon: "fa-solid fa-play", disabled: self.UsesLeft < 1) {
-            self.UsesLeft -= 1
-            self.update()
-            chat TalentUse {
-                tag self.Activation
-                }
-        }
+        //action UseTalent(icon: "fa-solid fa-play", disabled: self.HasFreeUses == false) {
+        //    self.UsesLeft -= 1
+        //    self.update()
+        //    chat TalentUse {
+        //        tag self.Activation
+        //        }
+        //}
+    }
+    section Config {
+        boolean HasCombo
+        number MaxCombo(min: 0)
+        boolean HasResource
+        number MaxResource
+        boolean HasFreeUses
+        number MaxUses(min: 0)
     }
 }
 
@@ -570,9 +587,6 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         })
     action Damage(icon: "fa-solid fa-heart-crack" ){
         fleeting damageRoll = roll(self.DamageRoll + self.DamageMod)
-        if (damageRoll.total < 7 and (damageRoll > 1 or self.DiceCount > 1)) {
-            self.DamageRoll = self.DamageRoll + 1
-        }
         chat AttackOutcome {
             damageRoll
             tag self.DamageType
@@ -643,8 +657,6 @@ item Advancement(svg: "icons/svg/progression.svg", description: "A record of a c
     }
     section Logging {
     date Awarded
-    time AwardedTime
-    datetime AwardedDateTime
     string IngameDate
     }
 }
@@ -771,3 +783,122 @@ item Follower {
 //        }
 //    }
 //}
+
+actor Army {
+    section Attributes {
+        string Experience(choices: ["Untrained","Trained","Veteran","Elite"])
+        string Class(choices: ["Light", "Medium", "Heavy"])
+        string Weaponry(choices: ["Spears","Swords","Pikes","Bows"])
+        string Movement(value: {
+        if (self.Class == "Light") {return "Fast: 1/2/3"}
+        if (self.Class == "Heavy") {return "Slow: 1/1/2"}
+        if (self.Class == "Mounted") {return "Swift: 2/3/4"}
+        else {return "Base: 1/2/2"}
+        })
+        hidden number ArmorBonus(initial: 0)
+        number Armor(value: {
+        if (self.Class == "Light") {return 3 + self.ArmorBonus}
+        if (self.Class == "Heavy") {return 5 + self.ArmorBonus}
+        else {return 4 + self.ArmorBonus}
+    })
+    }
+    section Resources {
+        resource Resolve(max: {
+            if (self.Experience == "Trained") {return 8}
+            if (self.Experience == "Veteran") {return 10}
+            if (self.Experience == "Elite") {return 12}
+            else {return 6}
+        })
+        resource Stamina(max: {
+            if (self.Experience == "Trained") {return 8}
+            if (self.Experience == "Veteran") {return 10}
+            if (self.Experience == "Elite") {return 12}
+            else {return 6}
+        })
+        health resource Health(max: {
+            if (self.Experience == "Trained") {return 8}
+            if (self.Experience == "Veteran") {return 10}
+            if (self.Experience == "Elite") {return 12}
+            else {return 6}
+        })
+    }
+    section Actions {
+        action Clash(icon: "fa-solid fa-swords", disabled: self.Stamina < 1){
+                fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
+                    string Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
+                    string Flanking(choices:["Difficulty -1 step if enemy Flanked."])
+                    string Holding(choices:["Difficulty +1 step if enemy is Holding."])
+                }
+                fleeting dice = Math.round((self.Health + self.Stamina + self.Resolve) / 3)
+                fleeting rolltext = dice + "d6x6" + Prompt.Difficulty
+                fleeting Roll = roll(rolltext)
+                self.Stamina --
+                chat RollResult {
+                    flavor("Rolling Clash check. Stamina reduced by 1.")
+                    Roll
+                }
+            }
+        action Rest(icon: "fa-solid fa-people-arrows"){
+            self.Health ++
+            self.Stamina ++
+            self.Resolve ++
+            chat RollResult {
+                flavor("Unit has Rested. Health, Stamina, and Resolve improve by 1.")
+            }
+        }
+        action Rally(icon: "fa-solid fa-person-military-pointing"){
+                fleeting Roll = roll(1d6x6)
+                self.Resolve += Roll.result
+            chat RollResult {
+                flavor("Unit has Rallied. Recovered 1d6 Resolve and ended the Routed condition.")
+                Roll
+            }
+        }
+        action Regroup(icon: "fa-solid fa-flag"){
+            self.Health += 2
+            self.Stamina += 2
+            self.Resolve += 2
+            chat RollResult {
+                flavor("Unit has Regrouped. Spent 1 Reserve. Health restored, Stamina and Resolve improve by 2.")
+            }
+        }
+    }
+    ArmyTalent[] Talents
+}
+
+item ArmyTalent {
+    section Configuration {
+        string Effect
+        string Activation(choices:["None", "As Turn", "When Clashing", "When Resting", "When Rallying", "When Holding", "When Moving"])
+        number Dice(min: 1)
+    }
+    section Actions {
+        //boolean DoesDamage
+        string EffectType(choices: ["General","Damage"])
+        action UseTalent(hidden: self.EffectType == "Damage", disabled: self.EffectType == "Damage", icon: "fa-solid fa-chevrons-up"){
+                chat RollResult {
+                    flavor("Talent activated! See effect.")
+                    self.Effect
+                    tag self.Activation
+                }
+            }
+        action RollDamage(hidden: self.EffectType == "General", disabled: self.EffectType == "General", icon: "fa-solid fa-burst"){
+                fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
+                    string Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
+                    string Flanking(choices:["Difficulty -1 step if enemy Flanked."])
+                    string Holding(choices:["Difficulty +1 step if enemy is Holding."])
+                }
+                fleeting rolltext = self.Dice + "d6x6" + Prompt.Difficulty
+                fleeting Roll = roll(rolltext)
+                if (parent is Army) {
+                    parent.Stamina--
+                    }
+                chat RollResult {
+                    flavor("Rolling Damage check. Stamina reduced by 1.")
+                    Roll
+                    self.Effect
+                    tag self.Activation
+                }
+            }
+    }
+}

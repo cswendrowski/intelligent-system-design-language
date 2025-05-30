@@ -30,13 +30,17 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             secret tracker Shield(min: 0, style: segmented, segments: 5)
             gmEdit tracker Heat(style: dial)
             tracker Time(style: clock, segments: 5, visibility: {
-                if (self.OutOfTime) {
-                    return Visibility.hidden
-                }
-                return Visibility.gmEdit
+                return self.VisibleUnlessDisabled(self.OutOfTime)
             })
             boolean OutOfTime
             number Level(min: 1, max: 10)
+            
+            function VisibleUnlessDisabled(boolean disabled) returns string {
+                if (disabled) {
+                    return Visibility.hidden
+                }
+                return Visibility.default
+            }
             
             action LevelUp(disabled: self.Experience < 10) {
                 self.Experience -= 10

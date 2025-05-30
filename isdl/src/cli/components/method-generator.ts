@@ -1303,8 +1303,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
             console.log("Translating Function Call Argument: ", arg.$type, generatingProperty?.$type);
             return translateExpression(entry, id, arg, preDerived, generatingProperty)
         }, { separator: ", " });
+
+        let accessPath = "this";
+
+        if (isTrackerExp(generatingProperty)) {
+            accessPath = "document.sheet";
+        }
+
         return expandToNode`
-            await this.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${args})
+            await ${accessPath}.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${args})
         `;
     }
 

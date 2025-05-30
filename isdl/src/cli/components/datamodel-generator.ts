@@ -151,9 +151,16 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
             const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
             const initialParam = property.params.find(p => isNumberParamInitial(p)) as NumberParamInitial;
-            const min = minParam?.value ?? 0;
-            const max = maxParam?.value ?? 10;
-            const initial = initialParam?.value ?? min;
+            const min = getNumberOrNothing(minParam) ?? 0;
+            const max = getNumberOrNothing(maxParam) ?? 10;
+            const initial = getNumberOrNothing(initialParam) ?? min;
+
+            function getNumberOrNothing(param: NumberParamMin | NumberParamMax | NumberParamInitial | undefined): number | undefined {
+                if (param && typeof(param.value) === 'number') {
+                    return param.value;
+                }
+                return undefined;
+            }
 
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.SchemaField({

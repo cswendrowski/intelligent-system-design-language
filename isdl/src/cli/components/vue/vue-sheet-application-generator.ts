@@ -114,7 +114,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function generateVisibilityState(element: Property): CompositeGeneratorNode {
         if (element.modifier != undefined) {
             return expandToNode`
-            '${element.name.toLowerCase()}': () => {
+            '${element.name.toLowerCase()}': async () => {
                 return '${element.modifier}';
             }
             `;
@@ -127,17 +127,49 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 if (isMethodBlock(visibilityParam.visibility)) {
                     // If the visibility is a method block, we need to return a function that returns the visibility
                     return expandToNode`
-                    '${element.name.toLowerCase()}': (editMode) => {
-                        const visibility = (system) => {
+                    '${element.name.toLowerCase()}': async (editMode) => {
+                        let update = {};
+                        let embeddedUpdate = {};
+                        let parentUpdate = {};
+                        let parentEmbeddedUpdate = {};
+                        let selfDeleted = false;
+                        let rerender = false;
+                        const context = {
+                            object: document,
+                        };
+                        const visibility = async (system) => {
                             ${translateBodyExpressionToJavascript(entry, id, visibilityParam.visibility.body, false, element)}
                         };
-                        return visibility(props.context.system);
+                        const returnedVisibility = await visibility(props.context.system);
+                        if (!selfDeleted && Object.keys(update).length > 0) {
+                            await document.update(update);
+                            rerender = true;
+                        }
+                        if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
+                            for (let key of Object.keys(embeddedUpdate)) {
+                                await document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
+                            }
+                            rerender = true;
+                        }
+                        if (Object.keys(parentUpdate).length > 0) {
+                            await document.parent.update(parentUpdate);
+                            rerender = true;
+                        }
+                        if (Object.keys(parentEmbeddedUpdate).length > 0) {
+                            for (let key of Object.keys(parentEmbeddedUpdate)) {
+                                await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                            }
+                        }
+                        if (rerender) {
+                            document.sheet.render();
+                        }
+                        return returnedVisibility ?? "default";
                     }
                     `;
                 }
 
                 return expandToNode`
-                '${element.name.toLowerCase()}': (editMode) => {
+                '${element.name.toLowerCase()}': async (editMode) => {
                     return '${visibilityParam.visibility}';
                 }
                 `;
@@ -145,7 +177,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         }
 
         return expandToNode`
-        '${element.name.toLowerCase()}': (editMode) => {
+        '${element.name.toLowerCase()}': async (editMode) => {
             return 'default';
         }
         `;
