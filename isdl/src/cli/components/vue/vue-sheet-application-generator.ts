@@ -169,10 +169,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                         let embeddedUpdate = {};
                         let parentUpdate = {};
                         let parentEmbeddedUpdate = {};
+                        let targetUpdate = {};
+                        let targetEmbeddedUpdate = {};
                         let selfDeleted = false;
                         let rerender = false;
                         const context = {
                             object: document,
+                            target: game.user.getTargetOrNothing()
                         };
                         const visibility = async (system) => {
                             ${translateBodyExpressionToJavascript(entry, id, visibilityParam.visibility.body, false, element)}
@@ -195,6 +198,14 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                         if (Object.keys(parentEmbeddedUpdate).length > 0) {
                             for (let key of Object.keys(parentEmbeddedUpdate)) {
                                 await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                            }
+                        }
+                        if (Object.keys(targetUpdate).length > 0) {
+                            await context.target.update(targetUpdate);
+                        }
+                        if (Object.keys(targetEmbeddedUpdate).length > 0) {
+                            for (let key of Object.keys(targetEmbeddedUpdate)) {
+                                await context.target.updateEmbeddedDocuments("Item", targetEmbeddedUpdate[key]);
                             }
                         }
                         if (rerender) {

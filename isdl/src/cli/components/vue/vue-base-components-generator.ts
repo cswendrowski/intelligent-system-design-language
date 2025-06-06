@@ -1011,9 +1011,9 @@ function generateTrackerComponent(destination: string) {
                             </v-progress-circular>
 
                             <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll;">
-                                <v-icon v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
-                                <v-icon v-for="i in temp" :key="i + value" :icon="filledIcon" :color="tertiaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
-                                <v-icon v-for="i in max - value" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-if="value > 0" v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-if="temp > 0" v-for="i in temp" :key="i + value" :icon="filledIcon" :color="tertiaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-if="max > 0" v-for="i in max - value" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                             </div>
 
                             <div v-if="trackerStyle == 'slashes'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll; padding-left: 0.5rem; padding-right: 0.5rem;">

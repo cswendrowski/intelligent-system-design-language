@@ -9,6 +9,8 @@ import type {
     ParentTypeCheckExpression,
     Property,
     Section,
+    TargetAccess,
+    TargetTypeCheckExpression,
 } from '../../language/generated/ast.js';
 import {
     isResourceExp,
@@ -20,13 +22,15 @@ import {
     isIfStatement,
     isParentTypeCheckExpression,
     isTrackerExp,
+    isParentAccess,
+    isTargetTypeCheckExpression,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
     return s.replace(/[^a-zA-Z0-9]/g, '');
 }
 
-export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], propertyLookup: Property | undefined = undefined, safeAccess=true): string {
+export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], generatingProperty: Property | ParentAccess | undefined = undefined, safeAccess=true): string {
     // Not all references are to the baseline - resources and attributes have sub-paths
     if (reference == undefined) {
         return "";
@@ -42,14 +46,15 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     }
 
     let basePath = "system.";
-    if (propertyLookup && !isInitiativeProperty(propertyLookup)) {
-        basePath = `system[${propertyLookup.name.toLowerCase()}.toLowerCase()].`;
-    }
 
     // If we are accessing a sub-property of a resource or attribute, we need to use the appropriate sub-path
     if (subProperties.length > 0) {
         let systemPath = `${basePath}${reference.name.toLowerCase()}`;
+
         for (const subProperty of subProperties) {
+            if (isParentAccess(generatingProperty)) {
+                systemPath = `${systemPath}?.system`;
+            }
             if (safeAccess) {
                 systemPath = `${systemPath}?.${subProperty.toLowerCase()}`;
             }
@@ -111,6 +116,20 @@ export function getParentDocument(parentAccess: ParentAccess): Document | undefi
         return undefined
     }
     return parentTypeCheck.document.ref;
+}
+
+export function getTargetDocument(targetAccess: TargetAccess): Document | undefined {
+    const ifStatement = AstUtils.getContainerOfType(targetAccess.$container, (n: AstNode): n is IfStatement => {
+        const isIf = isIfStatement(n);
+        if (!isIf) return false;
+        return isTargetTypeCheckExpression((n as IfStatement).expression);
+    })!;
+    const targetTypeCheck = ifStatement.expression as TargetTypeCheckExpression;
+    if (targetTypeCheck == undefined) {
+        console.error("Target type check not found");
+        return undefined
+    }
+    return targetTypeCheck.document.ref;
 }
 
 export function getDocument(property: Property): Document | undefined {

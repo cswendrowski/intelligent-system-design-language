@@ -2,26 +2,63 @@ There's a variety of Field types and other children you can define on Documents.
 
 ## Standardized Fields
 
-The docs below will reference "standardized" fields. A goal of ISDL is that you should't have to remember what fields do what for standard features. Not all fields currently meet that goal, but when they do, they do the following:
+The docs below will reference "standardized" fields. A goal of ISDL is that you should't have to remember what fields do what for standard features. All non-deprecated fields now meet this goal.
+
+### Standard Parameters
+
+Standardized fields support the following parameters:
+
+* The `icon` parameter, to set an Font Awesome icon
+* The `color` parameter, which is used in replacement of the user's primary color choice
+* The `label` parameter, which overrides the English localization for the label
+* Visibility, via either a modifier on the field such as `gmOnly string Thing` or via the `visibility` param, which can return either a visibility or a method that calculates a visibility.
+* Additionally, all number-based fields such as Number, Attribute, Resource, and Tracker support the following:
+    * `min` - The minimum value
+    * `initial` - The initial value at create time
+    * `value` - If set, this will made the field "calculated", always resulting in this value. The user and AE's will be unable to edit it.
+    * `max` - The maxium value
+* String and Boolean also accept a `value` parameter
+
+Visibility, when set via the parameter, can be calculated to allow for complex Visibility rules. For instance, you may want to only display a field if the user is a certain class.
+```js
+string HeroType(choices: ["Tank", "Mage", "Rogue"])
+tracker Mana(visibility: {
+    if (self.HeroType equals "Mage") return Visibility.default
+    return Visibility.hidden
+})
+```
+`Visiblity.default` will use the standard visibility rules - displayed for all, only editable in EditMode.
+If nothing is returned, `Visibility.default` is the assumed value:
+```js
+string HeroType(choices: ["Tank", "Mage", "Rogue"])
+tracker Mana(visibility: {
+    if (self.HeroType !equals "Mage") return Visibility.hidden
+    // Will assume Default visibility
+})
+```
+
+Another common pattern is disabling an Action when it's not valid to be run:
+```js
+action Refill(icon: "fa-duotone fa-solid fa-sparkles", visibility: { 
+    if (self.Mana == self.Mana.Max) return Visibility.locked 
+    }) 
+{
+    self.Mana = self.Mana.Max
+}
+```
 
 ### Visibility Tags
 
-Standardized fields support the following shorthand modifiers:
-* `hidden` - Generates data models and preparation, but does not render on the sheet. Example: `hidden number TotalDeaths`
-* `readonly` - Prevents the user from modifying this value, even in Edit Mode. Active Effects can still effect this value. Example: `readonly number PassivePerception`
-* `unlocked` - Allows the field to be editted even outside of Edit Mode. Example: `unlocked number Bonus`
-* `locked` - Locked fields are readonly, nor can Active Effects edit them. Example: `locked number TotalManaCost`
-
-Here's a handy chart about visibility & permissions. Tags marked with 🤔 are planned and not yet implemented.
+Here's a handy chart about visibility & permissions.
 
 | **Syntax**               	| **GM**                           	| **Owner**                        	| **Viewer**              	| **Active Effects**         	|
 |--------------------------	|----------------------------------	|----------------------------------	|-------------------------	|----------------------------	|
 | unlocked                 	| ✅Always Read / Write             	| ✅Always Read / Write             	| 👁️Read                   	| ✅Can edit                  	|
 | *default* (no tag)                  	| 📝Read / Write based on edit mode 	| 📝Read / Write based on edit mode 	| 👁️Read                   	| ✅Can edit                  	|
-| secret 🤔                   	| 📝Read / Write based on edit mode 	| 📝Read / Write based on edit mode 	| ❌Can’t see              	| ✅Can edit                  	|
+| secret                    	| 📝Read / Write based on edit mode 	| 📝Read / Write based on edit mode 	| ❌Can’t see              	| ✅Can edit                  	|
 | edit                     	| 📝Read / Write only in edit mode  	| 📝Read / Write only in edit mode  	| 👁️Read only in edit mode 	| ✅Can edit                  	|
-| gmEdit 🤔                   	| 📝Read / Write based on edit mode 	| 👁️Read                            	| 👁️Read                   	| 🧙GM’s making AE’s can edit 	|
-| gmOnly 🤔                   	| 📝Read / Write based on edit mode 	| ❌Can’t see                       	| ❌Can’t see              	| 🧙GM’s making AE’s can edit 	|
+| gmEdit                    	| 📝Read / Write based on edit mode 	| 👁️Read                            	| 👁️Read                   	| 🧙GM’s making AE’s can edit 	|
+| gmOnly                    	| 📝Read / Write based on edit mode 	| ❌Can’t see                       	| ❌Can’t see              	| 🧙GM’s making AE’s can edit 	|
 | locked (also calculated) 	| 👁️Read                            	| 👁️Read                            	| 👁️Read                   	| ❌Can not edit              	|
 | hidden                   	| ❌Can’t see                       	| ❌Can’t see                       	| ❌Can’t see              	| ✅Can edit                  	|
 
@@ -40,15 +77,15 @@ Standardized fields also allow the current `value` of the field to be calculated
 
 These fields map to standard Foundry schema fields, and with enough effort you could build a system using mostly these.
 
-| **Field**     	| **Datatype** 	| **Summary**                                                                                                                                                                      	| **Standardized**                                  	|
-|---------------	|--------------	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|---------------------------------------------------	|
-| boolean       	| Boolean      	| Use to store simple yes / no values, such as "Equipped" or "Has Magic". Useful for showing / hiding other fields.                                                                	| Supports tags, but not parameters                 	|
-| number        	| Number       	| A basic number field that can be optionally bounded with a min / max, or calculated. Use for currency, amounts, total weight, experience, bonuses, etc.                          	| Yes                                               	|
-| string        	| string       	| A basic unformatted single-line textfield. Supports a list of choices. Use for summaries, triggers, simple info, or lists of choices like "Physical" vs "Magic".                 	| Supports tags and some parameters, but not hidden 	|
-| html          	| HTML         	| A multi-line formatted text block. Use for Effects, biographies, etc.                                                                                                            	| Supports tags, but not parameters                 	|
-| date          	| string         	| Use to store a realworld date, such as "advancement granted" etc.                                                                                                            	| Supports tags, but not parameters                 	|
-| time          	| string         	| Use to store a realworld time, such as "last used"  etc.                                                                                                            	| Supports tags, but not parameters                 	|
-| datetime          	| string         	| Use to store a realworld date & time, such as "advancement granted" etc.                                                                                                            	| Supports tags, but not parameters                 	|
+| **Field**     	| **Datatype** 	|**Summary**                   	| 
+|---------------	|--------------	| --------------------------	|
+| boolean       	| Boolean      	| Use to store simple yes / no values, such as "Equipped" or "Has Magic". Useful for showing / hiding other fields.                                                                	| 
+| number        	| Number       	| A basic number field that can be optionally bounded with a min / max, or calculated. Use for currency, amounts, total weight, experience, bonuses, etc.                          	|
+| string        	| string       	| A basic unformatted single-line textfield. Supports a list of choices. Use for summaries, triggers, simple info, or lists of choices like "Physical" vs "Magic".                 	| 
+| html          	| HTML         	| A multi-line formatted text block. Use for Effects, biographies, etc.                                                                                                            	| 
+| date          	| string         	| Use to store a realworld date, such as "advancement granted" etc.                                                                                                            	| 
+| time          	| string         	| Use to store a realworld time, such as "last used"  etc.                                                                                                            	| 
+| datetime          	| string         	| Use to store a realworld date & time, such as "advancement granted" etc.                                                                                                            	|
 
 
 
@@ -56,10 +93,11 @@ These fields map to standard Foundry schema fields, and with enough effort you c
 
 To speed up building and enable certain Foundry features such as Resource bars, these fields wrap common TTRPG concepts and pairs them with ISDL built-in and native Foundry functionality.
 
-| **Field**     	| **Datatype** 	| **Summary**                                                                                                                                                                      	| **Standardized**                                  	|
-|---------------	|--------------	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|---------------------------------------------------	|
-| resource      	| Complex      	| A special number that wires up resource bars for Tokens and supports "Temporary" values that get removed first. Works with damage application. Use for Health, Mana, Armor, etc. 	| Supports tags and some parameters, but not hidden 	|
-| attribute     	| Complex      	| A special number that calculates a mod value. Use for attribute scores.                                                                                                          	| Supports tags and some parameters, but not hidden 	|
+| **Field**     	| **Datatype** 	| **Summary**              	| 
+|---------------	|--------------	|----------------------------------------------------------------	|
+| resource      	| Complex      	| A special number that wires up resource bars for Tokens and supports "Temporary" values that get removed first. Works with damage application. Use for Health, Mana, Armor, etc. 	| 
+| attribute     	| Complex      	| A special number that calculates a mod value. Use for attribute scores.            	| 
+| tracker | Complex | A slimmer verison of Resources that support Temporary values and a variety of fun styles. Use for Mana, Shields, Guages, etc.
 
 
 
@@ -67,23 +105,21 @@ To speed up building and enable certain Foundry features such as Resource bars, 
 
 It's common to want an Document to own or link to other Documents - usually Items, but sometimes other Actors as well. These fields set that up and allow you to "include" that other document's data in this one.
 
-| **Field**     	| **Datatype** 	| **Summary**                                                                                                                                                                      	| **Standardized**                                  	|
-|---------------	|--------------	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|---------------------------------------------------	|
-| Item Array    	| Array of Item  	| Stores a list of Items on this Actor. Use for owned Equipment, Spells, Features, etc.                                                                                            	| Supports tags and some parameters, but not hidden 	|
-| Document Link 	| UUID         	| Links to a single Document via drag & drop. Use for "chosen spell", "equipped helmet", etc.                                                                                                      	| Yes                                               	|
-| Parent Field 	| string         	| Allows a user to pick a field, such as a Resource or Attribute, on the Parent document. Use for Attack Mod setup, resource spent on use, etc.                                                                                                      	| Supports tags, but no standard parameters                                               	|
-| Document Choice 	| UUID         	| Links to a single Document via a searchable dropdown. Use for "chosen spell", "equipped helmet", etc.                                                                                                      	| Yes                                               	|
-| Document Choices 	| Array of UUID         	| Links to multiple Documents via a searchable dropdown. Use for "chosen features", "equipped armor", etc.                                                                                                      	| WIP - Not currently done.                                               	|
-| Paperdoll 	| Object of UUID         	| Links to multiple Documents via a set of boxes over an image. Use for "equipped armor" and "equipped weapons", etc.                                                                                                      	| Supports tags, but no standard parameters                                               	|
-
+| **Field**     	| **Datatype** 	| **Summary**                                            	| 
+|---------------	|--------------	|---------------------------------------------------------	|
+| Item Array    	| Array of Item  	| Stores a list of Items on this Actor. Use for owned Equipment, Spells, Features, etc.                                                                                            	| 
+| Document Link 	| UUID         	| Links to a single Document via drag & drop. Use for "chosen spell", "equipped helmet", etc.                                                                                                      	| 
+| Parent Field 	| string         	| Allows a user to pick a field, such as a Resource or Attribute, on the Parent document. Use for Attack Mod setup, resource spent on use, etc.                                                                                                      	| 
+| Document Choice 	| UUID         	| Links to a single Document via a searchable dropdown. Use for "chosen spell", "equipped helmet", etc.                                                                                                      	| 
+| Document Choices 	| Array of UUID         	| Links to multiple Documents via a searchable dropdown. Use for "chosen features", "equipped armor", etc.                                                                                                      	|
+| Paperdoll 	| Object of UUID         	| Links to multiple Documents via a set of boxes over an image. Use for "equipped armor" and "equipped weapons", etc.                                                                                                      	| 
 
 ## Fancy customizations
 
 These make numbers look fancy and have slightly different UX / UI than normal. Really just here for style.
 
-| **Field**     	| **Datatype** 	| **Summary**                                                                                                                                                                      	| **Standardized**                                  	|
+| **Field**     	| **Datatype** 	| **Summary**                                                                                                                                                                      	| **Notes**                                  	|
 |---------------	|--------------	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|---------------------------------------------------	|
-| pips          	| Number       	| A special number that renders as pips. Use for small amounts < 10, such as "uses left".                                                                                          	| Supports tags and most parameters, but not hidden 	|
 | damagetrack          	| Complex       	| Helps keep track of damage done outside of health, including different types of damage, such as "bludgeoning".                                                                                          	| WIP - Not currently done. 	|
 
 ### Boolean

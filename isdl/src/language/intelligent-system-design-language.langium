@@ -295,6 +295,22 @@ ParentQuickModifyAssignment:
     Parent term=("+="|"-="|"*="|"/=") exp=Expression;
 
 
+// Target Access / Modification ------------------------------------------------------
+
+fragment Target:
+    "target" ( "." property=[Property:ID] ) ("." subProperties+=ID)*;
+TargetAccess:
+    Target;
+TargetAssignment:
+    (TargetExpressionAssignment | TargetIncrementDecrementAssignment | TargetQuickModifyAssignment);
+TargetExpressionAssignment:
+    Target "=" exp=Expression;
+TargetIncrementDecrementAssignment:
+    Target term=("++"|"--");
+TargetQuickModifyAssignment:
+    Target term=("+="|"-="|"*="|"/=") exp=Expression;
+
+
 // Variable Access / Modification ------------------------------------------------------
 
 FleetingAccess:
@@ -334,19 +350,22 @@ VisibilityValue:
 // Methods ------------------------------------------------------
 
 WhenExpressions:
-    (ShorthandComparisonExpression | ComparisonExpression | ParentTypeCheckExpression);
+    (ShorthandComparisonExpression | ComparisonExpression | TargetTypeCheckExpression | ParentTypeCheckExpression);
 IfStatement:
     "if" "(" expression=WhenExpressions ")" method=MethodBlock     elseIfs+=(ElseIf)*     ("else" elseMethod=MethodBlock)?;
 ElseIf:
     "else" "if" "(" expression=WhenExpressions ")" method=MethodBlock;
 Each:
-    'each' var=Parameter 'in' collection=(Access | FleetingAccess | ParentAccess) method=MethodBlock;
+    'each' var=Parameter 'in' collection=(Access | FleetingAccess | ParentAccess | TargetAccess | NumberRange) method=MethodBlock;
 EachAccess:
     variable=[Each:ID];
+NumberRange:
+    "[" start=Expression "to" end=Expression "]";
+
 MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | VariableAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | FunctionCall );
+    (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | FunctionCall );
 JS:
     js=JS_LINE;
 VariableExpression:
@@ -366,7 +385,7 @@ ChatCard:
 ChatBlock:
     "{" chatExp+=(ChatBlockExpression)* "}";
 ChatBlockExpression:
-    type=("tag" | "flavor")? (Access | FleetingAccess | ParentAccess | Expression);
+    type=("tag" | "flavor")? (Access | FleetingAccess | ParentAccess | TargetAccess | Expression);
 
 
 // Prompt -----------
@@ -398,13 +417,15 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall;
+    Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=") e2=Expression;
 ShorthandComparisonExpression:
     e1=Expression term=("exists" | "!exists")?;
 ParentTypeCheckExpression:
     "parent" "is" document=[Document:ID];
+TargetTypeCheckExpression:
+    "target" "is" document=[Document:ID];
 ArrayExpression:
     "[" items+=Literal ("," items+=Literal)* "]";
 MathExpression:
@@ -446,5 +467,3 @@ terminal JS_LINE: /\@js\{.+\}/;
 terminal HEX_COLOR: /#[0-9a-fA-F]{6}/;
 hidden terminal ML_COMMENT: /\/\*[\s\S]*?\*\//;
 hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;
-
-

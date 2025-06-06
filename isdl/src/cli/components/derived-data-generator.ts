@@ -617,11 +617,14 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         const ${entry.config.name}Roll = game.system.rollClass;
                         const context = {
                             object: document,
+                            target: game.user.getTargetOrNothing()
                         };
                         let update = {};
                         let embeddedUpdate = {};
                         let parentUpdate = {};
                         let parentEmbeddedUpdate = {};
+                        let targetUpdate = {};
+                        let targetEmbeddedUpdate = {};
                         let selfDeleted = false;
 
                         ${translateBodyExpressionToJavascript(entry, id, hook.body, false, hook)}
@@ -640,6 +643,14 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         if (Object.keys(parentEmbeddedUpdate).length > 0) {
                             for (let key of Object.keys(parentEmbeddedUpdate)) {
                                 await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                            }
+                        }
+                        if (Object.keys(targetUpdate).length > 0) {
+                            await context.target.update(targetUpdate);
+                        }
+                        if (Object.keys(targetEmbeddedUpdate).length > 0) {
+                            for (let key of Object.keys(targetEmbeddedUpdate)) {
+                                await context.target.updateEmbeddedDocuments("Item", targetEmbeddedUpdate[key]);
                             }
                         }
                     `;

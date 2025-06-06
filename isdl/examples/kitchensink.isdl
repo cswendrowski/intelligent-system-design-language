@@ -19,6 +19,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     page Info(background: hideout) {
         section BasicInfo {
             gmOnly string HeroType(choices: ["A", "B", "C"], icon: "fa-solid fa-cube", color: #a586c0)
+            string DamageType(choices: ["⚔️ Cutting", "🤺 Piercing", "🔨 Bludgeoning", "🔫 Ballistic", "💥 Explosive", "🪄 Magic", "🔮 Psychic", "☀️ Solar", "🔥 Fire", "❄️ Ice", "💀 Corrosive", "☠️ Poison", "👻 Spirit"])
             string Summary(icon: "fa-solid fa-info-circle", color: #a586c0)
             string Text2(icon: "fa-solid fa-book", label: "Locked Text Field", value: "This is a locked text field that cannot be edited by the player.", color: #a586c0)
             

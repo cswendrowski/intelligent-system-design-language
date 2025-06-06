@@ -632,7 +632,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
     }
     section Effect{
       //  string DamageClass(choices: ["Physical","Magical"])
-        string DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"])
+        string DamageType(choices: ["⚔️ Cutting", "🤺 Piercing", "🔨 Bludgeoning", "🔫 Ballistic", "💥 Explosive", "🪄 Magic", "🔮 Psychic", "☀️ Solar", "🔥 Fire", "❄️ Ice", "💀 Corrosive", "☠️ Poison", "👻 Spirit"])
         boolean Intangible
         string Range(choices: ["Touch", "Ranged", "Line of Sight"])
         number Yards

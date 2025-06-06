@@ -704,6 +704,16 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
             moveVuetifyStyles();
             reopenLastState();
             indexPacks();
+
+            function getTargetOrNothing() {
+                if (game.user.targets.size > 0) {
+                    const firstTarget = game.user.targets.first();
+                    return firstTarget.actor;
+                }
+                return null;
+            }
+            // Attach to game.user
+            game.user.getTargetOrNothing = getTargetOrNothing;
         }
         
         /* -------------------------------------------- */

@@ -28,6 +28,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
 
             return expandToNode`
             async function_${functionName}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${joinToNode(functionDef.params, param => expandToNode`${param.param.name}`, { separator: ', ' })}) {
+                let system = context.object.system;
                 ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, false, functionDef)}
             }
             `.appendNewLine();
@@ -35,7 +36,8 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
         return expandToNode`
         async function_${functionName}(system, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate) {
             const context = {
-                object: system
+                object: system,
+                target: game.user.getTargetOrNothing()
             };
             ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, false, functionDef)}
         }
@@ -404,11 +406,14 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 let embeddedUpdate = {};
                 let parentUpdate = {};
                 let parentEmbeddedUpdate = {};
+                let targetUpdate = {};
+                let targetEmbeddedUpdate = {};
                 let selfDeleted = false;
                 let rerender = false;
                 let document = this.document;
                 const context = {
                     object: this.document,
+                    target: game.user.getTargetOrNothing()
                 };
                 ${translateExpression(entry, id, action.method, false, action)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
@@ -428,6 +433,14 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 if (Object.keys(parentEmbeddedUpdate).length > 0) {
                     for (let key of Object.keys(parentEmbeddedUpdate)) {
                         await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                    }
+                }
+                if (Object.keys(targetUpdate).length > 0) {
+                    await context.target.update(targetUpdate);
+                }
+                if (Object.keys(targetEmbeddedUpdate).length > 0) {
+                    for (let key of Object.keys(targetEmbeddedUpdate)) {
+                        await context.target.updateEmbeddedDocuments("Item", targetEmbeddedUpdate[key]);
                     }
                 }
                 if (rerender) {

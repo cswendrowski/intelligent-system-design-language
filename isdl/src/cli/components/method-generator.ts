@@ -33,6 +33,9 @@ import type {
     LocationParam,
     WidthParam,
     HeightParam,
+    NumberRange,
+    TargetAccess,
+    TargetAssignment,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -96,13 +99,19 @@ import {
     isParentQuickModifyAssignment,
     isLocationParam,
     isWidthParam,
-    isHeightParam
+    isHeightParam,
+    isNumberRange,
+    isTargetTypeCheckExpression,
+    isTargetAccess,
+    isTargetIncrementDecrementAssignment,
+    isTargetQuickModifyAssignment,
+    isTargetAssignment
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
-import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
+import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
-export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty, preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
+export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty | NumberRange, preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
 
     function humanize(string: string | undefined) {
         if (string == undefined) {
@@ -249,6 +258,34 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
+    function translateTargetAssignmentExpression(expression: TargetAssignment): CompositeGeneratorNode | undefined {
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined);
+        
+        if (isTargetIncrementDecrementAssignment(expression)) {
+            const modifier = expression.term == "++" ? "+" : "-";
+            return expandToNode`
+                targetUpdate["${systemPath}"] = context.target.${systemPath} ${modifier} 1;
+            `;
+        }
+
+        if (isTargetQuickModifyAssignment(expression)) {
+            let modifier = "+";
+            switch (expression.term) {
+                case "+=": modifier = "+"; break;
+                case "-=": modifier = "-"; break;
+                case "*=": modifier = "*"; break;
+                case "/=": modifier = "/"; break;
+                default: modifier = "+"; break;
+            }
+            return expandToNode`
+                targetUpdate["${systemPath}"] = context.target.${systemPath} ${modifier} ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+            `;
+        }
+        return expandToNode`
+            targetUpdate["${systemPath}"] = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
+        `;
+    }
+
     function translateBinaryExpression(expression: BinaryExpression): CompositeGeneratorNode | undefined {
         console.log("Translating Binary Expression: ", expression.e1.$type, expression.op, expression.e2.$type);
         let a = translateExpression(entry, id, expression.e1, preDerived, generatingProperty);
@@ -317,7 +354,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         // Check if we are in an each loop
         const eachExp = AstUtils.getContainerOfType(expression.$container, isEach);
         if (eachExp != undefined) {
-            if (isAccess(eachExp.collection) || isParentAccess(eachExp.collection)) {
+            if (isAccess(eachExp.collection) || isParentAccess(eachExp.collection) || isTargetAccess(eachExp.collection)) {
                 accessPath = `${accessPath}.system`;
             }
         }
@@ -472,7 +509,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         if (isParentTypeCheckExpression(expression)) {
             return expandToNode`
-                context.object.parent.type == "${expression.document.ref?.name?.toLowerCase()}"
+                context.object.parent && context.object.parent.type == "${expression.document.ref?.name?.toLowerCase()}"
+            `;
+        }
+
+        if (isTargetTypeCheckExpression(expression)) {
+            return expandToNode`
+                context.target && context.target.type == "${expression.document.ref?.name?.toLowerCase()}"
             `;
         }
        
@@ -548,6 +591,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isParentAssignment(expression)) {
         return translateParentAssignmentExpression(expression as ParentAssignment);
     }
+    if (isTargetAssignment(expression)) {
+        return translateTargetAssignmentExpression(expression as TargetAssignment);
+    }
     if (isBinaryExpression(expression)) {
         return translateBinaryExpression(expression as BinaryExpression);
     }
@@ -573,8 +619,22 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isParentAccess(expression)) {
         let path = "context.object.parent";
 
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression, true);
+        path = `${path}?.${systemPath}`;
+
+        console.log("Translating Parent Access Expression: ", path);
+
+        return expandToNode`
+            ${path}
+        `;
+    }
+    if (isTargetAccess(expression)) {
+        let path = "context.target";
+
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
         path = `${path}?.${systemPath}`;
+
+        console.log("Translating Target Access Expression: ", path);
 
         return expandToNode`
             ${path}
@@ -797,6 +857,31 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
                 `;
             }
+            if (isTargetAccess(expression)) {
+                let path = expression.property?.ref?.name ?? ""
+                let label = humanize(expression.property?.ref?.name ?? "");
+                const document = getTargetDocument(expression as TargetAccess);
+                if ( document != undefined ) {
+                    path = `${document.name.toLowerCase()}${path}`;
+                    label = `${humanize(document.name)} ${label}`;
+                }
+                // else if ( expression.propertyLookup != undefined ) {
+                //     path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
+                //     label = `${label} \${context.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
+                // }
+                else {
+                    path = `${path}${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${label} ${humanize(expression.property?.ref?.name ?? "")}`;
+                }
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
+                }
+                label = label.trim();
+                return expandToNode`
+                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
+                `;
+            }
             if (isAccess(expression)) {
                 let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
                 let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
@@ -810,7 +895,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         label = `${label} ${humanize(subProperty)}`;
                     }
                 }
-                console.log("Acess:", path, label);
+                console.log("Access:", path, label);
                 return expandToNode`
                     \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
                 `;
@@ -871,7 +956,29 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     label = `${label}.${subProperty}`;
                 }
 
-                console.log(label, path);
+                return expandToNode`
+                    "${label.replaceAll(".", "").toLowerCase()}": ${path}
+                `;
+            }
+            if (isTargetAccess(expression)) {
+                let path = "context.target.system";
+                let label = expression.property?.ref?.name ?? "";
+
+                console.log("Target Access:", expression.property?.ref?.name);
+
+                const document = getTargetDocument(expression as TargetAccess);
+                if ( document != undefined ) {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${humanize(document.name)}.${label}`;
+                }
+                else {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${label}.${expression.property}`;
+                }
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label}.${subProperty}`;
+                }
 
                 return expandToNode`
                     "${label.replaceAll(".", "").toLowerCase()}": ${path}
@@ -1013,7 +1120,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     ${translateDiceData(expression.ge)}
                 `;
             }
-
+            
             return undefined;
         }
 
@@ -1057,13 +1164,34 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     if (isEach(expression)) {
         const collection = translateExpression(entry, id, expression.collection, preDerived, generatingProperty);
-        return expandToNode`
+        if (isNumberRange(expression.collection)) {
+            return expandToNode`
             for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${collection} ?? []) {
                 ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
             }
-            ${isParentAccess(expression.collection) ? expandToNode`
-                parentEmbeddedUpdate["${getSystemPath(expression.collection.property?.ref, [], undefined, false)}"] = ${collection};
-            ` : expandToNode`embeddedUpdate["${collection}"] = ${collection};`}
+            `;
+        }
+        let updateExpression: CompositeGeneratorNode | undefined;
+
+        if (isParentAccess(expression.collection)) {
+            updateExpression = expandToNode`
+            parentEmbeddedUpdate["${getSystemPath(expression.collection.property?.ref, [], undefined, false)}"] = ${collection};
+            `;
+        } else if (isTargetAccess(expression.collection)) {
+            updateExpression = expandToNode`
+            targetEmbeddedUpdate["${getSystemPath(expression.collection.property?.ref, [], undefined, false)}"] = ${collection};
+            `;
+        } else {
+            updateExpression = expandToNode`
+            embeddedUpdate["${collection}"] = ${collection};
+            `;
+        }
+
+        return expandToNode`
+            for (const ${translateExpression(entry, id, expression.var, preDerived, generatingProperty)} of ${collection} ?? []) {
+            ${translateBodyExpressionToJavascript(entry, id, expression.method.body, preDerived, generatingProperty)}
+            }
+            ${updateExpression}
         `;
     }
 
@@ -1323,6 +1451,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         return expandToNode`
             await ${accessPath}.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${args})
+        `;
+    }
+
+    if (isNumberRange(expression)) { 
+        const from = translateExpression(entry, id, expression.start, preDerived, generatingProperty);
+        const to = translateExpression(entry, id, expression.end, preDerived, generatingProperty);
+
+        console.log("Translating Number Range Expression: ", from, to);
+
+        // Make a JS array of numbers from from to to
+        return expandToNode`
+            Array.from({length: ${to} - ${from} + 1}, (_, i) => ${from} + i)
         `;
     }
 

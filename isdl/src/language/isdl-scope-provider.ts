@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Document, FunctionDefinition, IfStatement, isAccess, isAssignment, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isVariableAccess, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty } from "./generated/ast.js";
+import { Document, FunctionDefinition, IfStatement, isAccess, isAssignment, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -17,7 +17,10 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
             isAssignment(context.container) ||
             isParentAccess(context.container) ||
             isParentPropertyRefChoice(context.container) ||
-            isParentAssignment(context.container)) {
+            isParentAssignment(context.container) ||
+            isTargetAccess(context.container) ||
+            isTargetAssignment(context.container)
+        ) {
 
             return this.getPropertyAccessScope(context);
         }
@@ -65,6 +68,22 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
             const refChoice = context.container as ParentPropertyRefChoice;
             const docDescriptions = this.getScopesForDocument(refChoice.document.ref);
             descriptions.push(...docDescriptions);
+            return new MapScope(descriptions);
+        }
+
+        // Targets work like parent accesses, but we look for the target type check expression
+        if (isTargetAccess(context.container) || isTargetAssignment(context.container)) {
+            const ifStatement = AstUtils.getContainerOfType(context.container, (n: AstNode): n is IfStatement => {
+                const isIf = isIfStatement(n);
+                if (!isIf) return false;
+                return isTargetTypeCheckExpression((n as IfStatement).expression);
+            })!;
+            const targetTypeCheck = ifStatement?.expression as TargetTypeCheckExpression;
+            if (targetTypeCheck == undefined) {
+                console.error("Target type check not found");
+                return new MapScope([]);
+            }
+            const descriptions = this.getScopesForDocument(targetTypeCheck.document.ref);
             return new MapScope(descriptions);
         }
 
