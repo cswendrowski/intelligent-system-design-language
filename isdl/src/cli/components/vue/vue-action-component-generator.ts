@@ -1,8 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { Action, DisabledCondition, Document, Entry, HiddenCondition, IconParam, isActor, isDisabledCondition, isHiddenCondition, isIconParam, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
-import { translateExpression } from '../method-generator.js';
+import { Action, Document, Entry, IconParam, isActor, isIconParam, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
 import { generatePromptApp } from './vue-prompt-generator.js';
 import { generatePromptSheetClass } from './vue-prompt-sheet-class-generator.js';
 
@@ -10,7 +9,7 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "actions");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${action.name}Action.vue`);
-    const iconParam = action.conditions.find(x => isIconParam(x)) as IconParam;
+    const iconParam = action.params.find(x => isIconParam(x)) as IconParam | undefined;
 
     const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
     const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
@@ -23,16 +22,15 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    const unlocked = action.modifier === 'unlocked';
-
     const fileNode = expandToNode`
     <script setup>
-        import { ref, inject, computed } from "vue";
+        import { ref, inject, computed, watchEffect } from "vue";
 
         const props = defineProps({
             context: Object,
             color: String,
-            editMode: Boolean
+            editMode: Boolean,
+            visibility: String,
         });
 
         const document = inject('rawDocument');
@@ -41,16 +39,49 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
             document.sheet._on${action.name}Action(e, props.context);
         };
 
-        const unlocked = ${unlocked};
+        const visibility = ref('default');
+
+        watchEffect(async () => {
+            visibility.value = await props.visibility;
+        })
 
         const disabled = computed(() => {
-            let system = props.context.system;
-            return ${translateExpression(entry, id, (action.conditions.filter(x => isDisabledCondition(x))[0] as DisabledCondition)?.when) ?? false} || (props.editMode && !unlocked);
+            const disabledStates = ["readonly", "locked"];
+            if (disabledStates.includes(visibility.value)) {
+                return true;
+            }
+            if (visibility.value === "gmEdit") {
+                const isGm = game.user.isGM;
+                const isEditMode = props.editMode;
+                return !isGm && !isEditMode;
+            }
+
+            if (visibility.value === "unlocked") {
+                return false;
+            }
+            
+            // Default to disabled while in editMode
+            return props.editMode;
         });
 
         const hidden = computed(() => {
-            let system = props.context.system;
-            return ${translateExpression(entry, id, (action.conditions.filter(x => isHiddenCondition(x))[0] as HiddenCondition)?.when) ?? false}
+            if (visibility.value === "hidden") {
+                return true;
+            }
+            if (visibility.value === "gmOnly") {
+                return !game.user.isGM;
+            }
+            if (visibility.value === "secret") {
+                const isGm = game.user.isGM;
+                const isOwner = document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+                return !isGm && !isOwner;
+            }
+            if (visibility.value === "edit") {
+                return !props.editMode;
+            }
+
+            // Default to visible
+            return false;
         });
     </script>
     <template>

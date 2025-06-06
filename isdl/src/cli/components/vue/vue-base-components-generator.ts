@@ -277,6 +277,7 @@ function generateProsemirrorComponent(destination: string) {
 
         const props = defineProps({
             label: String,
+            icon: String,
             field: Object,
             disabled: Boolean
         });
@@ -284,7 +285,7 @@ function generateProsemirrorComponent(destination: string) {
 
     <template>
         <div class="isdl-html flexcol">
-            <label style="font-weight: bold">{{ label }}</label>
+            <label style="font-weight: bold"><span v-if="icon"><i :class="icon"></i> </span>{{ game.i18n.localize(label) }}</label>
             <div class="prose-mirror-wrapper" v-html="disabled ? field.enriched : field.element.outerHTML"></div>
         </div>
     </template>
@@ -646,7 +647,9 @@ function generateTextFieldComponent(destination: string) {
             systemPath: String,
             context: Object,
             disabled: Boolean,
-            editMode: Boolean
+            editMode: Boolean,
+            icon: String,
+            color: String
         });
 
         const value = ref(foundry.utils.getProperty(props.context, props.systemPath));
@@ -663,18 +666,30 @@ function generateTextFieldComponent(destination: string) {
             value.value = newValue;
             debouncedPersist(newValue);
         };
+
+        const getLabel = computed(() => {
+            const localized = game.i18n.localize(props.label);
+            if (props.icon) {
+                return \`<i class="fa-solid \${props.icon}"></i> \${localized}\`;
+            }
+            return localized;
+        });
     </script>
     <template>
         <v-text-field
             v-model="value"
-            :label="game.i18n.localize(label)"
-            :disabled="!editMode || disabled"
+            :disabled="disabled"
             :dense="true"
             density="compact"
             variant="outlined"
             @update:modelValue="update"
             :data-tooltip="value"
-        ></v-text-field>
+            :color="color"
+        >
+            <template #label>
+                <span v-html="getLabel" />
+            </template>    
+        </v-text-field>
     </template>
     `;
 
@@ -736,7 +751,6 @@ function generateDateTimeComponent(destination: string) {
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }
 
-
 function generateTrackerComponent(destination: string) {
     const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
     const generatedFilePath = path.join(generatedFileDir, `tracker.vue`);
@@ -757,6 +771,7 @@ function generateTrackerComponent(destination: string) {
             editMode: Boolean,
             primaryColor: String,
             secondaryColor: String,
+            tertiaryColor: String,
             trackerStyle: String,
             icon: String,
             disableMin: Boolean,
@@ -822,10 +837,22 @@ function generateTrackerComponent(destination: string) {
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".value", newValue)
         });
 
+        const temp = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".temp"),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".temp", newValue)
+        });
 
         const max = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath + ".max"),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".max", newValue)
+        });
+
+        const barMax = computed(() => {
+            const totalValue = value.value + temp.value;
+            if (totalValue > max.value) {
+                return totalValue;
+            }
+            return max.value;
         });
 
         const circleValue = computed(() => {
@@ -838,13 +865,19 @@ function generateTrackerComponent(destination: string) {
         const empty = () => value.value = 0;
 
         const filledIcon = computed(() => {
+            if (!props.icon) return "fa-solid fa-star";
             return "fa-solid " + props.icon;
         });
         const emptyIcon = computed(() => {
+            if (!props.icon) return "fa-regular fa-star";
             return "fa-regular " + props.icon;
         });
 
         const expanded = ref(false);
+
+        const expandIcon = computed(() => {
+            return expanded.value ? "fa-solid fa-caret-up" : "fa-solid fa-caret-down";
+        });
 
         const displayText = computed(() => {
             return value.value + " / " + max.value;
@@ -866,17 +899,37 @@ function generateTrackerComponent(destination: string) {
 
         const getSegmentFill = (segmentIndex) => {
             const filled = value.value;
+            const tempFilled = filled + (temp?.value ?? 0);
             const segmentStart = (segmentIndex - 1) * props.segments;
             const segmentEnd = segmentIndex * props.segments;
-            const filledInSegment = Math.min(Math.max(filled - segmentStart, 0), props.segments);
-            const percentage = (filledInSegment / props.segments) * 100;
-            const fill = \`linear-gradient(to right, \${props.primaryColor} \${percentage}%, transparent \${percentage}%)\`
-            const segmentLines = \`repeating-linear-gradient(to right, \${props.secondaryColor} 0, \${props.secondaryColor} 1px, transparent 1px, transparent calc(100% / \${props.segments}))\`;
+
+            const primaryFill = Math.min(Math.max(filled - segmentStart, 0), props.segments);
+            const tempFill = Math.min(Math.max(tempFilled - segmentStart, 0), props.segments);
+
+            const primaryPct = (primaryFill / props.segments) * 100;
+            const tempPct = (tempFill / props.segments) * 100;
+
+            const fill = \`linear-gradient(
+                to right,
+                \${props.primaryColor} 0%,
+                \${props.primaryColor} \${primaryPct}%,
+                \${props.tertiaryColor} \${primaryPct}%,
+                \${props.tertiaryColor} \${tempPct}%,
+                transparent \${tempPct}%
+            )\`;
+
+            const segmentLines = \`repeating-linear-gradient(
+                to right,
+                \${props.secondaryColor} 0,
+                \${props.secondaryColor} 1px,
+                transparent 1px,
+                transparent calc(100% / \${props.segments})
+            )\`;
 
             return \`\${segmentLines}, \${fill}\`;
         };
 
-        const size = 80;
+        const size = 100;
         const radius = size / 2 - 2;
 
         function describeSlice(index, total, r, center) {
@@ -898,146 +951,194 @@ function generateTrackerComponent(destination: string) {
                 Z
             \`;
         }
+
+        const getLabel = computed(() => {
+            const localized = game.i18n.localize(props.label);
+            if (props.icon) {
+                return \`<i class="fa-solid \${props.icon}"></i> \${localized}\`;
+            }
+            return localized;
+        });
     </script>
 
     <template>
-        <v-card elevation="4" :class="[trackerStyle, 'ml-1', 'm4-1', 'tracker-card']" variant="outlined" v-if="!isHidden">
-            <v-card-title>
-                {{ game.i18n.localize(label) }}
-            </v-card-title>
-
-            <v-card-actions>
-                <v-progress-linear
-                    v-if="trackerStyle == 'bar'"
-                    :height="18"
-                    :color="primaryColor"
-                    bg-color="#92aed9"
-                    rounded
-                    :model-value="value"
-                    min="0"
-                    :max="max"
+        <v-input v-model="value" :class="[trackerStyle, 'isdl-tracker']" v-if="!isHidden">
+            <template #default>
+                <v-field 
+                    class="v-field--active"
+                    density="compact"
+                    variant="outlined"
+                    :disabled="disabled"
                 >
-                    <template v-slot:default>
-                        {{ displayText }}
+                    <template #label>
+                        <span v-html="getLabel" />
                     </template>
-                </v-progress-linear>
-                <v-progress-circular 
-                    v-if="trackerStyle == 'dial'"
-                    :model-value="circleValue" 
-                    :rotate="360" 
-                    :size="100" 
-                    :width="15" 
-                    :color="primaryColor">
-                    <template v-slot:default> {{ displayText }} </template>
-                </v-progress-circular>
-                <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" style="max-width: 95%; overflow-x: scroll;" @click.stop="add" @contextmenu.prevent.stop="remove">
-                    <v-icon v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
-                    <v-icon v-for="i in max - value" :key="i + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
-                </div>
-                <div v-if="trackerStyle == 'slashes'" class="d-flex flex-row" style="width: 95%; max-width: 95%; overflow-x: scroll; padding-left: 1rem; padding-right: 1rem;" @click.stop="add" @contextmenu.prevent.stop="remove">
-                    <div
-                        v-for="i in max"
-                        :data-tooltip="displayText"
-                        :key="i"
-                        :style="{
-                            flex: 1,
-                            minWidth: '5px',
-                            flexShrink: 0,
-                            height: '30px',
-                            backgroundColor: i <= value ? primaryColor : 'transparent',
-                            border: i <= value ? 'none' : '2px solid ' + secondaryColor,
-                            transform: 'skewX(-20deg)',
-                            borderRadius: '2px',
-                            marginRight: '0.25rem'
-                        }"
-                    />
-                </div>
-                <div v-if="trackerStyle == 'segmented'" class="d-flex flex-row" style="width: 95%; max-width: 95%; overflow-x: scroll; padding-left: 1rem; padding-right: 1rem;" @click.stop="add" @contextmenu.prevent.stop="remove">
-                    <div
-                        v-for="i in Math.ceil(max / segments)"
-                        :key="i"
-                        :data-tooltip="displayText"
-                        :style="{
-                        flex: 1,
-                        minWidth: '15px',
-                        flexShrink: 0,
-                        height: '30px',
-                        border: '2px solid ' + secondaryColor,
-                        borderRadius: '2px',
-                        marginRight: '0.25rem',
-                        background: getSegmentFill(i)
-                        }"
-                    />
-                </div>
-                <svg
-                    v-if="trackerStyle === 'clock'"
-                    :width="size"
-                    :height="size"
-                    :viewBox="\`0 0 \${size} \${size}\`"
-                    @click.stop="add"
-                    @contextmenu.prevent.stop="remove"
-                    :data-tooltip="displayText"
-                    >
-                    <g v-for="i in max" :key="i">
-                        <path
-                            :d="describeSlice(i - 1, max, radius, size / 2)"
-                            :fill="i <= value ? primaryColor : 'transparent'"
-                            :stroke="secondaryColor"
-                            stroke-width="2"
+                      <template #append-inner>
+                        <v-icon
+                            :icon="expandIcon"
+                            @click.stop="expanded = !expanded"
+                            class="v-select__menu-icon"
                         />
-                    </g>
-                </svg>
-                <v-spacer></v-spacer>
-                <v-btn :icon="expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" @click="expanded = !expanded" color="primaryColor" />
-            </v-card-actions>
+                    </template>
+                    <div class="tracker-content flexcol">
+                        <div class="d-flex tracker-inner-content">
+                            <v-progress-linear
+                                v-if="trackerStyle == 'bar'"
+                                :height="18"
+                                :color="primaryColor"
+                                bg-color="#92aed9"
+                                rounded
+                                :model-value="value"
+                                min="0"
+                                :max="barMax"
+                                :buffer-value="value + temp"
+                                buffer-opacity="1"
+                                :buffer-color="tertiaryColor"
+                            >
+                                <template v-slot:default>
+                                    {{ displayText }}
+                                </template>
+                            </v-progress-linear>
 
-            <v-expand-transition>
-                <div v-show="expanded">
-                    <v-card-text>
-                        <div class="d-flex flex-row">
-                            <v-number-input
-                                v-model="min"
-                                :name="systemPath + '.min'"
-                                label="Min"
-                                controlVariant="stacked"
-                                density="compact"
-                                variant="outlined"
-                                class="flex-grow-1"
-                                style="min-width: 100px;"
-                                hide-details="true"
-                                :disabled="isDisabled('min')  || disableMin"
-                            />
-                            <v-number-input
-                                v-model="value"
-                                :name="systemPath + '.value'"
-                                label="Value"
-                                controlVariant="stacked"
-                                density="compact"
-                                variant="outlined"
-                                class="flex-grow-1"
-                                style="min-width: 100px;"
-                                hide-details="true"
-                                :disabled="isDisabled('value') || disableValue"
-                            />
-                            <v-number-input
-                                v-model="max"
-                                :name="systemPath + '.max'"
-                                label="Max"
-                                controlVariant="stacked"
-                                density="compact"
-                                variant="outlined"
-                                class="flex-grow-1"
-                                style="min-width: 100px;"
-                                hide-details="true"
-                                :disabled="isDisabled('max') || disableMax"
-                            />
-                            <v-btn icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
-                            <v-btn icon="fa-solid fa-battery-full" @click="refill" :disabled="isDisabled || disableValue" data-tooltip="Refill" :color="secondaryColor" />
+                            <v-progress-circular 
+                                v-if="trackerStyle == 'dial'"
+                                :model-value="circleValue" 
+                                :rotate="360" 
+                                :size="100" 
+                                :width="15" 
+                                :color="primaryColor">
+                                <template v-slot:default> {{ displayText }} </template>
+                            </v-progress-circular>
+
+                            <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll;">
+                                <v-icon v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-for="i in temp" :key="i + value" :icon="filledIcon" :color="tertiaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-for="i in max - value" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                            </div>
+
+                            <div v-if="trackerStyle == 'slashes'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll; padding-left: 0.5rem; padding-right: 0.5rem;">
+                                <div
+                                    v-for="i in max"
+                                    :data-tooltip="displayText"
+                                    :key="i"
+                                    :style="{
+                                        flex: 1,
+                                        minWidth: '5px',
+                                        flexShrink: 0,
+                                        height: '30px',
+                                        backgroundColor: i <= value ? primaryColor : (i <= value + temp ? tertiaryColor : 'transparent'),
+                                        border: i <= value ? 'none' : '2px solid ' + secondaryColor,
+                                        transform: 'skewX(-20deg)',
+                                        borderRadius: '2px',
+                                        marginRight: '0.25rem'
+                                    }"
+                                />
+                            </div>
+
+                            <div v-if="trackerStyle == 'segmented'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove">
+                                <div
+                                    v-for="i in Math.ceil(max / segments)"
+                                    :key="i"
+                                    :data-tooltip="displayText"
+                                    :style="{
+                                        flex: 1,
+                                        minWidth: '15px',
+                                        flexShrink: 0,
+                                        height: '30px',
+                                        border: '2px solid ' + secondaryColor,
+                                        borderRadius: '2px',
+                                        marginRight: '0.25rem',
+                                        background: getSegmentFill(i)
+                                    }"
+                                />
+                            </div>
+
+                            <svg
+                                v-if="trackerStyle === 'clock'"
+                                :width="size"
+                                :height="size"
+                                :viewBox="\`0 0 \${size} \${size}\`"
+                                @click.stop="add"
+                                @contextmenu.prevent.stop="remove"
+                                :data-tooltip="displayText"
+                                style="width: auto;"
+                                >
+                                <g v-for="i in max" :key="i">
+                                    <path
+                                        :d="describeSlice(i - 1, max, radius, size / 2)"
+                                        :fill="i <= value ? primaryColor : (i <= value + temp ? tertiaryColor: 'transparent')"
+                                        :stroke="secondaryColor"
+                                        stroke-width="2"
+                                    />
+                                </g>
+                            </svg>
                         </div>
-                    </v-card-text>
-                </div>
-            </v-expand-transition>
-        </v-card>
+                        <v-expand-transition>
+                            <div v-show="expanded" style="margin-top: 1rem;">
+                                <div class="d-flex flex-row">
+                                    <v-number-input
+                                        v-model="value"
+                                        :name="systemPath + '.value'"
+                                        label="Value"
+                                        controlVariant="stacked"
+                                        density="compact"
+                                        variant="outlined"
+                                        class="flex-grow-1 slim-number"
+                                        style="min-width: 70px;"
+                                        hide-details="true"
+                                        tile="true"
+                                        :disabled="isDisabled('value') || disableValue"
+                                    />
+                                    <v-number-input
+                                        v-model="temp"
+                                        :name="systemPath + '.temp'"
+                                        label="Temp"
+                                        controlVariant="stacked"
+                                        density="compact"
+                                        variant="outlined"
+                                        class="flex-grow-1"
+                                        style="min-width: 70px; margin-right: 0.5rem;"
+                                        hide-details="true"
+                                        tile="true"
+                                        :disabled="isDisabled('value') || disableValue"
+                                    />
+                                    <v-btn size="small" icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
+                                </div>
+                                <div class="d-flex flex-row" style="margin-top: 1rem;">
+                                    <v-number-input
+                                        v-model="min"
+                                        :name="systemPath + '.min'"
+                                        label="Min"
+                                        controlVariant="stacked"
+                                        density="compact"
+                                        variant="outlined"
+                                        class="flex-grow-1 slim-number"
+                                        style="min-width: 70px;"
+                                        hide-details="true"
+                                        tile="true"
+                                        :disabled="isDisabled('min') || disableMin"
+                                    />
+                                    <v-number-input
+                                        v-model="max"
+                                        :name="systemPath + '.max'"
+                                        label="Max"
+                                        controlVariant="stacked"
+                                        density="compact"
+                                        variant="outlined"
+                                        class="flex-grow-1"
+                                        style="min-width: 70px; margin-right: 0.5rem;"
+                                        hide-details="true"
+                                        tile="true"
+                                        :disabled="isDisabled('max') || disableMax"
+                                    />
+                                    <v-btn size="small" icon="fa-solid fa-battery-full" @click="refill" :disabled="isDisabled('value') || disableValue" data-tooltip="Refill" :color="secondaryColor" />
+                                </div>
+                            </div>
+                        </v-expand-transition>
+                    </div>
+                </v-field>
+            </template>
+        </v-input>
     </template>
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));

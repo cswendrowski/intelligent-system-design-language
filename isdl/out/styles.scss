@@ -431,10 +431,28 @@
 
     .isdl-html {
         min-width: 300px;
+        max-width: 600px;
+    }
+
+    // Description tab can be full width
+    .v-tabs-window-item {
+        .isdl-html {
+            max-width: unset;
+        }
     }
 
     .action-btn, .isdl-property, .isdl-single-document {
         min-width: 150px;
+        max-width: 300px;
+    }
+
+    .isdl-tracker {
+        min-width: 300px;
+        max-width: 600px;
+
+        .slim-number {
+            font-size: 0.75rem;
+        }
     }
 
     .isdl-single-document {
@@ -454,12 +472,6 @@
 
     .v-field, .v-field__field {
         z-index: 10;
-    }
-
-    .v-btn-group, .v-card-actions {
-        .v-btn {
-            width: unset;
-        }
     }
 
     .v-btn-group {
@@ -572,6 +584,27 @@
             height: 40px;
             padding-left: 16px;
             padding-right: 0px;
+        }
+    }
+
+    .isdl-tracker {
+        .tracker-content {
+            width: 100%;
+            padding: 0.5rem;
+            min-height: 50px;
+
+            .tracker-inner-content {
+                > * {
+                    align-self: center;
+                    width: 100%;
+                }
+            }
+        }
+
+        &.dial, &.clock {
+            .tracker-content {
+                min-height: 116px;
+            }
         }
     }
 

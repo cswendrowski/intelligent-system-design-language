@@ -32,7 +32,6 @@ import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'lang
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extractDestinationAndName } from './cli-util.js';
-import { generateDocumentSheet } from './components/document-sheet-generator.js';
 import { generateCustomCss, generateSystemCss } from './components/css-generator.js';
 import { generateLanguageJson } from './components/language-generator.js';
 import { generateExtendedDocumentClasses } from './components/derived-data-generator.js';
@@ -42,7 +41,6 @@ import { generateActiveEffectHandlebars, generateBaseActiveEffectBaseSheet as ge
 import { generateChatCardClass, generateStandardChatCardTemplate } from './components/chat-card-generator.js';
 import { generateBaseDocumentSheet } from './components/base-sheet-generator.js';
 import { generateBaseActorSheet } from './components/base-actor-sheet-generator.js';
-import { generateDocumentHandlebars } from './components/document-sheet-handlebars-generator.js';
 import { getAllOfType } from './components/utils.js';
 import { generateCanvasToken, generateTokenDocument } from './components/token-generator.js';
 import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
@@ -102,9 +100,6 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     // Documents
     entry.documents.forEach(x => {
         generateDocumentDataModel(entry, x, data.destination);
-        generateDocumentSheet(x, entry, id, data.destination);
-        generateDocumentHandlebars(id, x, data.destination, true);
-        generateDocumentHandlebars(id, x, data.destination, false);
     });
 
     console.log("Running Vite build");
@@ -427,7 +422,6 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
 
     const fileNode = expandToNode`
         ${joinToNode(entry.documents, document => `import ${document.name}TypeDataModel from "../datamodels/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}.mjs"`, { appendNewLineIfNotEmpty: true })}
-        ${joinToNode(entry.documents, document => `import ${document.name}Sheet from "../sheets/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(entry.documents, document => `import ${document.name}VueSheet from "../sheets/vue/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
         import DataTableApp from "../sheets/vue/datatable-app.mjs";
         ${joinToNode(entry.documents, generateDocumentPromptImports, { appendNewLineIfNotEmpty: true })}
@@ -533,11 +527,9 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             Items.unregisterSheet("core", ItemSheet);
 
             // Actors
-            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
 
             // Items
-            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}Sheet, {types: ["${document.name.toLowerCase()}"], makeDefault: false});`, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
         
             // Active Effects
@@ -769,7 +761,11 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
                     return data;
                 },
                 options: {
-                    classes: ["${id}", "dialog"]
+                    classes: ["${id}", "dialog"],
+                    width: message.width,
+                    height: message.height,
+                    left: message.left,
+                    top: message.top,
                 }
             });
         }

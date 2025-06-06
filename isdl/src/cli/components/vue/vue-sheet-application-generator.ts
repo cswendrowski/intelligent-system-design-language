@@ -1,14 +1,15 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, BackgroundParam, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp,
+import { Action, AttributeExp, BackgroundParam, BooleanParamValue, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp,
      Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp
-     , isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHookHandler, isHtmlExp, isIconParam,
-      isImageParam, isMethodBlock, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefExp,
+     , isBooleanParamValue, isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHtmlExp, isIconParam,
+      isImageParam, isMethodBlock, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefChoiceParam, isParentPropertyRefExp,
+       isPipsExp,
        isProperty, isResourceExp, isSection, isSegmentsParameter, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp,
-        isStringParamChoices, isStringParamValue, isTimeExp, isTrackerExp, isTrackerStyleParameter, isVisibilityParam, NumberExp, NumberParamMax,
-         NumberParamMin, NumberParamValue, Page, PaperDollExp, Property, ResourceExp, Section, SegmentsParameter, SizeParam
-         , StringParamChoices, StringParamValue, TrackerStyleParameter, 
+        isStringParamChoices, isStringParamValue, isTimeExp, isTrackerExp, isTrackerStyleParameter, isVisibilityParam, NumberExp, NumberFieldParams, NumberParamMax,
+         NumberParamMin, NumberParamValue, Page, PaperDollExp, ParentPropertyRefChoiceParam, Property, ResourceExp, Section, SegmentsParameter, SizeParam
+         , StandardFieldParams, StringParamChoices, StringParamValue, TrackerStyleParameter, 
          VisibilityParam} from "../../../language/generated/ast.js";
 import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
@@ -37,7 +38,7 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
 function generateVueComponentScript(entry: Entry, id: string, document: Document, destination: string): CompositeGeneratorNode {
     const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
     const pages = getAllOfType<Page>(document.body, isPage);
-    const actions = getAllOfType<Action>(document.body, isAction);
+    const actions = getAllOfType<Action>(document.body, isAction, false);
     const paperDoll = getAllOfType<PaperDollExp>(document.body, isPaperDollExp);
     const documentChoices = getAllOfType<DocumentChoiceExp>(document.body, isDocumentChoiceExp);
 
@@ -111,7 +112,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     }
 
     const properties = getAllOfType<Property>(document.body, isProperty, false);
-    function generateVisibilityState(element: Property): CompositeGeneratorNode {
+    function generateVisibilityState(element: Property | Action): CompositeGeneratorNode {
         if (element.modifier != undefined) {
             return expandToNode`
             '${element.name.toLowerCase()}': async () => {
@@ -120,8 +121,44 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             `;
         }
 
-        if (isTrackerExp(element)) {
-            const visibilityParam = element.params.find(p => isVisibilityParam(p)) as VisibilityParam | undefined;
+        if (isProperty(element) || isAction(element)) {
+            const standardParams = element.params as StandardFieldParams[];
+
+            if (isStringExp(element)) {
+                const stringValueParam = element.params.find(isStringParamValue) as StringParamValue | undefined;
+                if (stringValueParam) {
+                    return expandToNode`
+                    '${element.name.toLowerCase()}': async (editMode) => {
+                        return 'locked';
+                    }
+                    `;
+                }
+            }
+            if (isBooleanExp(element)) {
+                const booleanValueParam = element.params.find(isBooleanParamValue) as BooleanParamValue | undefined;
+                if (booleanValueParam) {
+                    return expandToNode`
+                    '${element.name.toLowerCase()}': async (editMode) => {
+                        return 'locked';
+                    }
+                    `;
+                }
+            }
+            if (isNumberExp(element) || isAttributeExp(element) || isResourceExp(element) || isTrackerExp(element)) {
+                const numberParams = element.params as NumberFieldParams[];
+                const numberValueParam = numberParams.find(isNumberParamValue) as NumberParamValue | undefined;
+                if (numberValueParam) {
+                    return expandToNode`
+                    '${element.name.toLowerCase()}': async (editMode) => {
+                        return 'locked';
+                    }
+                    `;
+                }
+            }
+
+            const visibilityParam = standardParams.find(function (p: any) {
+                    return isVisibilityParam(p);
+                }) as VisibilityParam | undefined;
             if (visibilityParam) {
 
                 if (isMethodBlock(visibilityParam.visibility)) {
@@ -185,7 +222,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
     return expandToNode`
     <script setup>
-        import { ref, watch, inject, computed } from "vue";
+        import { ref, watch, inject, computed, watchEffect } from "vue";
         ${joinToNode(tabs, tab => importDataTable(document.name, tab), { appendNewLineIfNotEmpty: true })}
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
@@ -206,19 +243,22 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
         // Colors
         var storedColors = game.settings.get('${id}', 'documentColorThemes');
-        const primaryColor = ref(storedColors[document.uuid]?.primary ?? '#1867c0');
-        const secondaryColor = ref(storedColors[document.uuid]?.secondary ?? '#4faca9');
+        const primaryColor = ref(storedColors[document.uuid]?.primary ?? '#1565c0');
+        const secondaryColor = ref(storedColors[document.uuid]?.secondary ?? '#4db6ac');
+        const tertiaryColor = ref(storedColors[document.uuid]?.tertiary ?? '#ffb74d');
 
         const setupColors = () => {
             const colors = {
                 primary: primaryColor.value,
-                secondary: secondaryColor.value
+                secondary: secondaryColor.value,
+                tertiary: tertiaryColor.value
             };
             game.settings.set('${id}', 'documentColorThemes', { ...storedColors, [document.uuid]: colors });
         };
         const resetColors = () => {
-            primaryColor.value = '#1867c0';
-            secondaryColor.value = '#4faca9';
+            primaryColor.value = '#1565c0';
+            secondaryColor.value = '#4db6ac';
+            teritaryColor.value = '#ffb74d';
             setupColors();
         };
 
@@ -226,6 +266,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             setupColors();
         });
         watch(secondaryColor, () => {
+            setupColors();
+        });
+        watch(tertiaryColor, () => {
             setupColors();
         });
 
@@ -432,8 +475,71 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         ${joinToNode(paperDoll, paperDollSlots, { appendNewLineIfNotEmpty: true })}
 
         // Visibility states
+        const visibilityStatesMethods = {
+            ${joinToNode(properties, generateVisibilityState, { separator: ',', appendNewLineIfNotEmpty: true })},
+            ${joinToNode(actions, generateVisibilityState, { separator: ',', appendNewLineIfNotEmpty: true })}
+        };
         const visibilityStates = {
-            ${joinToNode(properties, generateVisibilityState, { separator: ',', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(properties, element => expandToNode`
+                '${element.name.toLowerCase()}': ref('default')
+            `, { separator: ',', appendNewLineIfNotEmpty: true })},
+            ${joinToNode(actions, element => expandToNode`
+                '${element.name.toLowerCase()}': ref('default')
+            `, { separator: ',', appendNewLineIfNotEmpty: true })}
+        };
+        watchEffect(async () => {
+            ${joinToNode(properties, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'] = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(actions, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'] = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
+        });
+
+        const isHidden = (type) => {
+            const visibility = visibilityStates[type];
+            if (visibility === "hidden") {
+                return true;
+            }
+            if (visibility === "gmOnly") {
+                return !game.user.isGM;
+            }
+            if (visibility === "secret") {
+                const isGm = game.user.isGM;
+                const isOwner = document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+                return !isGm && !isOwner;
+            }
+            if (visibility === "edit") {
+                return !editMode.value;
+            }
+
+            // Default to visible
+            return false;
+        };
+
+        const isDisabled = (type) => {
+            const visibility = visibilityStates[type];
+            const disabledStates = ["readonly", "locked"];
+            if (disabledStates.includes(visibility)) {
+                return true;
+            }
+            if (visibility === "gmEdit") {
+                const isGm = game.user.isGM;
+                const isEditMode = editMode.value;
+                return !isGm && !isEditMode;
+            }
+
+            if (visibility === "unlocked") {
+                return false;
+            }
+            
+            // Default to enabled while in editMode
+            return !editMode.value;
+        };
+
+        const getLabel = (label, icon) => {
+            console.log("Getting label for: " + label + " with icon: " + icon);
+            const localized = game.i18n.localize(label);
+            if (icon) {
+                return \`<i class="\${icon}"></i> \${localized}\`;
+            }
+            return localized;
         };
     </script>
     <style>
@@ -477,10 +583,10 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 </v-tabs>
                 <template v-slot:append>
                     <div class="pa-2">
-                        <v-btn block @click="setupColors" :color="secondaryColor">
+                        <v-btn block @click="setupColors" :color="secondaryColor" prepend-icon="fa-solid fa-palette">
                         Setup Colors
 
-                        <v-dialog activator="parent" max-width="700">
+                        <v-dialog activator="parent" max-width="1000">
                         <template v-slot:default="{ isActive }">
                         <v-card
                             title="Setup Colors"
@@ -496,6 +602,28 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                         <v-label>Secondary Color</v-label>
                                         <v-color-picker hide-inputs hide-sliders hide-canvas show-swatches v-model="secondaryColor" swatches-max-height="500px"></v-color-picker>
                                     </div>
+                                    <v-spacer></v-spacer>
+                                    <div class="d-flex flex-column">
+                                        <v-label>Tertiary Color</v-label>
+                                        <v-color-picker hide-inputs hide-sliders hide-canvas show-swatches v-model="tertiaryColor" swatches-max-height="500px"></v-color-picker>
+                                    </div>
+                                </div>
+                                <h3>Preview</h3>
+                                <div class="d-flex flex-row"style="overflow-x: scroll; padding-left: 0.5rem; padding-right: 0.5rem;">
+                                    <div
+                                        v-for="i in 10"
+                                        :key="i"
+                                        :style="{
+                                            flex: 1,
+                                            minWidth: '5px',
+                                            flexShrink: 0,
+                                            height: '30px',
+                                            backgroundColor: i <= 4 ? primaryColor : (i <= 6 ? tertiaryColor : 'transparent'),
+                                            border: i <= value ? 'none' : '2px solid ' + secondaryColor,
+                                            transform: 'skewX(-20deg)',
+                                            borderRadius: '2px'
+                                        }"
+                                    />
                                 </div>
                             </v-card-text>
                             <v-card-actions>
@@ -628,21 +756,29 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         }
 
         // We don't render these elements as part of this function
-        if (isPage(element) || isAccess(element) || isDocumentArrayExp(element) || isStatusProperty(element)) {
+        if (isPage(element) || isAccess(element) || isDocumentArrayExp(element) || isStatusProperty(element) || isPipsExp(element)) {
             return expandToNode``;
         }
 
         if (isAction(element)) {
             const componentName = `${document.name.toLowerCase()}${element.name}Action`;
+
+            const colorParam = element.params.find(x => isColorParam(x)) as ColorParam | undefined;
+            const primaryColor = colorParam ? `'${colorParam.value}'` : "primaryColor";
+
             return expandToNode`
-            <${componentName} :context="context" :color="primaryColor" :editMode="editMode"></${componentName}>
+            <${componentName} 
+                :context="context" 
+                :color="${primaryColor}"
+                :editMode="editMode" 
+                :visibility="visibilityStatesMethods['${element.name.toLowerCase()}'](editMode)">
+            </${componentName}>
             `;
         }
 
         if (!isProperty(element)) return expandToNode``;
 
         if (isProperty(element)) {
-            if (isHookHandler(element)) return expandToNode``;
             if (element.modifier == "hidden") return expandToNode``;
             
             if (element.name == "RollVisualizer") {
@@ -650,29 +786,39 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 <i-roll-visualizer :context="context"></i-roll-visualizer>
                 `;
             }
-            let disabled = element.modifier == "readonly" || element.modifier == "locked";
-            if (element.modifier == "unlocked") disabled = false;
-            let unlocked = element.modifier == "unlocked";
+
+            const standardParams = element.params as StandardFieldParams[];
+            const iconParam = standardParams.find(p => isIconParam(p)) as IconParam | undefined;
+
+            const colorParam = standardParams.find(p => isColorParam(p)) as ColorParam | undefined;
 
             const label = `${document.name}.${element.name}`;
-            const labelFragment = `:label="game.i18n.localize('${label}')"`;
+            const labelFragment = `
+                <template #label>
+                    <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+                </template>`;
+            const standardParamsFragment = colorParam ?  `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
             const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;
 
             if (isParentPropertyRefExp(element)) {
+                const choicesParam = element.params.find(p => isParentPropertyRefChoiceParam(p)) as ParentPropertyRefChoiceParam | undefined;
                 let allChoices: Property[] = [];
                 switch (element.propertyType) {
                     case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
                     case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
                     case "number": allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp); break;
+                    //case "tracker": allChoices = globalGetAllOfType<TrackerExp>(entry, isTrackerExp); break;
+                    //case "string": allChoices = globalGetAllOfType<StringExp>(entry, isStringExp); break;
+                    //case "boolean": allChoices = globalGetAllOfType<BooleanExp>(entry, isBooleanExp); break;
                     default: console.error("Unsupported parent property type: " + element.propertyType); break;
                 }
                 let refChoices = allChoices.map(x => {
                     let parentDocument = getDocument(x);
         
-                    if (element.choices.length > 0) {
-                        if (!element.choices.find(y => {
+                    if (choicesParam && choicesParam.choices.length > 0) {
+                        if (!choicesParam.choices.find(y => {
                             const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
         
                             if (y.property != undefined) {
@@ -695,7 +841,19 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 refChoices = refChoices.filter(x => x != undefined);
                 const choices = refChoices.map(c => `{ label: '${c?.parent} - ${c?.name}', value: '${c?.path}' }`).join(", ");
                 return expandToNode`
-                <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" ${labelFragment} :disabled="(!editMode && !${unlocked}) || ${disabled}" variant="outlined" density="compact"></v-select>
+                <v-select 
+                    name="${systemPath}" 
+                    v-model="context.${systemPath}" 
+                    :items="[${choices}]" 
+                    item-title="label" 
+                    item-value="value" 
+                    ${standardParamsFragment} 
+                    variant="outlined" 
+                    density="compact">
+                        <template #label>
+                            <span v-html="getLabel('${label}.label', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+                        </template>
+                </v-select>
                 `;
             }
 
@@ -708,12 +866,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     <v-text-field 
                         name="${systemPath}"
                         v-model="context.${systemPath}" 
-                        ${labelFragment} 
-                        :disabled="true" 
+                        ${standardParamsFragment}
                         variant="outlined" 
                         density="compact"
                         append-inner-icon="fa-solid fa-function" 
-                        :data-tooltip="context.${systemPath}"></v-text-field>
+                        :data-tooltip="context.${systemPath}">
+                        ${labelFragment}
+                    </v-text-field>
                     `;
                 }
 
@@ -727,43 +886,70 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         :items="[${choices}]" 
                         item-title="label" 
                         item-value="value" 
-                        :label="game.i18n.localize('${label}.label')"
-                        :disabled="(!editMode && !${unlocked}) || ${disabled}"
+                        ${standardParamsFragment}
                         variant="outlined" 
-                        density="compact"></v-select>
+                        density="compact">
+                        <template #label>
+                            <span v-html="getLabel('${label}.label', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+                        </template>
+                    </v-select>
                     `;
                 }
                 return expandToNode`
-                    <i-text-field label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-text-field>
+                    <i-text-field 
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        ${standardParamsFragment}
+                        :context="context"
+                        :editMode="editMode" 
+                        :primaryColor="primaryColor" 
+                        :secondaryColor="secondaryColor">
+                    </i-text-field>
                 `;
             }
 
             if (isDocumentChoiceExp(element)) {
                 const componentName = `${document.name.toLowerCase()}${element.name}DocumentChoice`;
                 return expandToNode`
-                    <${componentName} :context="context" :editMode="editMode" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></${componentName}>
+                    <${componentName} 
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        :context="context" 
+                        :editMode="editMode"
+                        ${standardParamsFragment}
+                        :primaryColor="primaryColor" 
+                        :secondaryColor="secondaryColor">
+                    </${componentName}>
                 `;
             }
 
             if (isHtmlExp(element)) {
                 return expandToNode`
-                <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="(!editMode && !${unlocked})"></i-prosemirror>
+                <i-prosemirror 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    :field="context.editors['${systemPath}']" 
+                    ${standardParamsFragment}>
+                </i-prosemirror>
                 `;
             }
 
             if (isBooleanExp(element)) {
                 return expandToNode`
-                <v-checkbox v-model="context.${systemPath}" name="${systemPath}" ${labelFragment} :disabled="(!editMode && !${unlocked}) || ${disabled}" :color="primaryColor"></v-checkbox>
+                <v-checkbox 
+                    v-model="context.${systemPath}" 
+                    name="${systemPath}"
+                    ${standardParamsFragment}
+                    :color="primaryColor">
+                    ${labelFragment} 
+                </v-checkbox>
                 `;
             }
 
             if (isNumberExp(element)) {
                 // If this is a calculated value, we don't want to allow editing
                 const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
-
-                if (valueParam != undefined) {
-                    disabled = true;
-                }
 
                 return expandToNode`
                 <v-number-input
@@ -773,9 +959,9 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     v-model="context.${systemPath}"
                     ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number"` : ``}
                     name="${systemPath}"
-                    ${labelFragment}
-                    :disabled="(!editMode && !${unlocked}) || ${disabled}"
+                    ${standardParamsFragment}
                 >
+                ${labelFragment}
                 ${valueParam == undefined ? `
                 <template #append-inner>
                     <i-calculator v-if="editMode" :context="context" :systemPath="'${systemPath}'" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-calculator>
@@ -794,13 +980,32 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const valueSystemPath = getSystemPath(element, ["value"], undefined, false);
 
                 return expandToNode`
-                    <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${valueSystemPath}" :context="context" :min="${min}" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
+                    <i-attribute 
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        :hasMod="${hasMod}" 
+                        :mod="context.${modSystemPath}"
+                        systemPath="${valueSystemPath}" 
+                        :context="context" 
+                        :min="${min}" 
+                        ${standardParamsFragment}
+                        :primaryColor="primaryColor" 
+                        :secondaryColor="secondaryColor">
+                    </i-attribute>
                 `;
             }
 
             if (isResourceExp(element)) {
                 return expandToNode`
-                <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
+                <i-resource 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="system.${element.name.toLowerCase()}"
+                    :context="context"
+                    ${standardParamsFragment}
+                    :primaryColor="primaryColor"
+                    :secondaryColor="secondaryColor">
+                </i-resource>
                 `;
             }
 
@@ -809,7 +1014,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const style = styleParam?.style ?? "bar";
 
                 const iconParam = element.params.find(x => isIconParam(x)) as IconParam | undefined;
-                const icon = iconParam?.value ?? "fa-star";
+                const icon = iconParam?.value ?? undefined;
 
                 const minParam = element.params.find(x => isNumberParamMin(x)) as NumberParamMin;
                 const disableMin = minParam?.value != undefined;
@@ -821,18 +1026,23 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const disableMax = maxParam?.value != undefined;
 
                 const colorParam = element.params.find(x => isColorParam(x)) as ColorParam | undefined;
-                const primaryColor = colorParam?.value ?? "primaryColor";
+                const primaryColor = colorParam ? `'${colorParam.value}'` : "primaryColor";
 
                 const segmentParm = element.params.find(x => isSegmentsParameter(x)) as SegmentsParameter | undefined;
                 const segments = segmentParm?.segments ?? 1;
 
                 return expandToNode`
-                <i-tracker label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" 
-                    :visibility="visibilityStates['${element.name.toLowerCase()}'](editMode)"
+                <i-tracker 
+                    label="${label}"
+                    systemPath="system.${element.name.toLowerCase()}" :context="context" 
+                    :visibility="visibilityStatesMethods['${element.name.toLowerCase()}'](editMode)"
                     :editMode="editMode"
-                    :primaryColor="${primaryColor}" :secondaryColor="secondaryColor"
-                    trackerStyle="${style}" icon="${icon}" 
-                    :disableMin="${disableMin}" :disableValue="${disableValue}" :disableMax="${disableMax}"
+                    :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
+                    trackerStyle="${style}"
+                    icon="${icon}" 
+                    :disableMin="${disableMin}"
+                    :disableValue="${disableValue}"
+                    :disableMax="${disableMax}"
                     :segments="${segments}"
                     ></i-tracker>
                 `;
@@ -840,26 +1050,57 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isSingleDocumentExp(element)) {
                 return expandToNode`
-                <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" documentName="${element.document.ref?.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :secondaryColor="secondaryColor"></i-document-link>
+                <i-document-link 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="system.${element.name.toLowerCase()}" 
+                    documentName="${element.document.ref?.name.toLowerCase()}" 
+                    :context="context" 
+                    ${standardParamsFragment} 
+                    :secondaryColor="secondaryColor">
+                </i-document-link>
                 `;
             }
 
             if (isDateExp(element)) {
                 return expandToNode`
-                <i-datetime type="date" label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-datetime>
-
+                <i-datetime 
+                    type="date" 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="system.${element.name.toLowerCase()}" 
+                    :context="context" 
+                    ${standardParamsFragment}
+                    :primaryColor="primaryColor" :secondaryColor="secondaryColor">
+                </i-datetime>
                 `;
             }
 
             if (isTimeExp(element)) {
                 return expandToNode`
-                <i-datetime type="time" label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-datetime>
+                <i-datetime 
+                    type="time" 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="system.${element.name.toLowerCase()}" 
+                    :context="context" 
+                    ${standardParamsFragment}
+                    :primaryColor="primaryColor" :secondaryColor="secondaryColor">
+                </i-datetime>
                 `;
             }
 
             if (isDateTimeExp(element)) {
                 return expandToNode`
-                <i-datetime type="datetime-local" label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-datetime>
+                <i-datetime 
+                    type="datetime-local" 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="system.${element.name.toLowerCase()}" 
+                    :context="context" 
+                    ${standardParamsFragment}
+                    :primaryColor="primaryColor" :secondaryColor="secondaryColor">
+                </i-datetime>
                 `;
             }
 
@@ -871,7 +1112,16 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 let image = imageParam?.value ?? `systems/${id}/img/paperdoll_default.png`;
 
                 return expandToNode`
-                <i-paperdoll label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="(!editMode && !${unlocked}) || ${disabled}" image="${image}" size="${size}" :slots="${element.name.toLowerCase()}Slots"></i-paperdoll>
+                <i-paperdoll 
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="system.${element.name.toLowerCase()}" 
+                    :context="context" 
+                    ${standardParamsFragment}
+                    image="${image}" 
+                    size="${size}" 
+                    :slots="${element.name.toLowerCase()}Slots">
+                </i-paperdoll>
                 `;
             }
             

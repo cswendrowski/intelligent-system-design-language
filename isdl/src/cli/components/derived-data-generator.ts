@@ -4,7 +4,6 @@ import {
     Entry,
     Section,
     MethodBlock,
-    NumberParameter,
     Page,
     ResourceExp,
     isStringExp,
@@ -21,7 +20,9 @@ import {
     NumberParamValue,
     HookHandler,
     isHookHandler,
-    isTrackerExp
+    isTrackerExp,
+    NumberParamInitial,
+    WhereParam
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -54,7 +55,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
     function generateExtendedDocumentClass(type: string, entry: Entry) {
 
-        function translateMethodOrValueOrStored(property: Property, param: NumberParameter | undefined): CompositeGeneratorNode {
+        function translateMethodOrValueOrStored(property: Property, param: NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | undefined): CompositeGeneratorNode {
             if (param == undefined) {
                 return expandToNode`
                     return system.${property.name.toLowerCase()} ?? 0
@@ -114,9 +115,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
             if (isNumberExp(property)) {
 
-                const valueParam = property.params.find(p => isNumberParamValue(p));
-                const minParam = property.params.find(p => isNumberParamMin(p));
-                const maxParam = property.params.find(p => isNumberParamMax(p));
+                const valueParam = property.params.find(p => isNumberParamValue(p)) as NumberParamValue | undefined;
+                const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin | undefined;
+                const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax | undefined;
 
                 if (valueParam) {
                     return expandToNode`
@@ -213,6 +214,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 `.appendNewLineIfNotEmpty();
             };
 
+            function generateValueOrMethod(value: number | MethodBlock): CompositeGeneratorNode {
+                if (isMethodBlock(value)) {
+                    return expandToNode`
+                        ${translateExpression(entry, id, value, true, undefined)}
+                    `;
+                }
+                return expandToNode`
+                    return ${value};
+                `;
+            }
+
+
             if ( isTrackerExp(property) ) {
                 console.log("Processing Derived Tracker: " + property.name);
                 const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
@@ -221,19 +234,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                 if (maxParam == undefined && minParam == undefined && valueParam == undefined) return;
 
-                function generateValueOrMethod(value: number | MethodBlock): CompositeGeneratorNode {
-                    if (isMethodBlock(value)) {
-                        return expandToNode`
-                            ${translateExpression(entry, id, value, true, undefined)}
-                        `;
-                    }
-                    return expandToNode`
-                        return ${value};
-                    `;
-                }
 
                 return expandToNode`
                     // ${property.name} Tracker Derived Data
+                    const ${property.name.toLowerCase()}TempValue = this.system.${property.name.toLowerCase()}.temp ?? 0;
                     const ${property.name.toLowerCase()}CurrentMin = (system) => {
                         ${minParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.min ?? 0;` : generateValueOrMethod(minParam.value)};
                     }
@@ -246,34 +250,50 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     this.system.${property.name.toLowerCase()} = {
                         min: ${property.name.toLowerCase()}CurrentMin(this.system),
                         value: ${property.name.toLowerCase()}CurrentValue(this.system),
+                        temp: ${property.name.toLowerCase()}TempValue,
                         max: ${property.name.toLowerCase()}CurrentMax(this.system),
                     };
-                    if ( this.system.${property.name.toLowerCase()}.value < this.system.${property.name.toLowerCase()}.min ) {
+                    if ( !editMode && this.system.${property.name.toLowerCase()}.value < this.system.${property.name.toLowerCase()}.min ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.min;
                     }
-                    else if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
+                    else if ( !editMode && this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
                     }
                 `.appendNewLineIfNotEmpty();
             };
 
-            if ( isResourceExp(property) && property.max != undefined && isMethodBlock(property.max) ) {
+            if ( isResourceExp(property) ) {
                 console.log("Processing Derived Resource: " + property.name);
+
+                const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+                const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
+                const valueParam = property.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+
+                if (maxParam == undefined && minParam == undefined && valueParam == undefined) return;
+
                 //toBeReapplied.add("system." + property.name.toLowerCase() + ".max");
                 return expandToNode`
                     // ${property.name} Resource Derived Data
-                    const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}.value ?? 0;
                     const ${property.name.toLowerCase()}TempValue = this.system.${property.name.toLowerCase()}.temp ?? 0;
-                    const ${property.name.toLowerCase()}MaxFunc = (system) => {
-                        ${translateExpression(entry, id, property.max as MethodBlock, true, property)}
-                    };
+                    const ${property.name.toLowerCase()}CurrentMin = (system) => {
+                        ${minParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.min ?? 0;` : generateValueOrMethod(minParam.value)};
+                    }
+                    const ${property.name.toLowerCase()}CurrentValue = (system) => {
+                        ${valueParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.value ?? 0;` : generateValueOrMethod(valueParam.value)};
+                    }
+                    const ${property.name.toLowerCase()}CurrentMax = (system) => {
+                        ${maxParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.max ?? 0;` : generateValueOrMethod(maxParam.value)};
+                    }
                     this.system.${property.name.toLowerCase()} = {
-                        value: ${property.name.toLowerCase()}CurrentValue,
+                        value: ${property.name.toLowerCase()}CurrentValue(this.system),
                         temp: ${property.name.toLowerCase()}TempValue,
-                        max: ${property.name.toLowerCase()}MaxFunc(this.system)
+                        max: ${property.name.toLowerCase()}CurrentMax(this.system)
                     };
                     this.reapplyActiveEffectsForName("system.${property.name.toLowerCase()}.max");
-                    if ( !editMode && this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
+                    if ( !editMode && this.system.${property.name.toLowerCase()}.value < ${property.name.toLowerCase()}CurrentMin(this.system) ) {
+                        this.system.${property.name.toLowerCase()}.value = ${property.name.toLowerCase()}CurrentMin(this.system);
+                    }
+                    else if ( !editMode && this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
                     }
                 `.appendNewLineIfNotEmpty();
@@ -320,7 +340,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             if ( isDocumentArrayExp(property) ) {
                 console.log("Processing Derived Document Array: " + property.name);
 
-                const whereParam = property.params.find(p => isWhereParam(p));
+                const whereParam = property.params.find(p => isWhereParam(p)) as WhereParam | undefined;
                 if ( whereParam ) {
                     return expandToNode`
                     // ${property.name} Document Array Derived Data
@@ -872,7 +892,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         return this.create(createData, { parent, pack, renderSheet: true });
                     }
 
-                    const content = await renderTemplate("systems/wrm/system/templates/document-create.hbs", {
+                    const content = await renderTemplate("systems/${id}/system/templates/document-create.hbs", {
                         folders, name, type,
                         folder: data.folder,
                         hasFolders: folders.length > 0,

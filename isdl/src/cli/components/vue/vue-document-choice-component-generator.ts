@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { DisabledCondition, Document, DocumentChoiceExp, Entry, GlobalParam, HiddenCondition, IconParam, isActor, isDisabledCondition, isGlobalParam, isHiddenCondition, isIconParam, isWhereParam, WhereParam } from "../../../language/generated/ast.js";
+import { Document, DocumentChoiceExp, Entry, GlobalParam, IconParam, isActor, isGlobalParam, isIconParam, isWhereParam, WhereParam } from "../../../language/generated/ast.js";
 import { translateExpression } from '../method-generator.js';
 import { getSystemPath } from '../utils.js';
 
@@ -49,13 +49,13 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
         const disabled = computed(() => {
             let item = value.value?.length > 0 ? value.value[0] : value.value;
             let system = props.context.system;
-            return ${translateExpression(entry, id, (documentChoice.params.filter(x => isDisabledCondition(x))[0] as DisabledCondition)?.when) ?? false} || (!props.editMode && !unlocked);
+            return ${false} || (!props.editMode && !unlocked);
         });
 
         const hidden = computed(() => {
             let item = value.value?.length > 0 ? value.value[0] : value.value;
             let system = props.context.system;
-            return ${translateExpression(entry, id, (documentChoice.params.filter(x => isHiddenCondition(x))[0] as HiddenCondition)?.when) ?? false}
+            return ${false}
         });
 
         const choices = computed(() => {

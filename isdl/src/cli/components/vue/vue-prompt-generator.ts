@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { AttributeExp, ClassExpression, Document, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHookHandler, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import { AttributeExp, ClassExpression, Document, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHookHandler, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefChoiceParam, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, ParentPropertyRefChoiceParam, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
 import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { AstUtils } from 'langium';
 
@@ -67,6 +67,7 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
 
         if (isParentPropertyRefExp(element)) {
             let allChoices: Property[] = [];
+            const choicesParam = element.params.find(p => isParentPropertyRefChoiceParam(p)) as ParentPropertyRefChoiceParam | undefined;
             switch (element.propertyType) {
                 case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
                 case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
@@ -76,8 +77,8 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             let refChoices = allChoices.map(x => {
                 let parentDocument = getDocument(x);
     
-                if (element.choices.length > 0) {
-                    if (!element.choices.find(y => {
+                if (choicesParam && choicesParam.choices.length > 0) {
+                    if (!choicesParam.choices.find(y => {
                         const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
     
                         if (y.property != undefined) {

@@ -2,8 +2,10 @@ import type {
     ClassExpression,
     Document,
     Entry,
+    LabelParam,
     Page,
     Section,
+    StandardFieldParams,
     StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
@@ -16,6 +18,7 @@ import {
     isActor,
     isItem,
     isHookHandler,
+    isLabelParam,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -64,6 +67,9 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         }
 
         if (isProperty(property)) {
+            const standardParams = property.params as StandardFieldParams[];
+            const labelParam = standardParams.find(x => isLabelParam(x)) as LabelParam | undefined;
+            const label = labelParam ? labelParam.value : humanize(property.name);
 
             // If the property is a string with choices, we need to expand it into a list of localized strings
             if (isStringExp(property)) {
@@ -71,7 +77,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 if (choices != undefined && choices.choices.length > 0) {
                     return expandToNode`
                     "${property.name}": {
-                        "label": "${humanize(property.name)}",
+                        "label": "${label}",
                         ${joinToNode(choices.choices, choice => `"${choice}": "${humanize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
                     }
                 `;
@@ -79,11 +85,20 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             }
 
             return expandToNode`
-                "${property.name}": "${humanize(property.name)}"
+                "${property.name}": "${label}"
             `;
         }
 
-        if (isAction(property) || isHookHandler(property)) {
+        if (isAction(property)) {
+            const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+            const label = labelParam ? labelParam.value : humanize(property.name);
+
+            return expandToNode`
+                "${property.name}": "${label}"
+            `;
+        }
+
+        if (isHookHandler(property)) {
             return expandToNode`
                 "${property.name}": "${humanize(property.name)}"
             `;

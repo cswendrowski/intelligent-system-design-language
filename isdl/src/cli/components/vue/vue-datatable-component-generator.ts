@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHookHandler, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isStringExp, isStringParamChoices, isTimeExp, isTrackerExp, Page, Section, StringParamChoices } from "../../../language/generated/ast.js";
+import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHookHandler, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isStringExp, isStringParamChoices, isTimeExp, isTrackerExp, Page, Section, StandardFieldParams, StringParamChoices } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
@@ -255,8 +255,9 @@ export function generateDatatableComponent(id: string, document: Document, pageN
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 
     function generateActionRow(action: Action): CompositeGeneratorNode {
-        const icon = (action.conditions.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
-        const color = (action.conditions.find(x => isColorParam(x)) as ColorParam)?.value ?? "#000000";
+        const standardParams = action.params as StandardFieldParams[];
+        const icon = (standardParams.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
+        const color = (standardParams.find(x => isColorParam(x)) as ColorParam)?.value ?? "#000000";
         return expandToNode`
             <a class="row-action" data-action="${action.name.toLowerCase()}" @click="customItemAction(props.rowData, $event)" :data-tooltip="game.i18n.localize('${action.name}')"><i class="fas ${icon}" style="color: ${color};"></i></a>
         `;

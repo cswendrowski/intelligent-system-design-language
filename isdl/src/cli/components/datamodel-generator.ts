@@ -66,12 +66,12 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             // Check to see if we have literal values for min, initial, and max
             let options = "integer: true";
 
-            const initalParam = property.params.find(p => isNumberParamInitial(p));
-            const minParam = property.params.find(p => isNumberParamMin(p));
-            const maxParam = property.params.find(p => isNumberParamMax(p));
+            const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
+            const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
+            const initialParam = property.params.find(p => isNumberParamInitial(p)) as NumberParamInitial;
 
-            if (initalParam && typeof(initalParam.value) === 'number') {
-                options += `, initial: ${initalParam.value}`;
+            if (initialParam && typeof(initialParam.value) === 'number') {
+                options += `, initial: ${initialParam.value}`;
             }
             if (minParam && typeof(minParam.value) === 'number') {
                 options += `, min: ${minParam.value}`;
@@ -123,11 +123,24 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 ${property.name.toLowerCase()}: new fields.BooleanField(),
             `;
         }
+
+        function getNumberOrNothing(param: NumberParamMin | NumberParamMax | NumberParamInitial | undefined): number | undefined {
+            if (param && typeof(param.value) === 'number') {
+                return param.value;
+            }
+            return undefined;
+        }
+
         if (isResourceExp(property)) {
-            const max = typeof(property.max) === 'number' ? property.max ?? 0 : 0;
+            const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
+            const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
+            const initialParam = property.params.find(p => isNumberParamInitial(p)) as NumberParamInitial;
+            const min = getNumberOrNothing(minParam) ?? -100;
+            const max = getNumberOrNothing(maxParam) ?? 100;
+            const initial = getNumberOrNothing(initialParam) ?? min;
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.SchemaField({
-                    value: new fields.NumberField({initial: ${max}, integer: true}),
+                    value: new fields.NumberField({min: ${min}, initial: ${initial}, integer: true}),
                     temp: new fields.NumberField({initial: 0, min: 0, integer: true}),
                     max: new fields.NumberField({min: 0, initial: ${max}, integer: true}),
                 }),
@@ -151,21 +164,15 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             const minParam = property.params.find(p => isNumberParamMin(p)) as NumberParamMin;
             const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax;
             const initialParam = property.params.find(p => isNumberParamInitial(p)) as NumberParamInitial;
-            const min = getNumberOrNothing(minParam) ?? 0;
+            const min = getNumberOrNothing(minParam) ?? -10;
             const max = getNumberOrNothing(maxParam) ?? 10;
             const initial = getNumberOrNothing(initialParam) ?? min;
-
-            function getNumberOrNothing(param: NumberParamMin | NumberParamMax | NumberParamInitial | undefined): number | undefined {
-                if (param && typeof(param.value) === 'number') {
-                    return param.value;
-                }
-                return undefined;
-            }
 
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.SchemaField({
                     min: new fields.NumberField({integer: true, initial: ${min}}),
-                    value: new fields.NumberField({integer: true, min: ${min}, initial: ${initial}}),
+                    value: new fields.NumberField({integer: true, initial: ${initial}}),
+                    temp: new fields.NumberField({initial: 0, min: 0, integer: true}),
                     max: new fields.NumberField({integer: true, min: 0, initial: ${max}}),
                 }),
             `;
@@ -196,20 +203,21 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         }
 
         if ( isDamageTrackExp(property) ) {
-            if ( Number.isInteger(property.max) ) {
-                return expandToNode`
-                    ${property.name.toLowerCase()}: new fields.SchemaField({
-                        empty: new fields.NumberField({initial: ${property.max}, min: 0, max: ${property.max}, integer: true}),
-                        ${joinToNode(property.types, type => `${type}: new fields.NumberField({initial: 0, min: 0, max: ${property.max}, integer: true}),`, { appendNewLineIfNotEmpty: true })}
-                    }),
-                `;
-            }
-            return expandToNode`
-                ${property.name.toLowerCase()}: new fields.SchemaField({
-                    "empty": new fields.NumberField({initial: 0, min: 0, integer: true}),
-                    ${joinToNode(property.types, type => `${type}: new fields.NumberField({initial: 0, min: 0, integer: true}),`, { appendNewLineIfNotEmpty: true })}
-                }),
-            `;
+            return undefined;
+            // if ( Number.isInteger(property.max) ) {
+            //     return expandToNode`
+            //         ${property.name.toLowerCase()}: new fields.SchemaField({
+            //             empty: new fields.NumberField({initial: ${property.max}, min: 0, max: ${property.max}, integer: true}),
+            //             ${joinToNode(property.types, type => `${type}: new fields.NumberField({initial: 0, min: 0, max: ${property.max}, integer: true}),`, { appendNewLineIfNotEmpty: true })}
+            //         }),
+            //     `;
+            // }
+            // return expandToNode`
+            //     ${property.name.toLowerCase()}: new fields.SchemaField({
+            //         "empty": new fields.NumberField({initial: 0, min: 0, integer: true}),
+            //         ${joinToNode(property.types, type => `${type}: new fields.NumberField({initial: 0, min: 0, integer: true}),`, { appendNewLineIfNotEmpty: true })}
+            //     }),
+            // `;
         }
 
         if (isSingleDocumentExp(property)) {

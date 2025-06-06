@@ -28,6 +28,11 @@ import type {
     StringParamChoices,
     InitiativeProperty,
     ParentAccess,
+    TargetParam,
+    LabelParam,
+    LocationParam,
+    WidthParam,
+    HeightParam,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -38,10 +43,6 @@ import {
     isLiteral,
     isRef,
     isNegExpression,
-    isIncrementAssignment,
-    isDecrementAssignment,
-    isIncrementValAssignment,
-    isDecrementValAssignment,
     isAccess,
     isMethodBlock,
     isIfStatement,
@@ -51,16 +52,8 @@ import {
     isHtmlExp,
     isRoll,
     isParentAccess,
-    isParentIncrementAssignment,
-    isParentDecrementAssignment,
-    isParentDecrementValAssignment,
-    isParentIncrementValAssignment,
     isParentAssignment,
     isVariableAssignment,
-    isVariableIncrementValAssignment,
-    isVariableDecrementValAssignment,
-    isVariableIncrementAssignment,
-    isVariableDecrementAssignment,
     isWhenExpressions,
     isShorthandComparisonExpression,
     isItemAccess,
@@ -94,7 +87,16 @@ import {
     isTrackerExp,
     isVisibilityValue,
     isFunctionCall,
-    isAction
+    isAction,
+    isIncrementDecrementAssignment,
+    isQuickModifyAssignment,
+    isVariableIncrementDecrementAssignment,
+    isVariableQuickModifyAssignment,
+    isParentIncrementDecrementAssignment,
+    isParentQuickModifyAssignment,
+    isLocationParam,
+    isWidthParam,
+    isHeightParam
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, toMachineIdentifier } from './utils.js';
@@ -132,10 +134,10 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
 
-        if (isResourceExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "temp")) {
+        if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "temp")) {
             // We need to check for temp first when decrementing
             const tempPath = `system.${expression.property?.ref?.name.toLowerCase()}.temp`;
-            if (isDecrementAssignment(expression)) {
+            if (isIncrementDecrementAssignment(expression) && expression.term == "--") {
                 return expandToNode`
                     if ( context.object.${tempPath} > 0 ) {
                         update["${tempPath}"] = context.object.${tempPath} - 1;
@@ -146,7 +148,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 `;
             }
 
-            if (isDecrementValAssignment(expression)) {
+            if (isQuickModifyAssignment(expression) && expression.term == "-=") {
                 return expandToNode`
                     if ( context.object.${tempPath} > 0 ) {
                         update["${tempPath}"] = context.object.${tempPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
@@ -164,26 +166,26 @@ export function translateExpression(entry: Entry, id: string, expression: string
             }
         }
 
-        if (isIncrementAssignment(expression)) {
+        if (isIncrementDecrementAssignment(expression)) {
+            const modifier = expression.term == "++" ? "+" : "-";
             return expandToNode`
-                update["${systemPath}"] = context.object.${systemPath} + 1;
+                update["${systemPath}"] = context.object.${systemPath} ${modifier} 1;
             `;
         }
-        if (isDecrementAssignment(expression)) {
+        if (isQuickModifyAssignment(expression)) {
+            let modifier = "+";
+            switch (expression.term) {
+                case "+=": modifier = "+"; break;
+                case "-=": modifier = "-"; break;
+                case "*=": modifier = "*"; break;
+                case "/=": modifier = "/"; break;
+                default: modifier = "+"; break;
+            }
             return expandToNode`
-                update["${systemPath}"] = context.object.${systemPath} - 1;
+                update["${systemPath}"] = context.object.${systemPath} ${modifier} ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
-        if (isIncrementValAssignment(expression)) {
-            return expandToNode`
-                update["${systemPath}"] = context.object.${systemPath} + ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
-            `;
-        }
-        if (isDecrementValAssignment(expression)) {
-            return expandToNode`
-                update["${systemPath}"] = context.object.${systemPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
-            `;
-        }
+
         return expandToNode`
             update["${systemPath}"] = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
@@ -196,26 +198,20 @@ export function translateExpression(entry: Entry, id: string, expression: string
             name = `${name}.${subProperty}`;
         }
 
-        if (isVariableIncrementAssignment(expression)) {
+        // ++ or --
+        if (isVariableIncrementDecrementAssignment(expression)) {
             return expandToNode`
-                ${name}++;
+                ${name}${expression.term};
             `;
         }
-        if (isVariableDecrementAssignment(expression)) {
+
+        // +=, -=, *=, /=
+        if (isVariableQuickModifyAssignment(expression)) {
             return expandToNode`
-                ${name}--;
+                ${name} ${expression.term} ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
-        if (isVariableIncrementValAssignment(expression)) {
-            return expandToNode`
-                ${name} += ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
-            `;
-        }
-        if (isVariableDecrementValAssignment(expression)) {
-            return expandToNode`
-                ${name} -= ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
-            `;
-        }
+
         return expandToNode`
             ${name} = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
@@ -228,26 +224,26 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
 
-        if (isParentIncrementAssignment(expression)) {
+        if (isParentIncrementDecrementAssignment(expression)) {
+            const modifier = expression.term == "++" ? "+" : "-";
             return expandToNode`
-                parentUpdate["${systemPath}"] = context.object.parent.${systemPath} + 1;
+                parentUpdate["${systemPath}"] = context.object.parent.${systemPath} ${modifier} 1;
             `;
         }
-        if (isParentDecrementAssignment(expression)) {
+        if (isParentQuickModifyAssignment(expression)) {
+            let modifier = "+";
+            switch (expression.term) {
+                case "+=": modifier = "+"; break;
+                case "-=": modifier = "-"; break;
+                case "*=": modifier = "*"; break;
+                case "/=": modifier = "/"; break;
+                default: modifier = "+"; break;
+            }
             return expandToNode`
-                parentUpdate["${systemPath}"] = context.object.parent.${systemPath} - 1;
+                parentUpdate["${systemPath}"] = context.object.parent.${systemPath} ${modifier} ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
             `;
         }
-        if (isParentIncrementValAssignment(expression)) {
-            return expandToNode`
-                parentUpdate["${systemPath}"] = context.object.parent.${systemPath} + ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
-            `;
-        }
-        if (isParentDecrementValAssignment(expression)) {
-            return expandToNode`
-                parentUpdate["${systemPath}"] = context.object.parent.${systemPath} - ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
-            `;
-        }
+
         return expandToNode`
             parentUpdate["${systemPath}"] = ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)};
         `;
@@ -1072,12 +1068,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     if (isPrompt(expression)) {
-        const labelParam = expression.params.find(x => isLabelParam(x));
+        const labelParam = expression.params.find(x => isLabelParam(x)) as LabelParam | undefined;
         const title = labelParam?.value ?? "Prompt";
 
-        const targetParam = expression.params.find(x => isTargetParam(x));
+        const targetParam = expression.params.find(x => isTargetParam(x)) as TargetParam | undefined;
         const target = targetParam?.value ?? "self";
 
+        const locationParam = expression.params.find(x => isLocationParam(x)) as LocationParam | undefined;
+        const widthParam = expression.params.find(x => isWidthParam(x)) as WidthParam | undefined;
+        const heightParam = expression.params.find(x => isHeightParam(x)) as HeightParam | undefined;
         // const iconParam = expression.params.find(x => isIconParam(x));
         // const icon = iconParam?.value ?? "fa-solid fa-comment-dots";
 
@@ -1145,6 +1144,10 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         uuid: uuid,
                         type: "prompt",
                         userId: game.user.id,
+                        ${widthParam ? `width: ${widthParam.value},` : ""}
+                        ${heightParam ? `height: ${heightParam.value},` : ""}
+                        ${locationParam ? `left: ${locationParam.x},
+                             top: ${locationParam.y},` : ""}
                         title: "${title}",
                         content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
                     }, {recipients: [firstGm.id]});
@@ -1172,7 +1175,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         return formData.get("user");
                     },
                     options: {
-                        classes: ["${id}", "dialog"]
+                        classes: ["${id}", "dialog"],
                     }
                 });
                 const uuid = foundry.utils.randomID();
@@ -1191,6 +1194,10 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     userId: game.user.id,
                     title: "${title}",
                     content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    ${widthParam ? `width: ${widthParam.value},` : ""}
+                    ${heightParam ? `height: ${heightParam.value},` : ""}
+                    ${locationParam ? `left: ${locationParam.x},
+                    top: ${locationParam.y},` : ""}
                 }, {recipients: [targetedUser]});
             });
         `;
@@ -1226,7 +1233,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     return data;
                 },
                 options: {
-                    classes: ["${id}", "dialog"]
+                    classes: ["${id}", "dialog"],
+                        ${widthParam ? `width: ${widthParam.value},` : ""}
+                        ${heightParam ? `height: ${heightParam.value},` : ""}
+                        ${locationParam ? `left: ${locationParam.x},
+                        top: ${locationParam.y},` : ""}
                 }
             });
         `;
