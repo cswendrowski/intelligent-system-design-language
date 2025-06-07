@@ -105,7 +105,8 @@ import {
     isTargetAccess,
     isTargetIncrementDecrementAssignment,
     isTargetQuickModifyAssignment,
-    isTargetAssignment
+    isTargetAssignment,
+    isWait
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -1463,6 +1464,25 @@ export function translateExpression(entry: Entry, id: string, expression: string
         // Make a JS array of numbers from from to to
         return expandToNode`
             Array.from({length: ${to} - ${from} + 1}, (_, i) => ${from} + i)
+        `;
+    }
+
+    if (isWait(expression)) {
+        console.log("Translating Wait Expression: ", expression.duration);
+
+        const duration = translateExpression(entry, id, expression.duration, preDerived, generatingProperty);
+
+        const units = expression.unit;
+        let durationMod = "";
+        if (units === "seconds") {
+            durationMod = ` * 1000`;
+        }
+        else if (units === "minutes") {
+            durationMod = ` * 60 * 1000`;
+        }
+
+        return expandToNode`
+            await new Promise(resolve => setTimeout(resolve, ${duration}${durationMod})); // Wait for ${expression.duration} ${units}
         `;
     }
 

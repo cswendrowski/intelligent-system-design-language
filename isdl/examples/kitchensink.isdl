@@ -53,6 +53,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 self.Experience -= 10
                 self.Level++
                 self.update()
+                wait 30 seconds
                 self.Print(self.Level)
                 fleeting amount = self.FightFightFight(self.Level)
                 log("Leveled up to Level " + self.Level + " with a Fight bonus of " + amount)

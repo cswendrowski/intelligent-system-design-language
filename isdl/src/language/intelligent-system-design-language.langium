@@ -365,9 +365,11 @@ NumberRange:
 MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | FunctionCall );
+    (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall );
 JS:
     js=JS_LINE;
+LogExpression:
+    "log" "(" params+=Expression ("," params+=Expression)* ")";
 VariableExpression:
     type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll | Prompt);
 ReturnExpression:
@@ -376,7 +378,8 @@ Roll:
     "roll" "(" parts+=(Expression)* ")";
 SelfMethod:
     "self." method=("delete()" | "update()");
-
+Wait:
+    "wait" duration=(INT | Expression) unit=("ms" | "seconds" | "minutes");
 
 // Chat Card -----------
 
@@ -428,6 +431,8 @@ TargetTypeCheckExpression:
     "target" "is" document=[Document:ID];
 ArrayExpression:
     "[" items+=Literal ("," items+=Literal)* "]";
+
+// Math Expressions ------
 MathExpression:
     MathSingleExpression | MathParamExpression | MathEmptyExpression;
 MathEmptyExpression:
@@ -436,8 +441,7 @@ MathSingleExpression:
     "Math." operation=("abs" | "ceil" | "floor" | "round" ) "(" exp=Expression ")";
 MathParamExpression:
     "Math." operation=("max" | "min") "(" params+=Expression ("," params+=Expression)* ")";
-LogExpression:
-    "log" "(" params+=Expression ("," params+=Expression)* ")";
+
 // literal
 Literal:
     val=(INT|STRING|DICE|NOTHING|BOOLEAN);

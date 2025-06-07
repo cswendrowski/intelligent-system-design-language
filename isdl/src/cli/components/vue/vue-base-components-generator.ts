@@ -880,6 +880,9 @@ function generateTrackerComponent(destination: string) {
         });
 
         const displayText = computed(() => {
+            if (temp.value > 0) {
+                return value.value + " / " + max.value + " (+ " + temp.value + ")";
+            }
             return value.value + " / " + max.value;
         });
 
@@ -1013,12 +1016,12 @@ function generateTrackerComponent(destination: string) {
                             <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll;">
                                 <v-icon v-if="value > 0" v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                                 <v-icon v-if="temp > 0" v-for="i in temp" :key="i + value" :icon="filledIcon" :color="tertiaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
-                                <v-icon v-if="max > 0" v-for="i in max - value" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-if="max - value - temp > 0" v-for="i in max - value - temp" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                             </div>
 
                             <div v-if="trackerStyle == 'slashes'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll; padding-left: 0.5rem; padding-right: 0.5rem;">
                                 <div
-                                    v-for="i in max"
+                                    v-for="i in barMax"
                                     :data-tooltip="displayText"
                                     :key="i"
                                     :style="{
@@ -1037,7 +1040,7 @@ function generateTrackerComponent(destination: string) {
 
                             <div v-if="trackerStyle == 'segmented'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove">
                                 <div
-                                    v-for="i in Math.ceil(max / segments)"
+                                    v-for="i in Math.ceil(barMax / segments)"
                                     :key="i"
                                     :data-tooltip="displayText"
                                     :style="{
@@ -1063,9 +1066,9 @@ function generateTrackerComponent(destination: string) {
                                 :data-tooltip="displayText"
                                 style="width: auto;"
                                 >
-                                <g v-for="i in max" :key="i">
+                                <g v-for="i in barMax" :key="i">
                                     <path
-                                        :d="describeSlice(i - 1, max, radius, size / 2)"
+                                        :d="describeSlice(i - 1, barMax, radius, size / 2)"
                                         :fill="i <= value ? primaryColor : (i <= value + temp ? tertiaryColor: 'transparent')"
                                         :stroke="secondaryColor"
                                         stroke-width="2"
