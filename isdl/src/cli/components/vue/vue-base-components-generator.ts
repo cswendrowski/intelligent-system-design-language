@@ -881,7 +881,7 @@ function generateTrackerComponent(destination: string) {
 
         const displayText = computed(() => {
             if (temp.value > 0) {
-                return value.value + " / " + max.value + " (+ " + temp.value + ")";
+                return value.value + " / " + max.value + " (+" + temp.value + ")";
             }
             return value.value + " / " + max.value;
         });

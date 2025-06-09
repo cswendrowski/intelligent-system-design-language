@@ -246,7 +246,13 @@ StatusPropertyParameter:
 StatusParamWhen:
     "when:" when=(WhenExpressions | MethodBlock);
 HookHandler:
-    "on" name=('combatStart' | 'combatEnd' | 'turnIsNext' | 'turnStart' | 'turnEnd' | 'roundStart' | 'roundEnd' | 'death' | ID) ("(" params+=MethodParam ("," params+=MethodParam)* ")")? "{" body+=(MethodBlockExpression)* "}";
+    "on" name=('combatStart' | 'combatEnd' 
+        | 'turnIsNext' | 'turnStart' | 'turnEnd' 
+        | 'roundStart' | 'roundEnd' 
+        | 'death' 
+        | 'preApplyDamage' | 'preApplyTemp' | 'preApplyHealing' 
+        | 'appliedDamage' | 'appliedTemp' | 'appliedHealing' 
+        | ID) ("(" params+=MethodParam ("," params+=MethodParam)* ")")? "{" body+=(MethodBlockExpression)* "}";
 MethodParam:
     name=ID;
 
@@ -264,7 +270,7 @@ FunctionParam:
 // Self Access / Modification ------------------------------------------------------
 
 fragment SelfSpecialAccess:
-    access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode");
+    access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects");
 fragment Self:
     (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=ID)*;
 Access:
@@ -447,7 +453,7 @@ Literal:
     val=(INT|STRING|DICE|NOTHING|BOOLEAN);
 // cross-reference to a parameter
 Ref:
-    val=[VariableAccess:ID] ("." subProperties+=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | ID))*;
+    val=[VariableAccess:ID] ("." subProperties+=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects" | ID))*;
 // grouped expression with parentheses
 Group:
     '(' ge=Expression ')';

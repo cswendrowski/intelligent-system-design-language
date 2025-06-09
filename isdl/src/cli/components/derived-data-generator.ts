@@ -619,6 +619,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             object: document,
                             target: game.user.getTargetOrNothing()
                         };
+                        const system = document.system;
                         let update = {};
                         let embeddedUpdate = {};
                         let parentUpdate = {};
@@ -737,6 +738,39 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                                     await onDeath();
                                 }
                             });
+                        `.appendNewLineIfNotEmpty();
+                    case "preApplyDamage":
+                    case "preApplyHealing":
+                    case "preApplyTemp":
+                        return expandToNode`
+                            if (game.system.documentHooks.has("${name}-" + this.uuid)) return;
+                            const on${name} = async (document, context) => {
+                                const preApply = async (${hook.params.map(p => p.name).join(", ")}) => {
+                                    ${generateBody()}
+                                    return ${hook.params.pop()?.name};
+                                }
+                                if (document.uuid == this.uuid) {
+                                    context.amount = await preApply(context.amount);
+                                }
+                            }
+                            game.system.documentHooks.set("${name}-" + this.uuid, on${name});
+                            Hooks.on("${name}", on${name});
+                        `.appendNewLineIfNotEmpty();
+                    case "appliedDamage":
+                    case "appliedHealing":
+                    case "appliedTemp":
+                        return expandToNode`
+                            if (game.system.documentHooks.has("${name}-" + this.uuid)) return;
+                            const on${name} = async (document, amount) => {
+                                const applied = async (${hook.params.map(p => p.name).join(", ")}) => {
+                                    ${generateBody()}
+                                }
+                                if (document.uuid == this.uuid) {
+                                    await applied(amount);
+                                }
+                            };
+                            game.system.documentHooks.set("${name}-" + this.uuid, on${name});
+                            Hooks.on("${name}", on${name});
                         `.appendNewLineIfNotEmpty();
                     default:
                         return expandToNode`

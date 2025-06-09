@@ -451,6 +451,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             registerUtils();
             //addVueImportMap();
 
+            game.system.documentHooks = new Map();
             game.system.datatableApp = DataTableApp;
             game.system.rollClass = ${entry.config.name}Roll;
             CONFIG.Dice.rolls.push(${entry.config.name}Roll);
@@ -682,6 +683,21 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             Object.defineProperties(String.prototype, {
                 toNearest: {value: toNearest}
             });
+
+            async function callAllAsync(hook, ...args) {
+                if ( CONFIG.debug.hooks ) {
+                    console.log(\`DEBUG | Calling async \${hook} hook with args:\`);
+                    console.log(args);
+                }
+                const events = Hooks.events;
+                if ( !(hook in events) ) return true;
+                for ( const entry of Array.from(events[hook]) ) {
+                    await entry.fn(...args);
+                }
+                return true;
+            }
+
+            Hooks.callAllAsync = callAllAsync;
         }
     `.appendNewLineIfNotEmpty();
 

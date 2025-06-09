@@ -154,31 +154,37 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         return targets;
                     }
 
-                    function apply(element, event, type) {
+                    async function apply(element, event, type) {
                         const menu = element.find('#context-menu2')?.[0];
                         const applyTargetType = menu?.dataset?.target ?? 'selected';
                         const applyMod = menu?.dataset?.mod ? Number(menu.dataset.mod) : 1;
 
-                        let roll = getRollFromElement(element);
-                        if ( !roll ) return;
+                        let baseRoll = getRollFromElement(element);
+                        if ( !baseRoll ) return;
 
                         if ( type === 'healing' ) {
-                            roll = -roll;
+                            baseRoll = -baseRoll;
                         }
 
-                        roll *= applyMod;
+                        baseRoll *= applyMod;
 
                         const targets = getTargets(applyTargetType);
 
                         for ( const target of targets ) {
-                            console.log(type, roll, target);
+                            console.log(type, baseRoll, target);
                             const update = {};
+
+                            let roll = foundry.utils.duplicate(baseRoll);
+                            const context = { amount: roll };
+                            await Hooks.callAllAsync('preApply' + type.titleCase(), target.actor, context);
+                            roll = context.amount;
 
                             switch ( target.actor.type ) {
                                 ${joinToNode(entry.documents, document => generateHpElement(document), { appendNewLineIfNotEmpty: true })}
                             }
 
                             target.actor.update(update);
+                            Hooks.callAll('applied' + type.titleCase(), target.actor, roll);
                         }
                     }
 

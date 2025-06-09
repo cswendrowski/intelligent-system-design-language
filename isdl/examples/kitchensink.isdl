@@ -41,6 +41,35 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             })
             boolean OutOfTime(icon: "fa-solid fa-hourglass-end", color: #a586c0)
             number Level(min: 1, max: 10,  icon: "fa-solid fa-cube")
+
+            on preApplyDamage (damage) {
+                if (self.Shield > 0) {
+                    fleeting shieldAmount = self.Shield
+                    self.Shield -= damage
+                    if (damage > shieldAmount) {
+                        damage -= shieldAmount
+                    } else {
+                        damage = 0
+                    }
+                }
+            }
+
+            on appliedDamage(damage) {
+                if (self.HP <= 0) {
+                    self.Wounds += 1
+                    self.HP = self.Endure + 6
+                    if (self.Wounds > 5) {
+                        self.Dead = true
+                        chat Death {
+                            flavor ("You have died!")
+                        }
+                    } else {
+                        chat Wounded {
+                            flavor ("You are wounded! " + self.Wounds + " Wounds remaining.")
+                        }
+                    }
+                }
+            }
             
             function VisibleUnlessDisabled(boolean disabled) returns string {
                 if (disabled) {
