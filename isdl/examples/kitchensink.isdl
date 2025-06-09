@@ -31,7 +31,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
  
         section Level {
-            tracker Experience(min: 0, max: 100, color: #a586c0)
+  
             gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
             secret tracker Shield(min: 0, style: segmented, segments: 5, icon: "fa-solid fa-shield-halved")
             tracker Wounds(style: slashes)
@@ -62,6 +62,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 return self.Experience
             })  
         }
+
+        tracker Experience(min: 0, max: 100, color: #a586c0)
 
         action FlipACoin {
             fleeting result = roll(d2)

@@ -461,9 +461,10 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             colReorder: false,
             order: [[1, 'asc']],
             createdRow: (row, data) => {
+                console.dir(data, data.uuid);
                 row.setAttribute("data-id", data._id);
                 row.setAttribute("data-uuid", data.uuid);
-                row.setAttribute("data-type", data.type);
+                row.setAttribute("data-type", 'ActiveEffect');
             },
             layout: {
                 topStart: {
@@ -967,8 +968,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     controlVariant="stacked"
                     density="compact"
                     variant="outlined"
-                    v-model="context.${systemPath}"
-                    ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number"` : ``}
+                    ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number"` : `v-model="context.${systemPath}"`}
                     name="${systemPath}"
                     ${standardParamsFragment}
                 >

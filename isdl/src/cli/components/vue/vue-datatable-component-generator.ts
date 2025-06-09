@@ -118,7 +118,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             const content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
                 cssClass: "${id}",
                 document: item,
-                hasItems: false,
+                hasEffects: item.effects?.size > 0,
                 description: chatDescription,
                 hasDescription: chatDescription != ""
             });

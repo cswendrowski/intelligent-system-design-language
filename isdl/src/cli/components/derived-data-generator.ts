@@ -808,7 +808,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const edit = systemFlags["edit-mode"] ?? true;
 
                     function getTypedEffect(type, edit, effect, source) {
-                        const typedEffect = new ActiveEffect(foundry.utils.duplicate(effect));
+                        const typedEffect = new ActiveEffect(foundry.utils.duplicate(effect), {parent: effect.parent});
                         typedEffect.changes = typedEffect.changes.filter(c => c.key.startsWith(type));
                         for ( const change of typedEffect.changes ) {
                             change.key = change.key.replace(type + ".", "");
@@ -860,7 +860,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     console.dir("AddOnce", parent, ae, change);
 
                     const key = change.key.replace(parent.type + ".", "");
-                    const currentValue = foundry.utils.getProperty(parent.data, key);
+                    const currentValue = foundry.utils.getProperty(parent, key);
 
                     // Create an update for the parent
                     const update = {

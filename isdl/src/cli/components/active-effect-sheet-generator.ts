@@ -1,7 +1,7 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHookHandler, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isStatusProperty, isStringExp } from '../../language/generated/ast.js';
+import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHookHandler, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isStatusProperty, isStringExp, isTrackerExp } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -30,6 +30,15 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
         if (isResourceExp(property)) {
             return expandToNode`
                 addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value", 1);
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max");
+            `;
+        }
+
+        if (isTrackerExp(property)) {
+            return expandToNode`
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.min");
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value", 1);
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.temp", 1);
                 addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max");
             `;
         }
@@ -126,6 +135,9 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 context.resourceModes = {
                     0: "Add Once"
                 };
+                context.trackerModes = {
+                    0: "Add Once"
+                };
 
                 return context;
             }
@@ -182,7 +194,6 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
                 // Apply the combined effect changes.
                 ae.changes = changes.concat(newChanges);
-
 
                 // Filter changes for empty form fields.
                 ae.changes = ae.changes.filter(c => c.value !== null);
@@ -290,6 +301,39 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
                         {{selectOptions resourceModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode}}
                     </select>
                     <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value}}" />
+                </div>
+                <div class="form-group">
+                    <label>{{localize "${property.name}"}} Max</label>
+                    <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode" data-dtype="Number">
+                        {{selectOptions numberModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode}}
+                    </select>
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max}}" />
+                </div>
+            `;
+        }
+
+        if (isTrackerExp(property)) {
+            return expandToNode`
+                <div class="form-group">
+                    <label>{{localize "${property.name}"}} Min</label>
+                    <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.min-mode" data-dtype="Number">
+                        {{selectOptions numberModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.min-mode}}
+                    </select>
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.min" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.min}}" />
+                </div>
+                <div class="form-group">
+                    <label>{{localize "${property.name}"}} Current</label>
+                    <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode" data-dtype="Number">
+                        {{selectOptions resourceModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode}}
+                    </select>
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value}}" />
+                </div>
+                <div class="form-group">
+                    <label>{{localize "${property.name}"}} Temp</label>
+                    <select name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.temp-mode" data-dtype="Number">
+                        {{selectOptions resourceModes selected=${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.temp-mode}}
+                    </select>
+                    <input type="number" name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.temp" value="{{${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.temp}}" />
                 </div>
                 <div class="form-group">
                     <label>{{localize "${property.name}"}} Max</label>
