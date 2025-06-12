@@ -35,7 +35,7 @@ import type {
     HeightParam,
     NumberRange,
     TargetAccess,
-    TargetAssignment,
+    TargetAssignment, PlayAudioFile, PlayAudioVolume,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -106,7 +106,7 @@ import {
     isTargetIncrementDecrementAssignment,
     isTargetQuickModifyAssignment,
     isTargetAssignment,
-    isWait
+    isWait, isPlayAudio, isPlayAudioFile, isPlayAudioVolume
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -261,7 +261,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateTargetAssignmentExpression(expression: TargetAssignment): CompositeGeneratorNode | undefined {
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined);
-        
+
         if (isTargetIncrementDecrementAssignment(expression)) {
             const modifier = expression.term == "++" ? "+" : "-";
             return expandToNode`
@@ -397,14 +397,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateAccessExpression(expression: Access, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
-        
+
         // If we are accessing special values, we need to handle them differently
         if ( expression.access != undefined ) {
             let accessName = expression.access.toString();
 
             switch (accessName) {
                 case "DocumentType": accessName = "type"; break;
-                case "EditMode": 
+                case "EditMode":
                     return expandToNode`context.object.getFlag('${id}', 'editMode') ?? true`;
                 default: accessName = accessName.toLowerCase(); break;
             }
@@ -414,7 +414,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 context.object.${accessName}
             `;
         }
-        
+
         if (expression.property?.ref == undefined) {
             return;
         }
@@ -505,7 +505,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateComparisonExpression(expression: WhenExpressions): CompositeGeneratorNode | undefined {
-       
+
         console.log("Translating Comparison Expression: ");
 
         if (isParentTypeCheckExpression(expression)) {
@@ -519,7 +519,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 context.target && context.target.type == "${expression.document.ref?.name?.toLowerCase()}"
             `;
         }
-       
+
         // If the term is "equals" or "==", we need to translate it to "===" in JavaScript
         let term = expression.term?.toString() ?? "";
         if (term == "equals" || term == "==") {
@@ -1005,7 +1005,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
                         path = `${path} + ".mod"`;
                     }
-                    
+
                     console.log(label, path);
                     return expandToNode`
                         "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path})
@@ -1080,7 +1080,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             //             `;
             //         }
             //     }
-                
+
             //     throw new Error("Variable Access not implemented");
             // }
 
@@ -1121,7 +1121,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     ${translateDiceData(expression.ge)}
                 `;
             }
-            
+
             return undefined;
         }
 
@@ -1283,7 +1283,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 });
             `;
         }
-        
+
         if (target == "user") {
             return expandToNode`
             await new Promise(async (resolve, reject) => {
@@ -1376,7 +1376,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         expression = expression as MathExpression;
 
         console.log("Translating Math Expression: ", expression.operation);
-        
+
         if (isMathEmptyExpression(expression)) {
             return expandToNode`
                 Math.${expression.operation}()
@@ -1455,7 +1455,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
-    if (isNumberRange(expression)) { 
+    if (isNumberRange(expression)) {
         const from = translateExpression(entry, id, expression.start, preDerived, generatingProperty);
         const to = translateExpression(entry, id, expression.end, preDerived, generatingProperty);
 
@@ -1483,6 +1483,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         return expandToNode`
             await new Promise(resolve => setTimeout(resolve, ${duration}${durationMod})); // Wait for ${expression.duration} ${units}
+        `;
+    }
+
+    if (isPlayAudio(expression)) {
+        const fileParam = expression.params.find(x => isPlayAudioFile(x)) as PlayAudioFile | undefined;
+        if (!fileParam) return undefined;
+
+        const volumeParam = expression.params.find(x => isPlayAudioVolume(x)) as PlayAudioVolume | undefined;
+        const volume = volumeParam?.value ?? 0.5;
+
+        return expandToNode`
+            await game.system.utils.playSfx(${translateExpression(entry, id, fileParam.value, false, generatingProperty)}, ${translateExpression(entry, id, volume, false, generatingProperty)});
         `;
     }
 

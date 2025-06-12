@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, BackgroundParam, BooleanParamValue, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp,
-     Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isBackgroundParam, isBooleanExp
+import { Action, AttributeExp, AttributeStyleParam, BackgroundParam, BooleanParamValue, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp,
+     Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isAttributeStyleParam, isBackgroundParam, isBooleanExp
      , isBooleanParamValue, isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHtmlExp, isIconParam,
       isImageParam, isMethodBlock, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefChoiceParam, isParentPropertyRefExp,
        isPipsExp,
@@ -546,7 +546,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         const getLabel = (label, icon) => {
-            console.log("Getting label for: " + label + " with icon: " + icon);
             const localized = game.i18n.localize(label);
             if (icon) {
                 return \`<i class="\${icon}"></i> \${localized}\`;
@@ -968,7 +967,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     controlVariant="stacked"
                     density="compact"
                     variant="outlined"
-                    ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number"` : `v-model="context.${systemPath}"`}
+                    ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number" :model-value="context.${systemPath}"` : `v-model="context.${systemPath}"`}
                     name="${systemPath}"
                     ${standardParamsFragment}
                 >
@@ -989,11 +988,15 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                 const modSystemPath = getSystemPath(element, ["mod"], undefined, false);
                 const valueSystemPath = getSystemPath(element, ["value"], undefined, false);
+                const styleParam = element.params.find(x => isAttributeStyleParam(x)) as AttributeStyleParam | undefined;
+                const style = styleParam?.style ?? "box";
 
                 return expandToNode`
                     <i-attribute 
                         label="${label}"
                         icon="${iconParam?.value}"
+                        attributeStyle="${style}"
+                        :editMode="editMode"
                         :hasMod="${hasMod}" 
                         :mod="context.${modSystemPath}"
                         systemPath="${valueSystemPath}" 

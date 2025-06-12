@@ -412,7 +412,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
         const actions = getAllOfType<Action>(document.body, isAction, false);
         return joinToNode(actions.map(x => generatePromptAssignments(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true, separator: ',' });
     }
-    
+
     function generatePromptAssignments(action: Action, document: Document): CompositeGeneratorNode | undefined {
         const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
         const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
@@ -698,6 +698,61 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
             }
 
             Hooks.callAllAsync = callAllAsync;
+            
+            let audioSources = new Map();
+            let gainNodes = new Map();
+            
+            async function playAudio(id, url, onEndCallback, volume=0.5) {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let source = audioCtx.createBufferSource();
+                let gainNode = audioCtx.createGain();
+                audioSources.set(id, source);
+                gainNodes.set(id, gainNode);
+                source.connect(gainNode).connect(audioCtx.destination);
+        
+                let request = new XMLHttpRequest();
+                request.open('GET', url, true);
+                request.responseType = 'arraybuffer';
+        
+                request.onload = () => {
+                    let audioData = request.response;
+                    audioCtx.decodeAudioData(audioData,
+                        (buffer) => {
+                            source.buffer = buffer;
+                            gainNode.gain.value = volume;
+                            source.start(0);
+                            source.onended = () => {
+                                audioSources.delete(id);
+                                gainNodes.delete(id);
+                                onEndCallback();
+                            };
+                        },
+                        (e) => {
+                            ui.notifications.error("An error occurred while decoding audio data");
+                            console.log(url);
+                            console.log(audioData);
+                            console.log(e);
+                        });
+                };
+        
+                request.send();
+            }
+            
+            async function playSfx(url, volume=0.5) {
+                // Invoke the playAudio function with the provided parameters and wait for it to complete vis the onEndCallback
+                let finishedPromise = new Promise(async (resolve) => {
+                    let onEndCallback = () => {
+                        resolve();
+                    };
+                    // Attach base url
+                    if (!url.startsWith("http")) {
+                        url = \`\${window.location.origin}/systems/${id}/\${url}\`;
+                    }
+                    await playAudio(foundry.utils.randomID(), url, onEndCallback, volume);
+                });
+                return finishedPromise;
+            }
+            game.system.utils.playSfx = playSfx;
         }
     `.appendNewLineIfNotEmpty();
 

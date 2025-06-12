@@ -11,7 +11,6 @@ export function generateBaseVueComponents(destination: string) {
     generateRollVisualizerComponent(destination);
     generatePaperdollComponent(destination);
     generateCalculator(destination);
-    generateDocumentChoiceComponent(destination);
     generateTextFieldComponent(destination);
     generateDateTimeComponent(destination);
     generateTrackerComponent(destination);
@@ -31,6 +30,7 @@ function generateAttributeComponent(destination: string) {
 
         const props = defineProps({
             label: String,
+            icon: String,
             hasMod: Boolean,
             mod: Number,
             systemPath: String,
@@ -38,20 +38,57 @@ function generateAttributeComponent(destination: string) {
             min: Number,
             disabled: Boolean,
             primaryColor: String,
-            secondaryColor: String
+            secondaryColor: String,
+            editMode: Boolean,
+            attributeStyle: String // plain or box
         });
 
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
         });
+
+        const getStyle = computed(() => {
+            const p = props.primaryColor || "#92aed9";
+
+            // Get either black or white text color based on the primary color brightness
+            const brightness = (parseInt(p.slice(1, 3), 16) * 299 + parseInt(p.slice(3, 5), 16) * 587 + parseInt(p.slice(5, 7), 16) * 114) / 1000;
+            let textColor = "#ffffff"; // Default to white text
+            if (brightness > 128) {
+                textColor = "#000000"; // Use black text for brighter colors
+            }
+
+            return {
+                backgroundColor: p,
+                color: textColor,
+                borderColor: p
+            };
+        });
+
+        const getLabel = computed(() => {
+            const localized = game.i18n.localize(props.label);
+            if (props.icon) {
+                return \`<i class="fa-solid \${props.icon}"></i> \${localized}\`;
+            }
+            return localized;
+        });
     </script>
 
     <template>
-        <v-container :class="['isdl-property', 'attributeExp', { 'no-mod': !hasMod }]">
-            <v-label>{{ game.i18n.localize(label) }}</v-label>
+        <v-number-input v-if="attributeStyle == 'plain' && editMode" v-model="value" :name="systemPath" :min="props.min" :disabled="disabled" type="number" variant="outlined" density="compact" hide-details="true" data-tooltip="Value">
+            <template #label>
+                <span v-html="getLabel" />
+            </template>
+        </v-number-input>
+        <v-number-input v-if="attributeStyle == 'plain' && !editMode" :model-value="mod" :name="systemPath"  :disabled="true" type="number" controlVariant="hidden" variant="outlined" density="compact" hide-details="true" data-tooltip="Mod">
+            <template #label>
+                <span v-html="getLabel" />
+            </template>   
+        </v-number-input>
+        <v-container :class="['isdl-property', 'attributeExp', { 'no-mod': !hasMod }]" v-if="attributeStyle == 'box'">
+            <v-label :style="getStyle"><v-icon v-if="icon" size="x-small" :icon="icon"></v-icon>{{ game.i18n.localize(label) }}</v-label>
             <div class="mod" v-if="hasMod">{{ mod }}</div>
-            <v-number-input v-model="value" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
+            <v-number-input v-model="value" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" hide-details="true" tile="true"></v-number-input>
         </v-container>
     </template>
     `;
@@ -577,59 +614,6 @@ function generateCalculator(destination: string) {
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }
 
-function generateDocumentChoiceComponent(destination: string) {
-    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
-    const generatedFilePath = path.join(generatedFileDir, `document-choice.vue`);
-
-    if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
-    }
-
-    const fileNode = expandToNode`
-    <script setup>
-        import { ref, computed, inject } from "vue";
-
-        const props = defineProps({
-            label: String,
-            systemPath: String,
-            context: Object,
-            disabled: Boolean,
-            multiple: Boolean,
-            documentName: String
-        });
-
-        const value = computed(() => {
-            return foundry.utils.getProperty(props.context, props.systemPath);
-        });
-
-        const choices
-
-        const hasLink = computed(() => {
-            return !!value.value;
-        });
-
-        const document = inject("rawDocument");
-
-        const open = () => {
-            const item = fromUuidSync(value.value.uuid);
-            item.sheet.render(true);
-        };
-
-        const remove = async () => {
-            const update = {};
-            value.value = null;
-            update[props.systemPath] = null;
-            await document.update(update);
-        };
-    </script>
-
-    <template>
-        </template>
-    `;
-
-    fs.writeFileSync(generatedFilePath, toString(fileNode));
-}
-
 function generateTextFieldComponent(destination: string) {
     const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
     const generatedFilePath = path.join(generatedFileDir, `text-field.vue`);
@@ -886,6 +870,10 @@ function generateTrackerComponent(destination: string) {
             return value.value + " / " + max.value;
         });
 
+        const circularText = computed(() => {
+            return value.value + " / " + max.value;
+        });
+
         const add = () => {
             if (props.disableValue || isDisabled('value')) return;
             if (value.value < max.value) {
@@ -993,6 +981,7 @@ function generateTrackerComponent(destination: string) {
                                 rounded
                                 :model-value="value"
                                 min="0"
+                                :data-tooltip="displayText"
                                 :max="barMax"
                                 :buffer-value="value + temp"
                                 buffer-opacity="1"
@@ -1009,8 +998,10 @@ function generateTrackerComponent(destination: string) {
                                 :rotate="360" 
                                 :size="100" 
                                 :width="15" 
+                                :data-tooltip="displayText"
                                 :color="primaryColor">
-                                <template v-slot:default> {{ displayText }} </template>
+                                
+                                <template v-slot:default> {{ circularText }} </template>
                             </v-progress-circular>
 
                             <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll;">
@@ -1075,6 +1066,8 @@ function generateTrackerComponent(destination: string) {
                                     />
                                 </g>
                             </svg>
+
+                            <v-number-input v-if="trackerStyle == 'plain'" v-model="value" :name="systemPath" :min="min" :max="max" :disabled="disabled" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
                         </div>
                         <v-expand-transition>
                             <div v-show="expanded" style="margin-top: 1rem;">

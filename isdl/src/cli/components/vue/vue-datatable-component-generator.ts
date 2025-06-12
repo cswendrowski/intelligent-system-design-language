@@ -146,7 +146,9 @@ export function generateDatatableComponent(id: string, document: Document, pageN
 
         function bindDragDrop() {
             try {
-                document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+                if (document.sheet.element) {
+                    document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+                }
             }
             catch (e) {
                 console.error(e);

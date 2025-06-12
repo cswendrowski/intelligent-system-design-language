@@ -122,18 +122,27 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
             }
             return text;
         }
+
+        const getLabel = (label, icon) => {
+            const localized = game.i18n.localize(label);
+            if (icon) {
+                return \`<i class="\${icon}"></i> \${localized}\`;
+            }
+            return localized;
+        };
     </script>
     <template>
         <v-autocomplete clearable dense 
             v-model="value" 
             @update:modelValue="onChange"
-            :label="game.i18n.localize('${document.name}.${documentChoice.name}')"
             :items="choices" 
             item-title="name" 
             item-value="id" 
-            :disabled="disabled" 
-            ${iconParam ? `append-icon='${iconParam.value}'` : ''}
+            :disabled="disabled"
         >
+            <template #label>
+                <span v-html="getLabel('${document.name}.${documentChoice.name}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+            </template>
             <template v-slot:prepend-inner v-if="value">
                 <v-avatar rounded="0" :image="selectedImage"></v-avatar>
             </template>

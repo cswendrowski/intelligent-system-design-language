@@ -116,7 +116,7 @@ TrackerExp:
 TrackerParameter:
     (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter);
 TrackerStyleParameter:
-    "style:" style=("bar" | "dial" | "icons" | "slashes" | "segmented" | "clock");
+    "style:" style=("bar" | "dial" | "icons" | "slashes" | "segmented" | "clock" | "plain");
 SegmentsParameter:
     "segments:" segments=INT;
  
@@ -127,9 +127,11 @@ AttributeExp:
 fragment AttributeParameters:
     ("(" params+=AttributeParameter* ("," params+=AttributeParameter)* ")")?;
 AttributeParameter:
-    (StandardFieldParams | NumberFieldParams | AttributeParamMod);
+    (StandardFieldParams | NumberFieldParams | AttributeParamMod | AttributeStyleParam);
 AttributeParamMod:
     "mod:" method=MethodBlock;
+AttributeStyleParam:
+    "style:" style=("plain" | "box");
  
  
 // Pips -------------
@@ -371,7 +373,8 @@ NumberRange:
 MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression | IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall );
+    (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression |
+     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | PlayAudio );
 JS:
     js=JS_LINE;
 LogExpression:
@@ -386,6 +389,17 @@ SelfMethod:
     "self." method=("delete()" | "update()");
 Wait:
     "wait" duration=(INT | Expression) unit=("ms" | "seconds" | "minutes");
+
+// Play Audio -----------
+
+PlayAudio:
+    "play" "(" params+=PlayAudioParams ("," params+=PlayAudioParams)* ")";
+PlayAudioParams:
+    PlayAudioFile | PlayAudioVolume;
+PlayAudioFile:
+    "file:" value=(STRING | Expression);
+PlayAudioVolume:
+    "volume:" value=(INT | Expression);
 
 // Chat Card -----------
 

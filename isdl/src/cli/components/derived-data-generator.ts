@@ -105,6 +105,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         return expandToNode`
                         // ${property.name} String Derived Data
                         const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                            const context = {
+                                object: this
+                            };
                             ${translateExpression(entry, id, stringValue.value, true, property)}
                         };
                         this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
@@ -126,6 +129,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                     ${minParam != undefined ? expandToNode`
                         const ${property.name.toLowerCase()}MinFunc = (system) => {
+                            const context = {
+                                object: this
+                            };
                             ${translateMethodOrValueOrStored(property, minParam)}
                         };
                         const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
@@ -133,6 +139,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
     
                     ${maxParam != undefined ? expandToNode`
                         const ${property.name.toLowerCase()}MaxFunc = (system) => {
+                            const context = {
+                                object: this
+                            };
                             ${translateMethodOrValueOrStored(property, maxParam)}
                         };
                         const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
@@ -140,6 +149,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                     // ${property.name} Number Derived Data
                     const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        const context = {
+                                object: this
+                        };
                         ${translateMethodOrValueOrStored(property, valueParam)}
                     };
                     Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
@@ -166,12 +178,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 return expandToNode`
                     // ${property.name} Number Derived Data
                     const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        const context = {
+                            object: this
+                        };
                         ${translateMethodOrValueOrStored(property, valueParam)}
                     };
                     this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
 
                     ${minParam != undefined ? expandToNode`
                     const ${property.name.toLowerCase()}MinFunc = (system) => {
+                        const context = {
+                            object: this
+                        };
                         ${translateMethodOrValueOrStored(property, minParam)}
                     };
                     const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
@@ -182,6 +200,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                     ${maxParam != undefined ? expandToNode`
                     const ${property.name.toLowerCase()}MaxFunc = (system) => {
+                        const context = {
+                            object: this
+                        };
                         ${translateMethodOrValueOrStored(property, maxParam)}
                     };
                     const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
@@ -201,6 +222,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}?.value ?? 0;
                     const ${property.name.toLowerCase()}CurrentMax = this.system.${property.name.toLowerCase()}?.max ?? 0;
                     const ${property.name.toLowerCase()}ModFunc = (system) => {
+                        const context = {
+                            object: this
+                        };
                         ${modParam ? translateExpression(entry, id, modParam.method, true, property) : `return ${property.name.toLowerCase()}CurrentValue`}
                     };
                     this.system.${property.name.toLowerCase()} = {
@@ -217,6 +241,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             function generateValueOrMethod(value: number | MethodBlock): CompositeGeneratorNode {
                 if (isMethodBlock(value)) {
                     return expandToNode`
+                        const context = {
+                            object: this
+                        };
                         ${translateExpression(entry, id, value, true, undefined)}
                     `;
                 }

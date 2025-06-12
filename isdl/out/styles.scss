@@ -443,7 +443,7 @@
 
     .action-btn, .isdl-property, .isdl-single-document {
         min-width: 150px;
-        max-width: 300px;
+        max-width: 600px;
     }
 
     .isdl-tracker {
@@ -521,7 +521,7 @@
     .attributeExp {
         display: flex;
         flex-direction: column;
-        margin: 5px;
+        margin: 8px;
         border: 3px solid #333;
         border-radius: 4px;
         min-width: 150px;
@@ -532,8 +532,6 @@
 
         >label {
             justify-content: center;
-            background: #333;
-            color: #fff;
             width: 100%;
             font-weight: bold;
         }
