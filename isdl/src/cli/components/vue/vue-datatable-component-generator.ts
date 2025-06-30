@@ -1,7 +1,38 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, ClassExpression, ColorParam, Document, DocumentArrayExp, IconParam, isAction, isActor, isColorParam, isDateExp, isDateTimeExp, isHookHandler, isHtmlExp, isIconParam, isInitiativeProperty, isNumberExp, isPage, isPaperDollElement, isParentPropertyRefExp, isProperty, isResourceExp, isSection, isStringExp, isStringParamChoices, isTimeExp, isTrackerExp, Page, Section, StandardFieldParams, StringParamChoices } from "../../../language/generated/ast.js";
+import {
+    Action,
+    ClassExpression,
+    ColorParam,
+    Document,
+    DocumentArrayExp,
+    IconParam,
+    isAction,
+    isActor,
+    isColorParam,
+    isDateExp,
+    isDateTimeExp, isDiceField,
+    isHookHandler,
+    isHtmlExp,
+    isIconParam,
+    isInitiativeProperty,
+    isNumberExp,
+    isPage,
+    isPaperDollElement,
+    isParentPropertyRefExp,
+    isProperty,
+    isResourceExp,
+    isSection,
+    isStringExp,
+    isStringParamChoices,
+    isTimeExp,
+    isTrackerExp,
+    Page,
+    Section,
+    StandardFieldParams,
+    StringParamChoices
+} from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
@@ -57,6 +88,15 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                             return data.value + " / " + data.max;
                         }
                         return data.value;
+                        }
+                    },
+                `;
+            }
+
+            if (isDiceField(property)) {
+                return expandToNode`
+                    { data: 'system.${property.name.toLowerCase()}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}"), render: (data, type, context) => {
+                        return data.number + data.die;
                         }
                     },
                 `;

@@ -732,10 +732,16 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                             console.log(url);
                             console.log(audioData);
                             console.log(e);
+                            onEndCallback();
                         });
                 };
-        
-                request.send();
+                try {
+                    request.send();
+                }
+                catch (e) {
+                    console.error("Error playing sound effect:", e);
+                    onEndCallback();
+                }
             }
             
             async function playSfx(url, volume=0.5) {
@@ -748,6 +754,7 @@ function generateInitHookMjs(entry: Entry, id: string, destination: string) {
                     if (!url.startsWith("http")) {
                         url = \`\${window.location.origin}/systems/${id}/\${url}\`;
                     }
+                    
                     await playAudio(foundry.utils.randomID(), url, onEndCallback, volume);
                 });
                 return finishedPromise;
@@ -801,53 +808,72 @@ function generateReadyHookMjs(entry: Entry, id: string, destination: string) {
 
         /* -------------------------------------------- */
 
-        function _handlePrompt(message) {
-            Dialog.prompt({
-                title: message.title,
-                content: message.content,
-                callback: (html, event) => {
-                    // Grab the form data
-                    const formData = new FormDataExtended(html[0].querySelector("form"));
-                    const data = { system: {} };
-                    for (const [key, value] of formData.entries()) {
-                        // Translate values to more helpful ones, such as booleans and numbers
-                        if (value === "true") {
-                            data[key] = true;
-                            data.system[key] = true;
+        async function _handlePrompt(message) {
+            await new Promise(async (resolve, reject) => {
+                if (message.timeLimit && message.timeLimit > 0) {
+                    setTimeout(() => {
+                        console.warn("Prompt timed out:", message.uuid);
+                        // Find the window from ui.windows with the uuid
+                        const dialog = Object.values(ui.windows).find(w => w.options.classes.includes("dialog") && w.options.classes.includes("prompt") && w.options.classes.includes(message.uuid));
+                        if (dialog) {
+                            dialog.close();
                         }
-                        else if (value === "false") {
-                            data[key] = false;
-                            data.system[key] = false;
-                        }
-                        else if (!isNaN(value)) {
-                            data[key] = parseInt(value);
-                            data.system[key] = parseInt(value);
-                        }
-                        else if (value === "null") {
-                            data[key] = null;
-                            data.system[key] = null;
-                        }
-                        else {
-                            data[key] = value;
-                            data.system[key] = value;
-                        }
-                    }
-
-                    game.socket.emit("system.${id}", {
-                        type: "promptResponse",
-                        uuid: message.uuid,
-                        data: data
-                    }, { recipients: [message.userId] });
-
-                    return data;
-                },
-                options: {
-                    classes: ["${id}", "dialog"],
-                    width: message.width,
-                    height: message.height,
-                    left: message.left,
-                    top: message.top,
+                        game.socket.emit("system.${id}", {
+                            type: "promptResponse",
+                            uuid: message.uuid,
+                            data: {}
+                        }, { recipients: [message.userId] });
+                        resolve();
+                    }, message.timeLimit);
                 }
+                Dialog.prompt({
+                    title: message.title,
+                    content: message.content,
+                    callback: (html, event) => {
+                        // Grab the form data
+                        const formData = new FormDataExtended(html[0].querySelector("form"));
+                        const data = { system: {} };
+                        for (const [key, value] of formData.entries()) {
+                            // Translate values to more helpful ones, such as booleans and numbers
+                            if (value === "true") {
+                                data[key] = true;
+                                data.system[key] = true;
+                            }
+                            else if (value === "false") {
+                                data[key] = false;
+                                data.system[key] = false;
+                            }
+                            else if (!isNaN(value)) {
+                                data[key] = parseInt(value);
+                                data.system[key] = parseInt(value);
+                            }
+                            else if (value === "null") {
+                                data[key] = null;
+                                data.system[key] = null;
+                            }
+                            else {
+                                data[key] = value;
+                                data.system[key] = value;
+                            }
+                        }
+    
+                        game.socket.emit("system.${id}", {
+                            type: "promptResponse",
+                            uuid: message.uuid,
+                            data: data
+                        }, { recipients: [message.userId] });
+    
+                        resolve();
+                        return data;
+                    },
+                    options: {
+                        classes: ["${id}", "dialog", "prompt", message.uuid],
+                        width: message.width,
+                        height: message.height,
+                        left: message.left,
+                        top: message.top,
+                    }
+                });
             });
         }
 

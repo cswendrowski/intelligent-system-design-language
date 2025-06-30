@@ -75,20 +75,20 @@ function generateAttributeComponent(destination: string) {
     </script>
 
     <template>
-        <v-number-input v-if="attributeStyle == 'plain' && editMode" v-model="value" :name="systemPath" :min="props.min" :disabled="disabled" type="number" variant="outlined" density="compact" hide-details="true" data-tooltip="Value">
+        <v-number-input v-if="attributeStyle == 'plain' && editMode" v-model="value" :name="systemPath" :min="props.min" :disabled="disabled" type="number" variant="outlined" density="compact" :hide-details="true" data-tooltip="Value">
             <template #label>
                 <span v-html="getLabel" />
             </template>
         </v-number-input>
-        <v-number-input v-if="attributeStyle == 'plain' && !editMode" :model-value="mod" :name="systemPath"  :disabled="true" type="number" controlVariant="hidden" variant="outlined" density="compact" hide-details="true" data-tooltip="Mod">
+        <v-number-input v-if="attributeStyle == 'plain' && !editMode" :model-value="mod" :name="systemPath"  :disabled="true" type="number" controlVariant="hidden" variant="outlined" density="compact" :hide-details="true" data-tooltip="Mod">
             <template #label>
                 <span v-html="getLabel" />
             </template>   
         </v-number-input>
         <v-container :class="['isdl-property', 'attributeExp', { 'no-mod': !hasMod }]" v-if="attributeStyle == 'box'">
-            <v-label :style="getStyle"><v-icon v-if="icon" size="x-small" :icon="icon"></v-icon>{{ game.i18n.localize(label) }}</v-label>
+            <v-label :style="getStyle"><v-icon v-if="icon" size="x-small" :icon="icon" style="padding-right: 0.5rem;"></v-icon>{{ game.i18n.localize(label) }}</v-label>
             <div class="mod" v-if="hasMod">{{ mod }}</div>
-            <v-number-input v-model="value" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" hide-details="true" tile="true"></v-number-input>
+            <v-number-input v-model="value" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" :hide-details="true" :tile="true"></v-number-input>
         </v-container>
     </template>
     `;
@@ -600,7 +600,7 @@ function generateCalculator(destination: string) {
                             </v-btn>
                         </v-btn-toggle>
                     </v-card-text>
-                    <v-card-actions>
+                    <v-card-actions class="flexrow">
                         <v-btn text="Submit" @click="submit" prepend-icon="fa-solid fa-check" :color="primaryColor"></v-btn>
                         <v-btn text="Cancel" @click="toggleCalculator" prepend-icon="fa-solid fa-xmark" :color="secondaryColor"></v-btn>
                     </v-card-actions>
@@ -1081,8 +1081,8 @@ function generateTrackerComponent(destination: string) {
                                         variant="outlined"
                                         class="flex-grow-1 slim-number"
                                         style="min-width: 70px;"
-                                        hide-details="true"
-                                        tile="true"
+                                        :hide-details="true"
+                                        :tile="true"
                                         :disabled="isDisabled('value') || disableValue"
                                     />
                                     <v-number-input
@@ -1094,8 +1094,8 @@ function generateTrackerComponent(destination: string) {
                                         variant="outlined"
                                         class="flex-grow-1"
                                         style="min-width: 70px; margin-right: 0.5rem;"
-                                        hide-details="true"
-                                        tile="true"
+                                        :hide-details="true"
+                                        :tile="true"
                                         :disabled="isDisabled('value') || disableValue"
                                     />
                                     <v-btn size="small" icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
@@ -1110,8 +1110,8 @@ function generateTrackerComponent(destination: string) {
                                         variant="outlined"
                                         class="flex-grow-1 slim-number"
                                         style="min-width: 70px;"
-                                        hide-details="true"
-                                        tile="true"
+                                        :hide-details="true"
+                                        :tile="true"
                                         :disabled="isDisabled('min') || disableMin"
                                     />
                                     <v-number-input
@@ -1123,8 +1123,8 @@ function generateTrackerComponent(destination: string) {
                                         variant="outlined"
                                         class="flex-grow-1"
                                         style="min-width: 70px; margin-right: 0.5rem;"
-                                        hide-details="true"
-                                        tile="true"
+                                        :hide-details="true"
+                                        :tile="true"
                                         :disabled="isDisabled('max') || disableMax"
                                     />
                                     <v-btn size="small" icon="fa-solid fa-battery-full" @click="refill" :disabled="isDisabled('value') || disableValue" data-tooltip="Refill" :color="secondaryColor" />

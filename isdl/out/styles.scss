@@ -188,7 +188,7 @@
             min-height: 100%;
         }
     }
-    
+
     &.isdl-datatable {
         color: black;
         background-repeat: repeat;
@@ -419,13 +419,23 @@
         flex: 1;
     }
 
+    .v-field__input {
+        height: 100%;
+    }
+
+    .v-field__field {
+        > input {
+            background: unset;
+        }
+    }
+
     .v-col {
         min-width: 316px;
         max-width: 616px;
     }
 
     .v-input {
-        min-width: 300px;
+        min-width: 150px;
         max-width: 600px;
     }
 

@@ -46,13 +46,15 @@ ClassExpression:
 // Fields ------------------------------------------------------ 
 
 Property:
-    (BasicFields | ComplexFields | DateTimeFields | DocumentFields | ReferenceFields | DeprecatedFields);
+    (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | DeprecatedFields);
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp);
 ComplexFields:
     (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
+DiceFields:
+    (DieField | DiceField);
 DocumentFields:
     (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp);
 ReferenceFields:
@@ -122,6 +124,7 @@ SegmentsParameter:
  
  
 // Attribute -------------
+
 AttributeExp:
     ExpressionModifier "attribute" name=ID AttributeParameters;
 fragment AttributeParameters:
@@ -177,7 +180,28 @@ TimeExp:
 DateTimeExp:
     ExpressionModifier "datetime" name=ID StandardFieldParamsFrag;
  
+
+// Dice -------------
+
+DieField:
+    ExpressionModifier "die" name=ID ("(" params+=DieParams ("," params+=DieParams)* ")")?;
+
+DiceField:
+    ExpressionModifier "dice" name=ID ("(" params+=DieParams ("," params+=DieParams)* ")")?;
+
+DieParams:
+    (StandardFieldParams | DieValueParam | DieChoicesParam | DieInitialParam);
+
+DieValueParam:
+    "value:" value=(DICE | MethodBlock);
+
+DieInitialParam:
+    "initial:" value=(DICE | MethodBlock);
+
+DieChoicesParam:
+    "choices:" "[" (choices+=DICE ("," choices+=DICE)*)? "]";
  
+
 // Paperdoll -------------
 
 PaperDollExp:
@@ -416,9 +440,11 @@ ChatBlockExpression:
 Prompt:
     "prompt" ("(" params+=PromptParams ("," params+=PromptParams)* ")")? "{" body+=(ClassExpression)*"}";
 PromptParams:
-    (TargetParam | LabelParam | IconParam | LocationParam | WidthParam | HeightParam);
+    (TargetParam | LabelParam | IconParam | LocationParam | WidthParam | HeightParam | TimeLimitParam);
+TimeLimitParam:
+    "limit:" value=(INT | Expression) unit=("ms" | "seconds" | "minutes");
 TargetParam:
-    "target:" value=("user" | "gm");
+    "target:" value=("user" | "gm" | "target");
 Update:
     (UpdateSelf | UpdateParent);
 UpdateSelf:

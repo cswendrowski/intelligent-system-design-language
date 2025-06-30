@@ -328,6 +328,8 @@ item Skill {
     boolean Trained
     number SkillMod
     tracker UsesLeft(style: slashes)
+    die Die
+    dice Dice
     readonly number Skill(value: {
         if (self.Trained > 0) {return 2 + self.SkillMod}
         return 0 + self.SkillMod
@@ -342,7 +344,7 @@ item Skill {
 
         if (answer.HasAdvantage) {
             skill = self.Skill
-            fleeting abilityRoll = roll(d6 + self.Ability + skill + answer.Bonus)
+            fleeting abilityRoll = roll(self.Die + self.Ability + skill + answer.Bonus)
             chat AbilityUse {
                 abilityRoll
                 tag self.Ability
@@ -361,7 +363,7 @@ item Skill {
 
     action SimpleFightRoll {
         if (parent is Hero) {
-            fleeting abilityRoll = roll(d6 + parent.Fight.mod)
+            fleeting abilityRoll = roll(self.Die + parent.Fight.mod)
             chat AbilityUse {
                 abilityRoll
                 tag "Fight"

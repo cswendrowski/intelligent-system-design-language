@@ -45,6 +45,10 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return reference.name.toLowerCase();
     }
 
+    // if (isDocumentArrayExp(reference)) {
+    //     return "context.object.items.filter(x => x.name === 'system').map(x => x.value)[0]";
+    // }
+
     let basePath = "system.";
 
     // If we are accessing a sub-property of a resource or attribute, we need to use the appropriate sub-path
@@ -92,7 +96,7 @@ export function getAllOfType<T extends (ClassExpression | Page | Section)>(body:
     for (let document of body.filter(x => isDocument(x)).map(x => x as Document)) {
         result.push(...getAllOfType(document.body, comparisonFunc, samePageOnly));
     }
-    
+
     return result;
 }
 

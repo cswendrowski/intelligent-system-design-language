@@ -1,16 +1,84 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, AttributeStyleParam, BackgroundParam, BooleanParamValue, ClassExpression, ColorParam, Document, DocumentArrayExp, DocumentChoiceExp,
-     Entry, IconParam, ImageParam, isAccess, isAction, isActor, isAttributeExp, isAttributeParamMod, isAttributeStyleParam, isBackgroundParam, isBooleanExp
-     , isBooleanParamValue, isColorParam, isDateExp, isDateTimeExp, isDocumentArrayExp, isDocumentChoiceExp, isEntry, isHtmlExp, isIconParam,
-      isImageParam, isMethodBlock, isNumberExp, isNumberParamMax, isNumberParamMin, isNumberParamValue, isPage, isPaperDollExp, isParentPropertyRefChoiceParam, isParentPropertyRefExp,
-       isPipsExp,
-       isProperty, isResourceExp, isSection, isSegmentsParameter, isSingleDocumentExp, isSizeParam, isStatusProperty, isStringExp,
-        isStringParamChoices, isStringParamValue, isTimeExp, isTrackerExp, isTrackerStyleParameter, isVisibilityParam, NumberExp, NumberFieldParams, NumberParamMax,
-         NumberParamMin, NumberParamValue, Page, PaperDollExp, ParentPropertyRefChoiceParam, Property, ResourceExp, Section, SegmentsParameter, SizeParam
-         , StandardFieldParams, StringParamChoices, StringParamValue, TrackerStyleParameter, 
-         VisibilityParam} from "../../../language/generated/ast.js";
+import {
+    Action,
+    AttributeExp,
+    AttributeStyleParam,
+    BackgroundParam,
+    BooleanParamValue,
+    ClassExpression,
+    ColorParam, DieChoicesParam,
+    Document,
+    DocumentArrayExp,
+    DocumentChoiceExp,
+    Entry,
+    IconParam,
+    ImageParam,
+    isAccess,
+    isAction,
+    isActor,
+    isAttributeExp,
+    isAttributeParamMod,
+    isAttributeStyleParam,
+    isBackgroundParam,
+    isBooleanExp
+    ,
+    isBooleanParamValue,
+    isColorParam,
+    isDateExp,
+    isDateTimeExp, isDiceField, isDiceFields, isDieChoicesParam,
+    isDieField,
+    isDocumentArrayExp,
+    isDocumentChoiceExp,
+    isEntry,
+    isHtmlExp,
+    isIconParam,
+    isImageParam,
+    isMethodBlock,
+    isNumberExp,
+    isNumberParamMax,
+    isNumberParamMin,
+    isNumberParamValue,
+    isPage,
+    isPaperDollExp,
+    isParentPropertyRefChoiceParam,
+    isParentPropertyRefExp,
+    isPipsExp,
+    isProperty,
+    isResourceExp,
+    isSection,
+    isSegmentsParameter,
+    isSingleDocumentExp,
+    isSizeParam,
+    isStatusProperty,
+    isStringExp,
+    isStringParamChoices,
+    isStringParamValue,
+    isTimeExp,
+    isTrackerExp,
+    isTrackerStyleParameter,
+    isVisibilityParam,
+    NumberExp,
+    NumberFieldParams,
+    NumberParamMax,
+    NumberParamMin,
+    NumberParamValue,
+    Page,
+    PaperDollExp,
+    ParentPropertyRefChoiceParam,
+    Property,
+    ResourceExp,
+    Section,
+    SegmentsParameter,
+    SizeParam
+    ,
+    StandardFieldParams,
+    StringParamChoices,
+    StringParamValue,
+    TrackerStyleParameter,
+    VisibilityParam
+} from "../../../language/generated/ast.js";
 import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { generateDatatableComponent } from './vue-datatable-component-generator.js';
 import { AstUtils } from 'langium';
@@ -782,7 +850,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 :context="context" 
                 :color="${primaryColor}"
                 :editMode="editMode" 
-                :visibility="visibilityStatesMethods['${element.name.toLowerCase()}'](editMode)">
+                :visibility="visibilityStates['${element.name.toLowerCase()}']">
             </${componentName}>
             `;
         }
@@ -791,7 +859,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
         if (isProperty(element)) {
             if (element.modifier == "hidden") return expandToNode``;
-            
+
             if (element.name == "RollVisualizer") {
                 return expandToNode`
                 <i-roll-visualizer :context="context"></i-roll-visualizer>
@@ -827,11 +895,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 }
                 let refChoices = allChoices.map(x => {
                     let parentDocument = getDocument(x);
-        
+
                     if (choicesParam && choicesParam.choices.length > 0) {
                         if (!choicesParam.choices.find(y => {
                             const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
-        
+
                             if (y.property != undefined) {
                                 const propertyNameMatches = y.property.ref?.name.toLowerCase() == x.name.toLowerCase();
                                 return documentNameMatches && propertyNameMatches;
@@ -842,7 +910,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             return undefined;
                         }
                     }
-        
+
                     return {
                         path: `system.${x.name.toLowerCase()}`,
                         parent: parentDocument?.name,
@@ -862,7 +930,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     variant="outlined" 
                     density="compact">
                         <template #label>
-                            <span v-html="getLabel('${label}.label', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+                            <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
                         </template>
                 </v-select>
                 `;
@@ -1049,7 +1117,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 <i-tracker 
                     label="${label}"
                     systemPath="system.${element.name.toLowerCase()}" :context="context" 
-                    :visibility="visibilityStatesMethods['${element.name.toLowerCase()}'](editMode)"
+                    :visibility="visibilityStates['${element.name.toLowerCase()}']"
                     :editMode="editMode"
                     :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
                     trackerStyle="${style}"
@@ -1138,7 +1206,73 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 </i-paperdoll>
                 `;
             }
-            
+
+            if (isDiceFields(element)) {
+                let choicesParam = element.params.find(x => isDieChoicesParam(x)) as DieChoicesParam | undefined;
+                let choices = choicesParam ? `[${choicesParam.choices.join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
+
+                if (isDieField(element)) {
+                    // render as a simple dropdown
+                    return expandToNode`
+                    <v-select 
+                        name="${systemPath}" 
+                        v-model="context.${systemPath}" 
+                        :items="${choices}" 
+                        ${standardParamsFragment} 
+                        variant="outlined" 
+                        density="compact">
+                        <template #label>
+                            <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+                        </template>
+                        <template #prepend-inner>
+                            <i :class="'fa-solid fa-dice-' + context.${systemPath}"></i>
+                        </template>
+                    </v-select>
+                    `;
+                }
+
+                if (isDiceField(element)) {
+                    // A custom input with both a number input and a dropdown for the die type
+                    return expandToNode`
+                        <v-input 
+                            name="${systemPath}"
+                            v-model="context.${systemPath}"
+                            class="isdl-dice-field"
+                            v-if="!isHidden('${element.name.toLowerCase()}')"
+                            >
+                            <template #label>
+                                <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
+                            </template>
+                            <div class="d-flex">
+                                <v-number-input
+                                    v-model="context.${systemPath}" 
+                                    :min="0" 
+                                    :step="1" 
+                                    variant="outlined" 
+                                    density="compact"
+                                    :disabled="isDisabled('${element.name.toLowerCase()}')"
+                                    class="flex-grow-1"
+                                    
+                                    style="max-width: 100px;"
+                                    name="${systemPath}.number"
+                                >
+                                
+                                </v-number-input>
+                                <v-select 
+                                    v-model="context.${systemPath}" 
+                                    :items="${choices}" 
+                                    item-value="value" 
+                                    item-title="label"
+                                    :disabled="isDisabled('${element.name.toLowerCase()}')"
+                                    variant="outlined"
+                                    density="compact">
+                                </v-select>
+                            </div>
+                        </v-input>
+                    `;
+                }
+            }
+
             return expandToNode`
             <v-alert text="Unknown Property ${element.name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
             `;

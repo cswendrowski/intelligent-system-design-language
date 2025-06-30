@@ -1,6 +1,6 @@
 import type {
     Action,
-    ClassExpression,
+    ClassExpression, DieInitialParam,
     Document,
     Entry,
     NumberParamInitial,
@@ -43,7 +43,7 @@ import {
     isAction,
     isVariableExpression,
     isPrompt,
-    isTrackerExp
+    isTrackerExp, isDiceFields, isDieField, isDieInitialParam, isDiceField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -223,7 +223,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         if (isSingleDocumentExp(property)) {
             return expandToNode`
                 ${property.name.toLowerCase()}: new UuidDocumentField(),
-            `;   
+            `;
         }
 
         if (isDocumentChoiceExp(property)) {
@@ -263,6 +263,27 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             `;
         }
 
+        if (isDiceFields(property)) {
+
+            let initialParam = property.params.find(p => isDieInitialParam(p)) as DieInitialParam | undefined;
+            let initialDie = initialParam?.value ?? "d20";
+
+            if (isDieField(property)) {
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.StringField({initial: "${initialDie}"}),
+                `;
+            }
+
+            if (isDiceField(property)) {
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.SchemaField({
+                        die: new fields.StringField({initial: "${initialDie}"}),
+                        number: new fields.NumberField({integer: true, initial: 0}),
+                    }),
+                `;
+            }
+        }
+
         // if ( isDocumentArrayExp(property) ) {
         //     return expandToNode`
         //         ${property.name.toLowerCase()}: new fields.EmbeddedCollectionField(new fields.ForeignDocumentField(, {required: true, type: "${property.document.ref?.name.toLowerCase()}"})),
@@ -272,7 +293,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         if (isSection(property)) {
             return joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true });
 
-            // TODO: It would be nice to support sections in the data model, but we would need to complicate 
+            // TODO: It would be nice to support sections in the data model, but we would need to complicate
             // how we do html template generation to point to the section path, which is possibly nested.
             // return expandToNode`
             //     ${property.name.toLowerCase()}: new fields.SchemaField({
@@ -351,7 +372,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
     function generatePromptModels(action: Action, document: Document): CompositeGeneratorNode | undefined {
         const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
         const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[]
-        
+
         return joinToNode(prompts.map(p => generatePromptModel(p)), { appendNewLineIfNotEmpty: true });
     }
 

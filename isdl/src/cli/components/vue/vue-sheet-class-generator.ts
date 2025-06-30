@@ -27,14 +27,14 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
         if (functionDef.params.length > 0) {
 
             return expandToNode`
-            async function_${functionName}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${joinToNode(functionDef.params, param => expandToNode`${param.param.name}`, { separator: ', ' })}) {
+            async function_${functionName}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate, ${joinToNode(functionDef.params, param => expandToNode`${param.param.name}`, { separator: ', ' })}) {
                 let system = context.object.system;
                 ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, false, functionDef)}
             }
             `.appendNewLine();
         }
         return expandToNode`
-        async function_${functionName}(system, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate) {
+        async function_${functionName}(system, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate) {
             const context = {
                 object: system,
                 target: game.user.getTargetOrNothing()
@@ -43,7 +43,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
         }
         `.appendNewLine();
     }
-    
+
     const fileNode = expandToNode`
         import VueRenderingMixin from '../VueRenderingMixin.mjs';
         import { ${document.name}${titleize(type)}App } from "../components/components.vue.es.mjs";

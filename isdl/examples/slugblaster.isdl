@@ -1,0 +1,150 @@
+config Slugblaster {
+    label       = "Slugblaster"
+    id          = "slugblaster"
+    description = "Slugblaster"
+    author      = "Cody Swendrowski"
+}
+
+actor PC(icon: "fa-solid fa-user-astronaut", background: hideout) {
+    
+    page Creation {
+        section Identity {
+            string Pronouns(label: "Pronouns")
+            string Alias(label: "Nickname / Handle")
+            string Personality(choices: ["The Grit","The Guts","The Smarts","The Heart","The Chill"], icon: "fa-solid fa-star")
+        }
+        
+        section MakingYourself {
+            string Look(choices: [
+                "minimal technical oversized fitted all black pastel",
+                "neon muted vintage flashy polished provocative",
+                "relaxed cutesy trashy chic androgynous brand-new",
+                "classic sporty piercings chains second-hand handmade",
+                "ballcap braces nail polish jewelry shoelace belt light makeup",
+                "full beat glasses bandanna dyed hair lots of hair shaved head"
+            ])
+            string Family(choices: [
+                "rich boring",
+                "poor religious",
+                "supportive big",
+                "unstable small",
+                "strict sheltered",
+                "relaxed ultraterrestrial"
+            ])
+            string Bond(choices: [
+                "childhood friends",
+                "mutual goals",
+                "well-kept secret",
+                "natural chemistry",
+                "relatives",
+                "shared hardships"
+            ])
+            string Vibes(choices: [
+                "lost in thought",
+                "homeschool chic",
+                "dad cuts your hair",
+                "pencil above ear",
+                "just learned what avant-garde is",
+                "wall of text"
+            ])
+        }
+        
+        section SignatureDevice {
+            string SignatureName(label: "Signature")
+            string SignatureType(choices: ["Hoverboard","Raygun","Backpack","Glove","Other"])
+            string Mods(value: "Pick one starting mod (cost 2 components)")
+        }
+        
+        section Gear {
+            Equipment[] StarterGear(where: item.Type equals "Gear")
+        }
+    }
+
+    page Attributes(icon: "fa-solid fa-dice") {
+        section CoreStats {
+            attribute Grit(min:1, max:6, color: #a586c0, icon: "fa-solid fa-shield")      // resilience and focus :contentReference[oaicite:1]{index=1}
+            attribute Guts(min:1, max:6, icon: "fa-solid fa-fist-raised")                // boldness and risk-taking :contentReference[oaicite:2]{index=2}
+            attribute Smarts(min:1, max:6, icon: "fa-solid fa-brain")                   // creativity and curiosity :contentReference[oaicite:3]{index=3}
+            attribute Heart(min:1, max:6, icon: "fa-solid fa-heart")                    // empathy and teamwork :contentReference[oaicite:4]{index=4}
+            attribute Chill(min:1, max:6, icon: "fa-solid fa-snowflake")                // calm and composure
+        }
+        
+        section Resources {
+            tracker Style(min:0, style: icons, icon: "fa-solid fa-fire")              // style points :contentReference[oaicite:5]{index=5}
+            tracker Trouble(min:0, style: segmented, segments: 8, icon: "fa-solid fa-exclamation") // trouble boxes
+            number Doom(min:0, label: "Doom")                                    // long-term consequences :contentReference[oaicite:6]{index=6}
+            tracker FameTrack(max:10, style: icons, icon: "fa-solid fa-star", label: "Fame")                         // crew fame or solo fame
+        }
+    }
+    
+    page Abilities(icon: "fa-solid fa-bolt") {
+        section PersonalityTraits {
+            // Traits unlocked by trait beats; start with one based on Personality
+            string Trait1
+            string Trait2
+        }
+        section SignatureMods {
+            // Mods added over play
+            string Mod1
+            string Mod2
+            string Mod3
+        }
+    }
+    
+    page Health(icon: "fa-solid fa-heart-crack") {
+        health resource HP
+        boolean Dead
+        hidden number Wounds
+    }
+    
+    page Skills(icon: "fa-solid fa-gears") {
+        Skill[] Skills
+    }
+    
+    page Notes(icon: "fa-solid fa-sticky-note") {
+        html Backstory
+        html Notes
+    }
+}
+
+item Skill {
+    // pick which attribute this skill ties to:
+    parent<attribute> Ability(choices: [
+        PC.Grit, PC.Guts, PC.Smarts, PC.Heart, PC.Chill
+    ], icon: "fa-solid fa-network-wired")
+    number Rank(min: 0, max: 3, icon: "fa-solid fa-chart-line")
+    tracker UsesLeft(min: 0, style: slashes, segments: 3, icon: "fa-solid fa-hourglass-half")
+    
+    action Use {
+        // roll d6 + attribute mod + rank
+        fleeting totalRoll = roll(d6 + self.Ability.mod + self.Rank)
+        chat SkillCheck {
+            flavor (self.Name + " → " + self.Ability.name)
+            totalRoll
+        }
+        // consume a use if you have limited uses
+        if (self.UsesLeft > 0) {
+            self.UsesLeft--
+        }
+    }
+}
+
+item Equipment {
+    string Type(choices: ["Armor", "Weapon", "Gear"], icon: "fa-solid fa-box")
+    number Bonus(min: 0, max: 5, icon: "fa-solid fa-plus")
+    tracker Durability(min: 0, max: 10, style: bar, icon: "fa-solid fa-heart-pulse")
+    
+    action Use(icon: "fa-solid fa-hand-paper") {
+        // for consumable gear or ammo
+        if (self.Type equals "Gear") {
+            self.Durability--
+            chat EquipmentUse {
+                flavor (self.Name + " used, durability now " + self.Durability)
+            }
+            if (self.Durability <= 0) {
+                chat EquipmentBreak { flavor (self.Name + " has broken!") }
+                self.delete()
+            }
+        }
+    }
+}

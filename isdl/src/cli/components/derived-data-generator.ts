@@ -872,6 +872,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         const typedEffect = new ActiveEffect(foundry.utils.duplicate(effect), {parent: effect.parent});
                         typedEffect.changes = typedEffect.changes.filter(c => c.key.startsWith(type));
                         for ( const change of typedEffect.changes ) {
+                            if (change.mode == 0) continue;
                             change.key = change.key.replace(type + ".", "");
                         }
                         if ( edit ) typedEffect.disabled = true;

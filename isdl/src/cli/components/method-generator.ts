@@ -35,7 +35,7 @@ import type {
     HeightParam,
     NumberRange,
     TargetAccess,
-    TargetAssignment, PlayAudioFile, PlayAudioVolume,
+    TargetAssignment, PlayAudioFile, PlayAudioVolume, Each, TimeLimitParam,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -106,7 +106,7 @@ import {
     isTargetIncrementDecrementAssignment,
     isTargetQuickModifyAssignment,
     isTargetAssignment,
-    isWait, isPlayAudio, isPlayAudioFile, isPlayAudioVolume
+    isWait, isPlayAudio, isPlayAudioFile, isPlayAudioVolume, isDieField, isTimeLimitParam
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -887,6 +887,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
                 let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
 
+                if (isDieField(expression.property?.ref)) {
+                    return expandToNode`
+                        \'@${path.replaceAll(".", "")}\'
+                    `;
+                }
+
                 if (isParentPropertyRefExp(expression.property?.ref)) {
                     label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
                 }
@@ -999,10 +1005,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                    if (expression.property?.ref.propertyType == 'resource' &&
+                        (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path} + ".value"`;
                     }
-                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                    if (expression.property?.ref.propertyType == 'attribute' &&
+                        (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
                         path = `${path} + ".mod"`;
                     }
 
@@ -1164,6 +1172,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     if (isEach(expression)) {
+        //const expressionCollection = expression.collection;
+        const eachExpression = expression as Each;
         const collection = translateExpression(entry, id, expression.collection, preDerived, generatingProperty);
         if (isNumberRange(expression.collection)) {
             return expandToNode`
@@ -1174,18 +1184,23 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
         let updateExpression: CompositeGeneratorNode | undefined;
 
-        if (isParentAccess(expression.collection)) {
-            updateExpression = expandToNode`
+        // If the body expression had a variable assignment against the collection, we need to update the collection
+        if (expression.method.body.some(x => {
+                return isVariableAssignment(x) && x.variable.ref == eachExpression.var;
+            })) {
+            if (isParentAccess(expression.collection)) {
+                updateExpression = expandToNode`
             parentEmbeddedUpdate["${getSystemPath(expression.collection.property?.ref, [], undefined, false)}"] = ${collection};
             `;
-        } else if (isTargetAccess(expression.collection)) {
-            updateExpression = expandToNode`
+            } else if (isTargetAccess(expression.collection)) {
+                updateExpression = expandToNode`
             targetEmbeddedUpdate["${getSystemPath(expression.collection.property?.ref, [], undefined, false)}"] = ${collection};
             `;
-        } else {
-            updateExpression = expandToNode`
+            } else {
+                updateExpression = expandToNode`
             embeddedUpdate["${collection}"] = ${collection};
             `;
+            }
         }
 
         return expandToNode`
@@ -1206,6 +1221,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const locationParam = expression.params.find(x => isLocationParam(x)) as LocationParam | undefined;
         const widthParam = expression.params.find(x => isWidthParam(x)) as WidthParam | undefined;
         const heightParam = expression.params.find(x => isHeightParam(x)) as HeightParam | undefined;
+        const timeLimitParam = expression.params.find(x => isTimeLimitParam(x)) as TimeLimitParam | undefined;
         // const iconParam = expression.params.find(x => isIconParam(x));
         // const icon = iconParam?.value ?? "fa-solid fa-comment-dots";
 
@@ -1254,6 +1270,23 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return undefined;
         }
 
+        let durationExpression: CompositeGeneratorNode | undefined;
+
+        if (timeLimitParam != undefined) {
+            let durationMod = "";
+            const duration = translateExpression(entry, id, timeLimitParam.value, preDerived, generatingProperty);
+            let units = timeLimitParam.unit ?? "ms";
+            if (units === "seconds") {
+                durationMod = ` * 1000`;
+            }
+            else if (units === "minutes") {
+                durationMod = ` * 60 * 1000`;
+            }
+            durationExpression = expandToNode`
+                ${duration}${durationMod}
+            `;
+        }
+
         if (target == "gm") {
             return expandToNode`
                 await new Promise((resolve, reject) => {
@@ -1275,11 +1308,54 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         userId: game.user.id,
                         ${widthParam ? `width: ${widthParam.value},` : ""}
                         ${heightParam ? `height: ${heightParam.value},` : ""}
-                        ${locationParam ? `left: ${locationParam.x},
-                             top: ${locationParam.y},` : ""}
+                        ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
+                        top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
+                        ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
                         title: "${title}",
                         content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
                     }, {recipients: [firstGm.id]});
+                });
+            `;
+        }
+
+        if (target == "target") {
+            return expandToNode`
+                await new Promise((resolve, reject) => {
+                    // Try to find a non-GM owner
+                    let owner = game.users.find(u => u.active && !u.isGM && u.id != game.user.id && context.target.testUserPermission(u, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER));
+                    
+                    // If no owner is found, use the first active user
+                    if (!owner) {
+                        owner = game.users.find(u => u.active && u.id != game.user.id && context.target.testUserPermission(u, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER));
+                    }
+                    if (!owner) {
+                        ui.notifications.error("No active user found with ownership of the target.");
+                        resolve({});
+                        return;
+                    }
+                    let ownerId = owner.id;
+                    const uuid = foundry.utils.randomID();
+
+                    // Setup a listener that will wait for this response
+                    game.socket.on("system.${id}", (data) => {
+                        if (data.type != "promptResponse" || data.uuid != uuid) return;
+
+                        // Resolve the promise with the data
+                        resolve(data.data);
+                    });
+
+                    game.socket.emit("system.${id}", {
+                        uuid: uuid,
+                        type: "prompt",
+                        userId: game.user.id,
+                        ${widthParam ? `width: ${widthParam.value},` : ""}
+                        ${heightParam ? `height: ${heightParam.value},` : ""}
+                        ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
+                        top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
+                        ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
+                        title: "${title}",
+                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    }, {recipients: [ownerId]});
                 });
             `;
         }
@@ -1323,52 +1399,70 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     userId: game.user.id,
                     title: "${title}",
                     content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
-                    ${widthParam ? `width: ${widthParam.value},` : ""}
-                    ${heightParam ? `height: ${heightParam.value},` : ""}
-                    ${locationParam ? `left: ${locationParam.x},
-                    top: ${locationParam.y},` : ""}
+                    ${widthParam ? expandToNode`width: ${widthParam.value},` : ""}
+                    ${heightParam ? expandToNode`height: ${heightParam.value},` : ""}
+                    ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
+                    top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
+                    ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
                 }, {recipients: [targetedUser]});
             });
         `;
         }
 
         return expandToNode`
-            await Dialog.prompt({
-                title: "${title}",
-                content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
-                callback: (html, event) => {
-                    // Grab the form data
-                    const formData = new FormDataExtended(html[0].querySelector("form"));
-                    const data = { system: {} };
-                    for (const [key, value] of formData.entries()) {
-                        // Translate values to more helpful ones, such as booleans and numbers
-                        if (value === "true") {
-                            data[key] = true;
-                            data.system[key] = true;
+            await new Promise(async (resolve, reject) => {
+                let uuid = foundry.utils.randomID();
+                ${timeLimitParam ? expandToNode`
+                    setTimeout(() => {
+                        console.warn("Prompt timed out:", uuid);
+                        // Find the window from ui.windows with the uuid
+                        const dialog = Object.values(ui.windows).find(w => w.options.classes.includes("dialog") && w.options.classes.includes("prompt") && w.options.classes.includes(uuid));
+                        if (dialog) {
+                            dialog.close();
                         }
-                        else if (value === "false") {
-                            data[key] = false;
-                            data.system[key] = false;
+                        resolve({});
+                    }, ${durationExpression});
+                }
+                ` : ""}
+
+                Dialog.prompt({
+                    title: "${title}",
+                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    callback: (html, event) => {
+                        // Grab the form data
+                        const formData = new FormDataExtended(html[0].querySelector("form"));
+                        const data = { system: {} };
+                        for (const [key, value] of formData.entries()) {
+                            // Translate values to more helpful ones, such as booleans and numbers
+                            if (value === "true") {
+                                data[key] = true;
+                                data.system[key] = true;
+                            }
+                            else if (value === "false") {
+                                data[key] = false;
+                                data.system[key] = false;
+                            }
+                            else if (!isNaN(value)) {
+                                data[key] = parseInt(value);
+                                data.system[key] = parseInt(value);
+                            }
+                            else {
+                                data[key] = value;
+                                data.system[key] = value;
+                            }
                         }
-                        else if (!isNaN(value)) {
-                            data[key] = parseInt(value);
-                            data.system[key] = parseInt(value);
-                        }
-                        else {
-                            data[key] = value;
-                            data.system[key] = value;
-                        }
-                    }
-                    return data;
-                },
-                options: {
-                    classes: ["${id}", "dialog"],
+                        resolve(data);
+                        return data;
+                    },
+                    options: {
+                        classes: ["${id}", "dialog", "prompt", uuid],
                         ${widthParam ? `width: ${widthParam.value},` : ""}
                         ${heightParam ? `height: ${heightParam.value},` : ""}
-                        ${locationParam ? `left: ${locationParam.x},
-                        top: ${locationParam.y},` : ""}
-                }
-            });
+                        ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
+                        top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
+                    }
+                });
+            }
         `;
     }
 
@@ -1451,7 +1545,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
         return expandToNode`
-            await ${accessPath}.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, ${args})
+            await ${accessPath}.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate, ${args})
         `;
     }
 
