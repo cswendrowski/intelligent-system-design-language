@@ -415,6 +415,13 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                     object: this.document,
                     target: game.user.getTargetOrNothing()
                 };
+                // If this is an item, attach the parent
+                if (document.documentName === "Item" && document.parent) {
+                    context.actor = document.parent;
+                }
+                else {
+                    context.actor = document;
+                }
                 ${translateExpression(entry, id, action.method, false, action)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.document.update(update);

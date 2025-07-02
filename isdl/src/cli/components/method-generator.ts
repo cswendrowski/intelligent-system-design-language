@@ -106,7 +106,14 @@ import {
     isTargetIncrementDecrementAssignment,
     isTargetQuickModifyAssignment,
     isTargetAssignment,
-    isWait, isPlayAudio, isPlayAudioFile, isPlayAudioVolume, isDieField, isTimeLimitParam
+    isWait,
+    isPlayAudio,
+    isPlayAudioFile,
+    isPlayAudioVolume,
+    isDieField,
+    isTimeLimitParam,
+    isCombatMethods,
+    isCombatProperty, isUserProperty
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -1328,10 +1335,10 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     if (!owner) {
                         owner = game.users.find(u => u.active && u.id != game.user.id && context.target.testUserPermission(u, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER));
                     }
+                    
+                    // If still no owner is found, default to the current user
                     if (!owner) {
-                        ui.notifications.error("No active user found with ownership of the target.");
-                        resolve({});
-                        return;
+                        owner = game.user.id;
                     }
                     let ownerId = owner.id;
                     const uuid = foundry.utils.randomID();
@@ -1590,6 +1597,63 @@ export function translateExpression(entry: Entry, id: string, expression: string
         return expandToNode`
             await game.system.utils.playSfx(${translateExpression(entry, id, fileParam.value, false, generatingProperty)}, ${translateExpression(entry, id, volume, false, generatingProperty)});
         `;
+    }
+
+    if (isCombatMethods(expression)) {
+        const method = expression.method;
+
+        return expandToNode`
+            if (!game.combat) {
+                return;
+            }
+            if (game.combat.testUserPermission(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)) {
+                ${method == "nextTurn" ? expandToNode`game.combat.nextTurn();` : ""}
+                ${method == "end" ? expandToNode`game.combat.endCombat();` : ""}
+            }
+            else {
+                await new Promise((resolve, reject) => {
+                    const firstGm = game.users.find(u => u.isGM && u.active);
+                    if (!firstGm) {
+                        ui.notifications.error("No active GM found to handle combat method request");
+                        return;
+                    }
+                    const uuid = foundry.utils.randomID();
+
+                    // Setup a listener that will wait for this response
+                    game.socket.on("system.${id}", (data) => {
+                        if (data.type != "combatResponse" || data.uuid != uuid) return;
+
+                        resolve();
+                    });
+
+                    game.socket.emit("system.${id}", {
+                        uuid: uuid,
+                        type: "combat",
+                        userId: game.user.id,
+                        method: "${method}",
+                    }, {recipients: [firstGm.id]});
+                });
+            }
+        `;
+    }
+
+    if (isCombatProperty(expression)) {
+        const property = expression.property;
+
+        if (property == "isMyTurn") {
+            return expandToNode`game.combat && game.combat.combatant?.actor?.uuid == context.actor?.uuid`;
+        }
+    }
+
+    if (isUserProperty(expression)) {
+        const property = expression.property;
+
+        if (property == "isGM") {
+            return expandToNode`game.user.isGM`;
+        }
+        if (property == "name") {
+            return expandToNode`game.user.name`;
+        }
     }
 
     console.log(expression.$type);

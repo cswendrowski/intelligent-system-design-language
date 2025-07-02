@@ -398,7 +398,7 @@ MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
     (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression |
-     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | PlayAudio );
+     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | PlayAudio | Combat | User );
 JS:
     js=JS_LINE;
 LogExpression:
@@ -424,6 +424,28 @@ PlayAudioFile:
     "file:" value=(STRING | Expression);
 PlayAudioVolume:
     "volume:" value=(INT | Expression);
+
+
+// User --------
+
+User:
+    (UserProperty);
+
+UserProperty:
+    "User." property=("isGM" | "name");
+
+
+// Combat
+
+Combat:
+    (CombatMethods | CombatProperty);
+
+CombatProperty:
+    "Combat." property=("isMyTurn");
+
+CombatMethods:
+    "Combat." method=("nextTurn" | "end") "(" ")";
+
 
 // Chat Card -----------
 
@@ -466,7 +488,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | Ref | Roll | Group | NegExpression | Access | EachAccess| JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall;
+    Literal | Ref | Roll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=") e2=Expression;
 ShorthandComparisonExpression:

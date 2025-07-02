@@ -245,6 +245,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                             object: document,
                             target: game.user.getTargetOrNothing()
                         };
+                        // If this is an item, attach the parent
+                        if (document.documentName === "Item" && document.parent) {
+                            context.actor = document.parent;
+                        }
+                        else {
+                            context.actor = document;
+                        }
                         const visibility = async (system) => {
                             ${translateBodyExpressionToJavascript(entry, id, visibilityParam.visibility.body, false, element)}
                         };
