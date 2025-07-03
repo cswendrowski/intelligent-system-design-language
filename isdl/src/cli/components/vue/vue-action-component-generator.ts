@@ -24,13 +24,13 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, inject, computed, watchEffect } from "vue";
+        import { inject, computed } from "vue";
 
         const props = defineProps({
             context: Object,
             color: String,
             editMode: Boolean,
-            visibility: String,
+            visibility: String
         });
 
         const document = inject('rawDocument');
@@ -39,24 +39,19 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
             document.sheet._on${action.name}Action(e, props.context);
         };
 
-        const visibility = ref('default');
-
-        watchEffect(async () => {
-            visibility.value = await props.visibility;
-        })
-
         const disabled = computed(() => {
+            console.log("Action ${action.name} disabled computed triggered", props.visibility, props.editMode);
             const disabledStates = ["readonly", "locked"];
-            if (disabledStates.includes(visibility.value)) {
+            if (disabledStates.includes(props.visibility)) {
                 return true;
             }
-            if (visibility.value === "gmEdit") {
+            if (props.visibility === "gmEdit") {
                 const isGm = game.user.isGM;
                 const isEditMode = props.editMode;
                 return !isGm && !isEditMode;
             }
 
-            if (visibility.value === "unlocked") {
+            if (props.visibility === "unlocked") {
                 return false;
             }
             
@@ -65,18 +60,19 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
         });
 
         const hidden = computed(() => {
-            if (visibility.value === "hidden") {
+            console.log("Action ${action.name} hidden computed triggered", props.visibility, props.editMode);
+            if (props.visibility === "hidden") {
                 return true;
             }
-            if (visibility.value === "gmOnly") {
+            if (props.visibility === "gmOnly") {
                 return !game.user.isGM;
             }
-            if (visibility.value === "secret") {
+            if (props.visibility === "secret") {
                 const isGm = game.user.isGM;
                 const isOwner = document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
                 return !isGm && !isOwner;
             }
-            if (visibility.value === "edit") {
+            if (props.visibility === "edit") {
                 return !props.editMode;
             }
 

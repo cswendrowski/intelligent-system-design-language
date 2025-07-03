@@ -400,7 +400,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
 
         const pageBackground = computed(() => {
-            console.log("Computing page background for: " + page.value);
             if (editMode.value) {
                 return 'edit-mode';
             }
@@ -574,13 +573,22 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 '${element.name.toLowerCase()}': ref('default')
             `, { separator: ',', appendNewLineIfNotEmpty: true })}
         };
+        const updateVisibilityStates = async () => {
+            ${joinToNode(properties, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(actions, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
+        };
         watchEffect(async () => {
-            ${joinToNode(properties, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'] = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
-            ${joinToNode(actions, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'] = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
+            await updateVisibilityStates();
         });
-
+        const currentCombatant = ref(game.combat?.combatant);
+        Hooks.on("combatTurnChange", () => {
+            currentCombatant.value = game.combat?.combatant;
+        });
+        watch(currentCombatant, async () => {
+            await updateVisibilityStates();
+        });
         const isHidden = (type) => {
-            const visibility = visibilityStates[type];
+            const visibility = visibilityStates[type].value;
             if (visibility === "hidden") {
                 return true;
             }
@@ -601,7 +609,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         const isDisabled = (type) => {
-            const visibility = visibilityStates[type];
+            const visibility = visibilityStates[type].value;
             const disabledStates = ["readonly", "locked"];
             if (disabledStates.includes(visibility)) {
                 return true;
@@ -857,7 +865,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 :context="context" 
                 :color="${primaryColor}"
                 :editMode="editMode" 
-                :visibility="visibilityStates['${element.name.toLowerCase()}']">
+                :visibility="visibilityStates['${element.name.toLowerCase()}'].value">
             </${componentName}>
             `;
         }
@@ -1124,7 +1132,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 <i-tracker 
                     label="${label}"
                     systemPath="system.${element.name.toLowerCase()}" :context="context" 
-                    :visibility="visibilityStates['${element.name.toLowerCase()}']"
+                    :visibility="visibilityStates['${element.name.toLowerCase()}'].value"
                     :editMode="editMode"
                     :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
                     trackerStyle="${style}"

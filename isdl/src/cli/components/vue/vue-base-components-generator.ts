@@ -765,25 +765,20 @@ function generateTrackerComponent(destination: string) {
         });
 
         const document = inject("rawDocument");
-        const visibility = ref('default');
-
-        watchEffect(async () => {
-            visibility.value = await props.visibility;
-        })
 
         const isHidden = computed(() => {
-            if (visibility.value === "hidden") {
+            if (props.visibility === "hidden") {
                 return true;
             }
-            if (visibility.value === "gmOnly") {
+            if (props.visibility === "gmOnly") {
                 return !game.user.isGM;
             }
-            if (visibility.value === "secret") {
+            if (props.visibility === "secret") {
                 const isGm = game.user.isGM;
                 const isOwner = document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
                 return !isGm && !isOwner;
             }
-            if (visibility.value === "edit") {
+            if (props.visibility === "edit") {
                 return !props.editMode;
             }
 
@@ -793,16 +788,16 @@ function generateTrackerComponent(destination: string) {
 
         const isDisabled = (type) => {
             const disabledStates = ["readonly", "locked"];
-            if (disabledStates.includes(visibility.value)) {
+            if (disabledStates.includes(props.visibility)) {
                 return true;
             }
-            if (visibility.value === "gmEdit") {
+            if (props.visibility === "gmEdit") {
                 const isGm = game.user.isGM;
                 const isEditMode = props.editMode;
                 return !isGm && !isEditMode;
             }
 
-            if (visibility.value === "unlocked") {
+            if (props.visibility === "unlocked") {
                 return false;
             }
             
@@ -959,7 +954,6 @@ function generateTrackerComponent(destination: string) {
                     class="v-field--active"
                     density="compact"
                     variant="outlined"
-                    :disabled="disabled"
                 >
                     <template #label>
                         <span v-html="getLabel" />
@@ -1004,7 +998,7 @@ function generateTrackerComponent(destination: string) {
                                 <template v-slot:default> {{ circularText }} </template>
                             </v-progress-circular>
 
-                            <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: scroll;">
+                            <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: auto; overflow-y: hidden;">
                                 <v-icon v-if="value > 0" v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                                 <v-icon v-if="temp > 0" v-for="i in temp" :key="i + value" :icon="filledIcon" :color="tertiaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                                 <v-icon v-if="max - value - temp > 0" v-for="i in max - value - temp" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
@@ -1098,7 +1092,7 @@ function generateTrackerComponent(destination: string) {
                                         :tile="true"
                                         :disabled="isDisabled('value') || disableValue"
                                     />
-                                    <v-btn size="small" icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled || disableValue" data-tooltip="Empty" :color="secondaryColor" />
+                                    <v-btn size="small" icon="fa-solid fa-battery-empty" @click="empty" :disabled="isDisabled('value') || disableValue" data-tooltip="Empty" :color="secondaryColor" />
                                 </div>
                                 <div class="d-flex flex-row" style="margin-top: 1rem;">
                                     <v-number-input

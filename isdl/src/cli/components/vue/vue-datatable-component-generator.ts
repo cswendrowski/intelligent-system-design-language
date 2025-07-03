@@ -131,11 +131,9 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             context: Object
         });
         const document = inject('rawDocument');
-        const injectedSystemPath = inject('systemPath');
 
         const data = computed(() => {
-            const systemPath = props.systemPath ?? injectedSystemPath;
-            console.log(props.systemPath, injectedSystemPath, systemPath);
+            const systemPath = props.systemPath ?? inject('systemPath');;
             console.log("Getting data for datatable", systemPath, props.context);
             return foundry.utils.getProperty(props.context, systemPath);
         });
