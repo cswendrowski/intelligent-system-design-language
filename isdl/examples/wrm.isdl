@@ -163,7 +163,7 @@ actor Character {
             fleeting Level = "None"
             if (self.Skill exists) {Level = self.Skill.system.skilllevel}
             fleeting SkillUsed = "None"
-            if (self.Skill exists) {SkillUsed = self.Skill.name}
+            if (self.Skill exists) {SkillUsed = self.Skill.Name}
             fleeting Skill = self.Skill.system.SkillTotal
             fleeting Prompt = prompt(label: "Roll Modifiers") {
                 string Advantage(choices: ["None","Advantage","Disadvantage"])

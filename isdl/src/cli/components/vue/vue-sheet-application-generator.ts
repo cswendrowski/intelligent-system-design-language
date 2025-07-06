@@ -96,8 +96,8 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
     }
 
     const fileNode = expandToNode`
-        ${generateVueComponentScript(entry, id, document, destination)}
-        ${generateVueComponentTemplate(id, document)}
+    ${generateVueComponentScript(entry, id, document, destination)}
+    ${generateVueComponentTemplate(id, document)}
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
@@ -328,7 +328,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const props = defineProps(['context']);
 
         // Colors
-        var storedColors = game.settings.get('${id}', 'documentColorThemes');
+        let storedColors = game.settings.get('${id}', 'documentColorThemes');
         const primaryColor = ref(storedColors[document.uuid]?.primary ?? '#1565c0');
         const secondaryColor = ref(storedColors[document.uuid]?.secondary ?? '#4db6ac');
         const tertiaryColor = ref(storedColors[document.uuid]?.tertiary ?? '#ffb74d');
@@ -397,7 +397,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             '${document.name.toLowerCase()}': 'topography',
             ${joinToNode(pages, getPageBackground, { separator: ',', appendNewLineIfNotEmpty: true })}
         };
-
 
         const pageBackground = computed(() => {
             if (editMode.value) {
@@ -943,6 +942,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     item-value="value" 
                     ${standardParamsFragment} 
                     variant="outlined" 
+                    class="double-wide"
                     density="compact">
                         <template #label>
                             <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />

@@ -1,0 +1,454 @@
+config E33 {
+    label = "Baguette 33"
+    id = "e33"
+    description = "Even when we're full, when there's baguette left, we continue."
+    author = "Cody Swendrowski"
+}
+
+actor Expeditioner {
+    
+    death status Defeated(when: self.Health <= 0)
+    status Freeze
+    status Stun
+    status Inverted
+    status Mark
+    status Charm
+    status Blight
+    status Berserk
+    status Cursed
+    status Bound
+    status Exhausted
+    status Dizzy
+    status Silence
+    status Rage
+    status Shield(when: self.Shields > 0)
+    status Burn(when: self.BurnAmount > 0)
+    status Foretell
+    status Regen
+    status Powerful
+    status Rush
+    status Shell
+    status Powerless
+    status Slow
+    status Defenceless
+    
+    initiative(value: self.Speed)
+    
+    section Expeditioner {
+        string Character(choices: ["Lune", "Sciel"])
+        choice<Weapon> PrimaryWeapon
+        tracker LightStains(max: 4, style: icons, icon: "fa-sun", color: #f0e68c, visibility: {
+            if (self.Character !equals "Lune") { return Visibility.hidden }
+        })
+        tracker IceStains(max: 4, style: icons, icon: "fa-snowflake", color: #add8e6, visibility: {
+            if (self.Character !equals "Lune") { return Visibility.hidden }
+        })
+        tracker EarthStains(max: 4, style: icons, icon: "fa-mountain", color: #8fbc8f, visibility: {
+            if (self.Character !equals "Lune") { return Visibility.hidden }
+        })
+        tracker FireStains(max: 4, style: icons, icon: "fa-fire", color: #ff6347, visibility: {
+            if (self.Character !equals "Lune") { return Visibility.hidden }
+        })
+        tracker LightningStains(max: 4, style: icons, icon: "fa-bolt", color: #ffd700, visibility: {
+            if (self.Character !equals "Lune") { return Visibility.hidden }
+        })
+        string Phase(visibility: {
+            if (self.Character !equals "Sciel") { return Visibility.hidden }
+        }, choices: ["None", "☀️ Sun", "🌙 Moon", "🌓 Twilight"])
+    }
+    
+    Lumina[] Lumina
+    
+    section Attributes {
+        attribute Vitality(mod: { return Math.round(self.Vitality / 3) })
+        attribute Might(mod: { return Math.round(self.Might / 3) })
+        attribute Agility(mod: { return Math.round(self.Agility / 3) })
+        attribute Defense(mod: { return Math.round(self.Defense / 3) })
+        attribute Luck(mod: { return Math.round(self.Luck / 3) })
+        tracker LuminaPoints(style: segmented, segments: 10, value: {
+            fleeting total = 0
+            each lumina in self.Lumina {
+                total += lumina.Cost
+            }
+            return total
+        })
+    }
+    
+    section CombatStats {
+        health resource Health
+        tracker AP(style: slashes, max: 10)
+        tracker GradiantCharge(style: segmented, max: 30, segments: 10)
+        number AttackPower(value: { return Math.round((self.Might + self.Vitality) / 2) })
+        number Speed(value: { return Math.round((self.Agility + self.Luck) / 2) })
+        number DefenseStat(value: { return Math.round((self.Defense + self.Vitality) / 2) })
+        tracker Shields(style: icons, icon: "fa-shield-halved")
+        hidden tracker BurnAmount
+        
+        tracker CriticalRate(style: dial, min: 0, value: { return self.Luck }, max: 100)
+    }
+    
+    on combatStart {
+        self.AP = 4
+        self.GradiantCharge = 0
+        self.BurnAmount = 0
+        self.Shields = 0
+    }
+    
+    on combatEnd {
+        self.AP = 0
+        self.GradiantCharge = 0
+        self.BurnAmount = 0
+        self.Shields = 0
+    }
+    
+    on turnStart {
+        if (self.BurnAmount > 0) {
+            self.Health -= self.BurnAmount
+            self.BurnAmount -= 1
+            
+            chat Burn {
+                flavor "Hot hot hot"
+                "You take " + self.BurnAmount + " 🔥 burn damage."
+            }
+        }
+    }
+    
+    on preApplyDamage (damage) {
+        if (self.Shields > 0) {
+            self.Shields--
+            damage = 0
+            
+            chat ShieldAbsorb {
+                flavor "Shield Absorbed"
+                "The shield absorbed the damage."
+            }
+        }
+    }
+    
+    Weapon[] Weapons
+    Skill[] Skills
+    
+}
+
+item Weapon {
+    gmOnly number BasePower
+    gmOnly number BaseBreak
+    number Level(min: 0, max: 33)
+    string Element(choices: ["Physical", "Light", "Dark", "Void", "Fire", "Ice", "Earth", "Lightning"])
+    
+    section ScalingAttributes {
+        parent<attribute> PrimaryScalingAttribute(choices: [Expeditioner])
+        string PrimaryScalingValue(choices: ["D", "C", "B", "A", "S"])
+        parent<attribute> SecondaryScalingAttribute(choices: [Expeditioner])
+        string SecondaryScalingValue(choices: ["D", "C", "B", "A", "S"])
+        
+        
+        number Power(value: {
+            fleeting primaryAttributeValue = 1
+            // if (self.PrimaryScalingValue equals "D") {
+                //     primaryAttributeValue = self.PrimaryScalingAttribute * (2/10)
+                //     } else if (self.PrimaryScalingValue equals "C") {
+                //     primaryAttributeValue = self.PrimaryScalingAttribute * (4/10)
+                //     } else if (self.PrimaryScalingValue equals "B") {
+                //     primaryAttributeValue = self.PrimaryScalingAttribute * (6/10)
+                //     } else if (self.PrimaryScalingValue equals "A") {
+                //     primaryAttributeValue = self.PrimaryScalingAttribute * (8/10)
+                //     } else {
+                //     primaryAttributeValue = self.PrimaryScalingAttribute
+            // }
+            
+            fleeting secondaryAttributeValue = 1
+            // if (self.SecondaryScalingValue equals "D") {
+                //     secondaryAttributeValue = self.SecondaryScalingAttribute * (2/10)
+                //     } else if (self.SecondaryScalingValue equals "C") {
+                //     secondaryAttributeValue = self.SecondaryScalingAttribute * (4/10)
+                //     } else if (self.SecondaryScalingValue equals "B") {
+                //     secondaryAttributeValue = self.SecondaryScalingAttribute * (6/10)
+                //     } else if (self.SecondaryScalingValue equals "A") {
+                //     secondaryAttributeValue = self.SecondaryScalingAttribute * (8/10)
+                //     } else {
+                //     secondaryAttributeValue = self.SecondaryScalingAttribute
+            // }
+            
+            fleeting leveledBasePower = self.BasePower * (self.Level * (1/10))
+            return Math.round(leveledBasePower + primaryAttributeValue + secondaryAttributeValue)
+        })
+    }
+    
+    section Scaling {
+        html Level4
+        html Level10
+        html Level20
+    }
+    
+    section Attacks {
+        
+        action BasicAttack(visibility: {
+            if (Combat.isMyTurn) {
+                return Visibility.default
+            }
+            else {
+                return Visibility.locked
+            }
+            }) {
+            if (parent is Expeditioner) {
+                parent.AP++
+                
+                fleeting amount = self.Power
+                
+                // Roll for critical hit
+                if (Math.random() * 100 < parent.CriticalRate) {
+                    amount = Math.round(amount * (125 / 100))
+                    fleeting damage = roll(amount)
+                    chat CriticalHit {
+                        flavor "Basic Attack"
+                        "Critical hit!"
+                        damage
+                    }
+                    } else {
+                    fleeting damage = roll(amount)
+                    chat NormalHit {
+                        flavor "Basic Attack"
+                        damage
+                    }
+                }
+                
+                if (target is Nevron) {
+                    target.Break += self.BaseBreak
+                    if (target.Break >= 100) {
+                        target.Break = 99
+                    }
+                }
+            }
+            
+            Combat.nextTurn()
+        }
+        
+        action FreeAim {
+            if (parent is Expeditioner) {
+                parent.AP--
+                
+                fleeting amount = self.Power / 2
+                
+                // Roll for critical hit
+                if (Math.random() * 100 < parent.CriticalRate) {
+                    amount = Math.round(amount * (125 / 100))
+                    fleeting damage = roll(amount)
+                    chat CriticalHit {
+                        flavor "Free Aim"
+                        "Critical hit!"
+                        damage
+                    }
+                    } else {
+                    fleeting damage = roll(amount)
+                    chat NormalHit {
+                        flavor "Free Aim"
+                        damage
+                    }
+                }
+            }
+        }
+    }
+}
+
+item Skill {
+    number ApCost
+    string Element(choices: ["Physical", "Light", "Dark", "Void", "Fire", "Ice", "Earth", "Lightning"])
+    string DamageScale(choices: ["Low", "Medium", "High", "Very High", "Extreme"])
+    number Hits
+    boolean ExtraHitOnCrit
+    boolean CanBreak
+    // parent<tracker> Consumes1ForExtraDamage
+    // number Consumes1Amount
+    // parent<tracker> Consumes2ForExtraDamage
+    // number Consumes2Amount
+    gmOnly number BreakPower
+    
+    function SkillHit(number amount, number hit, number maxHits) returns number {
+        if (parent is Expeditioner) {
+            fleeting extraHits = 0
+            fleeting isCritical = Math.random() * 100 < parent.CriticalRate
+            
+            fleeting total = amount
+            if (isCritical) {
+                total = Math.round(total * (3/2))
+                if (self.ExtraHitOnCrit) {
+                    extraHits++
+                }
+            }
+            
+            fleeting damage = roll(total)
+            
+            chat Skill {
+                damage
+                "Hit " + hit " of " + maxHits
+                tag self.CanBreak
+                tag self.Element
+                tag isCritical
+            }
+            
+            if (target is Nevron) {
+                fleeting breakTotal = target.Break + self.BreakPower
+                target.Break = Math.min(breakTotal, 100)
+                if (breakTotal >= 100) {
+                    if (!self.CanBreak) {
+                        target.Break = 99
+                        } else {
+                        target.Break = 100
+                        play(file: "sfx/e33-nevron-break.mp3")
+                        chat Break {
+                            flavor "Break"
+                            "The Nevron is broken!"
+                        }
+                    }
+                }
+            }
+            return extraHits
+        }
+    }
+    
+    action Use {
+        if (parent is Expeditioner) {
+            if (self.ApCost > parent.AP) {
+                chat NotEnoughAP {
+                    flavor "Not enough AP!"
+                    "You need at least " + self.ApCost + " AP to use this skill."
+                }
+                return nothing
+            }
+            
+            parent.AP -= self.ApCost
+            parent.GradiantCharge += self.ApCost
+            
+            fleeting amount = parent.PrimaryWeapon.Power
+            if (self.DamageScale equals "Low") {
+                amount = amount * (1/2)
+                } else if (self.DamageScale equals "Medium") {
+                amount = amount * 1
+                } else if (self.DamageScale equals "High") {
+                amount = amount * (3/2)
+                } else if (self.DamageScale equals "Very High") {
+                amount = amount * 2
+                } else if (self.DamageScale equals "Extreme") {
+                amount = amount * 3
+            }
+            
+            // Roll for critical hit
+            fleeting extraHits = 0
+            each hit in [1 to self.Hits] {
+                extraHits += self.SkillHit(amount, hit, self.Hits)
+            }
+            each hit in [1 to extraHits] {
+                self.SkillHit(amount, hit, extraHits)
+            }
+
+            if (self.ApCost > 0) {
+                Combat.nextTurn()
+            }
+        }
+    }
+}
+
+item Lumina {
+    number Cost
+}
+
+item Picto {
+    choice<Lumina> Lumina
+}
+
+actor Nevron {
+    status Foretell(when: self.ForetellAmount > 0)
+    status Broken(when: self.Break >= 100)
+    
+    health resource Health
+    gmEdit number ForetellAmount
+    resource Break(max: 100)
+    tracker Shields(style: icons, icon: "fa-shield-halved")
+    number Speed
+    hidden tracker BurnAmount
+    
+    initiative(value: self.Speed)
+    
+    section Elemental {
+        string ElementResist(choices: ["None", "Physical", "Light", "Dark", "Void", "Fire", "Ice", "Earth", "Lightning"])
+        string ElementWeakness(choices: ["None", "Physical", "Light", "Dark", "Void", "Fire", "Ice", "Earth", "Lightning"])
+        string ElementAbsorb(choices: ["None", "Physical", "Light", "Dark", "Void", "Fire", "Ice", "Earth", "Lightning"])
+        string ElementNullify(choices: ["None", "Physical", "Light", "Dark", "Void", "Fire", "Ice", "Earth", "Lightning"])
+    }
+    
+    NevronAttack[] Attacks
+    
+    on turnStart {
+        if (self.BurnAmount > 0) {
+            self.Health -= self.BurnAmount
+            self.BurnAmount -= 1
+            
+            chat Burn {
+                flavor "Hot hot hot"
+                "You take " + self.BurnAmount + " 🔥 burn damage."
+            }
+        }
+    }
+    
+    on preApplyDamage (damage) {
+        if (self.Shields > 0) {
+            self.Shields--
+            damage = 0
+            
+            chat ShieldAbsorb {
+                flavor "Shield Absorbed"
+                "The shield absorbed the damage."
+            }
+        }
+    }
+}
+
+item NevronAttack {
+    number Power
+    number Attacks
+    number Difficulty
+    
+    action Use {
+        if (parent is Nevron) {
+            fleeting total = self.Power
+            fleeting parries = 0
+            each attack in [1 to self.Attacks] {
+                fleeting damage = roll(total)
+                // Generate a random location
+                fleeting x = Math.floor(Math.random() * 1800)
+                fleeting y = Math.floor(Math.random() * 900)
+                play(file: "sfx/e33-nevron-attack.mp3")
+                fleeting quickTime = prompt(location: x, y, width: 100, height: 150, label: "Dodge!", limit: self.Difficulty ms, target: gm) {
+                    boolean Dodged
+                    boolean Parried
+                }
+                if (quickTime.Dodged) {
+                    chat Dodge {
+                        flavor "Dodge!"
+                        "You dodged attack " + attack + " of " + self.Attacks
+                    }
+                    if (quickTime.Parried) {
+                        parries++
+                    }
+                    } else {
+                    chat Hit {
+                        flavor "Hit!"
+                        damage
+                        "Attack " + attack + " of " + self.Attacks
+                    }
+                }
+            }
+            
+            if (parries equals self.Attacks) {
+                chat PerfectParry {
+                    flavor "Perfect Parry!"
+                    "Parried!"
+                }
+                if (target is Expeditioner) {
+                    target.AP += self.Attacks
+                }
+            }
+        }
+    }
+}

@@ -298,7 +298,7 @@ FunctionParam:
 fragment SelfSpecialAccess:
     access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects");
 fragment Self:
-    (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=ID)*;
+    (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=("Name" | ID))*;
 Access:
     Self;
 Assignment:
@@ -314,7 +314,7 @@ QuickModifyAssignment:
 // Parent Access / Modification ------------------------------------------------------
 
 fragment Parent:
-    "parent" ( "." property=[Property:ID] | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=ID)*;
+    "parent" ( "." property=[Property:ID] | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | ID))*;
 ParentAccess:
     Parent;
 ParentAssignment:
@@ -330,7 +330,7 @@ ParentQuickModifyAssignment:
 // Target Access / Modification ------------------------------------------------------
 
 fragment Target:
-    "target" ( "." property=[Property:ID] ) ("." subProperties+=ID)*;
+    "target" ( "." property=[Property:ID] ) ("." subProperties+=("Name" | ID))*;
 TargetAccess:
     Target;
 TargetAssignment:
@@ -346,7 +346,7 @@ TargetQuickModifyAssignment:
 // Variable Access / Modification ------------------------------------------------------
 
 FleetingAccess:
-    variable=[VariableExpression] (("." subProperty=ID)? | ("[" arrayAccess=Expression "]")?);
+    variable=[VariableExpression] (("." subProperty=("Name" | ID))? | ("[" arrayAccess=Expression "]")?);
 VariableAccess:
     (VariableExpression | Parameter);
 VariableAssignment:
@@ -360,7 +360,7 @@ VariableIncrementDecrementAssignment:
 VariableQuickModifyAssignment:
     VariableAccessFrag term=("+="|"-="|"*="|"/=") exp=Expression;
 ItemAccess:
-    "item" "." property=ID ("." subProperty=ID)?;
+    "item" "." property=ID ("." subProperty=("Name" | ID))?;
 
 
 // Actions ------------------------------------------------------

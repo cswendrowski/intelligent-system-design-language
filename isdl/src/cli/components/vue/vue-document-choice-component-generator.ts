@@ -138,13 +138,16 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
             :items="choices" 
             item-title="name" 
             item-value="id" 
+            density="compact"
+            variant="outlined"
             :disabled="disabled"
+            class="double-wide"
         >
             <template #label>
                 <span v-html="getLabel('${document.name}.${documentChoice.name}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
             </template>
             <template v-slot:prepend-inner v-if="value">
-                <v-avatar rounded="0" :image="selectedImage"></v-avatar>
+                <v-avatar rounded="0" :image="selectedImage" size="30"</v-avatar>
             </template>
             <template v-slot:item="{ props, item }">
                 <v-list-item

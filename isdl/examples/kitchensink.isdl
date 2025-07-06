@@ -6,11 +6,11 @@ config KitchenSink {
 }
 
 actor Hero(icon: "fa-solid fa-sword", background: texture) {
-
+    
     function Print(number value) {
         log("Leveled up to Level " + value)
     }
-
+    
     function FightFightFight(number mod) returns number {
         fleeting rollResult = roll(d6 + self.Fight + mod)
         return rollResult.total
@@ -27,11 +27,22 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 return Visibility.hidden
             }, icon: "fa-solid fa-scroll", color: #a586c0)
             hidden string BackgroundText
-
+            
+            action EndCombat(visibility: {
+                if (User.isGM) {
+                    return Visibility.default
+                }
+                else {
+                    return Visibility.readonly
+                }
+                }) {
+                Combat.end()
+            }
+            
         }
- 
+        
         section Level {
-  
+            
             gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
             secret tracker Shield(min: 0, style: segmented, segments: 5, icon: "fa-solid fa-shield-halved")
             tracker Wounds(style: slashes)
@@ -44,19 +55,19 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             tracker Plain(style: plain, color: #a586c0, value: {
                 return self.Level
             })
-
+            
             on preApplyDamage (damage) {
                 if (self.Shield > 0) {
                     fleeting shieldAmount = self.Shield
                     self.Shield -= damage
                     if (damage > shieldAmount) {
                         damage -= shieldAmount
-                    } else {
+                        } else {
                         damage = 0
                     }
                 }
             }
-
+            
             on appliedDamage(damage) {
                 if (self.HP <= 0) {
                     self.Wounds += 1
@@ -66,7 +77,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                         chat Death {
                             flavor ("You have died!")
                         }
-                    } else {
+                        } else {
                         chat Wounded {
                             flavor ("You are wounded! " + self.Wounds + " Wounds remaining.")
                         }
@@ -82,225 +93,225 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             }
             
             action LevelUp(visibility: { if (self.Experience < 10) return Visibility.locked }, color: #a586c0) {
-                self.Experience -= 10
-                self.Level++
-                self.update()
-                wait 30 seconds
-                self.Print(self.Level)
-                fleeting amount = self.FightFightFight(self.Level)
-                log("Leveled up to Level " + self.Level + " with a Fight bonus of " + amount)
-            }
-            pips ExperienceTrack(max: 10, style: circles, value: {
-                return self.Experience
-            })  
-        }
-
-        tracker Experience(min: 0, max: 100, color: #a586c0)
-
-        action FlipACoin {
-            fleeting result = roll(d2)
-            fleeting resultText = "Heads"
-            if (result.Total == 1) {
-                resultText = "Tails"
-            }
-            chat CoinFlip {
-                resultText
-                result
-            }
-        }
-    }
-    
-    page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
-        section Attributes {
-            attribute Fight(min: 1, max: 30, color: #a586c0, icon: "fa-solid fa-hand-fist", mod: {
-                return (self.Fight - 10) / 2
-            })
-            attribute Flight(min: 1, max: 30, mod: {
-                return (self.Flight - 10) / 2
-            }, style: plain)
-            attribute Endure(min: 1, max: 30, mod: {
-                return (self.Endure - 10) / 2
-            })
-            attribute Persuade(min: 1, max: 30, mod: {
-                return (self.Persuade - 10) / 2
-            })
-            attribute Grit(min: 1, max: 6)
-        }
-        
-        section StatusEffects {
-            boolean Slowed
-            boolean Dazed
-        }
-
-        section Counter {
-            readonly number Count
-            action Increment {
-                self.Count++
-            }
-            action Decrement {
-                self.Count--
-            }
-            action Reset {
-                self.Count = 0
-            }
-
-            on combatStart {
-                log("Combat started")
-                self.Count = 0
-            }
-
-            on combatEnd {
-                log("Combat ended")
-                self.Count = 0
-            }
-
-            on roundStart (roundNumber) {
-                log("Round " + roundNumber)
-                self.Count = 0
-            }
-
-            on roundEnd (roundNumber) {
-                log("Round " + roundNumber + " ended")
-            }
-
-            on turnStart {
-                log("Turn of " + self.Name)
-            }
-
-            on turnEnd {
-                log("Turn of " + self.Name + " ended")
-            }
-
-            on turnIsNext {
-                log("Turn of " + self.Name + " is next")
-            }
-
-            on death {
-                log("Death of " + self.Name)
-            }
-        }
-
-        section FancyCounter {
-            readonly number Count2
-            unlocked number FancyCounterAmount
-            action Increment2 {
-                self.Count2 += self.FancyCounterAmount
-            }
-            action Decrement2 {
-                self.Count2 -= self.FancyCounterAmount
-            }
-            action Reset2 {
-                self.Count2 = 0
-            }
-        }
-
-        section Test {
-            number SomeThing
-            unlocked number AnotherThing
-        }
-    }
-    
-    
-    
-    section Health {
-        death status Dead(when: self.HP <= 0)
-        status Staggered
-
-        health resource HP(max: {
-            return self.Endure + 6
-        })
-        
-        number Defense(value: {
-            if (self.Fight + self.Endure equals 0) {
-                return 4
-            }
-            return self.Fight + self.Endure / 2 + 4
-        })
-        number Stealth(max: {
-            return self.Flight
-        })
-        
-        
-        resource Stagger(max: {return self.Endure + self.Fight})
-        action Recover(visibility: { if (self.Stagger < 1) return Visibility.locked }) {
-            self.Stagger -= self.Endure
-            if (self.Stagger < 0) {
-                self.Stagger = 0
-            }
+            self.Experience -= 10
+            self.Level++
             self.update()
-            chat Stagger {
-                flavor ("Staggered! " + 2 + " Remaining: " + self.Stagger)
-                self.Stagger
-            }
+            wait 30 seconds
+            self.Print(self.Level)
+            fleeting amount = self.FightFightFight(self.Level)
+            log("Leveled up to Level " + self.Level + " with a Fight bonus of " + amount)
         }
-        
-        resource Mana(max: 10)
-        action Refill(icon: "fa-duotone fa-solid fa-sparkles", visibility: { if (self.Mana == self.Mana.Max) return Visibility.locked }) {
-            self.Mana = self.Mana.Max
-        }
-        
-        pips DamageTrack(max: 5, style: circles, value: {
-            return self.Endure
+        pips ExperienceTrack(max: 10, style: circles, value: {
+            return self.Experience
         })
-        readonly number Crisis
-        
-        action Heal {
-            fleeting amount = roll((self.Endure)d6)
-            self.HP += amount._total
-            chat Healed {
-                amount
-            }
+    }
+    
+    tracker Experience(min: 0, max: 100, color: #a586c0)
+    
+    action FlipACoin {
+        fleeting result = roll(d2)
+        fleeting resultText = "Heads"
+        if (result.Total == 1) {
+            resultText = "Tails"
+        }
+        chat CoinFlip {
+            resultText
+            result
+        }
+    }
+}
+
+page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
+    section Attributes {
+        attribute Fight(min: 1, max: 30, color: #a586c0, icon: "fa-solid fa-hand-fist", mod: {
+            return (self.Fight - 10) / 2
+        })
+        attribute Flight(min: 1, max: 30, mod: {
+            return (self.Flight - 10) / 2
+        }, style: plain)
+        attribute Endure(min: 1, max: 30, mod: {
+            return (self.Endure - 10) / 2
+        })
+        attribute Persuade(min: 1, max: 30, mod: {
+            return (self.Persuade - 10) / 2
+        })
+        attribute Grit(min: 1, max: 6)
+    }
+    
+    section StatusEffects {
+        boolean Slowed
+        boolean Dazed
+    }
+    
+    section Counter {
+        readonly number Count
+        action Increment {
+            self.Count++
+        }
+        action Decrement {
+            self.Count--
+        }
+        action Reset {
+            self.Count = 0
         }
         
-        number Level2
-        action Roll {
-            fleeting levelToBonus = [ 1, 2, 4, 6, 8 ]
-            fleeting itemBonus = 0
-            
-            each skill in self.Skills {
-                itemBonus += skill.SkillMod
-            }
-            fleeting levelBonusRoll = roll(d6 + levelToBonus[1] + itemBonus)
-            chat LevelBonus {
-                levelBonusRoll
-            }
-            play(file: "sfx/sword.mp3", volume: 1.0)
+        on combatStart {
+            log("Combat started")
+            self.Count = 0
+        }
+        
+        on combatEnd {
+            log("Combat ended")
+            self.Count = 0
+        }
+        
+        on roundStart (roundNumber) {
+            log("Round " + roundNumber)
+            self.Count = 0
+        }
+        
+        on roundEnd (roundNumber) {
+            log("Round " + roundNumber + " ended")
+        }
+        
+        on turnStart {
+            log("Turn of " + self.Name)
+        }
+        
+        on turnEnd {
+            log("Turn of " + self.Name + " ended")
+        }
+        
+        on turnIsNext {
+            log("Turn of " + self.Name + " is next")
+        }
+        
+        on death {
+            log("Death of " + self.Name)
         }
     }
     
-    section Damage {
-        damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
-        
-        action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
-            if ( self.Damage.bashing > 0 ) {
-                self.Damage.bashing--
-                self.Damage.empty++
-            }
+    section FancyCounter {
+        readonly number Count2
+        unlocked number FancyCounterAmount
+        action Increment2 {
+            self.Count2 += self.FancyCounterAmount
         }
-        
-        action TakeBashing {
-            eternal amount = 5
-            if ( self.Damage.bashing < amount ) {
-                self.Damage.bashing++
-                self.Damage.empty--
-            }
-            @js{const roll = await new Roll("1d10").roll();}
-            @js{roll.toMessage({flavor: "Bashing Damage"});}
-            self.Damage.bashing += @js{roll._total}
+        action Decrement2 {
+            self.Count2 -= self.FancyCounterAmount
+        }
+        action Reset2 {
+            self.Count2 = 0
         }
     }
     
-    hidden number AvailableSkillLevels
-    
-    page Equipment(icon: "fa-solid fa-backpack", background: food) {
-        Equipment Armor
-        Equipment[] Armors(where: item.Type equals "Armor")
-        Equipment[] Weapons(where: item.Type equals "Weapon")
-        Potion[] Potion
+    section Test {
+        number SomeThing
+        unlocked number AnotherThing
     }
-    Spell[] Spells
-    Skill[] Skills
+}
+
+
+
+section Health {
+    death status Dead(when: self.HP <= 0)
+    status Staggered
     
+    health resource HP(max: {
+        return self.Endure + 6
+    })
+    
+    number Defense(value: {
+        if (self.Fight + self.Endure equals 0) {
+            return 4
+        }
+        return self.Fight + self.Endure / 2 + 4
+    })
+    number Stealth(max: {
+        return self.Flight
+    })
+    
+    
+    resource Stagger(max: {return self.Endure + self.Fight})
+    action Recover(visibility: { if (self.Stagger < 1) return Visibility.locked }) {
+    self.Stagger -= self.Endure
+    if (self.Stagger < 0) {
+        self.Stagger = 0
+    }
+    self.update()
+    chat Stagger {
+        flavor ("Staggered! " + 2 + " Remaining: " + self.Stagger)
+        self.Stagger
+    }
+}
+
+resource Mana(max: 10)
+action Refill(icon: "fa-duotone fa-solid fa-sparkles", visibility: { if (self.Mana == self.Mana.Max) return Visibility.locked }) {
+self.Mana = self.Mana.Max
+}
+
+pips DamageTrack(max: 5, style: circles, value: {
+    return self.Endure
+})
+readonly number Crisis
+
+action Heal {
+    fleeting amount = roll((self.Endure)d6)
+    self.HP += amount._total
+    chat Healed {
+        amount
+    }
+}
+
+number Level2
+action Roll {
+    fleeting levelToBonus = [ 1, 2, 4, 6, 8 ]
+    fleeting itemBonus = 0
+    
+    each skill in self.Skills {
+        itemBonus += skill.SkillMod
+    }
+    fleeting levelBonusRoll = roll(d6 + levelToBonus[1] + itemBonus)
+    chat LevelBonus {
+        levelBonusRoll
+    }
+    play(file: "sfx/sword.mp3", volume: 1.0)
+}
+}
+
+section Damage {
+    damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
+    
+    action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
+        if ( self.Damage.bashing > 0 ) {
+            self.Damage.bashing--
+            self.Damage.empty++
+        }
+    }
+    
+    action TakeBashing {
+        eternal amount = 5
+        if ( self.Damage.bashing < amount ) {
+            self.Damage.bashing++
+            self.Damage.empty--
+        }
+        @js{const roll = await new Roll("1d10").roll();}
+        @js{roll.toMessage({flavor: "Bashing Damage"});}
+        self.Damage.bashing += @js{roll._total}
+    }
+}
+
+hidden number AvailableSkillLevels
+
+page Equipment(icon: "fa-solid fa-backpack", background: food) {
+    Equipment Armor
+    Equipment[] Armors(where: item.Type equals "Armor")
+    Equipment[] Weapons(where: item.Type equals "Weapon")
+    Potion[] Potion
+}
+Spell[] Spells
+Skill[] Skills
+
 }
 
 actor NPC {
@@ -309,7 +320,7 @@ actor NPC {
     max: 7,
     icon: "fa-solid fa-chart-line",
     color: #FF7F50)
-
+    
     attribute Monster
     
     number Defense(value: {
@@ -324,7 +335,7 @@ actor NPC {
 
 item Skill {
     //string Ability(choices: [ "Fight", "Flight", "Endure", "Persuade" ])
-    parent<attribute> Ability(choices: [Hero.Fight, Hero.Flight])
+    parent<attribute> Ability(choices: [Hero])
     boolean Trained
     number SkillMod
     tracker UsesLeft(style: slashes)
@@ -341,7 +352,7 @@ item Skill {
             number Bonus
             boolean HasAdvantage
         }
-
+        
         if (answer.HasAdvantage) {
             skill = self.Skill
             fleeting abilityRoll = roll(self.Die + self.Ability + skill + answer.Bonus)
@@ -360,7 +371,7 @@ item Skill {
             }
         }
     }
-
+    
     action SimpleFightRoll {
         if (parent is Hero) {
             fleeting abilityRoll = roll(self.Die + parent.Fight.mod)

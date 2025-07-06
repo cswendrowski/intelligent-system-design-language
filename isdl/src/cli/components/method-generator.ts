@@ -1469,7 +1469,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
                     }
                 });
-            }
+            });
         `;
     }
 

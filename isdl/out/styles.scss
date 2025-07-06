@@ -451,12 +451,12 @@
         }
     }
 
-    .action-btn, .isdl-property, .isdl-single-document {
+    .action-btn, .isdl-property, .isdl-single-document, .single-wide {
         min-width: 150px;
         max-width: 600px;
     }
 
-    .isdl-tracker {
+    .isdl-tracker, .double-wide {
         min-width: 300px;
         max-width: 600px;
 
@@ -531,7 +531,7 @@
     .attributeExp {
         display: flex;
         flex-direction: column;
-        margin: 8px;
+        margin-bottom: 10px;
         border: 3px solid #333;
         border-radius: 4px;
         min-width: 150px;

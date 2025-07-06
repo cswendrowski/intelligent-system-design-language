@@ -141,6 +141,9 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                     ${joinToNode(items, item => expandToNode`"${item.name.toLowerCase()}": "${humanize(item.name)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
                 }
             },
+            "EFFECTS": {
+                "AddOnce": "Add Once"
+            },
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
         }
     `.appendNewLineIfNotEmpty();
