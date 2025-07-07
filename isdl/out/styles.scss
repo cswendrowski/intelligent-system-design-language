@@ -562,6 +562,46 @@
             margin: 10px 0;
             text-align: center;
         }
+
+
+    }
+
+    .dice-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(2px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s ease-in-out;
+        z-index: 10;
+        height: 91%;
+
+        &.plain {
+            height: 100%;
+        }
+    }
+
+    .dice-overlay:hover {
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .dice-roll-btn {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .dice-overlay:hover .dice-roll-btn {
+        transform: scale(1.1);
+    }
+
+    .dice-container {
+        position: relative;
     }
 
     .isdl-paperdoll {

@@ -130,11 +130,13 @@ AttributeExp:
 fragment AttributeParameters:
     ("(" params+=AttributeParameter* ("," params+=AttributeParameter)* ")")?;
 AttributeParameter:
-    (StandardFieldParams | NumberFieldParams | AttributeParamMod | AttributeStyleParam);
+    (StandardFieldParams | NumberFieldParams | AttributeParamMod | AttributeStyleParam | AttributeRollParam);
 AttributeParamMod:
     "mod:" method=MethodBlock;
 AttributeStyleParam:
     "style:" style=("plain" | "box");
+AttributeRollParam:
+    "roll:" roll=(MethodBlock | Expression);
  
  
 // Pips -------------

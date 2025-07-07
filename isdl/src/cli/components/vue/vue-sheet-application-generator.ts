@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import {
     Action,
-    AttributeExp,
+    AttributeExp, AttributeRollParam,
     AttributeStyleParam,
     BackgroundParam,
     BooleanParamValue,
@@ -19,7 +19,7 @@ import {
     isAction,
     isActor,
     isAttributeExp,
-    isAttributeParamMod,
+    isAttributeParamMod, isAttributeRollParam,
     isAttributeStyleParam,
     isBackgroundParam,
     isBooleanExp
@@ -84,7 +84,8 @@ import { generateDatatableComponent } from './vue-datatable-component-generator.
 import { AstUtils } from 'langium';
 import { generateActionComponent } from './vue-action-component-generator.js';
 import { generateDocumentChoiceComponent } from './vue-document-choice-component-generator.js';
-import { translateBodyExpressionToJavascript } from '../method-generator.js';
+import {translateBodyExpressionToJavascript, translateExpression} from '../method-generator.js';
+import {humanize} from "inflection";
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -306,6 +307,49 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         `;
     }
 
+    const attributes = getAllOfType<AttributeExp>(document.body, isAttributeExp, false);
+    function generateAttributeRollMethod(attribute: AttributeExp): CompositeGeneratorNode {
+        const rollParam = attribute.params.find(isAttributeRollParam) as AttributeRollParam | undefined;
+        if (rollParam) {
+            return expandToNode`
+            const on${toMachineIdentifier(attribute.name)}AttributeRoll = async () => {
+                const context = {
+                    object: document
+                };
+                const roll = ${translateExpression(entry, id, rollParam.roll, false, attribute)};
+                // Create the chat message
+                const ${attribute.name}Description = context.object.description ?? context.object.system.description;
+                const ${attribute.name}Context = { 
+                    cssClass: "${id} ${toMachineIdentifier(attribute.name)}",
+                    document: context.object,
+                    description: ${attribute.name}Description,
+                    hasDescription: ${attribute.name}Description!= "",
+                    parts: [
+                        {
+                            label: "${humanize(attribute.name)} Attribute Roll",
+                            value: roll,
+                            isRoll: true,
+                            wide: true, 
+                            tooltip: await roll.getTooltip()
+                        }
+                    ],
+                    tags: []
+                };
+                const ${attribute.name}Content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", ${attribute.name}Context);
+                await ChatMessage.create({
+                    user: game.user._id,
+                    speaker: ChatMessage.getSpeaker(),
+                    content: ${attribute.name}Content,
+                    flavor: "",
+                    type: ${attribute.name}Context.parts.find(x => x.isRoll) ? null : CONST.CHAT_MESSAGE_STYLES.IC,
+                    rolls: Array.from(${attribute.name}Context.parts.filter(x => x.isRoll).map(x => x.value)),
+                });
+            };
+            `;
+        }
+        return expandToNode``;
+    }
+
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
@@ -313,6 +357,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, { appendNewLineIfNotEmpty: true })}
+        import ${entry.config.name}Roll from "../../../../rolls/roll.mjs";
         import DataTable from 'datatables.net-vue3';
         import DataTablesCore from 'datatables.net-dt';
         import 'datatables.net-responsive-dt';
@@ -634,6 +679,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             }
             return localized;
         };
+        
+        // Attribute roll methods
+        ${joinToNode(attributes, generateAttributeRollMethod, { appendNewLineIfNotEmpty: true })}
     </script>
     <style>
     </style>
@@ -1074,6 +1122,8 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const styleParam = element.params.find(x => isAttributeStyleParam(x)) as AttributeStyleParam | undefined;
                 const style = styleParam?.style ?? "box";
 
+                const rollParam = element.params.find(x => isAttributeRollParam(x)) as AttributeRollParam | undefined;
+
                 return expandToNode`
                     <i-attribute 
                         label="${label}"
@@ -1087,7 +1137,10 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         :min="${min}" 
                         ${standardParamsFragment}
                         :primaryColor="primaryColor" 
-                        :secondaryColor="secondaryColor">
+                        :secondaryColor="secondaryColor"
+                        :roll="${rollParam ? expandToNode`on${element.name}AttributeRoll` : expandToNode`undefined`}"
+                        :hasRoll="${rollParam != undefined}"
+                        >
                     </i-attribute>
                 `;
             }

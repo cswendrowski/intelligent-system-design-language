@@ -125,17 +125,17 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
     section Attributes {
         attribute Fight(min: 1, max: 30, color: #a586c0, icon: "fa-solid fa-hand-fist", mod: {
             return (self.Fight - 10) / 2
-        })
+        }, roll: roll(d20 + self.Fight))
         attribute Flight(min: 1, max: 30, mod: {
             return (self.Flight - 10) / 2
-        }, style: plain)
+        })
         attribute Endure(min: 1, max: 30, mod: {
             return (self.Endure - 10) / 2
         })
         attribute Persuade(min: 1, max: 30, mod: {
             return (self.Persuade - 10) / 2
         })
-        attribute Grit(min: 1, max: 6)
+        attribute Grit(min: 1, max: 6, style: plain, roll: roll(d20 + self.Grit))
     }
     
     section StatusEffects {

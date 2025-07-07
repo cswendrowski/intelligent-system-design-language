@@ -9,11 +9,14 @@ actor Character {
     // PAGE 1 - CHARACTER DEFAULT
     section Attributes {
         //WARRIOR
+        string Attirbutes(icon: "fa-solid fa-chart-bar", value: {return "W: " + self.Warrior + "R: " + self.Rogue + "M: " + self.Mage})
         attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
         // ROGUE
         attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
         // MAGE
         attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
+        readonly tracker DamageAbsorb (style: icons, icon: "fa-solid fa-shield", value: {return self.WornArmor.ArmorRating}, max: 9 )
+        readonly tracker PenaltyBar (style: icons, icon: "fa-solid fa-shield", value: {return self.ArmorPenalty}, max: 9 )
     }
     //section Resources {
     //    // Calculate total health for the character.
@@ -163,7 +166,7 @@ actor Character {
             fleeting Level = "None"
             if (self.Skill exists) {Level = self.Skill.system.skilllevel}
             fleeting SkillUsed = "None"
-            if (self.Skill exists) {SkillUsed = self.Skill.Name}
+            if (self.Skill exists) {SkillUsed = self.Skill}
             fleeting Skill = self.Skill.system.SkillTotal
             fleeting Prompt = prompt(label: "Roll Modifiers") {
                 string Advantage(choices: ["None","Advantage","Disadvantage"])
@@ -477,7 +480,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
             fleeting Skill = 0
             if (parent is Character) {
                 each skill in parent.Skills {
-                    if (skill.Name equals self.Skill) {
+                    if (skill.Name equals self.Skill.Name) {
                         Level = skill.SkillLevel
                         Skill = skill.SkillTotal
                     }
