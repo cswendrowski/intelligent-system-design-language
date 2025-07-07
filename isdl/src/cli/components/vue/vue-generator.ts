@@ -14,6 +14,8 @@ import { generateVueMixin } from './vue-mixin.js';
 import { getAllOfType } from '../utils.js';
 import { generateDatatableVueSheet } from './vue-datatable-sheet-class-generator.js';
 import { AstUtils } from 'langium';
+import {generateDocumentCreationVueSheet} from "./vue-document-creation-app.js";
+import {generateDocumentCreationDialog} from "./vue-document-creation-sheet.js";
 
 export function generateVue(entry: Entry, id: string, destination: string) {
 
@@ -37,6 +39,8 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     generateBaseVueComponents(destination);
 
     generateDatatableVueSheet(entry, id, destination);
+    generateDocumentCreationDialog(entry, id, destination);
+    generateDocumentCreationVueSheet(entry, id, destination);
 
     entry.documents.forEach(x => {
         generateDocumentVueSheet(entry, id, x, destination);
@@ -114,7 +118,7 @@ export async function runViteBuild(destination: string) {
 //         };
 //     });
 //     `.appendNewLine();
-    
+
 //     fs.writeFileSync(generatedFilePath, toString(fileNode));
 // }
 
@@ -201,7 +205,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
         const type = isActor(document) ? 'actor' : 'item';
         const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
         const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
-        
+
         return joinToNode(prompts.map(x => `export { default as ${document.name}${titleize(type)}${action.name}Prompt } from './${type}/${document.name.toLowerCase()}/components/prompts/${document.name.toLowerCase()}${action.name}Prompt.vue';`), { appendNewLineIfNotEmpty: true });
     }
 
@@ -234,6 +238,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as TextField } from './components/text-field.vue';
     export { default as DateTime } from './components/date-time.vue';
     export { default as Tracker } from './components/tracker.vue';
+    export { default as DocumentCreationApp } from './document-create-app.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}

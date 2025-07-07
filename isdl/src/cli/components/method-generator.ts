@@ -1643,6 +1643,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
         if (property == "isMyTurn") {
             return expandToNode`game.combat && game.combat.combatant?.actor?.uuid == context.actor?.uuid`;
         }
+        else if (property == "isNotMyTurn") {
+            return expandToNode`game.combat && game.combat.combatant?.actor?.uuid != context.actor?.uuid`;
+        }
     }
 
     if (isUserProperty(expression)) {

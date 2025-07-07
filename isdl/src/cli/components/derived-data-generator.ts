@@ -964,6 +964,33 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         };
                         return this.create(createData, { parent, pack, renderSheet: true });
                     }
+                    
+                    const createResponse = await game.system.documentCreateDialog.prompt({
+                        type,
+                        types: types.reduce((arr, typer) => {
+                            arr.push({
+                                type: typer,
+                                label: game.i18n.has(typer) ? game.i18n.localize(typer) : typer,
+                                icon: this.getDefaultArtwork({ type: typer })?.img ?? "icons/svg/item-bag.svg",
+                                description: CONFIG[this.documentName]?.typeDescriptions?.[typer] ?? "",
+                                selected: type === typer
+                            });
+                            return arr;
+                        }, []).sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang)),
+                        name,
+                        title,
+                        label,
+                        folders,
+                        folder: data.folder
+                    });
+                    
+                    const createData = foundry.utils.mergeObject(data, createResponse, { inplace: false });
+                    // If name is NAN, set to empty string
+                    if (isNaN(createData.name)) createData.name = "";
+                    console.dir(createData);
+                    if (!createData.folder) delete createData.folder;
+                    if (!createData.name?.trim()) createData.name = this.defaultName();
+                    return this.create(createData, { parent, pack, renderSheet: true });
 
                     const content = await renderTemplate("systems/${id}/system/templates/document-create.hbs", {
                         folders, name, type,
@@ -1000,9 +1027,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             const form = html.querySelector("form");
                             const fd = new FormDataExtended(form);
                             const createData = foundry.utils.mergeObject(data, fd.object, { inplace: false });
-                            if (!createData.folder) delete createData.folder;
-                            if (!createData.name?.trim()) createData.name = this.defaultName();
-                            return this.create(createData, { parent, pack, renderSheet: true });
+          
                         },
                         rejectClose: false,
                         options: { ...options, jQuery: false, width: 700, height: 'auto', classes: ["${id}", "create-document", "dialog"] }

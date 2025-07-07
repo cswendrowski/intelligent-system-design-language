@@ -664,6 +664,21 @@
             }
         }
     }
+
+    &.document-creation {
+
+        .window-content {
+            overflow: hidden;
+        }
+
+        .v-application__wrap {
+            min-height: unset;
+        }
+
+        .v-container {
+            padding: 1rem;
+        }
+    }
 }
 
 .#{$dynamic-id} {

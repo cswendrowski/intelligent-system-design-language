@@ -219,7 +219,8 @@ PaperDollDocumentReference:
 // ParentPropertyRef -------------
 
 ParentPropertyRefExp:
-    ExpressionModifier "parent" "<" propertyType=("attribute" | "resource" | "number") ">" name=ID ( "(" params+=ParentPropertyRefParams ("," params+=ParentPropertyRefParams)* ")")?;
+    ExpressionModifier "parent" "<" propertyType=("attribute" | "resource" | "number" | "boolean" | "date" | "time" | "datetime" | "die" | "dice" | "string" | "tracker" | "choice" | "paperdoll" | "html" ) ">"
+    name=ID ( "(" params+=ParentPropertyRefParams ("," params+=ParentPropertyRefParams)* ")")?;
 ParentPropertyRefParams:
     (StandardFieldParams | ParentPropertyRefChoiceParam);
 ParentPropertyRefChoiceParam:
@@ -443,7 +444,7 @@ Combat:
     (CombatMethods | CombatProperty);
 
 CombatProperty:
-    "Combat." property=("isMyTurn");
+    "Combat." property=("isMyTurn" | "isNotMyTurn");
 
 CombatMethods:
     "Combat." method=("nextTurn" | "end") "(" ")";

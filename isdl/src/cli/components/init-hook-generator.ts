@@ -120,6 +120,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         import ${entry.config.name}TokenDocument from "../documents/token.mjs";
         import ${entry.config.name}Token from "../canvas/token.mjs";
         import ${entry.config.name}Roll from "../rolls/roll.mjs";
+        import DocumentCreationVueDialog from "../sheets/vue/document-creation-dialog.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -240,6 +241,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             game.system.prompts = {
                 ${joinToNode(entry.documents, document => generateDocumentPromptAssignment(document), { separator: ',\n' })}
             };
+            game.system.documentCreateDialog = DocumentCreationVueDialog;
         }
 
         /* -------------------------------------------- */
@@ -255,11 +257,20 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             CONFIG.Item.defaultType = "${itemDefaultType}";
 
             CONFIG.Actor.typeArtworks = {
-                ${joinToNode(actorArtworks, document => `"${document.name.toLowerCase()}": "systems/${id}/${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-            }
+                ${joinToNode(actorArtworks, document => {
+                    const path = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value ?? '';
+                    const fullPath = path.startsWith('/icons/') ? path : `systems/${id}/${path}`;
+                    return `"${document.name.toLowerCase()}": "${fullPath}"`;
+                }, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            };
+            
             CONFIG.Item.typeArtworks = {
-                ${joinToNode(itemArtworks, document => `"${document.name.toLowerCase()}": "systems/${id}/${(document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-            }
+                ${joinToNode(itemArtworks, document => {
+                    const path = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value ?? '';
+                    const fullPath = path.startsWith('/icons/') ? path : `systems/${id}/${path}`;
+                    return `"${document.name.toLowerCase()}": "${fullPath}"`;
+                }, { appendNewLineIfNotEmpty: true, separator: ',' })}
+            };
 
             CONFIG.Actor.typeDescriptions = {
                 ${joinToNode(actorDescriptions, document => `"${document.name.toLowerCase()}": "${(document.params.find(p => isDocumentDescriptionParam(p)) as DocumentDescriptionParam)?.value}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}

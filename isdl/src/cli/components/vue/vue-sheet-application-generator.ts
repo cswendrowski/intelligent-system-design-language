@@ -5,14 +5,14 @@ import {
     Action,
     AttributeExp, AttributeRollParam,
     AttributeStyleParam,
-    BackgroundParam,
+    BackgroundParam, BooleanExp,
     BooleanParamValue,
     ClassExpression,
-    ColorParam, DieChoicesParam,
+    ColorParam, DateExp, DateTimeExp, DiceField, DieChoicesParam, DieField,
     Document,
     DocumentArrayExp,
     DocumentChoiceExp,
-    Entry,
+    Entry, HtmlExp,
     IconParam,
     ImageParam,
     isAccess,
@@ -73,9 +73,9 @@ import {
     SegmentsParameter,
     SizeParam
     ,
-    StandardFieldParams,
+    StandardFieldParams, StringExp,
     StringParamChoices,
-    StringParamValue,
+    StringParamValue, TimeExp, TrackerExp,
     TrackerStyleParameter,
     VisibilityParam
 } from "../../../language/generated/ast.js";
@@ -950,10 +950,18 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
                     case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
                     case "number": allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp); break;
-                    //case "tracker": allChoices = globalGetAllOfType<TrackerExp>(entry, isTrackerExp); break;
-                    //case "string": allChoices = globalGetAllOfType<StringExp>(entry, isStringExp); break;
-                    //case "boolean": allChoices = globalGetAllOfType<BooleanExp>(entry, isBooleanExp); break;
-                    default: console.error("Unsupported parent property type: " + element.propertyType); break;
+                    case "boolean": allChoices = globalGetAllOfType<BooleanExp>(entry, isBooleanExp); break;
+                    case "date": allChoices = globalGetAllOfType<DateExp>(entry, isDateExp); break;
+                    case "time": allChoices = globalGetAllOfType<TimeExp>(entry, isTimeExp); break;
+                    case "datetime": allChoices = globalGetAllOfType<DateTimeExp>(entry, isDateTimeExp); break;
+                    case "die": allChoices = globalGetAllOfType<DieField>(entry, isDieField); break;
+                    case "dice": allChoices = globalGetAllOfType<DiceField>(entry, isDiceField); break;
+                    case "string": allChoices = globalGetAllOfType<StringExp>(entry, isStringExp); break;
+                    case "tracker": allChoices = globalGetAllOfType<TrackerExp>(entry, isTrackerExp); break;
+                    case "choice": allChoices = globalGetAllOfType<DocumentChoiceExp>(entry, isDocumentChoiceExp); break;
+                    case "paperdoll": allChoices = globalGetAllOfType<PaperDollExp>(entry, isPaperDollExp); break;
+                    case "html": allChoices = globalGetAllOfType<HtmlExp>(entry, isHtmlExp); break;
+                    //default: console.error("Unsupported parent property type: " + element.propertyType); break;
                 }
                 let refChoices = allChoices.map(x => {
                     let parentDocument = getDocument(x);

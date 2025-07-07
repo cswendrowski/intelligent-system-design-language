@@ -16,6 +16,45 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         return rollResult.total
     }
     
+    page PlainFields {
+        
+        section Basic {
+            string StringField
+            number NumberField
+            boolean BooleanField
+            html HtmlField
+        }
+        
+        section Complex {
+            resource ResourceField
+            tracker TrackerField
+            attribute AttributeField
+            //damageTrack DamageTrackField
+        }
+        
+        section DateTime {
+            date DateField
+            time TimeField
+            datetime DateTimeField
+        }
+        
+        section Dice {
+            die DieField
+            //dice DiceField
+            //roll RollField
+        }
+        
+        section DocumentLinks {
+            Skill[] SkillsTable
+            Skill SingleDocumentField
+            choice<Skill> ChoiceField
+            paperdoll PaperdollField {
+                Skill A(left: 0px, top: 0px)
+                Skill B(left: 50px, top: 50px)
+            }
+        }
+    }
+    
     page Info(background: hideout) {
         section BasicInfo {
             gmOnly string HeroType(choices: ["A", "B", "C"], icon: "fa-solid fa-cube", color: #a586c0)
@@ -314,7 +353,7 @@ Skill[] Skills
 
 }
 
-actor NPC {
+actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp") {
     number Level(initial: 4,
     min: 1,
     max: 7,
@@ -387,6 +426,23 @@ item Skill {
 item Equipment {
     string Type(choices: ["Armor", "Weapon"])
     number Bonus
+
+    page ParentRefs {
+        parent<attribute> ParentAttribute
+        parent<resource> ParentResource
+        parent<number> ParentNumber
+        parent<boolean> ParentBoolean
+        parent<date> ParentDate
+        parent<time> ParentTime
+        parent<datetime> ParentDateTime
+        parent<die> ParentDie
+        //parent<dice> ParentDice
+        parent<string> ParentString
+        parent<tracker> ParentTracker
+        parent<choice> ParentChoice
+        parent<paperdoll> ParentPaperdoll
+        parent<html> ParentHtml
+    }
 }
 
 item Spell {
