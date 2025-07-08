@@ -22,10 +22,9 @@ import {
     isAttributeParamMod, isAttributeRollParam,
     isAttributeStyleParam,
     isBackgroundParam,
-    isBooleanExp
-    ,
+    isBooleanExp,
     isBooleanParamValue,
-    isColorParam,
+    isColorParam, isColumn,
     isDateExp,
     isDateTimeExp, isDiceField, isDiceFields, isDieChoicesParam,
     isDieField,
@@ -46,7 +45,7 @@ import {
     isParentPropertyRefExp,
     isPipsExp,
     isProperty,
-    isResourceExp,
+    isResourceExp, isRow,
     isSection,
     isSegmentsParameter,
     isSingleDocumentExp,
@@ -58,7 +57,7 @@ import {
     isTimeExp,
     isTrackerExp,
     isTrackerStyleParameter,
-    isVisibilityParam,
+    isVisibilityParam, Layout,
     NumberExp,
     NumberFieldParams,
     NumberParamMax,
@@ -69,10 +68,8 @@ import {
     ParentPropertyRefChoiceParam,
     Property,
     ResourceExp,
-    Section,
     SegmentsParameter,
-    SizeParam
-    ,
+    SizeParam,
     StandardFieldParams, StringExp,
     StringParamChoices,
     StringParamValue, TimeExp, TrackerExp,
@@ -880,18 +877,36 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         `.appendNewLine();
     }
 
-    function generateElement(element: Page | ClassExpression | Section): CompositeGeneratorNode {
+    function generateElement(element: Page | ClassExpression | Layout): CompositeGeneratorNode {
 
         if (isSection(element)) {
             return expandToNode`
-            <v-col class="pl-1 pr-1">
+            <v-col class="pl-1 pr-1 section">
                 <v-card variant="outlined" elevation="4">
                     <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 
-                    <v-card-text class="flexrow">
-                        ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
-                    </v-card-text>
+                    <v-card-text>
+                        <v-row dense>
+                            ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                        </v-row>
+                   </v-card-text>
                 </v-card>
+            </v-col>
+            `;
+        }
+
+        if (isRow(element)) {
+            return expandToNode`
+            <v-row dense>
+                ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+            </v-row>
+            `;
+        }
+
+        if (isColumn(element)) {
+            return expandToNode`
+            <v-col>
+                ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
             </v-col>
             `;
         }

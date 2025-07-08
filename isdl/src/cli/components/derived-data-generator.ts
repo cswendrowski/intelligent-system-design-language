@@ -2,9 +2,7 @@ import {
     ClassExpression,
     Document,
     Entry,
-    Section,
     MethodBlock,
-    Page,
     ResourceExp,
     isStringExp,
     isStringParamValue,
@@ -22,12 +20,11 @@ import {
     isHookHandler,
     isTrackerExp,
     NumberParamInitial,
-    WhereParam
+    WhereParam, Layout, isLayout
 } from '../../language/generated/ast.js';
 import {
     isActor,
     isItem,
-    isSection,
     isResourceExp,
     isAttributeExp,
     isMethodBlock,
@@ -37,7 +34,6 @@ import {
     isNumberParamValue,
     isNumberParamMin,
     isWhereParam,
-    isPage,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -81,13 +77,9 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
         const generatedFilePath = path.join(generatedFileDir, `${type.toLowerCase()}.mjs`);
 
         const toBeReapplied = new Set<string>();
-        function generateDerivedAttribute(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
+        function generateDerivedAttribute(property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
 
-            if (isSection(property)) {
-                return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
-            }
-
-            if (isPage(property)) {
+            if (isLayout(property)) {
                 return joinToNode(property.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true });
             }
 

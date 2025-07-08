@@ -82,10 +82,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         
         section Level {
             
-            gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
-            secret tracker Shield(min: 0, style: segmented, segments: 5, icon: "fa-solid fa-shield-halved")
-            tracker Wounds(style: slashes)
-            gmEdit tracker Heat(style: dial)
+            row {
+                gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
+                secret tracker Shield(min: 0, style: segmented, segments: 5, icon: "fa-solid fa-shield-halved")
+            }
+            row {
+                tracker Wounds(style: slashes)
+                gmEdit tracker Heat(style: dial)
+            }
             tracker Time(style: clock, segments: 5, color: #a586c0, visibility: {
                 return self.VisibleUnlessDisabled(self.OutOfTime)
             })
@@ -182,65 +186,72 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
         boolean Dazed
     }
     
-    section Counter {
-        readonly number Count
-        action Increment {
-            self.Count++
-        }
-        action Decrement {
-            self.Count--
-        }
-        action Reset {
-            self.Count = 0
+    row {
+        section Counter {
+            column {
+                readonly number Count
+                action Reset {
+                    self.Count = 0
+                }
+            }
+
+            column {
+                action Increment {
+                    self.Count++
+                }
+                action Decrement {
+                    self.Count--
+                }
+            }
+            
+            on combatStart {
+                log("Combat started")
+                self.Count = 0
+            }
+            
+            on combatEnd {
+                log("Combat ended")
+                self.Count = 0
+            }
+            
+            on roundStart (roundNumber) {
+                log("Round " + roundNumber)
+                self.Count = 0
+            }
+            
+            on roundEnd (roundNumber) {
+                log("Round " + roundNumber + " ended")
+            }
+            
+            on turnStart {
+                log("Turn of " + self.Name)
+            }
+            
+            on turnEnd {
+                log("Turn of " + self.Name + " ended")
+            }
+            
+            on turnIsNext {
+                log("Turn of " + self.Name + " is next")
+            }
+            
+            on death {
+                log("Death of " + self.Name)
+            }
         }
         
-        on combatStart {
-            log("Combat started")
-            self.Count = 0
-        }
-        
-        on combatEnd {
-            log("Combat ended")
-            self.Count = 0
-        }
-        
-        on roundStart (roundNumber) {
-            log("Round " + roundNumber)
-            self.Count = 0
-        }
-        
-        on roundEnd (roundNumber) {
-            log("Round " + roundNumber + " ended")
-        }
-        
-        on turnStart {
-            log("Turn of " + self.Name)
-        }
-        
-        on turnEnd {
-            log("Turn of " + self.Name + " ended")
-        }
-        
-        on turnIsNext {
-            log("Turn of " + self.Name + " is next")
-        }
-        
-        on death {
-            log("Death of " + self.Name)
-        }
-    }
-    
-    section FancyCounter {
-        readonly number Count2
-        unlocked number FancyCounterAmount
-        action Increment2 {
-            self.Count2 += self.FancyCounterAmount
-        }
-        action Decrement2 {
-            self.Count2 -= self.FancyCounterAmount
-        }
-        action Reset2 {
-            self.Count2 = 0
+        section FancyCounter {
+            readonly number Count2
+            unlocked number FancyCounterAmount
+            action Increment2 {
+                self.Count2 += self.FancyCounterAmount
+            }
+            action Decrement2 {
+                self.Count2 -= self.FancyCounterAmount
+            }
+            action Reset2 {
+                self.Count2 = 0
+            }
         }
     }
     

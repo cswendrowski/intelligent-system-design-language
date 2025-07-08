@@ -34,11 +34,19 @@ DocumentDefaultParam:
 // Document Body ------------------------------------------------------ 
 
 fragment ClassBlock:
-    "{" body+=(ClassExpression | Section | Page)* "}";
+    "{" body+=(ClassExpression | Layout)* "}";
+
+Layout:
+    (Section | Page | Row | Column);
+
 Section:
-    "section" name=ID "{" body+=ClassExpression* "}";
+    "section" name=ID "{" body+=(ClassExpression|Row|Column)* "}";
+Row:
+    "row" "{" body+=(ClassExpression|Section|Row|Column)* "}";
+Column:
+    "column" "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Page:
-    "page" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? "{" body+=(ClassExpression | Section)* "}";
+    "page" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
 ClassExpression:
     (Property | Action | InitiativeProperty | StatusProperty | HookHandler | FunctionDefinition);
  

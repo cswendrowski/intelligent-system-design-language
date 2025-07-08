@@ -1,7 +1,29 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ClassExpression, Document, Entry, Page, Section, isAccess, isAction, isActor, isAttributeExp, isBooleanExp, isHookHandler, isHtmlExp, isIfStatement, isInitiativeProperty, isNumberExp, isNumberParamValue, isPage, isProperty, isResourceExp, isSection, isStatusProperty, isStringExp, isTrackerExp } from '../../language/generated/ast.js';
+import {
+    ClassExpression,
+    Document,
+    Entry,
+    isAccess,
+    isAction,
+    isActor,
+    isAttributeExp,
+    isBooleanExp,
+    isHookHandler,
+    isHtmlExp,
+    isIfStatement,
+    isInitiativeProperty,
+    isNumberExp,
+    isNumberParamValue,
+    isProperty,
+    isResourceExp,
+    isSection,
+    isStatusProperty,
+    isStringExp,
+    isTrackerExp,
+    Layout, isLayout
+} from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
@@ -12,15 +34,11 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    function generateAddValue(document: Document, property: ClassExpression | Page |Section): CompositeGeneratorNode | undefined {
+    function generateAddValue(document: Document, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
 
         if ( isAccess(property) || isAction(property) || isIfStatement(property) || isHookHandler(property) ) return undefined;
 
-        if ( isSection(property) ) {
-            return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
-        }
-
-        if (isPage(property)) {
+        if ( isLayout(property) ) {
             return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
         }
 
@@ -223,8 +241,8 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    function generateField(document: Document, property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
-        
+    function generateField(document: Document, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
+
         if ( isAccess(property) || isAction(property) || isIfStatement(property) ) return undefined;
 
         if ( isSection(property) ) {
@@ -244,7 +262,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
             `;
         }
 
-        if (isPage(property)) {
+        if (isLayout(property)) {
             return joinToNode(property.body, property => generateField(document, property), { appendNewLineIfNotEmpty: true });
         }
 
@@ -393,7 +411,7 @@ export function generateActiveEffectHandlebars(id: string, entry: Entry, destina
             </section>
         `;
     }
-                        
+
 
     const fileNode = expandToNode`
         <form  class="{{cssClass}}" autocomplete="off">

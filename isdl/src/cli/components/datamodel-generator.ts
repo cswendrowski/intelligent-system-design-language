@@ -6,10 +6,8 @@ import type {
     NumberParamInitial,
     NumberParamMax,
     NumberParamMin,
-    Page,
     PaperDollElement,
     Prompt,
-    Section,
     StatusParamWhen,
     StringParamChoices,
     VariableExpression,
@@ -18,7 +16,6 @@ import {
     isActor,
     isNumberExp,
     isHtmlExp,
-    isSection,
     isStringExp,
     isBooleanExp,
     isResourceExp,
@@ -29,7 +26,6 @@ import {
     isNumberParamInitial,
     isNumberParamMin,
     isNumberParamMax,
-    isPage,
     isStringParamChoices,
     StatusProperty,
     isStatusProperty,
@@ -43,7 +39,7 @@ import {
     isAction,
     isVariableExpression,
     isPrompt,
-    isTrackerExp, isDiceFields, isDieField, isDieInitialParam, isDiceField
+    isTrackerExp, isDiceFields, isDieField, isDieInitialParam, isDiceField, Layout, isLayout
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -59,7 +55,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
     const config = entry.config;
     const id = config.body.find(x => x.type == "id")!.value;
 
-    function generateField(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
+    function generateField(property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
 
         if (isNumberExp(property)) {
 
@@ -290,7 +286,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         //     `;
         // }
 
-        if (isSection(property)) {
+        if (isLayout(property)) {
             return joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true });
 
             // TODO: It would be nice to support sections in the data model, but we would need to complicate
@@ -300,10 +296,6 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             //         ${joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
             //     }),
             // `;
-        }
-
-        if (isPage(property)) {
-            return joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true });
         }
 
         return

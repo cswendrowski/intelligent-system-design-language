@@ -3,8 +3,6 @@ import type {
     Document,
     Entry,
     LabelParam,
-    Page,
-    Section,
     StandardFieldParams,
     StringParamChoices,
 } from '../../language/generated/ast.js';
@@ -18,7 +16,7 @@ import {
     isActor,
     isItem,
     isHookHandler,
-    isLabelParam,
+    isLabelParam, Layout, isLayout,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -50,7 +48,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         `;
     }
 
-    function generateProperty(property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
+    function generateProperty(property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
 
         if (isSection(property) && property.body.length > 0) {
             return expandToNode`
@@ -64,6 +62,10 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 "${property.name}": "${humanize(property.name)}",
                 ${joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
             `;
+        }
+
+        if (isLayout(property)) {
+            return joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' });
         }
 
         if (isProperty(property)) {

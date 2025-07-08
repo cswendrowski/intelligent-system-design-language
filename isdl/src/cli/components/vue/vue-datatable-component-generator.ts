@@ -16,20 +16,16 @@ import {
     isHookHandler,
     isHtmlExp,
     isIconParam,
-    isInitiativeProperty,
+    isInitiativeProperty, isLayout,
     isNumberExp,
-    isPage,
     isPaperDollElement,
     isParentPropertyRefExp,
     isProperty,
     isResourceExp,
-    isSection,
     isStringExp,
     isStringParamChoices,
     isTimeExp,
-    isTrackerExp,
-    Page,
-    Section,
+    isTrackerExp, Layout,
     StandardFieldParams,
     StringParamChoices
 } from "../../../language/generated/ast.js";
@@ -45,8 +41,8 @@ export function generateDatatableComponent(id: string, document: Document, pageN
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    function generateDataTableColumn(refDoc: Reference<Document> | undefined, property: ClassExpression | Page | Section): CompositeGeneratorNode | undefined {
-        if ( isSection(property) || isPage(property) ) {
+    function generateDataTableColumn(refDoc: Reference<Document> | undefined, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
+        if ( isLayout(property) ) {
             return expandToNode`
                 ${joinToNode(property.body, p => generateDataTableColumn(refDoc, p), { appendNewLineIfNotEmpty: true })}
             `;

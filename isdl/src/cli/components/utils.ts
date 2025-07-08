@@ -8,14 +8,12 @@ import type {
     ParentAccess,
     ParentTypeCheckExpression,
     Property,
-    Section,
     TargetAccess,
     TargetTypeCheckExpression,
 } from '../../language/generated/ast.js';
 import {
     isResourceExp,
     isAttributeExp,
-    isSection,
     isPage,
     isInitiativeProperty,
     isDocument,
@@ -24,6 +22,8 @@ import {
     isTrackerExp,
     isParentAccess,
     isTargetTypeCheckExpression,
+    Layout,
+    isLayout,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -78,10 +78,10 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     return `${basePath}${reference.name.toLowerCase()}`;
 }
 
-export function getAllOfType<T extends (ClassExpression | Page | Section)>(body: (ClassExpression | Page | Section | Document)[], comparisonFunc: (element: T) => boolean, samePageOnly: boolean = false) : T[] {
+export function getAllOfType<T extends (ClassExpression | Layout)>(body: (ClassExpression | Layout | Document)[], comparisonFunc: (element: T) => boolean, samePageOnly: boolean = false) : T[] {
     let result: T[] = [];
-    const actions = body.filter(x => comparisonFunc(x as T)).map(x => x as T);
-    result.push(...actions);
+    const matchingResults = body.filter(x => comparisonFunc(x as T)).map(x => x as T);
+    result.push(...matchingResults);
 
     if (!samePageOnly) {
         for (let page of body.filter(x => isPage(x)).map(x => x as Page)) {
@@ -89,8 +89,8 @@ export function getAllOfType<T extends (ClassExpression | Page | Section)>(body:
         }
     }
 
-    for (let section of body.filter(x => isSection(x)).map(x => x as Section)) {
-        result.push(...getAllOfType(section.body, comparisonFunc, samePageOnly));
+    for (let layout of body.filter(x => isLayout(x) && !isPage(x)).map(x => x as Layout)) {
+        result.push(...getAllOfType(layout.body, comparisonFunc, samePageOnly));
     }
 
     for (let document of body.filter(x => isDocument(x)).map(x => x as Document)) {
@@ -100,7 +100,7 @@ export function getAllOfType<T extends (ClassExpression | Page | Section)>(body:
     return result;
 }
 
-export function globalGetAllOfType<T extends (ClassExpression | Page | Section)>(entry: Entry, comparisonFunc: (element: T) => boolean) : T[] {
+export function globalGetAllOfType<T extends (ClassExpression | Layout)>(entry: Entry, comparisonFunc: (element: T) => boolean) : T[] {
     let result: T[] = [];
     for (let document of entry.documents) {
         result.push(...getAllOfType(document.body, comparisonFunc, false));

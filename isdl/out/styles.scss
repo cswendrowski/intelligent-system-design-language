@@ -429,9 +429,13 @@
         }
     }
 
-    .v-col {
+    .v-col.section {
         min-width: 316px;
         max-width: 616px;
+    }
+
+    .v-row {
+        column-gap: 1rem;
     }
 
     .v-input {

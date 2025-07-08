@@ -36,7 +36,6 @@
         "datatables.net-vue3": "^3.0.4",
         "inflection": "^3.0.0",
         "langium": "~3.0.0",
-        "primevue": "^4.3.1",
         "rpg-awesome": "^0.2.0",
         "sass": "^1.77.4",
         "vite": "^5.0.0",
