@@ -979,7 +979,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const createData = foundry.utils.mergeObject(data, createResponse, { inplace: false });
                     // If name is NAN, set to empty string
                     if (isNaN(createData.name)) createData.name = "";
-                    console.dir(createData);
+                    createData.type = createData.type || type;
+                    createData.type = createData.type.toLowerCase();
                     if (!createData.folder) delete createData.folder;
                     if (!createData.name?.trim()) createData.name = this.defaultName();
                     return this.create(createData, { parent, pack, renderSheet: true });

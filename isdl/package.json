@@ -3,7 +3,7 @@
     "displayName": "Intelligent System Design Language",
     "description": "Intelligent System Design Language support for Visual Studio Code",
     "publisher": "IronMooseDevelopment",
-    "version": "0.1.91",
+    "version": "0.1.93",
     "repository": {
         "url": ""
     },

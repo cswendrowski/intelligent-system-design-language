@@ -38,9 +38,7 @@ export function generateDocumentCreationVueSheet(entry: Entry, id: string, desti
         const selectedImage = ref(props.context.types.find(x => x.type == type.value)?.icon || 'icons/svg/mystery-man.svg');
         
         const onChange = (value) => {
-            console.log("Type changed to:", value, props.context.types);
             selectedImage.value = props.context.types.find(x => x.type == type.value)?.icon || 'icons/svg/mystery-man.svg';
-            console.log("Selected image updated to:", selectedImage.value);
         };
         
         const sheet = inject("rawSheet");
