@@ -21,6 +21,7 @@ export function generateVueMixin(description: string) {
         "i-text-field": "TextField",
         "i-datetime": "DateTime",
         "i-tracker": "Tracker",
+        "i-macro": "MacroField",
     };
 
     const fileNode = expandToNode`
@@ -321,6 +322,6 @@ export function generateVueMixin(description: string) {
             return VueApplication;
         }   
     `.appendNewLine();
-    
+
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 }

@@ -33,7 +33,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam,
+    isImageParam, isMacroField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -1086,6 +1086,21 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         :primaryColor="primaryColor" 
                         :secondaryColor="secondaryColor">
                     </${componentName}>
+                `;
+            }
+
+            if (isMacroField(element)) {
+                return expandToNode`
+                    <i-macro
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        ${standardParamsFragment}
+                        :context="context"
+                        :editMode="editMode" 
+                        :primaryColor="primaryColor" 
+                        :secondaryColor="secondaryColor">
+                    </i-macro>
                 `;
             }
 

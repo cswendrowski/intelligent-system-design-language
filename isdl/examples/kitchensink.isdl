@@ -48,9 +48,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             Skill[] SkillsTable
             Skill SingleDocumentField
             choice<Skill> ChoiceField
+            macro MacroField
             paperdoll PaperdollField {
                 Skill A(left: 0px, top: 0px)
                 Skill B(left: 50px, top: 50px)
+            }
+
+            action ExecuteMacro {
+                self.MacroField.execute()
             }
         }
     }

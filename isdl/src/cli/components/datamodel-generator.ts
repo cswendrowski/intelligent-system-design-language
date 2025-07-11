@@ -39,7 +39,7 @@ import {
     isAction,
     isVariableExpression,
     isPrompt,
-    isTrackerExp, isDiceFields, isDieField, isDieInitialParam, isDiceField, Layout, isLayout
+    isTrackerExp, isDiceFields, isDieField, isDieInitialParam, isDiceField, Layout, isLayout, isMacroField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -216,7 +216,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             // `;
         }
 
-        if (isSingleDocumentExp(property)) {
+        if (isSingleDocumentExp(property) || isMacroField(property)) {
             return expandToNode`
                 ${property.name.toLowerCase()}: new UuidDocumentField(),
             `;

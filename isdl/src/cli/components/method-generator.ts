@@ -113,7 +113,7 @@ import {
     isDieField,
     isTimeLimitParam,
     isCombatMethods,
-    isCombatProperty, isUserProperty
+    isCombatProperty, isUserProperty, isMacroExecute
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -1657,6 +1657,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
         if (property == "name") {
             return expandToNode`game.user.name`;
         }
+    }
+
+    if (isMacroExecute(expression)) {
+        const systemPath = getSystemPath(expression.macro.ref, [], undefined, false);
+
+        return expandToNode`
+            await context.object.${systemPath}?.execute();
+        `;
     }
 
     console.log(expression.$type);

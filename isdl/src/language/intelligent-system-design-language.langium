@@ -64,7 +64,7 @@ DateTimeFields:
 DiceFields:
     (DieField | DiceField);
 DocumentFields:
-    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp);
+    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField);
 ReferenceFields:
     (ParentPropertyRefExp);
 DeprecatedFields:
@@ -166,6 +166,14 @@ DamageTrackParams:
 DamageTrackTypesParam:
     "types:" "[" (types+=STRING ("," types+=STRING)*)? "]";
  
+
+// Macro Field -------------
+
+MacroField:
+    ExpressionModifier "macro" name=ID StandardFieldParamsFrag;
+
+MacroExecute:
+    "self." macro=[MacroField:ID] ".execute" "(" ")";
  
 // Document Links -------------
 
@@ -408,8 +416,8 @@ NumberRange:
 MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
-    (VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression |
-     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | PlayAudio | Combat | User );
+    (MacroExecute | VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression |
+     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall  | PlayAudio | Combat | User );
 JS:
     js=JS_LINE;
 LogExpression:

@@ -22,7 +22,7 @@ import {
     isStatusProperty,
     isStringExp,
     isTrackerExp,
-    Layout, isLayout
+    Layout, isLayout, isMacroField
 } from '../../language/generated/ast.js';
 import { getSystemPath } from './utils.js';
 
@@ -36,7 +36,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
     function generateAddValue(document: Document, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
 
-        if ( isAccess(property) || isAction(property) || isIfStatement(property) || isHookHandler(property) ) return undefined;
+        if ( isAccess(property) || isAction(property) || isIfStatement(property) || isHookHandler(property) || isMacroField(property)) return undefined;
 
         if ( isLayout(property) ) {
             return joinToNode(property.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true });
