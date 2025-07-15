@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
+import generateMeasuredTemplateComponent from "./base-components/vue-measured-template.js";
 
 export function generateBaseVueComponents(destination: string) {
 
@@ -15,6 +16,7 @@ export function generateBaseVueComponents(destination: string) {
     generateDateTimeComponent(destination);
     generateTrackerComponent(destination);
     generateMacroChoiceComponent(destination);
+    generateMeasuredTemplateComponent(destination);
 }
 
 function generateAttributeComponent(destination: string) {
@@ -813,10 +815,13 @@ function generateTrackerComponent(destination: string) {
             tertiaryColor: String,
             trackerStyle: String,
             icon: String,
+            hideMin: Boolean,
             disableMin: Boolean,
             disableValue: Boolean,
             disableMax: Boolean,
-            segments: Number
+            segments: Number,
+            isHealth: Boolean,
+            isWounds: Boolean
         });
 
         const document = inject("rawDocument");
@@ -862,7 +867,7 @@ function generateTrackerComponent(destination: string) {
         };
 
         const min = computed({
-            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".min"),
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".min") ?? 0,
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".min", newValue)
         });
 
@@ -872,17 +877,17 @@ function generateTrackerComponent(destination: string) {
         });
 
         const temp = computed({
-            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".temp"),
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".temp") ?? 0,
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".temp", newValue)
         });
 
         const max = computed({
-            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".max"),
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".max") ?? 10000,
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".max", newValue)
         });
 
         const barMax = computed(() => {
-            const totalValue = value.value + temp.value;
+            const totalValue = value.value + (temp.value ?? 0);
             if (totalValue > max.value) {
                 return totalValue;
             }
@@ -905,6 +910,24 @@ function generateTrackerComponent(destination: string) {
         const emptyIcon = computed(() => {
             if (!props.icon) return "fa-regular fa-star";
             return "fa-regular " + props.icon;
+        });
+        
+        const mainColor = computed(() => {
+            // If this is health, use a scale of red (0) to green (max). Wounds should be reverse. Otherwise, use primary.
+            
+            if (props.isHealth) {
+                const pct = (value.value - (min.value ?? 0)) / ((max.value ?? 0) - (min.value ?? 0));
+                const red = Math.round(255 * (1 - pct * 0.8) + 50); // Add base yellow, don't go to full 0
+                const green = Math.round(255 * pct * 0.8 + 50); // Add base yellow, don't go to full 0
+                return \`rgb(\${Math.min(255, red)}, \${Math.min(255, green)}, 0)\`;
+            }
+            if (props.isWounds) {
+                const pct = (value.value - (min.value ?? 0)) / ((max.value ?? 0) - (min.value ?? 0));
+                const red = Math.round(255 * pct * 0.8 + 50); // Add base yellow, don't go to full 0
+                const green = Math.round(255 * (1 - pct) * 0.8 + 50); // Add base yellow, don't go to full 0
+                return \`rgb(\${Math.min(255, red)}, \${Math.min(255, green)}, 0)\`;
+            }
+            return props.primaryColor;
         });
 
         const expanded = ref(false);
@@ -952,8 +975,8 @@ function generateTrackerComponent(destination: string) {
 
             const fill = \`linear-gradient(
                 to right,
-                \${props.primaryColor} 0%,
-                \${props.primaryColor} \${primaryPct}%,
+                \${mainColor.value} 0%,
+                \${mainColor.value} \${primaryPct}%,
                 \${props.tertiaryColor} \${primaryPct}%,
                 \${props.tertiaryColor} \${tempPct}%,
                 transparent \${tempPct}%
@@ -1025,7 +1048,7 @@ function generateTrackerComponent(destination: string) {
                             <v-progress-linear
                                 v-if="trackerStyle == 'bar'"
                                 :height="18"
-                                :color="primaryColor"
+                                :color="mainColor"
                                 bg-color="#92aed9"
                                 rounded
                                 :model-value="value"
@@ -1048,13 +1071,13 @@ function generateTrackerComponent(destination: string) {
                                 :size="100" 
                                 :width="15" 
                                 :data-tooltip="displayText"
-                                :color="primaryColor">
+                                :color="mainColor">
                                 
                                 <template v-slot:default> {{ circularText }} </template>
                             </v-progress-circular>
 
                             <div v-if="trackerStyle == 'icons'" class="d-flex flex-row" @click.stop="add" @contextmenu.prevent.stop="remove" style="overflow-x: auto; overflow-y: hidden;">
-                                <v-icon v-if="value > 0" v-for="i in value" :key="i" :icon="filledIcon" :color="primaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
+                                <v-icon v-if="value > 0" v-for="i in value" :key="i" :icon="filledIcon" :color="mainColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                                 <v-icon v-if="temp > 0" v-for="i in temp" :key="i + value" :icon="filledIcon" :color="tertiaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                                 <v-icon v-if="max - value - temp > 0" v-for="i in max - value - temp" :key="i + temp + value" :icon="emptyIcon" :color="secondaryColor" style="margin-right: 0.25rem; width: 25px;" :data-tooltip="displayText" />
                             </div>
@@ -1069,7 +1092,7 @@ function generateTrackerComponent(destination: string) {
                                         minWidth: '5px',
                                         flexShrink: 0,
                                         height: '30px',
-                                        backgroundColor: i <= value ? primaryColor : (i <= value + temp ? tertiaryColor : 'transparent'),
+                                        backgroundColor: i <= value ? mainColor : (i <= value + temp ? tertiaryColor : 'transparent'),
                                         border: i <= value ? 'none' : '2px solid ' + secondaryColor,
                                         transform: 'skewX(-20deg)',
                                         borderRadius: '2px',
@@ -1109,7 +1132,7 @@ function generateTrackerComponent(destination: string) {
                                 <g v-for="i in barMax" :key="i">
                                     <path
                                         :d="describeSlice(i - 1, barMax, radius, size / 2)"
-                                        :fill="i <= value ? primaryColor : (i <= value + temp ? tertiaryColor: 'transparent')"
+                                        :fill="i <= value ? mainColor : (i <= value + temp ? tertiaryColor: 'transparent')"
                                         :stroke="secondaryColor"
                                         stroke-width="2"
                                     />
@@ -1162,6 +1185,7 @@ function generateTrackerComponent(destination: string) {
                                         :hide-details="true"
                                         :tile="true"
                                         :disabled="isDisabled('min') || disableMin"
+                                        v-if="!hideMin"
                                     />
                                     <v-number-input
                                         v-model="max"

@@ -415,9 +415,6 @@
         }
     }
 
-    .v-input {
-        flex: 1;
-    }
 
     .v-field__input {
         height: 100%;
@@ -439,8 +436,14 @@
     }
 
     .v-input {
+        flex: 1;
         min-width: 150px;
         max-width: 600px;
+        margin-top: 0.75rem;
+
+        > .v-input__details {
+            display: none;
+        }
     }
 
     .isdl-html {
@@ -458,6 +461,18 @@
     .action-btn, .isdl-property, .isdl-single-document, .single-wide {
         min-width: 150px;
         max-width: 600px;
+    }
+
+    .action-btn {
+        margin-top: 12px;
+        height: 40px;
+        flex: 1;
+
+        .v-btn__content {
+            justify-content: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     }
 
     .isdl-tracker, .double-wide {
@@ -535,10 +550,10 @@
     .attributeExp {
         display: flex;
         flex-direction: column;
-        margin-bottom: 10px;
         border: 3px solid #333;
         border-radius: 4px;
         min-width: 75px;
+        margin-top: 0.75rem;
 
         &.no-mod {
             max-height: 70px;
@@ -554,6 +569,8 @@
             min-width: 100px;
             max-width: 100%;
             text-align: center;
+            margin: 0;
+            flex: unset;
         }
 
         .v-field__input {
@@ -640,6 +657,7 @@
     }
 
     .isdl-tracker {
+
         .tracker-content {
             width: 100%;
             padding: 0.5rem;
@@ -657,6 +675,72 @@
             .tracker-content {
                 min-height: 116px;
             }
+        }
+    }
+
+    .isdl-measured-template {
+
+        > .v-input__control {
+            > .v-field {
+                > .v-field__append-inner {
+                    position: fixed;
+                    top: 12px;
+                    right: 0;
+                    z-index: 100;
+                }
+            }
+        }
+
+        .map-icon {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            transform-origin: center;
+        }
+
+        .map-icon:hover {
+            animation: mapUnfold 0.8s ease-in-out;
+        }
+
+        @keyframes mapUnfold {
+            0% {
+                transform: scale(1) rotateY(0deg);
+            }
+            25% {
+                transform: scale(0.95) rotateY(-8deg) rotateX(5deg);
+            }
+            50% {
+                transform: scale(1.05) rotateY(3deg) rotateX(-2deg);
+            }
+            75% {
+                transform: scale(1.02) rotateY(-1deg) rotateX(1deg);
+            }
+            100% {
+                transform: scale(1) rotateY(0deg) rotateX(0deg);
+            }
+        }
+
+        /* Gentle flutter when clicked */
+        .map-icon:active {
+            animation: mapFlutter 0.5s ease-in-out;
+        }
+
+        @keyframes mapFlutter {
+            0%, 100% {
+                transform: scale(1) rotate(0deg);
+            }
+            25% {
+                transform: scale(1.02) rotate(-2deg) translateY(-1px);
+            }
+            75% {
+                transform: scale(1.02) rotate(2deg) translateY(-1px);
+            }
+        }
+
+        .template-canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
     }
 
@@ -830,6 +914,59 @@
                         border-left: 1px solid gray;
                         padding-left: 10px;
                         line-height: 33px;
+                    }
+                }
+            }
+
+            .measured-template {
+                display: flex;
+
+                .measured-template-button {
+                    flex: 0 0 100%;
+                    height: 35px;
+                    line-height: 35px;
+                    margin: 0;
+                    margin-bottom: 0.5rem;
+                    font-weight: normal;
+                    font-size: 16px;
+                    text-align: left;
+                    position: relative;
+                    background: rgba(0, 0, 0, 0.1);
+                    border: 1px solid var(--color-border-light-2);
+                    border-radius: 3px;
+                    box-shadow: 0 0 2px #FFF inset;
+                    word-break: break-all;
+
+                    >i {
+                        padding-left: 0.5rem;
+                        line-height: 30px;
+                        position: absolute;
+                    }
+
+                    .summary {
+                        display: inline-block;
+                        width: 100%;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        margin-left: 8px;
+
+                        >.result {
+                            font-size: 20px;
+                            font-weight: bold;
+                            right: 2px;
+                            position: absolute;
+                            border-left: 1px solid gray;
+                            padding-left: 7px;
+                            height: 34px;
+
+                            > i {
+                                &:hover {
+                                    cursor: pointer;
+                                    box-shadow: 0 0 10px var(--color-shadow-highlight);
+                                }
+                            }
+                        }
                     }
                 }
             }

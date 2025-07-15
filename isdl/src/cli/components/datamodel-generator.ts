@@ -39,7 +39,15 @@ import {
     isAction,
     isVariableExpression,
     isPrompt,
-    isTrackerExp, isDiceFields, isDieField, isDieInitialParam, isDiceField, Layout, isLayout, isMacroField
+    isTrackerExp,
+    isDiceFields,
+    isDieField,
+    isDieInitialParam,
+    isDiceField,
+    Layout,
+    isLayout,
+    isMacroField,
+    isMeasuredTemplateField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -278,6 +286,18 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                     }),
                 `;
             }
+        }
+
+        if (isMeasuredTemplateField(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    type: new fields.StringField({initial: "circle"}),
+                    distance: new fields.NumberField({integer: true, initial: 5}),
+                    direction: new fields.NumberField({integer: true, initial: 0}),
+                    angle: new fields.NumberField({integer: true, initial: 0}),
+                    width: new fields.NumberField({integer: true, initial: 0}),
+                }),
+            `;
         }
 
         // if ( isDocumentArrayExp(property) ) {

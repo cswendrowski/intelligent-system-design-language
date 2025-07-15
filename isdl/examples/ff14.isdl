@@ -6,221 +6,354 @@ config FFXIV {
 }
 
 actor PC {
-
-    string Class(choices: ["Dragoon", "Black Mage", "White Mage", "Warrior"])
-    string Role(choices: ["Tank", "Healer", "DPS"])
-    number Level
-
-    section PrimaryAttributes {
-        attribute STR(min: 1, max: 5, mod: {
-            return self.STR
-        })
-        attribute DEX(min: 1, max: 5, mod: {
-            return self.DEX
-        })
-        attribute VIT(min: 1, max: 5, mod: {
-            return self.VIT
-        })
-        attribute INT(min: 1, max: 5, mod: {
-            return self.INT
-        })
-        attribute MND(min: 1, max: 5, mod: {
-            return self.MND
-        })
+    
+    column {
+        string Class(choices: ["Dragoon", "Black Mage", "White Mage", "Warrior"])
+        string Role(choices: ["Tank", "Healer", "DPS"])
+        number Level
     }
-
+    
+    section PrimaryAttributes {
+        attribute STR(min: 0, max: 5, mod: {
+            return self.STR
+        }, roll: roll(d20 + self.STR))
+        attribute DEX(min: 0, max: 5, mod: {
+            return self.DEX
+        }, roll: roll(d20 + self.STR))
+        attribute VIT(min: 0, max: 5, mod: {
+            return self.VIT
+        }, roll: roll(d20 + self.STR))
+        attribute INT(min: 0, max: 5, mod: {
+            return self.INT
+        }, roll: roll(d20 + self.STR))
+        attribute MND(min: 0, max: 5, mod: {
+            return self.MND
+        }, roll: roll(d20 + self.STR))
+    }
+    
     section SecondaryAttributes {
         number Defense
         number MagicDefense
         number Vigilance
         number Speed
     }
-
+    
     section Resources {
         health resource HP
-        resource MP
+        tracker MP(style: icons, icon: 'fa-solid fa-sparkles')
+        
+        action RecoverMP {
+            self.MP += 2
+
+            chat MPRecovery {
+                "Recovered 2 MP"
+            }
+        }
     }
-
-    hidden boolean LimitBreakAllowed
-
+    
+    gmOnly boolean LimitBreakAllowed
+    
     PrimaryAbility[] PrimaryAbilities
     SecondaryAbility[] SecondaryAbilities
     InstantAbility[] InstantAbilities
+    Consumable[] Consumables
+}
+
+item Consumable {
+    number Quantity
+
+    action Use {
+        if (self.Quantity > 0) {
+            self.Quantity--
+            chat ConsumableUse {
+                "Used a consumable item."
+                tag self.Quantity
+            }
+        } else {
+            chat NoConsumables {
+                "No consumables left to use."
+            }
+        }
+    }
 }
 
 item PrimaryAbility {
-    number Cost
-    string Target
-    string Range
-    boolean Invoked
-    parent<attribute> CheckAttribute(choices: [PC])
-    string CR(choices: ["Defense", "MagicDefense"])
-    html BaseEffect
-    html DirectHit
-    string Limitation
+    column {
+        number Cost
+        string Target
+        string Range
+        boolean Invoked
+    }
+    column {
+        parent<attribute> CheckAttribute(choices: [PC])
+        string CR(choices: ["Defense", "MagicDefense"])
+        
+        action Roll(icon: "fa-solid fa-dice-d20") {
+            if (parent is PC) {
+                if (target is NPC) {
+                    fleeting attack = roll(d20 + self.CheckAttribute)
+                    parent.MP -= self.Cost
+                    fleeting directHit = false
 
-    action Roll(icon: "fa-solid fa-dice-d20") {
-        if (parent is PC) {
-            fleeting attack = roll(d20 + 5)
-            parent.MP -= self.Cost
-
-            chat AbilityRoll {
-                attack
-                tag self.Cost
-                tag self.Target
-                tag self.Invoked
-                tag self.Range
-                tag self.CR
-                self.BaseEffect
-                self.DirectHit
-                tag self.Limitation
+                    if (self.CR == "Defense") {
+                        directHit = attack.total >= target.Defense
+                    } else if (self.CR == "MagicDefense") {
+                        directHit = attack.total >= target.MagicDefense
+                    }
+                    
+                    if (directHit) {
+                        chat DirectHit {
+                            flavor "Direct Hit!"
+                            attack
+                            tag self.Cost
+                            tag self.Target
+                            tag self.Invoked
+                            tag self.Range
+                            tag self.CR
+                            tag self.Limitation
+                            self.BaseEffect
+                            self.DirectHit
+                        }
+                    } else {
+                        chat GlancingBlow {
+                            flavor "Glancing Blow"
+                            attack
+                            tag self.Cost
+                            tag self.Target
+                            tag self.Invoked
+                            tag self.Range
+                            tag self.CR
+                            tag self.Limitation
+                            self.BaseEffect
+                        }
+                    }
+                }
+                else if (target is PC) {
+                    fleeting check = roll(d20 + self.CheckAttribute)
+                    parent.MP -= self.Cost
+                    
+                    chat Use {
+                        check
+                        tag self.Cost
+                        tag self.Target
+                        tag self.Invoked
+                        tag self.Range
+                        tag self.CR
+                        tag self.Limitation
+                        self.BaseEffect
+                        self.DirectHit
+                    }
+                }
+                else {
+                    chat NoTarget {
+                        "No target selected"
+                    }
+                }
             }
         }
     }
+    row {
+        html BaseEffect
+        html DirectHit
+        string Limitation
+    }
+    
+    
 }
 
 item SecondaryAbility {
-    number Cost
-    string Target
-    string Range
-    boolean Invoked
-    number LimitationAmount
-    string Limitation(choices: ["Per Phase"])
-    html BaseEffect
-    pips UsesLeft(max: {
-        return self.LimitationAmount
-    }, style: circles)
-
-    action Use(icon: "fa-solid fa-fire") {
-        if (parent is PC) {
-            parent.MP -= self.Cost
-            self.UsesLeft--
-            chat AbilityUse {
-                tag self.Cost
-                tag self.Target
-                tag self.Invoked
-                self.BaseEffect
-                tag self.Limitation
-                tag self.UsesLeft
+    column {
+        number Cost
+        string Target
+        string Range
+        boolean Invoked
+        html BaseEffect
+    }
+    column {
+        string Limitation(choices: ["None", "Per Phase"])
+        tracker UsesLeft(style: icons, icon: "fa-solid fa-bolt", min: 0)
+    
+        action Use(icon: "fa-solid fa-fire") {
+            if (parent is PC) {
+                parent.MP -= self.Cost
+                self.UsesLeft--
+                chat AbilityUse {
+                    tag self.Cost
+                    tag self.Target
+                    tag self.Invoked
+                    self.BaseEffect
+                    tag self.Limitation
+                    tag self.UsesLeft
+                }
             }
         }
-    }
-
-    action ResetUses(icon: "fa-solid fa-undo") {
-        self.UsesLeft = self.LimitationAmount
+        
+        action ResetUses(icon: "fa-solid fa-undo") {
+            self.UsesLeft = self.UsesLeft.Max
+        }
     }
 }
 
 item InstantAbility {
-    boolean LimitBreak
-    number Cost
-    string Target
-    string Trigger
-    number LimitationAmount
-    string Limitation(choices: ["Per Phase"])
-    html BaseEffect
-    pips UsesLeft(max: {
-        return self.LimitationAmount
-    })
-
-    action Use(icon: "fa-solid fa-fire") {
-        if (parent is PC) {
-            parent.MP -= self.Cost
-            self.UsesLeft--
-            chat AbilityUse {
-                tag self.Cost
-                tag self.Target
-                tag self.Trigger
-                self.BaseEffect
-                self.Limitation
-            }
-        }
+    column {
+        boolean LimitBreak
+        number Cost
+        string Target
+        string Trigger
+        html BaseEffect
     }
 
-    action ResetUses(icon: "fa-solid fa-undo") {
-        self.UsesLeft = self.LimitationAmount
+    column {
+        string Limitation(choices: ["Per Phase"])
+        
+        tracker UsesLeft(style: icons, icon: "fa-solid fa-bolt", min: 0)
+        
+        action Use(icon: "fa-solid fa-fire") {
+            if (parent is PC) {
+                parent.MP -= self.Cost
+                self.UsesLeft--
+                chat AbilityUse {
+                    tag self.Cost
+                    tag self.Target
+                    tag self.Trigger
+                    self.BaseEffect
+                    self.Limitation
+                }
+                if (self.LimitBreak) {
+                    play(file: "audio/sfx/FFXIV_Limit_Break_Activated.mp3")
+                }
+            }
+        }
+        
+        action ResetUses(icon: "fa-solid fa-undo") {
+            self.UsesLeft = self.UsesLeft.Max
+        }
     }
 }
 
 
 
 actor NPC {
-
-    health resource HP
-    string Size(choices: ["Medium", "Large", "Huge"])
-    string Species
-
-    section PrimaryAttributes {
-        attribute STR(min: -5, max: 5, mod: {
-            return self.STR
-        })
-        attribute DEX(min: -5, max: 5, mod: {
-            return self.DEX
-        })
-        attribute VIT(min: -5, max: 5, mod: {
-            return self.VIT
-        })
-        attribute INT(min: -5, max: 5, mod: {
-            return self.INT
-        })
-        attribute MND(min: -5, max: 5, mod: {
-            return self.MND
-        })
+    
+    column {
+        health resource HP
+        string Size(choices: ["Medium", "Large", "Huge"])
+        string Species
     }
-
+    
+    section PrimaryAttributes {
+        attribute STR(min: -5, max: 6, mod: {
+            return self.STR
+        }, roll: roll(d20 + self.STR))
+        attribute DEX(min: -5, max: 6, mod: {
+            return self.DEX
+        }, roll: roll(d20 + self.STR))
+        attribute VIT(min: -5, max: 6, mod: {
+            return self.VIT
+        }, roll: roll(d20 + self.STR))
+        attribute INT(min: -5, max: 6, mod: {
+            return self.INT
+        }, roll: roll(d20 + self.STR))
+        attribute MND(min: -5, max: 6, mod: {
+            return self.MND
+        }, roll: roll(d20 + self.STR))
+    }
+    
     section SecondaryAttributes {
         number Defense
         number MagicDefense
         number Vigilance
         number Speed
     }
-
+    
     NpcAbility[] Abilities
     NpcMarker[] Markers
     NpcTrait[] Traits
 }
 
 item NpcAbility {
-    string Target
-    string Range
-    string Aspect
-    boolean Invoked
-    parent<attribute> CheckAttribute(choices: [NPC])
-    string CR(choices: ["Defense", "MagicDefense"])
-    html BaseEffect
-    html DirectHit
-    string Limitation
+    column {
+        string Target
+        string Range
+        string Aspect
+        boolean Invoked
+    }
 
-    action Roll(icon: "fa-solid fa-dice-d20") {
-        fleeting attack = roll(d20 + self.CheckAttribute.mod)
+    column {
+        parent<attribute> CheckAttribute(choices: [NPC])
+        string CR(choices: ["Defense", "MagicDefense"])
 
-        chat AbilityRoll {
-            attack
-            tag self.Target
-            tag self.Invoked
-            tag self.Range
-            tag self.CR
-            self.BaseEffect
-            self.DirectHit
-            tag self.Limitation
+        action Roll(icon: "fa-solid fa-dice-d20") {
+            fleeting attack = roll(d20 + self.CheckAttribute.mod)
+            
+            if (target is PC) {
+
+                fleeting directHit = false
+                if (self.CR == "Defense") {
+                    directHit = attack.total >= target.Defense
+                } else if (self.CR == "MagicDefense") {
+                    directHit = attack.total >= target.MagicDefense
+                }
+
+                if (directHit) {
+                    chat DirectHit {
+                        flavor "Direct Hit!"
+                        attack
+                        tag self.Target
+                        tag self.Invoked
+                        tag self.Range
+                        tag self.CR
+                        self.BaseEffect
+                        self.DirectHit
+                        tag self.Limitation
+                    }
+                } else {
+                    chat GlancingBlow {
+                        flavor "Glancing Blow"
+                        attack
+                        tag self.Target
+                        tag self.Invoked
+                        tag self.Range
+                        tag self.CR
+                        tag self.Limitation
+                        self.BaseEffect
+                    }
+                }
+                play(file: "audio/sfx/FFXIV_Aggro.mp3")
+            }
+            else {
+                chat NoTarget {
+                    "No target selected"
+                }
+            }
         }
+    }
+
+    row {
+        html BaseEffect
+        html DirectHit
+        string Limitation
     }
 }
 
 item NpcMarker {
-    string Type(choices: ["Stationary", "Mobile"])
-    string Origin
-    string Area
-    string Target
-    string Trigger
-    
-    action Use(icon: "fa-solid fa-map-marker") {
-        chat Marker {
-            self.Origin
-            self.Area
-            self.Target
-            self.Trigger
-            tag self.Type
+    column {
+        string Type(choices: ["Stationary", "Mobile"])
+        string Origin
+        string Area
+    }
+    column {
+        string Target
+        string Trigger
+        
+        action Use(icon: "fa-solid fa-map-marker") {
+            chat Marker {
+                self.Origin
+                self.Area
+                self.Target
+                self.Trigger
+                tag self.Type
+            }
         }
     }
 }

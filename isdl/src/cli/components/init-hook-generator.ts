@@ -121,6 +121,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         import ${entry.config.name}Token from "../canvas/token.mjs";
         import ${entry.config.name}Roll from "../rolls/roll.mjs";
         import DocumentCreationVueDialog from "../sheets/vue/document-creation-dialog.mjs";
+        import MeasuredTemplatePreview from "../placeables/measured-template-preview.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -233,6 +234,8 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             CONFIG.Item.documentClass = ${entry.config.name}Item;
             CONFIG.Combatant.documentClass = ${entry.config.name}Combatant;
             CONFIG.Token.documentClass = ${entry.config.name}TokenDocument;
+            
+            game.system.measuredTemplatePreviewClass = MeasuredTemplatePreview;
         }
 
         /* -------------------------------------------- */

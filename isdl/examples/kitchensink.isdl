@@ -29,6 +29,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             resource ResourceField
             tracker TrackerField
             attribute AttributeField
+            measuredTemplate MeasuredTemplateField
             //damageTrack DamageTrackField
         }
         
@@ -274,7 +275,7 @@ section Health {
     
     health resource HP(max: {
         return self.Endure + 6
-    })
+    }, icon: "fa-solid fa-heart")
     
     number Defense(value: {
         if (self.Fight + self.Endure equals 0) {
@@ -395,7 +396,8 @@ item Skill {
     number SkillMod
     tracker UsesLeft(style: slashes)
     die Die
-    dice Dice
+    //dice Dice
+    measuredTemplate Template
     readonly number Skill(value: {
         if (self.Trained > 0) {return 2 + self.SkillMod}
         return 0 + self.SkillMod
@@ -434,6 +436,8 @@ item Skill {
                 abilityRoll
                 tag "Fight"
                 tag self.Skill
+                self.Template
+                self.Effects
             }
         }
     }

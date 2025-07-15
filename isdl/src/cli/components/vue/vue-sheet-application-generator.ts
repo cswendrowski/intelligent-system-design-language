@@ -33,7 +33,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isMacroField,
+    isImageParam, isMacroField, isMeasuredTemplateField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -1115,6 +1115,20 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 `;
             }
 
+            if (isMeasuredTemplateField(element)) {
+                return expandToNode`
+                <i-measured-template
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    :primaryColor="primaryColor" 
+                    :secondaryColor="secondaryColor"
+                    ${standardParamsFragment}>
+                </i-measured-template>
+                `;
+            }
+
             if (isBooleanExp(element)) {
                 return expandToNode`
                 <v-checkbox 
@@ -1183,21 +1197,21 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 `;
             }
 
-            if (isResourceExp(element)) {
-                return expandToNode`
-                <i-resource 
-                    label="${label}"
-                    icon="${iconParam?.value}"
-                    systemPath="system.${element.name.toLowerCase()}"
-                    :context="context"
-                    ${standardParamsFragment}
-                    :primaryColor="primaryColor"
-                    :secondaryColor="secondaryColor">
-                </i-resource>
-                `;
-            }
+            // if () {
+            //     return expandToNode`
+            //     <i-resource
+            //         label="${label}"
+            //         icon="${iconParam?.value}"
+            //         systemPath="system.${element.name.toLowerCase()}"
+            //         :context="context"
+            //         ${standardParamsFragment}
+            //         :primaryColor="primaryColor"
+            //         :secondaryColor="secondaryColor">
+            //     </i-resource>
+            //     `;
+            // }
 
-            if (isTrackerExp(element)) {
+            if (isTrackerExp(element) || isResourceExp(element)) {
                 const styleParam = element.params.find(x => isTrackerStyleParameter(x)) as TrackerStyleParameter;
                 const style = styleParam?.style ?? "bar";
 
@@ -1206,6 +1220,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                 const minParam = element.params.find(x => isNumberParamMin(x)) as NumberParamMin;
                 const disableMin = minParam?.value != undefined;
+                let hideMin = false;
 
                 const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
                 const disableValue = valueParam?.value != undefined;
@@ -1219,6 +1234,14 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const segmentParm = element.params.find(x => isSegmentsParameter(x)) as SegmentsParameter | undefined;
                 const segments = segmentParm?.segments ?? 1;
 
+                let isHealth = false;
+                let isWounds = false;
+                if (isResourceExp(element)) {
+                    hideMin = true;
+                    isHealth = element.tag == "health";
+                    isWounds = element.tag == "wounds";
+                }
+
                 return expandToNode`
                 <i-tracker 
                     label="${label}"
@@ -1228,10 +1251,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
                     trackerStyle="${style}"
                     icon="${icon}" 
+                    :hideMin="${hideMin}"
                     :disableMin="${disableMin}"
                     :disableValue="${disableValue}"
                     :disableMax="${disableMax}"
                     :segments="${segments}"
+                    :isHealth="${isHealth}"
+                    :isWounds="${isWounds}"
                     ></i-tracker>
                 `;
             }

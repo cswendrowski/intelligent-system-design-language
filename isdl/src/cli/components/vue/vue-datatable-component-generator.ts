@@ -16,7 +16,7 @@ import {
     isHookHandler,
     isHtmlExp,
     isIconParam,
-    isInitiativeProperty, isLayout,
+    isInitiativeProperty, isLayout, isMeasuredTemplateField,
     isNumberExp,
     isPaperDollElement,
     isParentPropertyRefExp,
@@ -93,6 +93,15 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                 return expandToNode`
                     { data: 'system.${property.name.toLowerCase()}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}"), render: (data, type, context) => {
                         return data.number + data.die;
+                        }
+                    },
+                `;
+            }
+
+            if (isMeasuredTemplateField(property)) {
+                return expandToNode`
+                    { data: 'system.${property.name.toLowerCase()}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}"), render: (data, type, context) => {
+                            return data.summary;
                         }
                     },
                 `;

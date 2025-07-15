@@ -20,7 +20,7 @@ import {
     isHookHandler,
     isTrackerExp,
     NumberParamInitial,
-    WhereParam, Layout, isLayout
+    WhereParam, Layout, isLayout, isMeasuredTemplateField
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -372,6 +372,20 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 return expandToNode`
                     // ${property.name} Document Array Derived Data
                     this.system.${property.name.toLowerCase()} = this.items.filter((item) => item.type == "${property.document.ref?.name.toLowerCase()}");
+                `.appendNewLineIfNotEmpty();
+            }
+
+            if (isMeasuredTemplateField(property)) {
+                return expandToNode`
+                    // ${property.name} Measured Template Field Derived Data
+                    
+                    this.system.${property.name.toLowerCase()}.summary = () => {
+                        let sum = \`\${this.system.${property.name.toLowerCase()}.direction}° \${this.system.${property.name.toLowerCase()}.type} (\${this.system.${property.name.toLowerCase()}.distance} squares)\`;
+                        if (this.system.${property.name.toLowerCase()}.type === 'cone') sum += \` \${this.system.${property.name.toLowerCase()}.angle}° angle\`;
+                        if (this.system.${property.name.toLowerCase()}.type === 'ray') sum += \` \${this.system.${property.name.toLowerCase()}.width} squares wide\`;
+                        return sum;
+                    };
+                    
                 `.appendNewLineIfNotEmpty();
             }
 

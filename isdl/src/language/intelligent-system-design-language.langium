@@ -58,7 +58,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp);
+    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
 DiceFields:
@@ -116,9 +116,14 @@ HtmlExp:
 ResourceExp:
     ExpressionModifier (tag=("health" | "wounds"))? "resource" name=ID ("(" params+=ResourceParameter* ("," params+=ResourceParameter)* ")")?;
 ResourceParameter:
-    (StandardFieldParams | NumberFieldParams);
+    (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter);
  
  
+// Measured Template -------------
+
+MeasuredTemplateField:
+    ExpressionModifier "measuredTemplate" name=ID StandardFieldParamsFrag;
+
 // Tracker -------------
 
 TrackerExp:

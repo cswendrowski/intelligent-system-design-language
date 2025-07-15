@@ -22,6 +22,7 @@ export function generateVueMixin(description: string) {
         "i-datetime": "DateTime",
         "i-tracker": "Tracker",
         "i-macro": "MacroField",
+        "i-measured-template": "MeasuredTemplateField",
     };
 
     const fileNode = expandToNode`

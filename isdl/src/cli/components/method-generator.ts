@@ -113,7 +113,7 @@ import {
     isDieField,
     isTimeLimitParam,
     isCombatMethods,
-    isCombatProperty, isUserProperty, isMacroExecute
+    isCombatProperty, isUserProperty, isMacroExecute, isMeasuredTemplateField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -699,6 +699,32 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
                 const wide = isHtmlExp(expression.property?.ref) ? true : false;
 
+                if (expression.access != undefined) {
+                    switch (expression.access) {
+                        case "Effects":
+                            return undefined; // Renders in a different way
+                        case "DocumentType":
+                            return expandToNode`
+                                { isRoll: false, label: "Type", value: context.object.type, wide: ${wide}, hasValue: context.object.type != "" },
+                            `;
+                        case "EditMode":
+                            return expandToNode`
+                                { isRoll: false, label: "Edit Mode", value: context.object.getFlag('${id}', 'editMode') ?? true, wide: ${wide}, hasValue: context.object.getFlag('${id}', 'editMode') != undefined },
+                            `;
+                        // Properties on the document
+                        default:
+                            return expandToNode`
+                                { isRoll: false, label: "${expression.access.toString()}", value: context.object.${expression.access.toString().toLowerCase()}, wide: ${wide}, hasValue: context.object.${expression.access.toString().toLowerCase()} != "" },
+                            `;
+                    }
+                }
+
+                if (isMeasuredTemplateField(expression.property?.ref)) {
+                    return expandToNode`
+                        { isRoll: false, isMeasuredTemplate: true, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.object.${systemPath}?.summary, wide: true, hasValue: context.object.${systemPath} != undefined, object: context.object.${systemPath} },
+                    `;
+                }
+
                 if (isParentPropertyRefExp(expression.property?.ref)) {
                     return expandToNode`
                         { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.object.${systemPath}.replace("system", "").replaceAll(".", "").titleCase(), wide: ${wide}, hasValue: context.object.${systemPath} != "" },
@@ -765,6 +791,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
         const flavorTag = expression.body.chatExp.find(x => x.type == "flavor");
+        const shouldShowEffects = expression.body.chatExp.some(x => isAccess(x) && x.access === "Effects");
 
         return expandToNode`
             // Create the chat message
@@ -774,6 +801,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 document: context.object,
                 description: ${expression.name}Description,
                 hasDescription: ${expression.name}Description!= "",
+                hasEffects: ${shouldShowEffects},
                 parts: [
                     ${joinToNode(expression.body.chatExp.filter(x => x.type != "tag"), (expression) => translateChatBodyExpression(expression), { appendNewLineIfNotEmpty: true })}
                 ],

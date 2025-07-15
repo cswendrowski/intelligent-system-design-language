@@ -17,7 +17,7 @@ export function generateChatCardClass(entry: Entry, destination: string) {
 
     function generateHpElement(document: Document): CompositeGeneratorNode {
         const healthResource = getAllOfType<ResourceExp>(document.body, isResourceExp).find(x => x.tag == "health") as ResourceExp | undefined;
-        
+
         if (!healthResource) {
             return expandToNode`
                 case '${document.name.toLocaleLowerCase()}':
@@ -59,6 +59,7 @@ export function generateChatCardClass(entry: Entry, destination: string) {
             
             static activateListeners(html) {
                 html.on("click", ".collapsible", ${entry.config.name}ChatCard._onChatCardToggleCollapsible.bind(this));
+                html.on("click", ".action", ${entry.config.name}ChatCard._handleActionClick.bind(this));
             
                 // Customize the drag data of effects
                 html.find(".effect").each((i, li) => {
@@ -292,6 +293,31 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                 const popout = target.closest(".chat-popout");
                 if ( popout ) popout.style.height = "";
             }
+            
+            /* -------------------------------------------- */
+            
+            static _handleActionClick(event) {
+                event.preventDefault();
+                const action = event.currentTarget.dataset.action;
+                
+                switch (action) {
+                    case "place":
+                        const template = event.currentTarget.closest(".measured-template");
+                        if (!template) return;
+        
+                        const context = {
+                            type: template.dataset.type,
+                            distance: template.dataset.distance,
+                            direction: template.dataset.direction,
+                            angle: template.dataset.angle,
+                            width: template.dataset.width
+                        };
+        
+                        // Trigger the place action on the template
+                        game.system.measuredTemplatePreviewClass.place(context, game.user.character?.sheet);                 
+                        break;
+                }   
+            }
         }
     `.appendNewLineIfNotEmpty();
 
@@ -342,6 +368,12 @@ export function generateStandardChatCardTemplate(destination: string) {
                                 <div class="dice-result">
                                     <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.label}} {{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span></span> <span class="result">{{this.value._total}}</span></h4>
                                     {{{this.tooltip}}}
+                                </div>
+                            </div>
+                        {{else if this.isMeasuredTemplate}}
+                            <div class="measured-template wide" data-type="{{this.object.type}}" data-distance="{{this.object.distance}}" data-direction="{{this.object.direction}}" data-angle="{{this.object.angle}}" data-width="{{this.object.width}}">
+                                <div class="measured-template-button">
+                                    <h4 class="summary"><i class="fa-solid fa-ruler-combined"></i> <span class="info">{{this.value}}</span><span class="result action" data-action="place" data-tooltip="Place"><i class="fa-solid fa-border-outer"></i></span></h4>
                                 </div>
                             </div>
                         {{else if this.isParagraph}}

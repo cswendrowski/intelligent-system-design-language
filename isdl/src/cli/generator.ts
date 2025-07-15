@@ -26,6 +26,7 @@ import { generateCanvasToken, generateTokenDocument } from './components/token-g
 import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
 import {generateInitHookMjs} from "./components/init-hook-generator.js";
 import {generateReadyHookMjs} from "./components/ready-hook-generator.js";
+import {generateMeasuredTemplatePreview} from "./components/measured-template-preview.js";
 
 export async function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): Promise<string> {
     const config = entry.config;
@@ -62,6 +63,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateBaseDocumentSheet(entry, id, data.destination);
     generateBaseActorSheet(entry, id, data.destination);
     generateExtendedDocumentClasses(entry, id, data.destination);
+    generateMeasuredTemplatePreview(data.destination);
     generateEntryMjs(entry, id, data.destination);
     generateCustomEntryMjs(entry, id, data.destination);
     generateInitHookMjs(entry, id, data.destination);

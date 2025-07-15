@@ -81,7 +81,7 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
         });
     </script>
     <template>
-        <v-btn :color="color" class="ma-1 action-btn" @click="onClick" v-if="!hidden" :disabled="disabled" ${iconParam ? `prepend-icon="${iconParam.value}"` : ''}>{{game.i18n.localize('${document.name}.${action.name}')}}</v-btn>
+        <v-btn :color="color" class="action-btn" @click="onClick" v-if="!hidden" :disabled="disabled" ${iconParam ? `prepend-icon="${iconParam.value}"` : ''} :data-tooltip="game.i18n.localize('${document.name}.${action.name}')">{{game.i18n.localize('${document.name}.${action.name}')}}</v-btn>
     </template>
     `;
 
