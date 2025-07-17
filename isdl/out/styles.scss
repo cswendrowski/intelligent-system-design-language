@@ -441,10 +441,15 @@
         max-width: 600px;
         margin-top: 0.75rem;
 
+        &.document-name {
+            margin: 0;
+        }
+
         > .v-input__details {
             display: none;
         }
     }
+
 
     .isdl-html {
         min-width: 300px;
@@ -481,6 +486,12 @@
 
         .slim-number {
             font-size: 0.75rem;
+        }
+
+        .tracker-inner-content {
+            >.v-progress-linear {
+                border: 1px solid black;
+            }
         }
     }
 

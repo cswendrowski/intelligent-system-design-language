@@ -1,6 +1,20 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { Action, Document, DocumentArrayExp, Entry, isAction, isActor, isDocumentArrayExp, isPage, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
+import {
+    Action,
+    Document,
+    DocumentArrayExp,
+    Entry,
+    isAction,
+    isActor,
+    isDocumentArrayExp,
+    isPage,
+    isPrompt, isTableField,
+    isVariableExpression,
+    Prompt,
+    TableField,
+    VariableExpression
+} from "../../../language/generated/ast.js";
 import { generateDocumentVueComponent } from "./vue-sheet-application-generator.js";
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { generateDocumentVueSheet } from './vue-sheet-class-generator.js';
@@ -221,9 +235,21 @@ function generateIndexMjs(entry: Entry, destination: string) {
             `;
         }
 
+        function generateVuetifyDatableExport(datatable: TableField): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(datatable, isPage);
+            const pageName = page ? page.name : document.name;
+
+            return expandToNode`
+                export { default as ${type}${document.name}${pageName}${datatable.name}VuetifyDatatable } from "./${type}/${document.name.toLowerCase()}/components/datatables/${document.name.toLowerCase()}${pageName.toLowerCase()}${datatable.name}VuetifyDatatable.vue";
+            `;
+        }
+
         const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
+        const tables = getAllOfType<TableField>(document.body, isTableField, false);
         return expandToNode`
             ${joinToNode(datatables, generateDatatableExport, { separator: "\n" })}
+            ${joinToNode(tables, generateVuetifyDatableExport, { separator: "\n" })}
         `;
     }
 

@@ -914,18 +914,22 @@ function generateTrackerComponent(destination: string) {
         
         const mainColor = computed(() => {
             // If this is health, use a scale of red (0) to green (max). Wounds should be reverse. Otherwise, use primary.
-            
+           
             if (props.isHealth) {
                 const pct = (value.value - (min.value ?? 0)) / ((max.value ?? 0) - (min.value ?? 0));
-                const red = Math.round(255 * (1 - pct * 0.8) + 50); // Add base yellow, don't go to full 0
-                const green = Math.round(255 * pct * 0.8 + 50); // Add base yellow, don't go to full 0
-                return \`rgb(\${Math.min(255, red)}, \${Math.min(255, green)}, 0)\`;
+                // Use the number === 0 logic for health
+                const red = Math.round(255 * (1 - (pct / 2)));
+                const green = Math.round(255 * pct);
+                const blue = 0;
+                return \`rgb(\${red}, \${green}, \${blue})\`;
             }
             if (props.isWounds) {
                 const pct = (value.value - (min.value ?? 0)) / ((max.value ?? 0) - (min.value ?? 0));
-                const red = Math.round(255 * pct * 0.8 + 50); // Add base yellow, don't go to full 0
-                const green = Math.round(255 * (1 - pct) * 0.8 + 50); // Add base yellow, don't go to full 0
-                return \`rgb(\${Math.min(255, red)}, \${Math.min(255, green)}, 0)\`;
+                // Use the else logic for wounds  
+                const red = Math.round(255 * (0.5 * pct));
+                const green = Math.round(255 * (0.7 * pct));
+                const blue = Math.round(255 * (0.5 + (pct / 2)));
+                return \`rgb(\${red}, \${green}, \${blue})\`;
             }
             return props.primaryColor;
         });

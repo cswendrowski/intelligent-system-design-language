@@ -53,7 +53,7 @@ import {
     isStatusProperty,
     isStringExp,
     isStringParamChoices,
-    isStringParamValue,
+    isStringParamValue, isTableField,
     isTimeExp,
     isTrackerExp,
     isTrackerStyleParameter,
@@ -72,7 +72,7 @@ import {
     SizeParam,
     StandardFieldParams, StringExp,
     StringParamChoices,
-    StringParamValue, TimeExp, TrackerExp,
+    StringParamValue, TableField, TimeExp, TrackerExp,
     TrackerStyleParameter,
     VisibilityParam
 } from "../../../language/generated/ast.js";
@@ -83,6 +83,7 @@ import { generateActionComponent } from './vue-action-component-generator.js';
 import { generateDocumentChoiceComponent } from './vue-document-choice-component-generator.js';
 import {translateBodyExpressionToJavascript, translateExpression} from '../method-generator.js';
 import {humanize} from "inflection";
+import {generateVuetifyDatatableComponent} from "./vue-datatable2-component-generator.js";
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -124,6 +125,14 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         generateDatatableComponent(id, document, pageName, tab, destination);
         return expandToNode`
         import ${document.name}${pageName}${tab.name}Datatable from './components/datatables/${document.name.toLowerCase()}${pageName}${tab.name}Datatable.vue';
+        `;
+    }
+
+    let tables = getAllOfType<TableField>(document.body, isTableField, true);
+    function importDataTable2(pageName: string, table: TableField): CompositeGeneratorNode {
+        generateVuetifyDatatableComponent(id, document, pageName, table, destination);
+        return expandToNode`
+        import ${document.name}${pageName}${table.name}VuetifyDatatable from './components/datatables/${document.name.toLowerCase()}${pageName}${table.name}VuetifyDatatable.vue';
         `;
     }
 
@@ -351,6 +360,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
         ${joinToNode(tabs, tab => importDataTable(document.name, tab), { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(tables, table => importDataTable2(document.name, table), { appendNewLineIfNotEmpty: true })}
         ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, { appendNewLineIfNotEmpty: true })}
@@ -687,7 +697,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
 function generateVueComponentTemplate(id: string, document: Document): CompositeGeneratorNode {
     const pages = getAllOfType<Page>(document.body, isPage);
-    const firstPageTabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
+    const firstPageTabs = document.body.filter(isDocumentArrayExp);
+    const firstPageTables = document.body.filter(isTableField); // We explicitly only want top-level tables
     return expandToNode`
     <template>
         <v-app>
@@ -787,12 +798,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     <v-tabs-window v-model="page">
                         <v-tabs-window-item value="${document.name.toLowerCase()}" data-tab="${document.name.toLowerCase()}">
                             <v-row dense>
-                                ${joinToNode(document.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                                ${joinToNode(document.body, element => generateElement(element, true), { appendNewLineIfNotEmpty: true })}
                             </v-row>
                             <v-divider class="mt-4 mb-2"></v-divider>
                             <v-tabs v-model="tab" grow always-center>
                                     <v-tab value="description" prepend-icon="fa-solid fa-book">Description</v-tab>
                                     ${joinToNode(firstPageTabs, generateTab, { appendNewLineIfNotEmpty: true })}
+                                    ${joinToNode(firstPageTables, table => generateTab(table), { appendNewLineIfNotEmpty: true })}
                                     <v-tab value="effects" prepend-icon="fa-solid fa-sparkles" @mousedown="spawnDatatableWindow($event, '${document.name}', 'effects')">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
@@ -800,6 +812,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                     <i-prosemirror :field="context.editors['system.description']" :disabled="!editMode"></i-prosemirror>
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
+                                ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), { appendNewLineIfNotEmpty: true })}
                                 <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
                                     <DataTable class="display compact" :data="effects" :columns="effectsColumns" :options="effectsOptions">
                                         <template #image="props">
@@ -831,7 +844,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     </template>
     `;
 
-    function generateTab(tab: DocumentArrayExp): CompositeGeneratorNode {
+    function generateTab(tab: DocumentArrayExp | TableField): CompositeGeneratorNode {
         const iconParam = tab.params.find(p => isIconParam(p)) as IconParam | undefined;
         const icon = iconParam?.value ?? "fa-solid fa-table";
         const page = AstUtils.getContainerOfType(tab, isPage) as Page;
@@ -850,18 +863,21 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     }
 
     function generatePageBody(page: Page): CompositeGeneratorNode {
-        const tabs = getAllOfType<DocumentArrayExp>(page.body, isDocumentArrayExp, true);
+        const tabs = page.body.filter(isDocumentArrayExp); // We explictly only want top-level tabs
+        const tables = page.body.filter(isTableField); // We explictly only want top-level tables
         return expandToNode`
         <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
             <v-row dense>
-                ${joinToNode(page.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(page.body, element => generateElement(element, true), { appendNewLineIfNotEmpty: true })}
             </v-row>
             <v-divider class="mt-4 mb-2"></v-divider>
             <v-tabs v-model="tab" grow always-center>
                 ${joinToNode(tabs, generateTab, { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(tables, generateTab, { appendNewLineIfNotEmpty: true })}
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
+                ${joinToNode(tables, table => generateVuetifyDatatable(page.name.toLowerCase(), table), { appendNewLineIfNotEmpty: true })}
             </v-tabs-window>
         </v-tabs-window-item>
         `;
@@ -877,7 +893,17 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         `.appendNewLine();
     }
 
-    function generateElement(element: Page | ClassExpression | Layout): CompositeGeneratorNode {
+    function generateVuetifyDatatable(pageName: string, element: TableField): CompositeGeneratorNode {
+        const systemPath = getSystemPath(element, [], undefined, false);
+        let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
+        return expandToNode`
+        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="table" class="tabs-container">
+            <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+        </v-tabs-window-item>
+        `.appendNewLine();
+    }
+
+    function generateElement(element: Page | ClassExpression | Layout, isTopLevel = false): CompositeGeneratorNode {
 
         if (isSection(element)) {
             return expandToNode`
@@ -912,7 +938,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         }
 
         // We don't render these elements as part of this function
-        if (isPage(element) || isAccess(element) || isDocumentArrayExp(element) || isStatusProperty(element) || isPipsExp(element)) {
+        if (isPage(element) || isAccess(element) || isStatusProperty(element) || isPipsExp(element)) {
             return expandToNode``;
         }
 
@@ -1403,6 +1429,27 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         </v-input>
                     `;
                 }
+            }
+
+            if (isTableField(element)) {
+                if (isTopLevel) return expandToNode``;
+                const page = AstUtils.getContainerOfType(element, isPage) as Page;
+                const pageName = page?.name ?? document.name;
+                const systemPath = getSystemPath(element, [], undefined, false);
+                let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
+                return expandToNode`
+                    <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+                `.appendNewLine();
+            }
+
+            if (isDocumentArrayExp(element)) {
+                if (isTopLevel) return expandToNode``;
+                const page = AstUtils.getContainerOfType(element, isPage) as Page;
+                const pageName = page?.name ?? document.name;
+                const systemPath = getSystemPath(element, [], undefined, false);
+                return expandToNode`
+                    <${document.name}${pageName}${element.name}Datatable systemPath="${systemPath}" :context="context"></${document.name}${pageName}${element.name}Datatable>
+                `.appendNewLine();
             }
 
             return expandToNode`

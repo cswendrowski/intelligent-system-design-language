@@ -37,7 +37,7 @@ fragment ClassBlock:
     "{" body+=(ClassExpression | Layout)* "}";
 
 Layout:
-    (Section | Page | Row | Column);
+    (Section | Page | Row | Column | Tab);
 
 Section:
     "section" name=ID "{" body+=(ClassExpression|Row|Column)* "}";
@@ -47,6 +47,9 @@ Column:
     "column" "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Page:
     "page" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
+Tab:
+    "tab" name=ID ("(" params+=(IconParam|LabelParam) ("," params+=(IconParam|LabelParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
+
 ClassExpression:
     (Property | Action | InitiativeProperty | StatusProperty | HookHandler | FunctionDefinition);
  
@@ -64,7 +67,7 @@ DateTimeFields:
 DiceFields:
     (DieField | DiceField);
 DocumentFields:
-    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField);
+    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField | TableField);
 ReferenceFields:
     (ParentPropertyRefExp);
 DeprecatedFields:
@@ -183,7 +186,9 @@ MacroExecute:
 // Document Links -------------
 
 DocumentArrayExp:
-    ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(StandardFieldParams|WhereParam) ")")?;
+    ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(StandardFieldParams|WhereParam|TableFieldsParam) ")")?;
+TableField:
+    ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=(StandardFieldParams|WhereParam|TableFieldsParam) ")")?;
 SingleDocumentExp:
     ExpressionModifier document=[Document:ID] name=ID StandardFieldParamsFrag;
 DocumentChoiceExp:
@@ -192,7 +197,8 @@ DocumentChoicesExp:
     ExpressionModifier "choices" "<" document=[Document:ID]  ">" name=ID ("(" params+=DocumentChoiceParms ("," params+=DocumentChoiceParms)* ")")?;
 DocumentChoiceParms:
     (StandardFieldParams | WhereParam | GlobalParam);
- 
+TableFieldsParam:
+    "fields:" "[" fields+=ID ("," fields+=ID)* "]";
  
 // Datetime -------------
 

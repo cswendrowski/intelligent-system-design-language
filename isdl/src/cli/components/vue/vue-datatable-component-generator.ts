@@ -23,11 +23,11 @@ import {
     isProperty,
     isResourceExp,
     isStringExp,
-    isStringParamChoices,
+    isStringParamChoices, isTableFieldsParam,
     isTimeExp,
     isTrackerExp, Layout,
     StandardFieldParams,
-    StringParamChoices
+    StringParamChoices, TableFieldsParam
 } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
@@ -41,6 +41,8 @@ export function generateDatatableComponent(id: string, document: Document, pageN
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
+    let fieldsParam = table.params.find(x => isTableFieldsParam(x)) as TableFieldsParam | undefined;
+
     function generateDataTableColumn(refDoc: Reference<Document> | undefined, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
         if ( isLayout(property) ) {
             return expandToNode`
@@ -52,6 +54,10 @@ export function generateDatatableComponent(id: string, document: Document, pageN
         if ( isProperty(property) ) {
             const isHidden = property.modifier == "hidden";
             if (isHidden) return undefined;
+
+            if (fieldsParam && fieldsParam.fields.length > 0 && !fieldsParam.fields.some(x => x === property.name)) {
+                return undefined;
+            }
 
             const systemPath = getSystemPath(property, [], undefined, false);
             let type = "string";

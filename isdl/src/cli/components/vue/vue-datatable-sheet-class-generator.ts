@@ -1,7 +1,15 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Document, DocumentArrayExp, Entry, isActor, isDocumentArrayExp, isPage } from '../../../language/generated/ast.js';
+import {
+    Document,
+    DocumentArrayExp,
+    Entry,
+    isActor,
+    isDocumentArrayExp,
+    isPage, isTableField,
+    TableField
+} from '../../../language/generated/ast.js';
 import { getAllOfType } from '../utils.js';
 import { AstUtils } from 'langium';
 
@@ -25,9 +33,21 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             `;
         }
 
+        function generateVuetifyImport(datatable: TableField): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(datatable, isPage);
+            const pageName = page ? page.name : document.name;
+
+            return expandToNode`
+                import { ${type}${document.name}${pageName}${datatable.name}VuetifyDatatable } from "./components/components.vue.es.mjs";
+            `;
+        }
+
         const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
+        const tables = getAllOfType<TableField>(document.body, isTableField, false);
         return expandToNode`
             ${joinToNode(datatables, generateDatatableImport, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(tables, generateVuetifyImport, { appendNewLineIfNotEmpty: true })}
         `;
     }
 
@@ -42,9 +62,21 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             `;
         }
 
+        function generateVuetifyCase(datatable: TableField): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(datatable, isPage);
+            const pageName = page ? page.name : document.name;
+
+            return expandToNode`
+                case "${type}${document.name}${pageName}${datatable.name}": return ${type}${document.name}${pageName}${datatable.name}VuetifyDatatable; break;
+            `;
+        }
+
         const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
+        const tables = getAllOfType<TableField>(document.body, isTableField, false);
         return expandToNode`
             ${joinToNode(datatables, generateDatatableCase, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(tables, generateVuetifyCase, { appendNewLineIfNotEmpty: true })}
         `;
     }
 

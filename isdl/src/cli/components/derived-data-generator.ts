@@ -20,7 +20,7 @@ import {
     isHookHandler,
     isTrackerExp,
     NumberParamInitial,
-    WhereParam, Layout, isLayout, isMeasuredTemplateField
+    WhereParam, Layout, isLayout, isMeasuredTemplateField, isTableField
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -356,7 +356,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 `.appendNewLineIfNotEmpty();
             }
 
-            if ( isDocumentArrayExp(property) ) {
+            if ( isDocumentArrayExp(property) || isTableField(property) ) {
                 console.log("Processing Derived Document Array: " + property.name);
 
                 const whereParam = property.params.find(p => isWhereParam(p)) as WhereParam | undefined;
@@ -378,13 +378,14 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             if (isMeasuredTemplateField(property)) {
                 return expandToNode`
                     // ${property.name} Measured Template Field Derived Data
-                    
-                    this.system.${property.name.toLowerCase()}.summary = () => {
+                   
+                    const ${property.name.toLowerCase()}Summary = () => {
                         let sum = \`\${this.system.${property.name.toLowerCase()}.direction}° \${this.system.${property.name.toLowerCase()}.type} (\${this.system.${property.name.toLowerCase()}.distance} squares)\`;
                         if (this.system.${property.name.toLowerCase()}.type === 'cone') sum += \` \${this.system.${property.name.toLowerCase()}.angle}° angle\`;
                         if (this.system.${property.name.toLowerCase()}.type === 'ray') sum += \` \${this.system.${property.name.toLowerCase()}.width} squares wide\`;
                         return sum;
-                    };
+                    }
+                    this.system.${property.name.toLowerCase()}.summary = ${property.name.toLowerCase()}Summary();
                     
                 `.appendNewLineIfNotEmpty();
             }
