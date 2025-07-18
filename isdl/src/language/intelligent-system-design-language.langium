@@ -59,7 +59,7 @@ ClassExpression:
 Property:
     (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | DeprecatedFields);
 BasicFields:
-    (StringExp | NumberExp | HtmlExp | BooleanExp);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField);
 ComplexFields:
     (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField);
 DateTimeFields:
@@ -71,7 +71,7 @@ DocumentFields:
 ReferenceFields:
     (ParentPropertyRefExp);
 DeprecatedFields:
-    (PipsExp);
+    (PipsExp | DocumentArrayExp);
 fragment ExpressionModifier:
     (modifier=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 StandardFieldParams:
@@ -86,13 +86,33 @@ NumberFieldParams:
 
 StringExp:
     ExpressionModifier "string" name=ID ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
+
+StringChoiceField:
+    ExpressionModifier "choice" "<" "string" ">" name=ID ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
+
 StringParameter:
     (StringParamChoices | StringParamValue | StandardFieldParams);
 StringParamValue:
     "value:" value=(STRING | MethodBlock);
 StringParamChoices:
-    "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]";
+    "choices:" "[" (choices+=StringChoice ("," choices+=StringChoice)*)? "]";
  
+StringChoice:
+    value=(STRING | StringExtendedChoice);
+
+StringExtendedChoice: 
+    "{" properties+=(ChoiceStringValue | ChoiceProperty) ("," properties+=(ChoiceStringValue | ChoiceProperty))* "}";
+
+ChoiceProperty:
+    LabelParam | IconParam | 
+    ColorParam | WhenExpressions | ChoiceCustomProperty;
+
+ChoiceStringValue:
+    "value:" value=STRING;
+
+// Custom properties for game-specific data
+ChoiceCustomProperty:
+    key=ID ":" value=(STRING | INT | BOOLEAN | Expression);
  
 // Number -------------
 

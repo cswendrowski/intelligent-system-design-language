@@ -23,7 +23,7 @@ import {
     isParentAccess,
     isTargetTypeCheckExpression,
     Layout,
-    isLayout,
+    isLayout, isStringChoiceField,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -69,7 +69,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return systemPath;
     }
 
-    if (isResourceExp(reference) || isTrackerExp(reference)) {
+    if (isResourceExp(reference) || isTrackerExp(reference) || isStringChoiceField(reference)) {
         return `${basePath}${reference.name.toLowerCase()}.value`;
     }
     if (isAttributeExp(reference)) {

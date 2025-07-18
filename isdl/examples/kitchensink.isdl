@@ -15,7 +15,6 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         fleeting rollResult = roll(d6 + self.Fight + mod)
         return rollResult.total
     }
-
     
     page PlainFields {
         
@@ -47,7 +46,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
         
         section DocumentLinks {
-            Skill[] SkillsTable
+            table<Skill> SkillsTable
             Skill SingleDocumentField
             choice<Skill> ChoiceField
             macro MacroField
@@ -64,8 +63,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     
     page Info(background: hideout) {
         section BasicInfo {
-            gmOnly string HeroType(choices: ["A", "B", "C"], icon: "fa-solid fa-cube", color: #a586c0)
-            string DamageType(choices: ["⚔️ Cutting", "🤺 Piercing", "🔨 Bludgeoning", "🔫 Ballistic", "💥 Explosive", "🪄 Magic", "🔮 Psychic", "☀️ Solar", "🔥 Fire", "❄️ Ice", "💀 Corrosive", "☠️ Poison", "👻 Spirit"])
+            gmOnly choice<string> HeroType(choices: ["A", "B", "C"], icon: "fa-solid fa-cube", color: #a586c0)
+            choice<string> DamageType(choices: [
+                { label: "⚔️ Cutting", value: "Cutting" },
+                { label: "🤺 Piercing", value: "Piercing" },
+                { label: "🔨 Bludgeoning", value: "Bludgeoning" }
+                ])
             string Summary(icon: "fa-solid fa-info-circle", color: #a586c0)
             string Text2(icon: "fa-solid fa-book", label: "Locked Text Field", value: "This is a locked text field that cannot be edited by the player.", color: #a586c0)
             
@@ -344,10 +347,7 @@ action Roll {
 }
 }
 
-table<Spell> VuetifySpells2
-
 section Damage {
-    row {
     damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
     
     action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
@@ -367,12 +367,6 @@ section Damage {
         @js{roll.toMessage({flavor: "Bashing Damage"});}
         self.Damage.bashing += @js{roll._total}
     }
-    }
-    
-    Spell[] Spells(fields: [Type, Class])
-    Skill[] Skills(fields: [Ability, Trained, SkillMod])
-    table<Spell> VuetifySpells
-    table<Skill> VuetifySkills(fields: [Ability, Trained, SkillMod])
 }
 
 hidden number AvailableSkillLevels
@@ -383,8 +377,9 @@ page Equipment(icon: "fa-solid fa-backpack", background: food) {
     Equipment[] Weapons(where: item.Type equals "Weapon")
     Potion[] Potion
 }
-
-
+Spell[] Spells(fields: [Type, Class])
+table<Skill> Skills(fields: [Ability, Trained, SkillMod])
+table<Spell> VuetifySpells
 }
 
 actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp") {
@@ -483,11 +478,58 @@ item Equipment {
 }
 
 item Spell {
-    string Type(choices: ["Attack", "Defense", "Healing"])
-    string Class(choices: ["Fire", "Water", "Earth", "Air"])
+    choice<string> Type(choices: [
+        { value: "Attack", icon: "fa-solid fa-bolt", color: #FF0000 },
+        { value: "Defense", icon: "fa-solid fa-shield", color: #00FF00 },
+        { value: "Healing", icon: "fa-solid fa-heart", color: #0000FF }
+    ])
+    choice<string> Class(choices: [
+        "None",
+        { label: "🔥Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF4500 },
+        { label: "💧Water", value: "Water", icon: "fa-solid fa-water", color: #1E90FF },
+        { label: "🌍Earth", value: "Earth", icon: "fa-solid fa-earth", color: #8B4513 },
+        { label: "🌬️Air", value: "Air", icon: "fa-solid fa-wind", color: #87CEEB }
+    ])
+    choice<string> Training(choices: [
+        { value: "Basic", icon: "fa-solid fa-graduation-cap", color: #FFD700, bonus: 0, checkDC: 16 },
+        { value: "Advanced", icon: "fa-solid fa-university", color: #C0C0C0, bonus: 1, checkDC: 14 },
+        { value: "Master", icon: "fa-solid fa-chess-king", color: #8B4513, bonus: 2, checkDC: 12 }
+    ])
     number Level
     number Cost
     string Summary
+
+    action Roll {
+        fleeting spellRoll = roll(d20 + self.Level + self.Training.bonus)
+        fleeting dc = self.Training.checkDC
+        fleeting success = spellRoll.total >= dc
+        if (success) {
+            chat SpellCast {
+                flavor "Success!"
+                self.Summary
+                spellRoll
+                tag dc
+                tag self.Type
+                tag self.Class
+                tag self.Training
+                tag self.Level
+                tag self.Cost
+            }
+        }
+        else {
+            chat SpellCast {
+                flavor "Failed!"
+                self.Summary
+                spellRoll
+                tag dc
+                tag self.Type
+                tag self.Class
+                tag self.Training
+                tag self.Level
+                tag self.Cost
+            }
+        }
+    }
 }
 
 item Potion {

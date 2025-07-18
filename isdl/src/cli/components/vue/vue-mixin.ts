@@ -23,6 +23,7 @@ export function generateVueMixin(description: string) {
         "i-tracker": "Tracker",
         "i-macro": "MacroField",
         "i-measured-template": "MeasuredTemplateField",
+        "i-extended-choice": "ExtendedChoiceField",
     };
 
     const fileNode = expandToNode`

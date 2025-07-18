@@ -376,7 +376,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
             /* -------------------------------------------- */
 
             async _onAction(event) {
-                event.preventDefault();
+                if (event.preventDefault) event.preventDefault();
                 const action = event.currentTarget.dataset.action;
                 switch ( action ) {
                     ${joinToNode(actions, property => `case "${property.name.toLowerCase()}": this._on${property.name}Action(event, this.document.system); break;`, { appendNewLineIfNotEmpty: true })}
@@ -401,7 +401,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
             /* -------------------------------------------- */
 
             async _on${action.name}Action(event, system) {
-                event.preventDefault();
+                if (event.preventDefault) event.preventDefault();
                 let update = {};
                 let embeddedUpdate = {};
                 let parentUpdate = {};

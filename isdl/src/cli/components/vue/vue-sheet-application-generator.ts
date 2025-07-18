@@ -1,12 +1,12 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
+import {CompositeGeneratorNode, expandToNode, joinToNode, toString} from 'langium/generate';
 import {
     Action,
     AttributeExp, AttributeRollParam,
     AttributeStyleParam,
     BackgroundParam, BooleanExp,
-    BooleanParamValue,
+    BooleanParamValue, ChoiceCustomProperty, ChoiceStringValue,
     ClassExpression,
     ColorParam, DateExp, DateTimeExp, DiceField, DieChoicesParam, DieField,
     Document,
@@ -23,7 +23,7 @@ import {
     isAttributeStyleParam,
     isBackgroundParam,
     isBooleanExp,
-    isBooleanParamValue,
+    isBooleanParamValue, isChoiceCustomProperty, isChoiceStringValue,
     isColorParam, isColumn,
     isDateExp,
     isDateTimeExp, isDiceField, isDiceFields, isDieChoicesParam,
@@ -33,7 +33,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isMacroField, isMeasuredTemplateField,
+    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -50,14 +50,14 @@ import {
     isSegmentsParameter,
     isSingleDocumentExp,
     isSizeParam,
-    isStatusProperty,
-    isStringExp,
+    isStatusProperty, isStringChoiceField,
+    isStringExp, isStringExtendedChoice,
     isStringParamChoices,
     isStringParamValue, isTableField,
     isTimeExp,
     isTrackerExp,
     isTrackerStyleParameter,
-    isVisibilityParam, Layout,
+    isVisibilityParam, LabelParam, Layout,
     NumberExp,
     NumberFieldParams,
     NumberParamMax,
@@ -70,17 +70,17 @@ import {
     ResourceExp,
     SegmentsParameter,
     SizeParam,
-    StandardFieldParams, StringExp,
+    StandardFieldParams, StringChoice, StringChoiceField, StringExp,
     StringParamChoices,
     StringParamValue, TableField, TimeExp, TrackerExp,
     TrackerStyleParameter,
     VisibilityParam
 } from "../../../language/generated/ast.js";
-import { getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
-import { generateDatatableComponent } from './vue-datatable-component-generator.js';
-import { AstUtils } from 'langium';
-import { generateActionComponent } from './vue-action-component-generator.js';
-import { generateDocumentChoiceComponent } from './vue-document-choice-component-generator.js';
+import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
+import {generateDatatableComponent} from './vue-datatable-component-generator.js';
+import {AstUtils} from 'langium';
+import {generateActionComponent} from './vue-action-component-generator.js';
+import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
 import {translateBodyExpressionToJavascript, translateExpression} from '../method-generator.js';
 import {humanize} from "inflection";
 import {generateVuetifyDatatableComponent} from "./vue-datatable2-component-generator.js";
@@ -91,7 +91,7 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}App.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -129,6 +129,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     }
 
     let tables = getAllOfType<TableField>(document.body, isTableField, true);
+
     function importDataTable2(pageName: string, table: TableField): CompositeGeneratorNode {
         generateVuetifyDatatableComponent(id, document, pageName, table, destination);
         return expandToNode`
@@ -139,7 +140,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function importPageOfDataTable(page: Page): CompositeGeneratorNode {
         const tabs = getAllOfType<DocumentArrayExp>(page.body, isDocumentArrayExp, true);
         return expandToNode`
-        ${joinToNode(tabs, tab => importDataTable(page.name.toLowerCase(), tab), { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(tabs, tab => importDataTable(page.name.toLowerCase(), tab), {appendNewLineIfNotEmpty: true})}
         `;
     }
 
@@ -181,12 +182,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 type: '${slot.type}',
                 left: '${slot.left}',
                 top: '${slot.top}'
-            }`, { separator: ',', appendNewLineIfNotEmpty: true })}
+            }`, {separator: ',', appendNewLineIfNotEmpty: true})}
         ];
         `;
     }
 
     const properties = getAllOfType<Property>(document.body, isProperty, false);
+
     function generateVisibilityState(element: Property | Action): CompositeGeneratorNode {
         if (element.modifier != undefined) {
             return expandToNode`
@@ -232,8 +234,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             }
 
             const visibilityParam = standardParams.find(function (p: any) {
-                    return isVisibilityParam(p);
-                }) as VisibilityParam | undefined;
+                return isVisibilityParam(p);
+            }) as VisibilityParam | undefined;
             if (visibilityParam) {
 
                 if (isMethodBlock(visibilityParam.visibility)) {
@@ -314,6 +316,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     }
 
     const attributes = getAllOfType<AttributeExp>(document.body, isAttributeExp, false);
+
     function generateAttributeRollMethod(attribute: AttributeExp): CompositeGeneratorNode {
         const rollParam = attribute.params.find(isAttributeRollParam) as AttributeRollParam | undefined;
         if (rollParam) {
@@ -359,11 +362,11 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
-        ${joinToNode(tabs, tab => importDataTable(document.name, tab), { appendNewLineIfNotEmpty: true })}
-        ${joinToNode(tables, table => importDataTable2(document.name, table), { appendNewLineIfNotEmpty: true })}
-        ${joinToNode(pages, importPageOfDataTable, { appendNewLineIfNotEmpty: true })}
-        ${joinToNode(actions, importActionComponent, { appendNewLineIfNotEmpty: true })}
-        ${joinToNode(documentChoices, importDocumentChoiceComponent, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(tabs, tab => importDataTable(document.name, tab), {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(tables, table => importDataTable2(document.name, table), {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(pages, importPageOfDataTable, {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(documentChoices, importDocumentChoiceComponent, {appendNewLineIfNotEmpty: true})}
         import ${entry.config.name}Roll from "../../../../rolls/roll.mjs";
         import DataTable from 'datatables.net-vue3';
         import DataTablesCore from 'datatables.net-dt';
@@ -422,7 +425,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const tab = ref(lastState.tab);
         const pageDefaultTabs = {
             '${document.name.toLowerCase()}': 'description',
-            ${joinToNode(pages, getPageFirstTab, { separator: ',', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(pages, getPageFirstTab, {separator: ',', appendNewLineIfNotEmpty: true})}
         };
 
         const updateLastState = () => {
@@ -447,7 +450,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
         const pageBackgrounds = {
             '${document.name.toLowerCase()}': 'topography',
-            ${joinToNode(pages, getPageBackground, { separator: ',', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(pages, getPageBackground, {separator: ',', appendNewLineIfNotEmpty: true})}
         };
 
         const pageBackground = computed(() => {
@@ -609,24 +612,30 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         // Paper Doll Slots
-        ${joinToNode(paperDoll, paperDollSlots, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(paperDoll, paperDollSlots, {appendNewLineIfNotEmpty: true})}
 
         // Visibility states
         const visibilityStatesMethods = {
-            ${joinToNode(properties, generateVisibilityState, { separator: ',', appendNewLineIfNotEmpty: true })},
-            ${joinToNode(actions, generateVisibilityState, { separator: ',', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(properties, generateVisibilityState, {separator: ',', appendNewLineIfNotEmpty: true})},
+            ${joinToNode(actions, generateVisibilityState, {separator: ',', appendNewLineIfNotEmpty: true})}
         };
         const visibilityStates = {
             ${joinToNode(properties, element => expandToNode`
                 '${element.name.toLowerCase()}': ref('default')
-            `, { separator: ',', appendNewLineIfNotEmpty: true })},
+            `, {separator: ',', appendNewLineIfNotEmpty: true})},
             ${joinToNode(actions, element => expandToNode`
                 '${element.name.toLowerCase()}': ref('default')
-            `, { separator: ',', appendNewLineIfNotEmpty: true })}
+            `, {separator: ',', appendNewLineIfNotEmpty: true})}
         };
         const updateVisibilityStates = async () => {
-            ${joinToNode(properties, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
-            ${joinToNode(actions, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, { separator: '\n', appendNewLineIfNotEmpty: true })}
+            ${joinToNode(properties, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, {
+        separator: '\n',
+        appendNewLineIfNotEmpty: true
+    })}
+            ${joinToNode(actions, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, {
+        separator: '\n',
+        appendNewLineIfNotEmpty: true
+    })}
         };
         watchEffect(async () => {
             await updateVisibilityStates();
@@ -688,7 +697,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
         
         // Attribute roll methods
-        ${joinToNode(attributes, generateAttributeRollMethod, { appendNewLineIfNotEmpty: true })}
+        ${joinToNode(attributes, generateAttributeRollMethod, {appendNewLineIfNotEmpty: true})}
     </script>
     <style>
     </style>
@@ -706,7 +715,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <v-app-bar :color="editMode ? 'amber-accent-3' : primaryColor" density="comfortable">
                 <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
                 <v-app-bar-title v-if="!editMode">{{ context.document.name }}</v-app-bar-title>
-                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="pt-6 document-name" v-if="editMode" density="compact"></v-text-field>
+                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="document-name" v-if="editMode" density="compact"></v-text-field>
                 <v-alert :text="game.i18n.localize('EditModeWarning')" type="warning" density="compact" class="ga-2 ma-1" color="amber-accent-3" v-if="editMode"></v-alert>
                 <template v-slot:append>
                     <v-btn
@@ -728,7 +737,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 </v-img>
                 <v-tabs v-model="page" direction="vertical">
                     <v-tab value="${document.name.toLowerCase()}" prepend-icon="fa-solid fa-circle-user">${document.name}</v-tab>
-                    ${joinToNode(pages, generateNavListItem, { appendNewLineIfNotEmpty: true })}
+                    ${joinToNode(pages, generateNavListItem, {appendNewLineIfNotEmpty: true})}
                 </v-tabs>
                 <template v-slot:append>
                     <div class="pa-2">
@@ -798,13 +807,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     <v-tabs-window v-model="page">
                         <v-tabs-window-item value="${document.name.toLowerCase()}" data-tab="${document.name.toLowerCase()}">
                             <v-row dense>
-                                ${joinToNode(document.body, element => generateElement(element, true), { appendNewLineIfNotEmpty: true })}
+                                ${joinToNode(document.body, element => generateElement(element, true), {appendNewLineIfNotEmpty: true})}
                             </v-row>
                             <v-divider class="mt-4 mb-2"></v-divider>
                             <v-tabs v-model="tab" grow always-center>
                                     <v-tab value="description" prepend-icon="fa-solid fa-book">Description</v-tab>
-                                    ${joinToNode(firstPageTabs, generateTab, { appendNewLineIfNotEmpty: true })}
-                                    ${joinToNode(firstPageTables, table => generateTab(table), { appendNewLineIfNotEmpty: true })}
+                                    ${joinToNode(firstPageTabs, generateTab, {appendNewLineIfNotEmpty: true})}
+                                    ${joinToNode(firstPageTables, table => generateTab(table), {appendNewLineIfNotEmpty: true})}
                                     <v-tab value="effects" prepend-icon="fa-solid fa-sparkles" @mousedown="spawnDatatableWindow($event, '${document.name}', 'effects')">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
@@ -812,7 +821,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                     <i-prosemirror :field="context.editors['system.description']" :disabled="!editMode"></i-prosemirror>
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
-                                ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), { appendNewLineIfNotEmpty: true })}
+                                ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), {appendNewLineIfNotEmpty: true})}
                                 <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
                                     <DataTable class="display compact" :data="effects" :columns="effectsColumns" :options="effectsOptions">
                                         <template #image="props">
@@ -836,7 +845,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                 </v-tabs-window-item>
                             </v-tabs-window>
                         </v-tabs-window-item>
-                    ${joinToNode(pages, generatePageBody, { appendNewLineIfNotEmpty: true })}
+                    ${joinToNode(pages, generatePageBody, {appendNewLineIfNotEmpty: true})}
                     </v-tabs-window>
                 </v-container>
             </v-main>
@@ -868,16 +877,16 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         return expandToNode`
         <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
             <v-row dense>
-                ${joinToNode(page.body, element => generateElement(element, true), { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(page.body, element => generateElement(element, true), {appendNewLineIfNotEmpty: true})}
             </v-row>
             <v-divider class="mt-4 mb-2"></v-divider>
             <v-tabs v-model="tab" grow always-center>
-                ${joinToNode(tabs, generateTab, { appendNewLineIfNotEmpty: true })}
-                ${joinToNode(tables, generateTab, { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(tabs, generateTab, {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(tables, generateTab, {appendNewLineIfNotEmpty: true})}
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
-                ${joinToNode(tables, table => generateVuetifyDatatable(page.name.toLowerCase(), table), { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(tables, table => generateVuetifyDatatable(page.name.toLowerCase(), table), {appendNewLineIfNotEmpty: true})}
             </v-tabs-window>
         </v-tabs-window-item>
         `;
@@ -913,7 +922,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                     <v-card-text>
                         <v-row dense>
-                            ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                            ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
                         </v-row>
                    </v-card-text>
                 </v-card>
@@ -924,7 +933,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         if (isRow(element)) {
             return expandToNode`
             <v-row dense>
-                ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
             </v-row>
             `;
         }
@@ -932,7 +941,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         if (isColumn(element)) {
             return expandToNode`
             <v-col>
-                ${joinToNode(element.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
             </v-col>
             `;
         }
@@ -979,7 +988,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 <template #label>
                     <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
                 </template>`;
-            const standardParamsFragment = colorParam ?  `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
+            const standardParamsFragment = colorParam ? `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
             const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;
@@ -988,20 +997,48 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const choicesParam = element.params.find(p => isParentPropertyRefChoiceParam(p)) as ParentPropertyRefChoiceParam | undefined;
                 let allChoices: Property[] = [];
                 switch (element.propertyType) {
-                    case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
-                    case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
-                    case "number": allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp); break;
-                    case "boolean": allChoices = globalGetAllOfType<BooleanExp>(entry, isBooleanExp); break;
-                    case "date": allChoices = globalGetAllOfType<DateExp>(entry, isDateExp); break;
-                    case "time": allChoices = globalGetAllOfType<TimeExp>(entry, isTimeExp); break;
-                    case "datetime": allChoices = globalGetAllOfType<DateTimeExp>(entry, isDateTimeExp); break;
-                    case "die": allChoices = globalGetAllOfType<DieField>(entry, isDieField); break;
-                    case "dice": allChoices = globalGetAllOfType<DiceField>(entry, isDiceField); break;
-                    case "string": allChoices = globalGetAllOfType<StringExp>(entry, isStringExp); break;
-                    case "tracker": allChoices = globalGetAllOfType<TrackerExp>(entry, isTrackerExp); break;
-                    case "choice": allChoices = globalGetAllOfType<DocumentChoiceExp>(entry, isDocumentChoiceExp); break;
-                    case "paperdoll": allChoices = globalGetAllOfType<PaperDollExp>(entry, isPaperDollExp); break;
-                    case "html": allChoices = globalGetAllOfType<HtmlExp>(entry, isHtmlExp); break;
+                    case "attribute":
+                        allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp);
+                        break;
+                    case "resource":
+                        allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp);
+                        break;
+                    case "number":
+                        allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp);
+                        break;
+                    case "boolean":
+                        allChoices = globalGetAllOfType<BooleanExp>(entry, isBooleanExp);
+                        break;
+                    case "date":
+                        allChoices = globalGetAllOfType<DateExp>(entry, isDateExp);
+                        break;
+                    case "time":
+                        allChoices = globalGetAllOfType<TimeExp>(entry, isTimeExp);
+                        break;
+                    case "datetime":
+                        allChoices = globalGetAllOfType<DateTimeExp>(entry, isDateTimeExp);
+                        break;
+                    case "die":
+                        allChoices = globalGetAllOfType<DieField>(entry, isDieField);
+                        break;
+                    case "dice":
+                        allChoices = globalGetAllOfType<DiceField>(entry, isDiceField);
+                        break;
+                    case "string":
+                        allChoices = globalGetAllOfType<StringExp>(entry, isStringExp);
+                        break;
+                    case "tracker":
+                        allChoices = globalGetAllOfType<TrackerExp>(entry, isTrackerExp);
+                        break;
+                    case "choice":
+                        allChoices = globalGetAllOfType<DocumentChoiceExp>(entry, isDocumentChoiceExp);
+                        break;
+                    case "paperdoll":
+                        allChoices = globalGetAllOfType<PaperDollExp>(entry, isPaperDollExp);
+                        break;
+                    case "html":
+                        allChoices = globalGetAllOfType<HtmlExp>(entry, isHtmlExp);
+                        break;
                     //default: console.error("Unsupported parent property type: " + element.propertyType); break;
                 }
                 let refChoices = allChoices.map(x => {
@@ -1068,8 +1105,24 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 }
 
                 if (choicesParam !== undefined) {
+
+                    function choiceValue(choice: StringChoice): string {
+                        if (!isStringExtendedChoice(choice.value)) {
+                            return toMachineIdentifier(choice.value);
+                        }
+                        let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                        if (value) {
+                            return toMachineIdentifier(value.value);
+                        }
+                        let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                        if (label) {
+                            return toMachineIdentifier(label.value);
+                        }
+                        return "unknown";
+                    }
+
                     // Map the choices to a string array
-                    const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
+                    const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${choiceValue(c)}'), value: '${choiceValue(c)}' }`).join(", ");
                     return expandToNode`
                     <v-select 
                         name="${systemPath}" 
@@ -1100,16 +1153,73 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 `;
             }
 
+            if (isStringChoiceField(element)) {
+                const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
+                if (!choicesParam) {
+                    console.warn(`StringChoiceField ${element.name} does not have a choices parameter.`);
+                    return expandToNode``;
+                }
+                if (choicesParam?.choices?.length === 0) return expandToNode``;
+
+                function choiceValue(choice: StringChoice): string {
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return toMachineIdentifier(choice.value);
+                    }
+                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                    if (value) {
+                        return toMachineIdentifier(value.value);
+                    }
+                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                    if (label) {
+                        return toMachineIdentifier(label.value);
+                    }
+                    return "unknown";
+                }
+
+                function choiceData(choice: StringChoice): CompositeGeneratorNode {
+                    let choiceField = element as StringChoiceField;
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '', color: '' }`;
+                    }
+                    let icon = choice.value.properties.find(isIconParam) as IconParam | undefined;
+                    let color = choice.value.properties.find(isColorParam) as ColorParam | undefined;
+
+                    if (isStringExtendedChoice(choice.value)) {
+                        let customProperties = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
+
+                        if (customProperties.length > 0) {
+                            return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}', customKeys: [${joinToNode(customProperties, custom => `{ key: '${custom.key}', label: '${humanize(custom.key)}', value: ${custom.value} }`, {separator: ','})}] }`;
+                        }
+                    }
+
+                    return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}' }`;
+                }
+
+                return expandToNode`
+                    <i-extended-choice
+                        label="${label}.label"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        :context="context"
+                        :items="[${joinToNode(choicesParam.choices, choiceData, {separator: ',', appendNewLineIfNotEmpty: true})}]"
+                        :primaryColor="primaryColor"
+                        :secondaryColor="secondaryColor"
+                        ${standardParamsFragment}
+                    ></i-extended-choice>
+                    `;
+
+            }
+
             if (isDocumentChoiceExp(element)) {
                 const componentName = `${document.name.toLowerCase()}${element.name}DocumentChoice`;
                 return expandToNode`
-                    <${componentName} 
+                    <${componentName}
                         label="${label}"
                         icon="${iconParam?.value}"
-                        :context="context" 
+                        :context="context"
                         :editMode="editMode"
                         ${standardParamsFragment}
-                        :primaryColor="primaryColor" 
+                        :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor">
                     </${componentName}>
                 `;
@@ -1123,8 +1233,8 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         systemPath="${systemPath}"
                         ${standardParamsFragment}
                         :context="context"
-                        :editMode="editMode" 
-                        :primaryColor="primaryColor" 
+                        :editMode="editMode"
+                        :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor">
                     </i-macro>
                 `;
@@ -1132,10 +1242,10 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isHtmlExp(element)) {
                 return expandToNode`
-                <i-prosemirror 
+                <i-prosemirror
                     label="${label}"
                     icon="${iconParam?.value}"
-                    :field="context.editors['${systemPath}']" 
+                    :field="context.editors['${systemPath}']"
                     ${standardParamsFragment}>
                 </i-prosemirror>
                 `;
@@ -1148,7 +1258,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     label="${label}"
                     icon="${iconParam?.value}"
                     systemPath="${systemPath}"
-                    :primaryColor="primaryColor" 
+                    :primaryColor="primaryColor"
                     :secondaryColor="secondaryColor"
                     ${standardParamsFragment}>
                 </i-measured-template>
@@ -1157,12 +1267,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isBooleanExp(element)) {
                 return expandToNode`
-                <v-checkbox 
-                    v-model="context.${systemPath}" 
+                <v-checkbox
+                    v-model="context.${systemPath}"
                     name="${systemPath}"
                     ${standardParamsFragment}
                     :color="primaryColor">
-                    ${labelFragment} 
+                    ${labelFragment}
                 </v-checkbox>
                 `;
             }

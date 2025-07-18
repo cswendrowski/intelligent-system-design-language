@@ -47,7 +47,13 @@ import {
     Layout,
     isLayout,
     isMacroField,
-    isMeasuredTemplateField
+    isMeasuredTemplateField,
+    isLabelParam,
+    LabelParam,
+    isChoiceStringValue,
+    ChoiceStringValue,
+    isStringExtendedChoice,
+    StringChoice, isStringChoiceField, ChoiceCustomProperty, isChoiceCustomProperty
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -91,10 +97,26 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         if (isStringExp(property)) {
             let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
             if (choices != undefined && choices.choices.length > 0) {
+
+                function choiceValue(choice: StringChoice): string {
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return toMachineIdentifier(choice.value);
+                    }
+                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                    if (value) {
+                        return toMachineIdentifier(value.value);
+                    }
+                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                    if (label) {
+                        return toMachineIdentifier(label.value);
+                    }
+                    return "unknown";
+                }
+
                 return expandToNode`
                     ${property.name.toLowerCase()}: new fields.StringField({
-                        choices: [${choices.choices.map(x => `"${toMachineIdentifier(x)}"`).join(", ")}],
-                        initial: "${toMachineIdentifier(choices.choices[0])}"
+                        choices: [${choices.choices.map(x => `"${choiceValue(x)}"`).join(", ")}],
+                        initial: "${choiceValue(choices.choices[0])}"
                     }),
                 `;
             }
@@ -102,6 +124,84 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
             `;
         }
+
+        if (isStringChoiceField(property)) {
+            let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
+
+            function choiceValue(choice: StringChoice): string {
+                if (!isStringExtendedChoice(choice.value)) {
+                    return toMachineIdentifier(choice.value);
+                }
+                let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                if (value) {
+                    return toMachineIdentifier(value.value);
+                }
+                let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                if (label) {
+                    return toMachineIdentifier(label.value);
+                }
+                return "unknown";
+            }
+
+            function getDefaultValueForType(type: string): any {
+                switch (type) {
+                    case 'string':
+                        return '';
+                    case 'number':
+                        return 0;
+                    case 'boolean':
+                        return false;
+                    default:
+                        return null; // or throw an error if you prefer
+                }
+            }
+
+            // For each extended choice, we need to gather a list of additional custom fields such as  bonus: 0 and add them to the datamodel
+            let additionalFields = choices.choices.reduce((acc, choice) => {
+                if (isStringExtendedChoice(choice.value)) {
+                    let customProperties = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
+
+                    customProperties.forEach(prop => {
+                        // Only add if we haven't seen this field name before
+                        if (!acc.find(field => field.key === prop.key)) {
+                            acc.push({
+                                key: prop.key,
+                                type: typeof prop.value, // or determine type from prop.value
+                                defaultValue: getDefaultValueForType(typeof prop.value)
+                            });
+                        }
+                    });
+                }
+                return acc;
+            }, [] as Array<{ key: string; type: string; defaultValue: any }>);
+
+            if (additionalFields.length > 0) {
+                return expandToNode`
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    value: new fields.StringField({
+                        choices: [${choices.choices.map(x => `"${choiceValue(x)}"`).join(", ")}],
+                        initial: "${choiceValue(choices.choices[0])}"
+                    }),
+                    icon: new fields.StringField({initial: ""}),
+                    color: new fields.StringField({initial: "#ffffff"}),
+                    ${joinToNode(additionalFields, field => `${field.key.toLowerCase()}: new fields.${field.type.charAt(0).toUpperCase() + field.type.slice(1)}Field({initial: ${JSON.stringify(field.defaultValue)}})`,
+                    { appendNewLineIfNotEmpty: true, separator: ',' })}
+                }),
+                `;
+            }
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    value: new fields.StringField({
+                        choices: [${choices.choices.map(x => `"${choiceValue(x)}"`).join(", ")}],
+                        initial: "${choiceValue(choices.choices[0])}"
+                    }),
+                    icon: new fields.StringField({initial: ""}),
+                    color: new fields.StringField({initial: "#ffffff"})
+                }),
+            `;
+        }
+
         if (isDateExp(property)) {
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.StringField({initial: new Intl.DateTimeFormat('en-CA').format(new Date()) }),

@@ -1,9 +1,10 @@
 import type {
+    ChoiceStringValue,
     ClassExpression,
     Document,
     Entry,
     LabelParam,
-    StandardFieldParams,
+    StandardFieldParams, StringChoice,
     StringParamChoices,
 } from '../../language/generated/ast.js';
 import {
@@ -16,11 +17,12 @@ import {
     isActor,
     isItem,
     isHookHandler,
-    isLabelParam, Layout, isLayout,
+    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {toMachineIdentifier} from "./utils.js";
 
 export function generateLanguageJson(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, `lang`);
@@ -73,23 +75,69 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             const labelParam = standardParams.find(x => isLabelParam(x)) as LabelParam | undefined;
             const label = labelParam ? labelParam.value : humanize(property.name);
 
+            function choiceLocalize(choice: StringChoice): string {
+                if (!isStringExtendedChoice(choice.value)) {
+                    return humanize(choice.value);
+                }
+                let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                if (label) {
+                    return label.value;
+                }
+                let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                if (value) {
+                    return humanize(value.value);
+                }
+                return "Unknown Choice";
+            }
+
+            function choiceValue(choice: StringChoice): string {
+                if (!isStringExtendedChoice(choice.value)) {
+                    return toMachineIdentifier(choice.value);
+                }
+                let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                if (value) {
+                    return toMachineIdentifier(value.value);
+                }
+                let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                if (label) {
+                    return toMachineIdentifier(label.value);
+                }
+                return "unknown";
+            }
+
             // If the property is a string with choices, we need to expand it into a list of localized strings
             if (isStringExp(property)) {
                 let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
+
                 if (choices != undefined && choices.choices.length > 0) {
                     return expandToNode`
                     "${property.name}": {
                         "label": "${label}",
-                        ${joinToNode(choices.choices, choice => `"${choice}": "${humanize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                        ${joinToNode(choices.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
                     }
                 `;
                 }
+            }
+
+            if (isStringChoiceField(property)) {
+                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+                const label = labelParam ? labelParam.value : humanize(property.name);
+                let choiceParam = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
+
+                return expandToNode`
+                "${property.name}": {
+                    "label": "${label}",
+                    ${joinToNode(choiceParam.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                }
+            `;
             }
 
             return expandToNode`
                 "${property.name}": "${label}"
             `;
         }
+
+
 
         if (isAction(property)) {
             const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;

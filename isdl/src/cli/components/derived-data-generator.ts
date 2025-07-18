@@ -630,10 +630,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
         function generateInitiativeFormula(document: Document): CompositeGeneratorNode | undefined {
             const initiativeAttribute = getAllOfType<InitiativeProperty>(document.body, isInitiativeProperty);
-            if (initiativeAttribute.length == 0) return;
+            if (initiativeAttribute.length == 0) {
+                return expandToNode`
+                case "${document.name.toLowerCase()}": return "0";
+                `.appendNewLineIfNotEmpty();
+            }
 
-            var initiative = initiativeAttribute[0]?.value;
-            if (initiative == undefined) return;
+            let initiative = initiativeAttribute[0]?.value;
+            if (initiative == undefined) {
+                return expandToNode`
+                case "${document.name.toLowerCase()}": return "0";
+                `.appendNewLineIfNotEmpty();
+            }
             console.log("Initiative Formula");
             return expandToNode`
             case "${document.name.toLowerCase()}": return "${translateExpression(entry, id, initiative, true, initiativeAttribute[0])}";

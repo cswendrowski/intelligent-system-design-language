@@ -40,7 +40,7 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
         };
 
         const disabled = computed(() => {
-            console.log("Action ${action.name} disabled computed triggered", props.visibility, props.editMode);
+            //console.log("Action ${action.name} disabled computed triggered", props.visibility, props.editMode);
             const disabledStates = ["readonly", "locked"];
             if (disabledStates.includes(props.visibility)) {
                 return true;
@@ -60,7 +60,7 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
         });
 
         const hidden = computed(() => {
-            console.log("Action ${action.name} hidden computed triggered", props.visibility, props.editMode);
+            //console.log("Action ${action.name} hidden computed triggered", props.visibility, props.editMode);
             if (props.visibility === "hidden") {
                 return true;
             }

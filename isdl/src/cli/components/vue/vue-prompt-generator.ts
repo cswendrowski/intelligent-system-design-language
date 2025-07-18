@@ -1,7 +1,49 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { AttributeExp, ClassExpression, Document, Entry, ImageParam, isAction, isActor, isAttributeExp, isAttributeParamMod, isBooleanExp, isDateExp, isDateTimeExp, isDocumentChoiceExp, isHookHandler, isHtmlExp, isImageParam, isNumberExp, isNumberParamMin, isNumberParamValue, isPaperDollExp, isParentPropertyRefChoiceParam, isParentPropertyRefExp, isProperty, isResourceExp, isSingleDocumentExp, isSizeParam, isStringExp, isStringParamChoices, isStringParamValue, isTimeExp, isVariableExpression, NumberExp, NumberParamMin, NumberParamValue, ParentPropertyRefChoiceParam, Prompt, Property, ResourceExp, SizeParam, StringParamChoices, StringParamValue } from "../../../language/generated/ast.js";
+import {
+    AttributeExp, ChoiceStringValue,
+    ClassExpression,
+    Document,
+    Entry,
+    ImageParam,
+    isAction,
+    isActor,
+    isAttributeExp,
+    isAttributeParamMod,
+    isBooleanExp, isChoiceStringValue,
+    isDateExp,
+    isDateTimeExp,
+    isDocumentChoiceExp,
+    isHookHandler,
+    isHtmlExp,
+    isImageParam, isLabelParam,
+    isNumberExp,
+    isNumberParamMin,
+    isNumberParamValue,
+    isPaperDollExp,
+    isParentPropertyRefChoiceParam,
+    isParentPropertyRefExp,
+    isProperty,
+    isResourceExp,
+    isSingleDocumentExp,
+    isSizeParam,
+    isStringExp, isStringExtendedChoice,
+    isStringParamChoices,
+    isStringParamValue,
+    isTimeExp,
+    isVariableExpression, LabelParam,
+    NumberExp,
+    NumberParamMin,
+    NumberParamValue,
+    ParentPropertyRefChoiceParam,
+    Prompt,
+    Property,
+    ResourceExp,
+    SizeParam, StringChoice,
+    StringParamChoices,
+    StringParamValue
+} from "../../../language/generated/ast.js";
 import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { AstUtils } from 'langium';
 
@@ -44,12 +86,12 @@ export function generatePromptApp(name: string, entry: Entry, id: string, docume
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 
-    
+
 function generateElement(element: ClassExpression): CompositeGeneratorNode {
     if (isProperty(element)) {
         if (isHookHandler(element)) return expandToNode``;
         if (element.modifier == "hidden") return expandToNode``;
-        
+
         if (element.name == "RollVisualizer") {
             return expandToNode`
             <i-roll-visualizer :context="context"></i-roll-visualizer>
@@ -76,11 +118,11 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             }
             let refChoices = allChoices.map(x => {
                 let parentDocument = getDocument(x);
-    
+
                 if (choicesParam && choicesParam.choices.length > 0) {
                     if (!choicesParam.choices.find(y => {
                         const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
-    
+
                         if (y.property != undefined) {
                             const propertyNameMatches = y.property.ref?.name.toLowerCase() == x.name.toLowerCase();
                             return documentNameMatches && propertyNameMatches;
@@ -91,7 +133,7 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
                         return undefined;
                     }
                 }
-    
+
                 return {
                     path: `system.${x.name.toLowerCase()}`,
                     parent: parentDocument?.name,
@@ -116,8 +158,25 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             }
 
             if (choicesParam !== undefined) {
+
+                function choiceValue(choice: StringChoice): string {
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return toMachineIdentifier(choice.value);
+                    }
+                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                    if (value) {
+                        return toMachineIdentifier(value.value);
+                    }
+                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                    if (label) {
+                        return toMachineIdentifier(label.value);
+                    }
+                    return "unknown";
+                }
+
                 // Map the choices to a string array
-                const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${toMachineIdentifier(c)}' }`).join(", ");
+                const choices = choicesParam.choices
+                    .map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${choiceValue(c)}' }`).join(", ");
                 return expandToNode`
                 <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
                 `;
@@ -216,7 +275,7 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             <i-paperdoll label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" image="${image}" size="${size}" :slots="${element.name.toLowerCase()}Slots"></i-paperdoll>
             `;
         }
-        
+
         return expandToNode`
         <v-alert text="Unknown Property ${element.name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
         `;

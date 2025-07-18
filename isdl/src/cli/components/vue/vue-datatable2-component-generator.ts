@@ -19,7 +19,7 @@ import {
     isPaperDollElement,
     isParentPropertyRefExp,
     isProperty,
-    isResourceExp,
+    isResourceExp, isStringChoiceField,
     isStringExp,
     isStringParamChoices, isTableFieldsParam,
     isTimeExp,
@@ -76,7 +76,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 localizeName += ".label";
             }
 
-            if (isDocumentChoiceExp(property)) {
+            if (isDocumentChoiceExp(property) || isStringChoiceField(property)) {
                 localizeName += ".label";
             }
 
@@ -133,6 +133,18 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                         </template>
                     `;
                 }
+            }
+
+            if (isStringChoiceField(property)) {
+                systemPath = systemPath.replace(/\.(value)$/, '');
+                const parentDocument = AstUtils.getContainerOfType(property, isDocument);
+                return expandToNode`
+                    <template v-slot:item.${slotName}="{ item }">
+                        <v-chip size="x-small" variant="elevated" class="text-caption" label :color="getNestedValue(item, '${systemPath}.color')" :prepend-icon="getNestedValue(item, '${systemPath}.icon')" :data-tooltip="getExtendedChoiceTooltip(item, '${systemPath}')">
+                            {{ game.i18n.localize('${parentDocument?.name}.${property.name}.' + getNestedValue(item, '${systemPath}.value')) }}
+                        </v-chip>
+                    </template>
+                `;
             }
 
             if (isParentPropertyRefExp(property)) {
@@ -276,7 +288,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         };
 
         const getNestedValue = (obj, path) => {
-            return path.split('.').reduce((current, key) => current?.[key], obj);
+            const data = foundry.utils.getProperty(obj, path);
+            //console.log("getNestedValue", { obj, path, data });
+            return data;
         };
 
         const getResourceColor = (resource) => {
@@ -359,6 +373,24 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             } catch (e) {
                 console.error(e);
             }
+        };
+        
+        const getExtendedChoiceTooltip = (item, systemPath) => {
+            // The choice item might have additional system properties other than the core value, color, and icon.
+            // We want to build a tooltip of these additional values
+            const tooltipParts = [];
+            const coreKeys = ['value', 'color', 'icon'];
+            const base = getNestedValue(item, systemPath);
+            // Iterate over item.system to find additional properties
+            for (const key of Object.keys(base)) {
+                if (!coreKeys.includes(key)) {
+                    const value = base[key];
+                    if (value !== undefined) {
+                        tooltipParts.push(\`\${key}: \${value}\`);
+                    }
+                }
+            }
+            return tooltipParts.join('<br>');
         };
 
         // Bind drag drop after component mount

@@ -1,4 +1,3 @@
-
 import * as vscode from 'vscode';
 import { CodeAction } from 'vscode';
 import { ExpectDiagnosticData } from 'langium/test';
@@ -17,6 +16,10 @@ export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeAct
                     case 'pips-deprecated':
                         this.pipsDeprecated(document, diagnostic, actions);
                         break;
+                    case 'string-choices-deprecated':
+                        this.stringChoicesDeprecated(document, diagnostic, actions);
+                    case 'document-array-deprecated':
+                        this.documentArrayDeprecated(document, diagnostic, actions);
                     default:
                         // Handle other diagnostics if needed
                         break;
@@ -75,7 +78,7 @@ export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeAct
                     tracker += `, `;
                 }
                 tracker += `style: icons, `;
-    
+
                 if (data.style === 'squares') {
                     tracker += `icon: 'fa-square'`;
                 }
@@ -126,5 +129,41 @@ export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeAct
 
     resolveCodeAction?(codeAction: vscode.CodeAction, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeAction> {
         return codeAction;
+    }
+
+    private stringChoicesDeprecated(document: vscode.TextDocument, diagnostic: vscode.Diagnostic, actions: vscode.CodeAction[]) {
+        const fix = new vscode.CodeAction(
+            "Replace with choice<string>",
+            vscode.CodeActionKind.QuickFix
+        );
+        fix.diagnostics = [diagnostic];
+        fix.isPreferred = true;
+        fix.edit = new vscode.WorkspaceEdit();
+
+        //const diagnosticData = diagnostic as ExpectDiagnosticData;
+
+        const currentText = document.getText(diagnostic.range);
+        const replacement = currentText.replace('string', `choice<string>`);
+
+        fix.edit.replace(document.uri, diagnostic.range, replacement);
+        actions.push(fix);
+    }
+
+    private documentArrayDeprecated(document: vscode.TextDocument, diagnostic: vscode.Diagnostic, actions: vscode.CodeAction[]) {
+        const diagnosticData = diagnostic as ExpectDiagnosticData;
+        const data = diagnosticData.data as { name: string, type: string };
+        const fix = new vscode.CodeAction(
+            `Replace with table<${data.type}>`,
+            vscode.CodeActionKind.QuickFix
+        );
+        fix.diagnostics = [diagnostic];
+        fix.isPreferred = true;
+        fix.edit = new vscode.WorkspaceEdit();
+
+        const currentText = document.getText(diagnostic.range);
+        const replacement = currentText.replace(`${data.type}[]`, `table<${data.type}>`);
+
+        fix.edit.replace(document.uri, diagnostic.range, replacement);
+        actions.push(fix);
     }
 }
