@@ -919,7 +919,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
         if (isSection(element)) {
             return expandToNode`
-            <v-col class="pl-1 pr-1 section">
+            <v-col class="section">
                 <v-card variant="outlined" elevation="4">
                     <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 

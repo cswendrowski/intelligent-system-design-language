@@ -23,12 +23,13 @@ import {
     isStringExp,
     isStringParamChoices, isTableFieldsParam,
     isTimeExp,
-    isTrackerExp, Layout,
+    isTrackerExp, Layout, Property,
     StandardFieldParams,
     StringParamChoices, TableField, TableFieldsParam
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getSystemPath} from '../utils.js';
 import {AstUtils, Reference} from 'langium';
+
 export function generateVuetifyDatatableComponent(id: string, document: Document, pageName: string, table: TableField, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "datatables");
@@ -44,6 +45,10 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
     let defaultVisibleFields = [] as string[];
     if (fieldsParam) {
         defaultVisibleFields = fieldsParam.fields;
+    }
+    else if (table.document.ref?.body) {
+        defaultVisibleFields = getAllOfType<Property>(table.document.ref.body, isProperty, false)
+            .map(p => p.name.toLowerCase()) ?? [];
     }
 
     function generateDataTableHeader(refDoc: Reference<Document> | undefined, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
@@ -266,6 +271,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const showColumnDialog = ref(false);
         
         const columnVisibility = ref({});
+        const columnOrder = ref([]);
 
         const data = computed(() => {
             const systemPath = props.systemPath ?? inject('systemPath');
@@ -276,6 +282,34 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const customHeaders = [
             ${joinToNode(table.document.ref!.body, p => generateDataTableHeader(table.document, p), { appendNewLineIfNotEmpty: true })}
         ];
+
+        const orderedHeaders = computed(() => {
+            if (columnOrder.value.length === 0) {
+                return customHeaders;
+            }
+            
+            // Create a map for quick lookup
+            const headerMap = new Map();
+            customHeaders.forEach(header => {
+                headerMap.set(header.key, header);
+            });
+            
+            // Build ordered array based on columnOrder, then add any missing headers
+            const ordered = [];
+            columnOrder.value.forEach(key => {
+                if (headerMap.has(key)) {
+                    ordered.push(headerMap.get(key));
+                    headerMap.delete(key);
+                }
+            });
+            
+            // Add any remaining headers that weren't in the order
+            headerMap.forEach(header => {
+                ordered.push(header);
+            });
+            
+            return ordered;
+        });
 
         const visibleHeaders = computed(() => {
             const baseHeaders = [
@@ -293,7 +327,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 }
             ];
             
-            let customHeadersToShow = customHeaders.filter(header => header && isColumnVisible(header.key));
+            let customHeadersToShow = orderedHeaders.value.filter(header => header && isColumnVisible(header.key));
             
             const actionHeaders = [
                 { 
@@ -321,7 +355,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 const documentTables = savedSettings[document._id] || {};
                 const tableSettings = documentTables['${pageName}${table.name}'] || {};
                 
-                // Initialize with defaults if no saved settings
+                // Initialize visibility with defaults if no saved settings
                 const defaultVisibility = {};
                 customHeaders.forEach(col => {
                     if (defaultVisibileColumns.includes(col.key)) {
@@ -329,12 +363,20 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     } else {
                         defaultVisibility[col.key] = false;
                     }
-                    if (tableSettings[col.key] !== undefined) {
-                        defaultVisibility[col.key] = tableSettings[col.key];
+                    if (tableSettings.visibility && tableSettings.visibility[col.key] !== undefined) {
+                        defaultVisibility[col.key] = tableSettings.visibility[col.key];
                     }
                 });
                 
                 columnVisibility.value = defaultVisibility;
+                
+                // Initialize order
+                if (tableSettings.order && Array.isArray(tableSettings.order)) {
+                    columnOrder.value = [...tableSettings.order];
+                } else {
+                    // Default order is the order they appear in customHeaders
+                    columnOrder.value = customHeaders.map(h => h.key);
+                }
             } catch (error) {
                 console.warn("Failed to load column settings, using defaults:", error);
                 // Use defaults if setting doesn't exist yet
@@ -347,6 +389,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     }
                 });
                 columnVisibility.value = defaultVisibility;
+                columnOrder.value = customHeaders.map(h => h.key);
             }
         };
 
@@ -355,12 +398,19 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 const savedSettings = game.settings.get("${id}", settingKey) || {};
                 const documentTables = savedSettings[document._id] || {};
                 savedSettings[document._id] = documentTables;
+                
                 const tableSettings = documentTables['${pageName}${table.name}'] || {};
+                
+                // Save visibility
+                const visibilitySettings = {};
                 customHeaders.forEach(col => {
-                    tableSettings[col.key] = columnVisibility.value[col.key];
+                    visibilitySettings[col.key] = columnVisibility.value[col.key];
                 });
+                
+                tableSettings.visibility = visibilitySettings;
+                tableSettings.order = [...columnOrder.value];
+                
                 savedSettings[document._id]['${pageName}${table.name}'] = tableSettings;
-                console.log(savedSettings);
                 await game.settings.set("${id}", settingKey, savedSettings);
             } catch (error) {
                 console.error("Failed to save column settings:", error);
@@ -387,7 +437,34 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 }
             });
             columnVisibility.value = defaultVisibility;
+            columnOrder.value = customHeaders.map(h => h.key);
             await saveColumnSettings();
+        };
+
+        const moveColumn = async (fromIndex, toIndex) => {
+            const newOrder = [...columnOrder.value];
+            const [movedItem] = newOrder.splice(fromIndex, 1);
+            newOrder.splice(toIndex, 0, movedItem);
+            columnOrder.value = newOrder;
+            await saveColumnSettings();
+        };
+
+        const onDragStart = (event, index) => {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', index.toString());
+        };
+
+        const onDragOver = (event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+        };
+
+        const onDrop = async (event, toIndex) => {
+            event.preventDefault();
+            const fromIndex = parseInt(event.dataTransfer.getData('text/plain'));
+            if (fromIndex !== toIndex) {
+                await moveColumn(fromIndex, toIndex);
+            }
         };
 
         onMounted(() => {
@@ -639,7 +716,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         </v-card>
 
         <!-- Column Configuration Dialog -->
-        <v-dialog v-model="showColumnDialog" max-width="500px">
+        <v-dialog v-model="showColumnDialog" max-width="600px">
             <v-card>
                 <v-card-title class="d-flex align-center">
                     <v-icon class="me-2">fa-solid fa-columns</v-icon>
@@ -648,23 +725,37 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 <v-divider></v-divider>
                 <v-card-text>
                     <div class="text-body-2 mb-4 text-medium-emphasis">
-                        Choose which columns to display in the table
+                        Drag to reorder columns, check/uncheck to show/hide columns
                     </div>
-                    <v-list density="compact" select-strategy="leaf">
-                        <v-list-item
-                            v-for="column in customHeaders"
-                            :key="column.key"
-                            :title="column.title"
-                            class="px-0"
+                    <v-list density="compact" class="column-config-list">
+                        <div 
+                            v-for="(columnKey, index) in columnOrder" 
+                            :key="columnKey"
+                            class="column-config-item"
+                            draggable="true"
+                            @dragstart="onDragStart($event, index)"
+                            @dragover="onDragOver"
+                            @drop="onDrop($event, index)"
                         >
-                            <template v-slot:prepend="{ isSelected, select }">
-                              <v-list-item-action start>
-                                <v-checkbox-btn :model-value="columnVisibility[column.key]" 
-                                @update:model-value="toggleColumn(column.key)">
-                                </v-checkbox-btn>
-                              </v-list-item-action>
-                            </template>
-                        </v-list-item>
+                            <v-list-item class="px-2">
+                                <template v-slot:prepend>
+                                    <v-icon 
+                                        icon="fa-solid fa-grip-vertical" 
+                                        class="drag-handle me-2" 
+                                        size="small"
+                                        style="cursor: grab;"
+                                    ></v-icon>
+                                    <v-checkbox-btn 
+                                        :model-value="columnVisibility[columnKey]" 
+                                        @update:model-value="toggleColumn(columnKey)"
+                                        class="me-2"
+                                    ></v-checkbox-btn>
+                                </template>
+                                <v-list-item-title>
+                                    {{ customHeaders.find(h => h.key === columnKey)?.title || columnKey }}
+                                </v-list-item-title>
+                            </v-list-item>
+                        </div>
                     </v-list>
                 </v-card-text>
                 <v-card-actions class="flexrow">
@@ -691,6 +782,32 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
     <style scoped>
     .v-data-table {
         background: transparent;
+    }
+    
+    .column-config-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .column-config-item {
+        border: 1px solid transparent;
+        border-radius: 4px;
+        margin-bottom: 2px;
+        transition: all 0.2s ease;
+    }
+    
+    .column-config-item:hover {
+        background-color: rgba(var(--v-theme-on-surface), 0.05);
+        border-color: rgba(var(--v-theme-primary), 0.2);
+    }
+    
+    .column-config-item.dragging {
+        opacity: 0.5;
+        transform: scale(0.98);
+    }
+    
+    .drag-handle:hover {
+        cursor: grabbing !important;
     }
     </style>
     `;

@@ -373,7 +373,7 @@ hidden number AvailableSkillLevels
 
 page Equipment(icon: "fa-solid fa-backpack", background: food) {
     Equipment Armor
-    Equipment[] Armors(where: item.Type equals "Armor")
+    table<Equipment> Armors(where: item.Type equals "Armor")
     Equipment[] Weapons(where: item.Type equals "Weapon")
     Potion[] Potion
 }
