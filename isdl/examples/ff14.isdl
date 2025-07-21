@@ -8,8 +8,8 @@ config FFXIV {
 actor PC {
     
     column {
-        string Class(choices: ["Dragoon", "Black Mage", "White Mage", "Warrior"])
-        string Role(choices: ["Tank", "Healer", "DPS"])
+        choice<string> Class(choices: ["Dragoon", "Black Mage", "White Mage", "Warrior"])
+        choice<string> Role(choices: ["Tank", "Healer", "DPS"])
         number Level
     }
     
@@ -53,10 +53,10 @@ actor PC {
     
     gmOnly boolean LimitBreakAllowed
     
-    PrimaryAbility[] PrimaryAbilities
-    SecondaryAbility[] SecondaryAbilities
-    InstantAbility[] InstantAbilities
-    Consumable[] Consumables
+    table<PrimaryAbility> PrimaryAbilities
+    table<SecondaryAbility> SecondaryAbilities
+    table<InstantAbility> InstantAbilities
+    table<Consumable> Consumables
 }
 
 item Consumable {
@@ -86,7 +86,7 @@ item PrimaryAbility {
     }
     column {
         parent<attribute> CheckAttribute(choices: [PC])
-        string CR(choices: ["Defense", "MagicDefense"])
+        choice<string> CR(choices: ["Defense", "MagicDefense"])
         
         action Roll(icon: "fa-solid fa-dice-d20") {
             if (parent is PC) {
@@ -113,6 +113,7 @@ item PrimaryAbility {
                             tag self.Limitation
                             self.BaseEffect
                             self.DirectHit
+                            self.Effects
                         }
                     } else {
                         chat GlancingBlow {
@@ -125,6 +126,7 @@ item PrimaryAbility {
                             tag self.CR
                             tag self.Limitation
                             self.BaseEffect
+                            self.Effects
                         }
                     }
                 }
@@ -142,6 +144,7 @@ item PrimaryAbility {
                         tag self.Limitation
                         self.BaseEffect
                         self.DirectHit
+                        self.Effects
                     }
                 }
                 else {
@@ -170,7 +173,7 @@ item SecondaryAbility {
         html BaseEffect
     }
     column {
-        string Limitation(choices: ["None", "Per Phase"])
+        choice<string> Limitation(choices: ["None", "Per Phase"])
         tracker UsesLeft(style: icons, icon: "fa-solid fa-bolt", min: 0)
     
         action Use(icon: "fa-solid fa-fire") {
@@ -204,7 +207,7 @@ item InstantAbility {
     }
 
     column {
-        string Limitation(choices: ["Per Phase"])
+        choice<string> Limitation(choices: ["Per Phase"])
         
         tracker UsesLeft(style: icons, icon: "fa-solid fa-bolt", min: 0)
         
@@ -218,6 +221,7 @@ item InstantAbility {
                     tag self.Trigger
                     self.BaseEffect
                     self.Limitation
+                    self.Effects
                 }
                 if (self.LimitBreak) {
                     play(file: "audio/sfx/FFXIV_Limit_Break_Activated.mp3")
@@ -231,13 +235,11 @@ item InstantAbility {
     }
 }
 
-
-
 actor NPC {
     
     column {
         health resource HP
-        string Size(choices: ["Medium", "Large", "Huge"])
+        choice<string> Size(choices: ["Medium", "Large", "Huge"])
         string Species
     }
     
@@ -266,9 +268,9 @@ actor NPC {
         number Speed
     }
     
-    NpcAbility[] Abilities
-    NpcMarker[] Markers
-    NpcTrait[] Traits
+    table<NpcAbility> Abilities
+    table<NpcMarker> Markers
+    table<NpcTrait> Traits
 }
 
 item NpcAbility {
@@ -281,7 +283,7 @@ item NpcAbility {
 
     column {
         parent<attribute> CheckAttribute(choices: [NPC])
-        string CR(choices: ["Defense", "MagicDefense"])
+        choice<string> CR(choices: ["Defense", "MagicDefense"])
 
         action Roll(icon: "fa-solid fa-dice-d20") {
             fleeting attack = roll(d20 + self.CheckAttribute.mod)
@@ -306,6 +308,7 @@ item NpcAbility {
                         self.BaseEffect
                         self.DirectHit
                         tag self.Limitation
+                        self.Effects
                     }
                 } else {
                     chat GlancingBlow {
@@ -317,6 +320,7 @@ item NpcAbility {
                         tag self.CR
                         tag self.Limitation
                         self.BaseEffect
+                        self.Effects
                     }
                 }
                 play(file: "audio/sfx/FFXIV_Aggro.mp3")
@@ -338,9 +342,10 @@ item NpcAbility {
 
 item NpcMarker {
     column {
-        string Type(choices: ["Stationary", "Mobile"])
+        choice<string> Type(choices: ["Stationary", "Mobile"])
         string Origin
         string Area
+        measuredTemplate Template
     }
     column {
         string Target
@@ -350,9 +355,11 @@ item NpcMarker {
             chat Marker {
                 self.Origin
                 self.Area
+                self.Template
                 self.Target
                 self.Trigger
                 tag self.Type
+                self.Effects
             }
         }
     }

@@ -7,40 +7,32 @@ config wrm {
 
 actor Character {
     // PAGE 1 - CHARACTER DEFAULT
-    section Attributes {
+    section Attributes{
         //WARRIOR
-        string Attirbutes(icon: "fa-solid fa-chart-bar", value: {return "W: " + self.Warrior + "R: " + self.Rogue + "M: " + self.Mage})
-        attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
+        edit attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
         // ROGUE
-        attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
+        edit attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
         // MAGE
-        attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
-        readonly tracker DamageAbsorb (style: icons, icon: "fa-solid fa-shield", value: {return self.WornArmor.ArmorRating}, max: 9 )
-        readonly tracker PenaltyBar (style: icons, icon: "fa-solid fa-shield", value: {return self.ArmorPenalty}, max: 9 )
+        edit attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
     }
-    //section Resources {
-    //    // Calculate total health for the character.
-    //}
 
     section ImportantNumbers {
         number Advances(min: 0)
         number BonusAdv(min: 0)
         hidden number DefenseMod(initial: 0)
         hidden number CastPenaltyMod(initial: 0)
-        hidden number FullMovement(initial: 10)
-        hidden number ShortMovement(initial: 5)
         hidden number ManaMult(initial: 2)
     }
-    Advancement[] Advancements
-    Skill[] Skills
-    Talent[] Talents
-    Language[] Languages
-    Project[] Projects
+    table<Advancement> Advancements
+    table<Skill> Skills
+    table<Talent> Talents
+    table<Language> Languages
+    table<Project> Projects
     // Page 2 -- Belongings
     page Belongings(icon: "fa-solid fa-backpack") {
     section Armor {
         //Equipment WornHelmet
-        unlocked string Cleanliness(choices: ["Pristine","Clean","Grubby","Dirty","Grimy","Filthy"])
+        unlocked choice<string> Cleanliness(choices: ["Pristine","Clean","Grubby","Dirty","Grimy","Filthy"])
         choice<Armor> WornArmor
         choice<Armor> WornShield
         hidden number ShieldBonus(value: {
@@ -78,7 +70,7 @@ actor Character {
         readonly number MonthlyIncome(value: {return 300 * self.Investments})
     }
     section CostOfLiving {
-        unlocked string LodgingQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
+        unlocked choice<string> LodgingQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
         hidden number LodgingQualityCost(value: {
             if (self.LodgingQuality == "Extravagant") {return 800}
             if (self.LodgingQuality == "Rich") {return 400}
@@ -87,7 +79,7 @@ actor Character {
             if (self.LodgingQuality == "Bare") {return 50}
             else {return 0}
         })
-        unlocked string MealQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
+        unlocked choice<string> MealQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
         hidden number MealQualityCost(value: {
             if (self.MealQuality == "Extravagant") {return 160}
             if (self.MealQuality == "Rich") {return 80}
@@ -116,11 +108,11 @@ actor Character {
                 }
             }
     }
-    Armor[] Armors
-    Consumable[] Consumables
-    Equipment[] Wearables
-    Item[] Items
-    Weapon[] Weapons
+    table<Armor> Armors
+    table<Consumable> Consumables
+    table<Equipment> Wearables
+    table<Item> Items
+    table<Weapon> Weapons
     }
     // PAGE 3 -- COMBAT
     page Combat(icon: "fa-solid fa-swords") {
@@ -131,35 +123,19 @@ actor Character {
             })
         resource Mana(icon: "fa-solid fa-sparkles", min: 0, max: {return self.Mage * self.ManaMult})
     section Defenses {
-        readonly string Movement(icon: "fa-solid fa-person-running", value: {return self.FullMovement + " Yds (" + self.ShortMovement + " w/ action)"})
-        readonly number Dodge(icon: "fa-solid fa-person-running-fast", value: {return 3 + ((self.Warrior + self.Rogue + self.Mage) / 3) + self.ShieldBonus + self.DefenseMod})
-        number ArmorPenalty(icon: "fa-solid fa-weight-hanging", min: 0, value: {
-            if (self.WornArmor exists) {
-                return ((self.WornArmor.system.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)
-                }
-                return 0
-                })
-        hidden number ShieldPenalty(icon: "fa-solid fa-shield-minus", min: 0, value: {
-            if (self.WornShield exists) {
-                return (self.WornShield.system.armorrating - 1)
-                }
-                return 0
-                })
-        readonly string ArmorAbsorb(icon: "fa-solid fa-helmet-battle", value: {
-            if (self.WornArmor exists) {
-                return self.WornArmor.system.armorrating + " (" + self.WornArmor.system.armorcondition + ")"
-                }
-                return "N/A"
-                })
-        readonly string ShieldBlock(icon: "fa-solid fa-shield", value: {
-            if (self.WornShield exists) {
-                return self.WornShield.system.armorrating + " (" + self.WornShield.system.armorcondition + ")"
-                }
-                return "N/A"
-                })
+        attribute ShortMovement(icon: "fa-solid fa-person-walking", initial: 5)
+        attribute FullMovement(icon: "fa-solid fa-person-running-fast", initial: 10)
+        hidden number ShieldPenalty(value: {return self.WornShield.system.armorrating - 1})
+        attribute Defense(icon: "fa-solid fa-person-falling-burst", value: {return 3 + ((self.Warrior + self.Rogue + self.Mage) / 3) + self.ShieldBonus + self.DefenseMod})
+        attribute ArmorPenalty(icon: "fa-solid fa-angles-down", value: {return self.WornArmor.system.armorrating - 1})
+        readonly tracker DamageAbsorb (style: icons, icon: "fa-solid fa-helmet-battle", value: {return self.WornArmor.system.armorrating - self.WornArmor.system.armorreduction}, max: {return self.WornArmor.system.armorrating} )
+        string Attributes(icon: "fa-solid fa-chart-bar", value: {return "W: " + self.Warrior + " R: " + self.Rogue + " M: " + self.Mage})
+        //readonly tracker ShieldAbsorb (style: icons, icon: "fa-solid fa-shield-slash", value: {return self.WornShield.system.armorrating}, max: {return self.WornShield.system.armorrating} )
+        //readonly tracker ShieldState (style: icons, icon: "fa-solid fa-shield-halved", value: {return self.WornShield.system.armorstate}, max: 7)
+        //readonly tracker PenaltyBar (style: icons, icon: "fa-solid fa-angles-down", color: #800000, value: {return ((self.WornArmor.system.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)},max: {return ((self.WornArmor.system.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)})
     }
     section DiceRollers {
-        unlocked string Attribute(choices: ["Warrior","Rogue","Mage"])
+        unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
 //        unlocked choice<Spell> Spell
         unlocked choice<Skill> Skill
         action RollAttribute(icon: "fa-solid fa-dice"){
@@ -169,7 +145,7 @@ actor Character {
             if (self.Skill exists) {SkillUsed = self.Skill}
             fleeting Skill = self.Skill.system.SkillTotal
             fleeting Prompt = prompt(label: "Roll Modifiers") {
-                string Advantage(choices: ["None","Advantage","Disadvantage"])
+                choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
                 number AddModifier
             }
             fleeting Modifier = Prompt.AddModifier
@@ -239,7 +215,7 @@ actor Character {
 //        }
         action Recover(icon: "fa-regular fa-bars-progress"){
             fleeting Prompt = prompt(label: "Recover Resources") {
-                string RecoverResource(choices: ["All","Fate","Health","Mana"])
+                choice<string> RecoverResource(choices: ["All","Fate","Health","Mana"])
             }
             if (Prompt.RecoverResource == "All") {
                 self.Health = self.Health.Max
@@ -328,12 +304,12 @@ actor Character {
         //    chat Damage{flavor("Helmet damaged.")}
         // }
 
-    Armor[] Armors
-    Consumable[] Consumables
-    Skill[] Skills
-    Spell[] Spells
-    Talent[] Talents
-    Weapon[] Weapons
+    table<Armor> YourArmors
+    table<Consumable> YourConsumables
+    table<Skill> YourSkills
+    table<Spell> YourSpells
+    table<Talent> YourTalents
+    table<Weapon> YourWeapons
     }
 }
 
@@ -345,19 +321,19 @@ actor Character {
 
 // LANGUAGE
 item Language(svg: "icons/svg/quill-ink.svg", description: "A useful language.") {
-    string Kind(choices: ["Common", "Uncommon", "Rare", "Dead", "Ancient"])
-    string Fluency(choices: ["Native", "Conversant", "Fluent", "Broken", "Academic"])
+    choice<string> Kind(choices: ["Common", "Uncommon", "Rare", "Dead", "Ancient"])
+    choice<string> Fluency(choices: ["Native", "Conversant", "Fluent", "Broken", "Academic"])
 }
 
 // TALENT
 item Talent(svg: "icons/svg/upgrade.svg", description: "A useful ability or improvement.") {
     section Details {
         string PreReq
-        string Kind(choices: ["Standard","Inherent","Free","Special","Negative","Temporary"])
+        choice<string> Kind(choices: ["Standard","Inherent","Free","Special","Negative","Temporary"])
         string Trigger
         string Requirement
-        string Activation(choices: ["Passive", "Action", "Reaction", "Special"])
-        string UseLimit(choices: ["Passive","At-Will","Turn","Round","Battle","Day","Session"])
+        choice<string> Activation(choices: ["Passive", "Action", "Reaction", "Special"])
+        choice<string> UseLimit(choices: ["Passive","At-Will","Turn","Round","Battle","Day","Session"])
     }
     section Tracking {
         tracker Combo(style: icons, icon: "fa-hand-back-fist", min: 0, max: {return self.MaxCombo}, visibility: {
@@ -383,8 +359,8 @@ item Talent(svg: "icons/svg/upgrade.svg", description: "A useful ability or impr
 //SKILL
 item Skill(svg: "icons/svg/weight-lifting-up.svg", description: "A useful bit of training.") {
     section Rating {
-        string CoreAttribute(choices: [ "Warrior", "Rogue", "Mage" ])
-        string SkillLevel(choices: [ "None","Trained","Expert","Master" ])
+        choice<string> CoreAttribute(choices: [ "Warrior", "Rogue", "Mage" ])
+        choice<string> SkillLevel(choices: [ "None","Trained","Expert","Master" ])
         hidden number SkillBase(value: {
             if (self.SkillLevel == "Master") {return 4}
             if (self.SkillLevel == "Expert") {return 3}
@@ -400,7 +376,7 @@ item Skill(svg: "icons/svg/weight-lifting-up.svg", description: "A useful bit of
     // ROLLERS
         action Roll(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
-                string Advantage(choices: ["None","Advantage","Disadvantage"])
+                choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
                 number AddModifier
             }
             fleeting Modifier = Prompt.AddModifier
@@ -428,13 +404,13 @@ item Skill(svg: "icons/svg/weight-lifting-up.svg", description: "A useful bit of
 // CONSUMABLE
 item Consumable(svg: "icons/svg/square-bottle.svg", description: "An item that is consumed on use.") {
     section Details {
-        string Kind(choices:["Ammo","Food","Elixir","Ration","Light","Liquor","Other"])
+        choice<string> Kind(choices:["Ammo","Food","Elixir","Ration","Light","Liquor","Other"])
         number Value(min:0)
         boolean Refillable
         number Uses(min:0)
     }
     section Uses {
-        string UseLimit(choices: ["N/A", "At-Will", "Turn", "Round", "Battle", "Day", "Session"])
+        choice<string> UseLimit(choices: ["N/A", "At-Will", "Turn", "Round", "Battle", "Day", "Session"])
         action Use(icon: "fa-solid fa-flask-round-potion") {
             self.Uses --
             chat PotionUsed {}
@@ -467,7 +443,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
     // ROLLERS
         action Attack(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
-                string Advantage(choices: ["None","Advantage","Disadvantage"])
+                choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
                 number AddModifier
             }
             fleeting Modifier = Prompt.AddModifier + self.AttackMod
@@ -506,9 +482,9 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         }
     }
     section Damage {
-        string DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"])
+        choice<string> DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"])
         number DiceCount(min: 1)
-        string Limit(choices: [ "None","Max5","Max4","Max3","Max2"])
+        choice<string> Limit(choices: [ "None","Max5","Max4","Max3","Max2"])
         number DamageMod
         hidden string DamageRoll(value:{
             if (self.Limit == "None") {return self.DiceCount + "d6x"}
@@ -531,15 +507,15 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
 // ITEM
 item Item(svg: "icons/svg/open-treasure-chest.svg", description: "A random item of dubious value.") {
     section Qualities {
-        string Kind(choices: ["Book","Document","Material","Valuable","Tool","Other","Special"])
+        choice<string> Kind(choices: ["Book","Document","Material","Valuable","Tool","Other","Special"])
         boolean Magical
         number Value(min:0)
         number Quantity(min: 1)
     }
     section Details {
-        string Status(choices: ["Carried","Accessible","Stored","Missing"])
+        choice<string> Status(choices: ["Carried","Accessible","Stored","Missing"])
         string Location
-        string Condition(choices: ["New","Good","Worn","Battered","Damaged","Ruined","Destroyed","Pristine"])
+        choice<string> Condition(choices: ["New","Good","Worn","Battered","Damaged","Ruined","Destroyed","Pristine"])
     }
 }
 
@@ -555,18 +531,18 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             @js{let spellMPScale = [0, 1, 2, 4, 8, 16, 32, 64];}
             return @js{spellMPScale[system.circle]}
         })
-        string Source(choices:["Innate","Channeled","Planar"])
-        string Field(choices: ["Forming", "Shaping", "Twisting", "Unaligned"])
-        string Consumes(choices: ["Mana","Blood","Favor","Fate","Other"])
+        choice<string> Source(choices:["Innate","Channeled","Planar"])
+        choice<string> Field(choices: ["Forming", "Shaping", "Twisting", "Unaligned"])
+        choice<string> Consumes(choices: ["Mana","Blood","Favor","Fate","Other"])
         }
     section Effect{
       //  string DamageClass(choices: ["Physical","Magical"])
         boolean Intangible
         boolean DealsDamage
-        string DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"], visibility: {
+        choice<string> DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"], visibility: {
             if (self.DealsDamage == false) {return Visibility.hidden}
             })
-        string Range(choices: ["Self","Touch","Ranged","Line of Sight"])
+        choice<string> Range(choices: ["Self","Touch","Ranged","Line of Sight"])
       //  number Targets(value: {
       //      @js{let spellTargetScale = [0, 1, 2, 3, 5, 8, 13, 21];}
       //      return @js{spellTargetScale[system.circle]}
@@ -598,8 +574,8 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
 // ADVANCEMENT
 item Advancement(svg: "icons/svg/progression.svg", description: "A record of a character's growth.") {
     section Details {
-    string AdvancementType(choices: ["Standard","Bonus"])
-    string Adding(choices: ["Attribute","Talent","Skill","Language","Health","Mana","Ability"])
+    choice<string> AdvancementType(choices: ["Standard","Bonus"])
+    choice<string> Adding(choices: ["Attribute","Talent","Skill","Language","Health","Mana","Ability"])
     string Note
     }
     section Logging {
@@ -661,7 +637,7 @@ section Protection {
             if (self.Irreparable == true) {return "Magic Only"}
             else {return self.SilverValue / 10 + "s, " + self.ArmorRating / 2 + " days"}
             })
-        string Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
+        choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
         }
 }
 
@@ -687,11 +663,11 @@ section Tracking {
 // EQUIPMENT
 item Equipment(svg: "icons/svg/pirate-coat.svg", description: "A wearable piece of equipment.") {
     section Qualities {
-        string Kind(choices: ["Headwear","Facewear","Cloak","Clothing","Legwear","Footwear","Neckwear","Belt","Bracelet","Gloves","Ring"])
+        choice<string> Kind(choices: ["Headwear","Facewear","Cloak","Clothing","Legwear","Footwear","Neckwear","Belt","Bracelet","Gloves","Ring"])
         //string Kind(choices: ["OuterWear","Bracelet","Coat","Clothing","Ring","Footwear","Gloves","Belt","Headwear","Cloak","Neckwear"])
-        string Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
-        string ClothingStyle(choices: ["Utility","Casual","Dress","Formal","Royal"])
-        string Condition(choices: ["New","Good","Worn","Battered","Damaged","Ruined","Destroyed","Pristine"])
+        choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
+        choice<string> ClothingStyle(choices: ["Utility","Casual","Dress","Formal","Royal"])
+        choice<string> Condition(choices: ["New","Good","Worn","Battered","Damaged","Ruined","Destroyed","Pristine"])
         string Origin
         boolean IsMagical
         number SilverValue(min:0)
@@ -731,9 +707,9 @@ item Follower {
 
 actor Army {
     section Attributes {
-        string Experience(choices: ["Untrained","Trained","Veteran","Elite"])
-        string Class(choices: ["Light", "Medium", "Heavy"])
-        string Weaponry(choices: ["Spears","Swords","Pikes","Bows"])
+        choice<string> Experience(choices: ["Untrained","Trained","Veteran","Elite"])
+        choice<string> Class(choices: ["Light", "Medium", "Heavy"])
+        choice<string> Weaponry(choices: ["Spears","Swords","Pikes","Bows"])
         string Movement(value: {
         if (self.Class == "Light") {return "Fast: 1/2/3"}
         if (self.Class == "Heavy") {return "Slow: 1/1/2"}
@@ -770,9 +746,9 @@ actor Army {
     section Actions {
         action Clash(icon: "fa-solid fa-swords", visibility: { if (self.Stamina < 1) return Visibility.locked}){
                 fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
-                    string Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
-                    string Flanking(choices:["Difficulty -1 step if enemy Flanked."])
-                    string Holding(choices:["Difficulty +1 step if enemy is Holding."])
+                    choice<string> Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
+                    choice<string> Flanking(choices:["Difficulty -1 step if enemy Flanked."])
+                    choice<string> Holding(choices:["Difficulty +1 step if enemy is Holding."])
                 }
                 fleeting clashDice = Math.round((self.Health + self.Stamina + self.Resolve) / 3)
                 fleeting rolltext = clashDice + "d6x6" + Prompt.Difficulty
@@ -808,18 +784,18 @@ actor Army {
             }
         }
     }
-    ArmyTalent[] Talents
+    table<ArmyTalent> Talents
 }
 
 item ArmyTalent {
     section Configuration {
         string Effect
-        string Activation(choices:["None", "As Turn", "When Clashing", "When Resting", "When Rallying", "When Holding", "When Moving"])
+        choice<string> Activation(choices:["None", "As Turn", "When Clashing", "When Resting", "When Rallying", "When Holding", "When Moving"])
         number Dice(min: 1)
     }
     section Actions {
         //boolean DoesDamage
-        string EffectType(choices: ["General","Damage"])
+        choice<string> EffectType(choices: ["General","Damage"])
         action UseTalent(visibility: { if (self.EffectType == "Damage") return Visibility.hidden}, icon: "fa-solid fa-chevrons-up"){
                 chat RollResult {
                     flavor("Talent activated! See effect.")
@@ -829,9 +805,9 @@ item ArmyTalent {
             }
         action RollDamage(visibility: { if (self.EffectType == "General") return Visibility.hidden}, icon: "fa-solid fa-burst"){
                 fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
-                    string Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
-                    string Flanking(choices:["Difficulty -1 step if enemy Flanked."])
-                    string Holding(choices:["Difficulty +1 step if enemy is Holding."])
+                    choice<string> Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
+                    choice<string> Flanking(choices:["Difficulty -1 step if enemy Flanked."])
+                    choice<string> Holding(choices:["Difficulty +1 step if enemy is Holding."])
                 }
                 fleeting rolltext = self.Dice + "d6x6" + Prompt.Difficulty
                 fleeting Roll = roll(rolltext)
@@ -846,4 +822,8 @@ item ArmyTalent {
                 }
             }
     }
+}
+
+actor Testbed {
+    string ThisStringLeftIntentionallyBlank
 }

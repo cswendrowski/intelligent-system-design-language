@@ -241,7 +241,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
             const pageName = page ? page.name : document.name;
 
             return expandToNode`
-                export { default as ${type}${document.name}${pageName}${datatable.name}VuetifyDatatable } from "./${type}/${document.name.toLowerCase()}/components/datatables/${document.name.toLowerCase()}${pageName.toLowerCase()}${datatable.name}VuetifyDatatable.vue";
+                export { default as ${type}${document.name}${pageName}${datatable.name}VuetifyDatatable } from "./${type}/${document.name.toLowerCase()}/components/datatables/${document.name.toLowerCase()}${pageName}${datatable.name}VuetifyDatatable.vue";
             `;
         }
 

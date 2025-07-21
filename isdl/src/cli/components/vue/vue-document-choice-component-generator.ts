@@ -129,7 +129,7 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
                 return \`<i class="\${icon}"></i> \${localized}\`;
             }
             return localized;
-        };
+        }
     </script>
     <template>
         <v-autocomplete clearable dense 

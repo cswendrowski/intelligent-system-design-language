@@ -29,7 +29,6 @@ import {
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getSystemPath} from '../utils.js';
 import {AstUtils, Reference} from 'langium';
-
 export function generateVuetifyDatatableComponent(id: string, document: Document, pageName: string, table: TableField, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "datatables");
@@ -42,6 +41,10 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
     const iconParam = table.params.find(p => isIconParam(p)) as IconParam | undefined;
 
     let fieldsParam = table.params.find(x => isTableFieldsParam(x)) as TableFieldsParam | undefined;
+    let defaultVisibleFields = [] as string[];
+    if (fieldsParam) {
+        defaultVisibleFields = fieldsParam.fields;
+    }
 
     function generateDataTableHeader(refDoc: Reference<Document> | undefined, property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
         if ( isLayout(property) ) {
@@ -54,10 +57,6 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         if ( isProperty(property) ) {
             const isHidden = property.modifier == "hidden";
             if (isHidden) return undefined;
-
-            if (fieldsParam && fieldsParam.fields.length > 0 && !fieldsParam.fields.some(x => x === property.name)) {
-                return undefined;
-            }
 
             let systemPath = getSystemPath(property, [], undefined, false);
             let sortable = true;
@@ -72,8 +71,15 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             let localizeName = `${refDoc?.ref?.name}.${property.name}`;
 
-            if (isStringExp(property) && property.params.some(p => isStringParamChoices(p))) {
-                localizeName += ".label";
+            if (isStringExp(property)) {
+                if (property.params.some(p => isStringParamChoices(p))) {
+                    localizeName += ".label";
+                }
+                else {
+                    return expandToNode`
+                        { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, width: '200px' },
+                    `;
+                }
             }
 
             if (isDocumentChoiceExp(property) || isStringChoiceField(property)) {
@@ -99,16 +105,12 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             const isHidden = property.modifier == "hidden";
             if (isHidden) return undefined;
 
-            if (fieldsParam && fieldsParam.fields.length > 0 && !fieldsParam.fields.some(x => x === property.name)) {
-                return undefined;
-            }
-
             let systemPath = getSystemPath(property, [], undefined, false);
             const slotName = systemPath;
 
             if (isBooleanExp(property)) {
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
                         <v-chip
                             :color="getNestedValue(item, '${systemPath}') ? props.primaryColor : props.secondaryColor"
                             size="x-small"
@@ -126,10 +128,19 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
                 if (choices != undefined && choices.choices.length > 0 ) {
                     return expandToNode`
-                        <template v-slot:item.${slotName}="{ item }">
-                            <v-chip size="x-small" variant="elevated" class="text-caption">
+                        <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
+                            <v-chip label size="x-small" variant="elevated" class="text-caption">
                                 {{ getNestedValue(item, '${systemPath}') }}
                             </v-chip>
+                        </template>
+                    `;
+                }
+                else {
+                    return expandToNode`
+                        <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
+                            <p class="text-caption" style="width: 200px;" :data-tooltip="getNestedValue(item, '${systemPath}')">
+                                {{ truncate(getNestedValue(item, '${systemPath}'), 55) }}
+                            </p>
                         </template>
                     `;
                 }
@@ -139,8 +150,8 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 systemPath = systemPath.replace(/\.(value)$/, '');
                 const parentDocument = AstUtils.getContainerOfType(property, isDocument);
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
-                        <v-chip size="x-small" variant="elevated" class="text-caption" label :color="getNestedValue(item, '${systemPath}.color')" :prepend-icon="getNestedValue(item, '${systemPath}.icon')" :data-tooltip="getExtendedChoiceTooltip(item, '${systemPath}')">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
+                        <v-chip label size="x-small" variant="elevated" class="text-caption" :color="getNestedValue(item, '${systemPath}.color')" :prepend-icon="getNestedValue(item, '${systemPath}.icon')" :data-tooltip="getExtendedChoiceTooltip(item, '${systemPath}')">
                             {{ game.i18n.localize('${parentDocument?.name}.${property.name}.' + getNestedValue(item, '${systemPath}.value')) }}
                         </v-chip>
                     </template>
@@ -149,7 +160,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             if (isParentPropertyRefExp(property)) {
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
                         <span class="text-caption">{{ humanize(getNestedValue(item, '${systemPath}')) }}</span>
                     </template>
                 `;
@@ -158,8 +169,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             if (isResourceExp(property) || isTrackerExp(property)) {
                 systemPath = systemPath.replace(/\.(value|max)$/, '');
                 return expandToNode`
-                    <template v-slot:item.${slotName.replace(".value", "")}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName.replace(".value", "")}="{ item }">
                         <v-chip 
+                            label
                             :color="getResourceColor(getNestedValue(item, '${systemPath}'))"
                             size="x-small"
                             variant="elevated"
@@ -173,8 +185,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             if (isDieField(property)) {
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
                         <v-chip 
+                            label
                             color="primary"
                             size="x-small"
                             variant="elevated"
@@ -189,8 +202,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             if (isDiceField(property)) {
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
                         <v-chip 
+                            label
                             color="primary"
                             size="x-small"
                             variant="elevated"
@@ -205,7 +219,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             if (isMeasuredTemplateField(property)) {
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
                         <v-chip 
                             color="secondary"
                             size="x-small"
@@ -222,7 +236,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             if (isTimeExp(property) || isDateExp(property) || isDateTimeExp(property)) {
                 return expandToNode`
-                    <template v-slot:item.${slotName}="{ item }">
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
                         <span class="text-caption">{{ formatDate(getNestedValue(item, '${systemPath}')) }}</span>
                     </template>
                 `;
@@ -236,7 +250,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed, inject } from "vue";
+        import { ref, computed, inject, onMounted, watch } from "vue";
 
         const props = defineProps({
             systemPath: String,
@@ -249,35 +263,136 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const document = inject('rawDocument');
         const search = ref('');
         const loading = ref(false);
+        const showColumnDialog = ref(false);
+        
+        const columnVisibility = ref({});
 
         const data = computed(() => {
             const systemPath = props.systemPath ?? inject('systemPath');
             const systemData = foundry.utils.getProperty(props.context, systemPath) || [];
             return systemData;
         });
-
-        const headers = [
-            { 
-                title: game.i18n.localize("Image"), 
-                key: 'img', 
-                sortable: false,
-                width: '30px'
-            },
-            { 
-                title: game.i18n.localize("Name"), 
-                key: 'name', 
-                sortable: true,
-                width: '200px'
-            },
+        
+        const customHeaders = [
             ${joinToNode(table.document.ref!.body, p => generateDataTableHeader(table.document, p), { appendNewLineIfNotEmpty: true })}
-            { 
-                title: game.i18n.localize("Actions"), 
-                key: 'actions', 
-                sortable: false,
-                width: '200px',
-                align: 'center'
-            }
         ];
+
+        const visibleHeaders = computed(() => {
+            const baseHeaders = [
+                { 
+                    title: game.i18n.localize("Image"), 
+                    key: 'img', 
+                    sortable: false,
+                    width: '30px'
+                },
+                { 
+                    title: game.i18n.localize("Name"), 
+                    key: 'name', 
+                    sortable: true,
+                    width: '100px'
+                }
+            ];
+            
+            let customHeadersToShow = customHeaders.filter(header => header && isColumnVisible(header.key));
+            
+            const actionHeaders = [
+                { 
+                    title: game.i18n.localize("Actions"), 
+                    key: 'actions', 
+                    sortable: false,
+                    width: '200px',
+                    align: 'center'
+                }
+            ];
+            
+            return [...baseHeaders, ...customHeadersToShow, ...actionHeaders];
+        });
+        
+        // Column configuration
+        const settingKey = 'documentTableColumns';
+        
+        const defaultVisibileColumns = [
+            ${joinToNode(defaultVisibleFields, p => expandToNode`'system.${p.toLowerCase()}'`, { separator: ",", appendNewLineIfNotEmpty: true })}
+        ];
+
+        const initializeColumnSettings = async () => {
+            try {
+                const savedSettings = game.settings.get("${id}", settingKey) || {};
+                const documentTables = savedSettings[document._id] || {};
+                const tableSettings = documentTables['${pageName}${table.name}'] || {};
+                
+                // Initialize with defaults if no saved settings
+                const defaultVisibility = {};
+                customHeaders.forEach(col => {
+                    if (defaultVisibileColumns.includes(col.key)) {
+                        defaultVisibility[col.key] = true;
+                    } else {
+                        defaultVisibility[col.key] = false;
+                    }
+                    if (tableSettings[col.key] !== undefined) {
+                        defaultVisibility[col.key] = tableSettings[col.key];
+                    }
+                });
+                
+                columnVisibility.value = defaultVisibility;
+            } catch (error) {
+                console.warn("Failed to load column settings, using defaults:", error);
+                // Use defaults if setting doesn't exist yet
+                const defaultVisibility = {};
+                customHeaders.forEach(col => {
+                    if (defaultVisibileColumns.includes(col.key)) {
+                        defaultVisibility[col.key] = true;
+                    } else {
+                        defaultVisibility[col.key] = false;
+                    }
+                });
+                columnVisibility.value = defaultVisibility;
+            }
+        };
+
+        const saveColumnSettings = async () => {
+            try {
+                const savedSettings = game.settings.get("${id}", settingKey) || {};
+                const documentTables = savedSettings[document._id] || {};
+                savedSettings[document._id] = documentTables;
+                const tableSettings = documentTables['${pageName}${table.name}'] || {};
+                customHeaders.forEach(col => {
+                    tableSettings[col.key] = columnVisibility.value[col.key];
+                });
+                savedSettings[document._id]['${pageName}${table.name}'] = tableSettings;
+                console.log(savedSettings);
+                await game.settings.set("${id}", settingKey, savedSettings);
+            } catch (error) {
+                console.error("Failed to save column settings:", error);
+                ui.notifications.error("Failed to save column settings");
+            }
+        };
+
+        const isColumnVisible = (columnKey) => {
+            return columnVisibility.value[columnKey] !== false;
+        };
+
+        const toggleColumn = async (columnKey) => {
+            columnVisibility.value[columnKey] = !columnVisibility.value[columnKey];
+            await saveColumnSettings();
+        };
+
+        const resetColumns = async () => {
+            const defaultVisibility = {};
+            customHeaders.forEach(col => {
+                if (defaultVisibileColumns.includes(col.key)) {
+                    defaultVisibility[col.key] = true;
+                } else {
+                    defaultVisibility[col.key] = false;
+                }
+            });
+            columnVisibility.value = defaultVisibility;
+            await saveColumnSettings();
+        };
+
+        onMounted(() => {
+            initializeColumnSettings();
+        });
 
         const humanize = (str) => {
             if (!str) return "";
@@ -289,7 +404,6 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
         const getNestedValue = (obj, path) => {
             const data = foundry.utils.getProperty(obj, path);
-            //console.log("getNestedValue", { obj, path, data });
             return data;
         };
 
@@ -364,6 +478,13 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 loading.value = false;
             }
         };
+        
+        const truncate = (text, maxLength) => {
+            if (text.length > maxLength) {
+                return text.substring(0, maxLength) + '...';
+            }
+            return text;
+        }
 
         const bindDragDrop = () => {
             try {
@@ -376,12 +497,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         };
         
         const getExtendedChoiceTooltip = (item, systemPath) => {
-            // The choice item might have additional system properties other than the core value, color, and icon.
-            // We want to build a tooltip of these additional values
             const tooltipParts = [];
             const coreKeys = ['value', 'color', 'icon'];
             const base = getNestedValue(item, systemPath);
-            // Iterate over item.system to find additional properties
             for (const key of Object.keys(base)) {
                 if (!coreKeys.includes(key)) {
                     const value = base[key];
@@ -413,8 +531,18 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                         hide-details
                         single-line
                         clearable
-                        style="margin: 0;"
+                        style="margin: 0; margin-right: 8px;"
                 ></v-text-field>
+                <v-btn
+                    icon="fa-solid fa-columns"
+                    size="small"
+                    variant="text"
+                    @click="showColumnDialog = true"
+                    style="margin-right: 8px;"
+                >
+                    <v-icon>fa-solid fa-columns</v-icon>
+                    <v-tooltip activator="parent" location="top">Configure Columns</v-tooltip>
+                </v-btn>
                 <v-btn
                     :color="primaryColor || 'primary'"
                     prepend-icon="fa-solid fa-plus"
@@ -431,7 +559,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             
             <v-data-table
                 v-model:search="search"
-                :headers="headers"
+                :headers="visibleHeaders"
                 :items="data"
                 :search="search"
                 hover
@@ -448,13 +576,8 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
                 <!-- Name slot with description tooltip -->
                 <template v-slot:item.name="{ item }">
-                    <div class="d-flex align-center">
-                        <div>
-                            <div class="font-weight-medium">{{ item.name }}</div>
-                            <div class="text-caption text-medium-emphasis" v-if="item.system?.description">
-                                {{ item.system.description.substring(0, 50) }}{{ item.system.description.length > 50 ? '...' : '' }}
-                            </div>
-                        </div>
+                    <div class="d-flex align-center" :data-tooltip="item.system.description">
+                        <div class="font-weight-medium" style="width: 100px;">{{ item.name }}</div>
                     </div>
                 </template>
 
@@ -514,6 +637,55 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 </template>
             </v-data-table>
         </v-card>
+
+        <!-- Column Configuration Dialog -->
+        <v-dialog v-model="showColumnDialog" max-width="500px">
+            <v-card>
+                <v-card-title class="d-flex align-center">
+                    <v-icon class="me-2">fa-solid fa-columns</v-icon>
+                    Configure Columns
+                </v-card-title>
+                <v-divider></v-divider>
+                <v-card-text>
+                    <div class="text-body-2 mb-4 text-medium-emphasis">
+                        Choose which columns to display in the table
+                    </div>
+                    <v-list density="compact" select-strategy="leaf">
+                        <v-list-item
+                            v-for="column in customHeaders"
+                            :key="column.key"
+                            :title="column.title"
+                            class="px-0"
+                        >
+                            <template v-slot:prepend="{ isSelected, select }">
+                              <v-list-item-action start>
+                                <v-checkbox-btn :model-value="columnVisibility[column.key]" 
+                                @update:model-value="toggleColumn(column.key)">
+                                </v-checkbox-btn>
+                              </v-list-item-action>
+                            </template>
+                        </v-list-item>
+                    </v-list>
+                </v-card-text>
+                <v-card-actions class="flexrow">
+                    <v-btn
+                        variant="elevated"
+                        @click="showColumnDialog = false"
+                        :color="primaryColor"
+                    >
+                        Close
+                    </v-btn>
+                    <v-btn
+                        variant="elevated"
+                        @click="resetColumns"
+                        prepend-icon="fa-solid fa-undo"
+                        :color="secondaryColor"
+                    >
+                        Reset to Default
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </template>
 
     <style scoped>

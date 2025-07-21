@@ -426,9 +426,12 @@
         }
     }
 
-    .v-col.section {
-        min-width: 316px;
-        max-width: 616px;
+    .v-col {
+        padding: 0;
+
+        &.section {
+            min-width: 332px;
+        }
     }
 
     .v-row {
@@ -472,6 +475,8 @@
         margin-top: 12px;
         height: 40px;
         flex: 1;
+        padding: 0;
+        align-self: center;
 
         .v-btn__content {
             justify-content: left;
@@ -558,13 +563,16 @@
         }
     }
 
+    .dice-container {
+        margin-top: 0.75rem;
+    }
+
     .attributeExp {
         display: flex;
         flex-direction: column;
         border: 3px solid #333;
         border-radius: 4px;
         min-width: 75px;
-        margin-top: 0.75rem;
 
         &.no-mod {
             max-height: 70px;

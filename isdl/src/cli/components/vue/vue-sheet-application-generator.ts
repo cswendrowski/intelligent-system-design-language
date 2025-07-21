@@ -128,9 +128,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         `;
     }
 
-    let tables = getAllOfType<TableField>(document.body, isTableField, true);
+    //let tables = getAllOfType<TableField>(document.body, isTableField, true);
+    let allTables = getAllOfType<TableField>(document.body, isTableField, false);
 
-    function importDataTable2(pageName: string, table: TableField): CompositeGeneratorNode {
+    function importDataTable2(table: TableField): CompositeGeneratorNode {
+        const page = AstUtils.getContainerOfType<Page>(table, isPage);
+        const pageName = page ? page.name : document.name;
         generateVuetifyDatatableComponent(id, document, pageName, table, destination);
         return expandToNode`
         import ${document.name}${pageName}${table.name}VuetifyDatatable from './components/datatables/${document.name.toLowerCase()}${pageName}${table.name}VuetifyDatatable.vue';
@@ -363,7 +366,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
         ${joinToNode(tabs, tab => importDataTable(document.name, tab), {appendNewLineIfNotEmpty: true})}
-        ${joinToNode(tables, table => importDataTable2(document.name, table), {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(allTables, table => importDataTable2(table), {appendNewLineIfNotEmpty: true})}
         ${joinToNode(pages, importPageOfDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, {appendNewLineIfNotEmpty: true})}
@@ -886,7 +889,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
-                ${joinToNode(tables, table => generateVuetifyDatatable(page.name.toLowerCase(), table), {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(tables, table => generateVuetifyDatatable(page.name, table), {appendNewLineIfNotEmpty: true})}
             </v-tabs-window>
         </v-tabs-window-item>
         `;

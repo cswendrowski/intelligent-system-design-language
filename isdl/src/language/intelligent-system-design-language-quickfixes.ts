@@ -18,8 +18,10 @@ export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeAct
                         break;
                     case 'string-choices-deprecated':
                         this.stringChoicesDeprecated(document, diagnostic, actions);
+                        break;
                     case 'document-array-deprecated':
                         this.documentArrayDeprecated(document, diagnostic, actions);
+                        break;
                     default:
                         // Handle other diagnostics if needed
                         break;

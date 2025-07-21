@@ -197,6 +197,13 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
                 default: {},
                 type: Object
             });
+            
+            game.settings.register('${id}', 'documentTableColumns', {
+                scope: 'client',
+                config: false,
+                default: {},
+                type: Object
+            });
         }
         
         /* -------------------------------------------- */
