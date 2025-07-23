@@ -87,6 +87,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 }) {
                 Combat.end()
             }
+
+            action NextTurn(visibility: {
+                if (Combat.isNotMyTurn) {
+                    return Visibility.locked
+                }
+            }) {
+                Combat.nextTurn()
+            }
             
         }
         
@@ -101,7 +109,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 gmEdit tracker Heat(style: dial)
             }
             tracker Time(style: clock, segments: 5, color: #a586c0, visibility: {
-                return self.VisibleUnlessDisabled(self.OutOfTime)
+                if (self.OutOfTime) {
+                    return Visibility.hidden
+                }
+            })
+            number TimePassed(min: 0, max: 100, icon: "fa-solid fa-hourglass-half", color: #a586c0, visibility: {
+                if (self.OutOfTime) {
+                    return Visibility.hidden
+                }
             })
             boolean OutOfTime(icon: "fa-solid fa-hourglass-end", color: #a586c0)
             number Level(min: 1, max: 10,  icon: "fa-solid fa-cube")

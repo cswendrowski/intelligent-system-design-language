@@ -90,35 +90,15 @@ export function generateDocumentCreationDialog(entry: Entry, id: string, destina
 
             submit() {
                 const formData = new FormDataExtended(this.element);
-                const data = { system: {} };
+                const data = { };
                 for (const [key, value] of formData.entries()) {
-                    const keys = key.split(".");
-                    const lastKey = keys.pop();
-                    // Translate values to more helpful ones, such as booleans and numbers
-                    if (value === "true") {
-                        data[key] = true;
-                        data[lastKey] = true;
-                    }
-                    else if (value === "false") {
-                        data[key] = false;
-                        data[lastKey] = false;
-                    }
-                    else if (!isNaN(value)) {
-                        data[key] = parseInt(value);
-                        data[lastKey] = parseInt(value);
-                    }
-                    else {
-                        data[key] = value;
-                        data[lastKey] = value;
-                    }
+                    data[key] = value;
                 }
-                console.log("Submit", data);
                 this.resolve(data);
                 this.close();
             }
 
             cancel() {
-                console.log("cancel");
                 this.reject(new Error("The Dialog was closed without a choice being made."));
                 this.close();
             }

@@ -195,9 +195,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function generateVisibilityState(element: Property | Action): CompositeGeneratorNode {
         if (element.modifier != undefined) {
             return expandToNode`
-            '${element.name.toLowerCase()}': async () => {
+            '${element.name.toLowerCase()}': computed(() => {
                 return '${element.modifier}';
-            }
+            })
             `;
         }
 
@@ -208,9 +208,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 const stringValueParam = element.params.find(isStringParamValue) as StringParamValue | undefined;
                 if (stringValueParam) {
                     return expandToNode`
-                    '${element.name.toLowerCase()}': async (editMode) => {
+                    '${element.name.toLowerCase()}': computed(() => {
                         return 'locked';
-                    }
+                    })
                     `;
                 }
             }
@@ -218,9 +218,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 const booleanValueParam = element.params.find(isBooleanParamValue) as BooleanParamValue | undefined;
                 if (booleanValueParam) {
                     return expandToNode`
-                    '${element.name.toLowerCase()}': async (editMode) => {
+                    '${element.name.toLowerCase()}': computed(() => {
                         return 'locked';
-                    }
+                    })
                     `;
                 }
             }
@@ -229,9 +229,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 const numberValueParam = numberParams.find(isNumberParamValue) as NumberParamValue | undefined;
                 if (numberValueParam) {
                     return expandToNode`
-                    '${element.name.toLowerCase()}': async (editMode) => {
+                    '${element.name.toLowerCase()}': computed(() => {
                         return 'locked';
-                    }
+                    })
                     `;
                 }
             }
@@ -244,7 +244,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 if (isMethodBlock(visibilityParam.visibility)) {
                     // If the visibility is a method block, we need to return a function that returns the visibility
                     return expandToNode`
-                    '${element.name.toLowerCase()}': async (editMode) => {
+                    '${element.name.toLowerCase()}': computed(() => {
+                        let editMode = editModeRef.value;
+                        let combatant = currentCombatant.value; // This will kick the recalc when changed
                         let update = {};
                         let embeddedUpdate = {};
                         let parentUpdate = {};
@@ -264,57 +266,28 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                         else {
                             context.actor = document;
                         }
-                        const visibility = async (system) => {
+                        const visibility = (system) => {
                             ${translateBodyExpressionToJavascript(entry, id, visibilityParam.visibility.body, false, element)}
                         };
-                        const returnedVisibility = await visibility(props.context.system);
-                        if (!selfDeleted && Object.keys(update).length > 0) {
-                            await document.update(update);
-                            rerender = true;
-                        }
-                        if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
-                            for (let key of Object.keys(embeddedUpdate)) {
-                                await document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
-                            }
-                            rerender = true;
-                        }
-                        if (Object.keys(parentUpdate).length > 0) {
-                            await document.parent.update(parentUpdate);
-                            rerender = true;
-                        }
-                        if (Object.keys(parentEmbeddedUpdate).length > 0) {
-                            for (let key of Object.keys(parentEmbeddedUpdate)) {
-                                await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
-                            }
-                        }
-                        if (Object.keys(targetUpdate).length > 0) {
-                            await context.target.update(targetUpdate);
-                        }
-                        if (Object.keys(targetEmbeddedUpdate).length > 0) {
-                            for (let key of Object.keys(targetEmbeddedUpdate)) {
-                                await context.target.updateEmbeddedDocuments("Item", targetEmbeddedUpdate[key]);
-                            }
-                        }
-                        if (rerender) {
-                            document.sheet.render();
-                        }
+                        const returnedVisibility = visibility(props.context.system);
+                        
                         return returnedVisibility ?? "default";
-                    }
+                    })
                     `;
                 }
 
                 return expandToNode`
-                '${element.name.toLowerCase()}': async (editMode) => {
+                '${element.name.toLowerCase()}': computed(() => {
                     return '${visibilityParam.visibility}';
-                }
+                })
                 `;
             }
         }
 
         return expandToNode`
-        '${element.name.toLowerCase()}': async (editMode) => {
+        '${element.name.toLowerCase()}': computed(() => {
             return 'default';
-        }
+        })
         `;
     }
 
@@ -457,7 +430,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         const pageBackground = computed(() => {
-            if (editMode.value) {
+            if (editModeRef.value) {
                 return 'edit-mode';
             }
             if (props.context.system.dead) {
@@ -467,12 +440,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         });
 
         // Edit Mode
-        const editMode = ref(document.getFlag('${id}', 'edit-mode') ?? true);
+        const editModeRef = ref(document.getFlag('${id}', 'edit-mode') ?? true);
         const hovered = ref(false);
 
         const toggleEditMode = () => {
-            editMode.value = !editMode.value;
-            document.setFlag('${id}', 'edit-mode', editMode.value);
+            editModeRef.value = !editModeRef.value;
+            document.setFlag('${id}', 'edit-mode', editModeRef.value);
         };
 
         function spawnDatatableWindow(e, pageName, tabName) {
@@ -613,43 +586,23 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 }
             }
         };
+        
+        // Combat
+        const currentCombatant = ref(game.combat?.combatant);
+        Hooks.on("combatTurnChange", () => {
+            currentCombatant.value = game.combat?.combatant;
+        });
 
         // Paper Doll Slots
         ${joinToNode(paperDoll, paperDollSlots, {appendNewLineIfNotEmpty: true})}
 
         // Visibility states
-        const visibilityStatesMethods = {
+        const visibilityStates = {
             ${joinToNode(properties, generateVisibilityState, {separator: ',', appendNewLineIfNotEmpty: true})},
             ${joinToNode(actions, generateVisibilityState, {separator: ',', appendNewLineIfNotEmpty: true})}
         };
-        const visibilityStates = {
-            ${joinToNode(properties, element => expandToNode`
-                '${element.name.toLowerCase()}': ref('default')
-            `, {separator: ',', appendNewLineIfNotEmpty: true})},
-            ${joinToNode(actions, element => expandToNode`
-                '${element.name.toLowerCase()}': ref('default')
-            `, {separator: ',', appendNewLineIfNotEmpty: true})}
-        };
-        const updateVisibilityStates = async () => {
-            ${joinToNode(properties, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, {
-        separator: '\n',
-        appendNewLineIfNotEmpty: true
-    })}
-            ${joinToNode(actions, element => expandToNode`visibilityStates['${element.name.toLowerCase()}'].value = await visibilityStatesMethods['${element.name.toLowerCase()}'](editMode.value);`, {
-        separator: '\n',
-        appendNewLineIfNotEmpty: true
-    })}
-        };
-        watchEffect(async () => {
-            await updateVisibilityStates();
-        });
-        const currentCombatant = ref(game.combat?.combatant);
-        Hooks.on("combatTurnChange", () => {
-            currentCombatant.value = game.combat?.combatant;
-        });
-        watch(currentCombatant, async () => {
-            await updateVisibilityStates();
-        });
+
+
         const isHidden = (type) => {
             const visibility = visibilityStates[type].value;
             if (visibility === "hidden") {
@@ -664,7 +617,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 return !isGm && !isOwner;
             }
             if (visibility === "edit") {
-                return !editMode.value;
+                return !editModeRef.value;
             }
 
             // Default to visible
@@ -679,7 +632,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             }
             if (visibility === "gmEdit") {
                 const isGm = game.user.isGM;
-                const isEditMode = editMode.value;
+                const isEditMode = editModeRef.value;
                 return !isGm && !isEditMode;
             }
 
@@ -688,7 +641,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             }
             
             // Default to enabled while in editMode
-            return !editMode.value;
+            return !editModeRef.value;
         };
 
         const getLabel = (label, icon) => {

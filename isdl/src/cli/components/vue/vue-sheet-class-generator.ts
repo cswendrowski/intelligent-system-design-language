@@ -228,6 +228,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                     callback: (path) => {
                         target.src = path;
                         this.document.update({ [attr]: path });
+                        this._renderKey++;
                     },
                     top: this.position.top + 40,
                     left: this.position.left + 10

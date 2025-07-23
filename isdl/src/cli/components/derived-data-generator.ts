@@ -753,8 +753,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                                 const turnEnd = async () => {
                                     ${generateBody()}
                                 }
-                                const previousCombatant = combat.combatants.get(combat.previous.combatantId);
-                                if (previousCombatant.actor.uuid == document.uuid) {
+                                const previousCombatant = combat.combatants.get(combat.previous?.combatantId);
+                                if (previousCombatant?.actor?.uuid == document.uuid) {
                                     await turnEnd();
                                 }
                             });
@@ -1000,8 +1000,6 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     });
                     
                     const createData = foundry.utils.mergeObject(data, createResponse, { inplace: false });
-                    // If name is NAN, set to empty string
-                    if (isNaN(createData.name)) createData.name = "";
                     createData.type = createData.type || type;
                     createData.type = createData.type.toLowerCase();
                     if (!createData.folder) delete createData.folder;

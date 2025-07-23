@@ -32,8 +32,8 @@ export function generateDocumentCreationVueSheet(entry: Entry, id: string, desti
 
         const hasFolders = props.context.folders.length > 0;
         const name = ref('');
-        const folder = ref(props.context.folder);
-        const type = ref(props.context.type);
+        const folder = ref(props.context.folder ?? '');
+        const type = ref(props.context.type ?? '');
         
         const selectedImage = ref(props.context.types.find(x => x.type == type.value)?.icon || 'icons/svg/mystery-man.svg');
         
