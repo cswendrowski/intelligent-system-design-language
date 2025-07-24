@@ -593,8 +593,8 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
     </script>
 
     <template>
-        <v-card flat style="background: none;">
-            <v-card-title class="d-flex align-center pe-1" style="height: 40px; background: none;">
+        <v-card flat class="isdl-datatable">
+            <v-card-title class="d-flex align-center pe-1" style="height: 40px;">
                 <v-icon icon="fa-solid ${iconParam ? iconParam.value : 'fa-table'}" size="small" />
                 &nbsp; {{ game.i18n.localize("${document.name}.${table.name}") }}
                 <v-spacer></v-spacer>

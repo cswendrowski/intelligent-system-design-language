@@ -441,6 +441,14 @@
         }
     }
 
+    .isdl-datatable {
+        background: none;
+
+        >.v-card-title {
+            background: none;
+        }
+    }
+
     .v-input {
         flex: 1;
         min-width: 150px;
