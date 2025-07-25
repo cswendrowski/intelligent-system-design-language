@@ -4,6 +4,9 @@ import * as path from 'node:path';
 import { spawn } from 'child_process';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { IntelligentSystemDesignLanguageQuickfixes } from '../language/intelligent-system-design-language-quickfixes.js';
+import { GitHubManager } from "./github/githubManager.js";
+import { GitHubTreeProvider } from "./github/githubTreeProvider.js";
+import { GitHubQuickActions } from "./github/githubQuickActions.js";
 
 let client: LanguageClient;
 
@@ -12,6 +15,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerCommands(context);
     registerFormatter(context);
     registerCodeActions(context);
+    registerGithub(context);
     client = startLanguageClient(context);
 }
 
@@ -185,7 +189,7 @@ function registerFormatter(context: vscode.ExtensionContext) {
                         // const before = parts[0];
                         // const between = parts[1].split('}')[0];
                         // const after = parts[1].split('}')[1];
-                        
+
                         // // Write the before part
                         // const beforeText = indentation.repeat(indentLevel) + before;
                         // textEdits.push(vscode.TextEdit.replace(line.range, beforeText));
@@ -239,3 +243,75 @@ function registerCodeActions(context: vscode.ExtensionContext) {
         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
     });
 }
+
+function registerGithub(context: vscode.ExtensionContext) {
+    // Initialize GitHub components
+    const githubManager = new GitHubManager(context);
+    const treeProvider = new GitHubTreeProvider(githubManager);
+    const quickActions = new GitHubQuickActions(githubManager);
+
+    // Register tree view
+    const treeView = vscode.window.createTreeView('fsdl.github', {
+        treeDataProvider: treeProvider,
+        showCollapseAll: false
+    });
+
+    // Register simplified commands
+    const commands = [
+        vscode.commands.registerCommand('isdl.github.authenticate', async () => {
+            await githubManager.authenticate();
+        }),
+        vscode.commands.registerCommand('isdl.github.signOut', async () => {
+            await githubManager.signOut();
+        }),
+        vscode.commands.registerCommand('isdl.github.selectRepository', async () => {
+            await quickActions.selectRepository();
+        }),
+        vscode.commands.registerCommand('isdl.github.createRepository', async () => {
+            await quickActions.createRepository();
+        }),
+        vscode.commands.registerCommand('isdl.github.disconnectRepository', async () => {
+            await quickActions.disconnectRepository();
+        }),
+        vscode.commands.registerCommand('isdl.github.publish', async () => {
+            await quickActions.publishSystem();
+        }),
+        vscode.commands.registerCommand('isdl.github.refresh', () => {
+            treeProvider.refresh();
+        }),
+        vscode.commands.registerCommand('isdl.github.openProfile', (username: string) => {
+            if (username) {
+                vscode.env.openExternal(vscode.Uri.parse(`https://github.com/${username}`));
+            }
+        })
+    ];
+
+    // Add to context subscriptions
+    context.subscriptions.push(treeView, ...commands);
+
+    updateWorkspaceContext();
+
+    // Watch for ISDL files to update context
+    const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.isdl');
+    fileWatcher.onDidCreate(updateWorkspaceContext);
+    fileWatcher.onDidDelete(updateWorkspaceContext);
+    context.subscriptions.push(fileWatcher);
+}
+
+/**
+ * Update workspace context for when clauses
+ */
+async function updateWorkspaceContext() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        await vscode.commands.executeCommand('setContext', 'fsdl.workspaceHasIsdlFiles', false);
+        return;
+    }
+
+    // Check if workspace has ISDL files
+    const isdlFiles = await vscode.workspace.findFiles('**/*.isdl', null, 1);
+    const hasIsdlFiles = isdlFiles.length > 0;
+
+    await vscode.commands.executeCommand('setContext', 'fsdl.workspaceHasIsdlFiles', hasIsdlFiles);
+}
+

@@ -26,6 +26,23 @@ function copyPackageJson(outDir) {
     console.log(getTime() + 'Copied package.json to output directory ' + dest);
 }
 
+function copyAssets(outDir) {
+    // Copy GitHub workflow file
+    const workflowSrc = path.resolve('src/extension/github/system-workflow.yml');
+    const workflowDest = path.join(outDir, 'extension/github/system-workflow.yml');
+    
+    // Ensure the directory exists
+    const workflowDir = path.dirname(workflowDest);
+    if (!fs.existsSync(workflowDir)) {
+        fs.mkdirSync(workflowDir, { recursive: true });
+    }
+    
+    if (fs.existsSync(workflowSrc)) {
+        fs.copyFileSync(workflowSrc, workflowDest);
+        console.log(getTime() + 'Copied workflow file to output directory ' + workflowDest);
+    }
+}
+
 const plugins = [{
     name: 'watch-plugin',
     setup(build) {
@@ -33,6 +50,7 @@ const plugins = [{
             if (result.errors.length === 0) {
                 console.log(getTime() + success);
                 copyPackageJson('out');
+                copyAssets('out');
             }
         });
     },
@@ -63,5 +81,6 @@ if (watch) {
 } else {
     await ctx.rebuild();
     copyPackageJson('out');
+    copyAssets('out');
     ctx.dispose();
 }
