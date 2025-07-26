@@ -1,0 +1,52 @@
+config mhz {
+    label = "MHz - MegaHackz"
+    id = "mhz"
+    description = "Custom ISDL Build of MegaHackz"
+    author = "Roman Trevisanut"
+}
+
+actor Hacker {
+	section Advantages {
+		boolean BigHardDrive
+		boolean ISDNLine
+		boolean ProxyServer
+		boolean BoltCola
+		boolean ExtraFloppy
+		boolean AcceleronChip
+		boolean ExtraRAM
+		boolean Antivirus
+		boolean RAID
+		tracker BoltCans(initial: 6, max: 6, visibility: {
+			if (self.BoltCola) {return Visibility.default}
+				return Visibility.hidden
+				})
+	}
+	section Computer { 
+	tracker MHz(label: "MHz", max: {
+		if (self.AcceleronChip == true) return 200
+		else return 100} )
+	tracker RAM(max: {
+		if (self.ExtraRAM == true) return 8
+		else return 4} )
+	tracker HDD(max: {
+		if (self.BigHardDrive == true) return 1400
+		else return 400} )
+	}
+	section Hacking {
+	tracker Access(max: 10)
+	tracker Danger(max: 10)
+	tracker Proxy(max: 10, visibility: {
+		if (self.ProxyServer) {return Visibility.default}
+			return Visibility.hidden
+			})
+	}
+table<Data> Downloads
+}
+
+item Data { 
+	number DP
+	hidden number KB (value:{return self.DP * 10})
+	string Size (value: {return self.KB + "KB" })
+	number Downloaded
+	tracker Progress
+}

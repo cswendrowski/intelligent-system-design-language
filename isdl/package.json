@@ -1,132 +1,405 @@
 {
-    "name": "fsdl",
-    "displayName": "Intelligent System Design Language",
-    "description": "Intelligent System Design Language support for Visual Studio Code",
-    "publisher": "IronMooseDevelopment",
-    "version": "0.1.101",
-    "repository": {
-        "url": ""
-    },
-    "preview": true,
-    "license": "LICENSE",
-    "type": "module",
-    "icon": "out/isdl.png",
-    "scripts": {
-        "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
-        "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
-        "lint": "eslint src --ext ts",
-        "langium:generate": "langium generate",
-        "langium:watch": "langium generate --watch",
-        "vscode:prepublish": "",
-        "test": "vitest run",
-        "fsdl:generate": "node ./bin/cli.js"
-    },
-    "dependencies": {
-        "@mdi/font": "^7.4.47",
-        "@primeuix/themes": "^1.0.0",
-        "@vitejs/plugin-vue": "^5.0.0",
-        "chalk": "~5.3.0",
-        "commander": "~11.0.0",
-        "datatables.net-buttons": "^3.2.2",
-        "datatables.net-buttons-dt": "^3.2.2",
-        "datatables.net-colreorder-dt": "^2.0.4",
-        "datatables.net-dt": "^2.2.2",
-        "datatables.net-responsive-dt": "^3.0.4",
-        "datatables.net-rowreorder-dt": "^1.5.0",
-        "datatables.net-vue3": "^3.0.4",
-        "inflection": "^3.0.0",
-        "langium": "~3.0.0",
-        "rpg-awesome": "^0.2.0",
-        "sass": "^1.77.4",
-        "vite": "^5.0.0",
-        "vite-plugin-vuetify": "^2.1.0",
-        "vscode-languageclient": "~9.0.1",
-        "vscode-languageserver": "~9.0.1",
-        "vue": "^3.4.0",
-        "vuetify": "^3.7.14"
-    },
-    "devDependencies": {
-        "@fortawesome/fontawesome-free": "^6.7.2",
-        "@types/node": "^18.19.34",
-        "@types/vscode": "~1.67.0",
-        "@typescript-eslint/eslint-plugin": "~6.4.1",
-        "@typescript-eslint/parser": "~6.4.1",
-        "concurrently": "~8.2.1",
-        "esbuild": "^0.19.12",
-        "eslint": "~8.47.0",
-        "langium-cli": "~3.0.0",
-        "typescript": "~5.1.6",
-        "vite-plugin-vue-devtools": "^7.7.2",
-        "vitest": "~1.4.0"
-    },
-    "engines": {
-        "vscode": "^1.67.0",
-        "node": ">=18.0.0"
-    },
-    "categories": [
-        "Programming Languages"
+  "name": "fsdl",
+  "displayName": "Intelligent System Design Language",
+  "description": "Intelligent System Design Language support for Visual Studio Code",
+  "publisher": "IronMooseDevelopment",
+  "version": "0.1.103",
+  "repository": {
+    "url": ""
+  },
+  "preview": true,
+  "license": "LICENSE",
+  "type": "module",
+  "icon": "out/isdl.png",
+  "scripts": {
+    "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
+    "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
+    "lint": "eslint src --ext ts",
+    "langium:generate": "langium generate",
+    "langium:watch": "langium generate --watch",
+    "vscode:prepublish": "",
+    "test": "vitest run",
+    "fsdl:generate": "node ./bin/cli.js"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "@octokit/auth-app": "^6.0.0",
+    "@octokit/rest": "^19.0.13",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "chalk": "~5.3.0",
+    "commander": "~11.0.0",
+    "datatables.net-buttons": "^3.2.2",
+    "datatables.net-buttons-dt": "^3.2.2",
+    "datatables.net-colreorder-dt": "^2.0.4",
+    "datatables.net-dt": "^2.2.2",
+    "datatables.net-responsive-dt": "^3.0.4",
+    "datatables.net-rowreorder-dt": "^1.5.0",
+    "datatables.net-vue3": "^3.0.4",
+    "inflection": "^3.0.0",
+    "langium": "~3.0.0",
+    "rpg-awesome": "^0.2.0",
+    "sass": "^1.77.4",
+    "vite": "^5.0.0",
+    "vite-plugin-vuetify": "^2.1.0",
+    "vscode-languageclient": "~9.0.1",
+    "vscode-languageserver": "~9.0.1",
+    "vue": "^3.4.0",
+    "vuetify": "^3.7.14"
+  },
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@types/node": "^18.19.34",
+    "@types/vscode": "~1.67.0",
+    "@typescript-eslint/eslint-plugin": "~6.4.1",
+    "@typescript-eslint/parser": "~6.4.1",
+    "concurrently": "~8.2.1",
+    "esbuild": "^0.19.12",
+    "eslint": "~8.47.0",
+    "langium-cli": "~3.0.0",
+    "typescript": "~5.1.6",
+    "vite-plugin-vue-devtools": "^7.7.2",
+    "vitest": "~1.4.0"
+  },
+  "engines": {
+    "vscode": "^1.67.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "intelligent-system-design-language",
+        "aliases": [
+          "Intelligent System Design Language",
+          "intelligent-system-design-language"
+        ],
+        "extensions": [
+          ".fsdl",
+          ".isdl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
     ],
-    "contributes": {
-        "languages": [
-            {
-                "id": "intelligent-system-design-language",
-                "aliases": [
-                    "Intelligent System Design Language",
-                    "intelligent-system-design-language"
-                ],
-                "extensions": [
-                    ".fsdl",
-                    ".isdl"
-                ],
-                "configuration": "./language-configuration.json"
-            }
-        ],
-        "configurationDefaults": {
-            "[foundry-system-design-language]": {
-                "editor.formatOnSave": true
-            }
-        },
-        "grammars": [
-            {
-                "language": "intelligent-system-design-language",
-                "scopeName": "source.intelligent-system-design-language",
-                "path": "syntaxes/intelligent-system-design-language.tmLanguage.json"
-            }
-        ],
-        "commands": [
-            {
-                "command": "fsdl.generate",
-                "title": "Generate",
-                "category": "Intelligent System Design Language"
-            },
-            {
-                "command": "fsdl.regenerate",
-                "title": "Regenerate",
-                "category": "Intelligent System Design Language"
-            }
-        ],
-        "configuration": {
-            "type": "object",
-            "title": "Intelligent System Design Language Configuration",
-            "properties": {
-                "fsdl.lastSelectedFolder": {
-                    "type": "string",
-                    "default": "",
-                    "description": "The last selected folder path"
-                },
-                "fsdl.lastSelectedFile": {
-                    "type": "string",
-                    "default": "",
-                    "description": "The last selected file"
-                }
-            }
+    "configurationDefaults": {
+      "[foundry-system-design-language]": {
+        "editor.formatOnSave": true
+      }
+    },
+    "grammars": [
+      {
+        "language": "intelligent-system-design-language",
+        "scopeName": "source.intelligent-system-design-language",
+        "path": "syntaxes/intelligent-system-design-language.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "fsdl.generate",
+        "title": "Generate",
+        "category": "ISDL"
+      },
+      {
+        "command": "fsdl.regenerate",
+        "title": "Regenerate",
+        "category": "ISDL"
+      },
+      {
+        "command": "isdl.github.authenticate",
+        "title": "Connect to GitHub",
+        "category": "ISDL - GitHub",
+        "icon": "$(github)"
+      },
+      {
+        "command": "isdl.github.signOut",
+        "title": "Sign Out from GitHub",
+        "category": "ISDL - GitHub",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "isdl.github.selectRepository",
+        "title": "Select Repository",
+        "category": "ISDL - GitHub",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "isdl.github.createRepository",
+        "title": "Create Repository",
+        "category": "ISDL - GitHub",
+        "icon": "$(repo-create)"
+      },
+      {
+        "command": "isdl.github.publish",
+        "title": "Publish System",
+        "category": "ISDL - GitHub",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "isdl.github.update",
+        "title": "Update Files",
+        "category": "ISDL - GitHub",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "isdl.github.refresh",
+        "title": "Refresh",
+        "category": "ISDL - GitHub",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "isdl.github.selectGist",
+        "title": "Select Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(gist)"
+      },
+      {
+        "command": "isdl.github.createGist",
+        "title": "Create Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(gist-new)"
+      },
+      {
+        "command": "isdl.github.syncToGist",
+        "title": "Sync to Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "isdl.github.downloadFromGist",
+        "title": "Download from Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "isdl.github.disconnectGist",
+        "title": "Disconnect Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(diff-removed)"
+      }
+    ],
+    "views": {
+      "isdl-explorer": [
+        {
+          "id": "fsdl.github",
+          "name": "GitHub Publishing",
+          "icon": "$(github)",
+          "visibility": "collapsed"
         }
+      ]
     },
-    "activationEvents": [
-        "onLanguage:intelligent-system-design-language"
-    ],
-    "main": "./out/extension/main.cjs",
-    "bin": {
-        "intelligent-system-design-language-cli": "./bin/cli.js"
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "isdl-explorer",
+          "title": "Intelligent System Design Language",
+          "icon": "$(lightbulb-sparkle)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "isdl.github.refresh",
+          "when": "view == fsdl.github",
+          "group": "navigation@1"
+        },
+        {
+          "command": "isdl.github.authenticate",
+          "when": "view == fsdl.github && !fsdl.github.authenticated",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "isdl.github.signOut",
+          "when": "view == fsdl.github && viewItem == authenticated",
+          "group": "inline@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "isdl.github.authenticate",
+          "when": "fsdl.workspaceHasIsdlFiles"
+        },
+        {
+          "command": "isdl.github.publish",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.update",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.createRepository",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.selectRepository",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.selectGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.createGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.syncToGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.downloadFromGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "isdl.github.publish",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "navigation@1"
+        },
+        {
+          "command": "isdl.github.update",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "navigation@2"
+        },
+        {
+          "command": "isdl.github.syncToGist",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "navigation@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "isdl.github.publish",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@1"
+        },
+        {
+          "command": "isdl.github.update",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@2"
+        },
+        {
+          "command": "isdl.github.syncToGist",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@3"
+        },
+        {
+          "command": "isdl.github.createGist",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@4"
+        },
+        {
+          "command": "isdl.github.createRepository",
+          "when": "explorerResourceIsFolder && fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated",
+          "group": "isdl@5"
+        }
+      ]
     }
+  },
+  "configuration": {
+    "type": "object",
+    "title": "Intelligent System Design Language Configuration",
+    "properties": {
+      "fsdl.lastSelectedFolder": {
+        "type": "string",
+        "default": "",
+        "description": "The last selected folder path"
+      },
+      "fsdl.lastSelectedFile": {
+        "type": "string",
+        "default": "",
+        "description": "The last selected file"
+      },
+      "fsdl.github.defaultBranch": {
+        "type": "string",
+        "default": "main",
+        "description": "Default branch name for new repositories",
+        "enum": [
+          "main",
+          "master",
+          "develop"
+        ],
+        "enumDescriptions": [
+          "Use 'main' as the default branch (recommended)",
+          "Use 'master' as the default branch",
+          "Use 'develop' as the default branch"
+        ]
+      },
+      "fsdl.github.includeDocumentation": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically generate README and documentation files when publishing"
+      },
+      "fsdl.github.includeBuildScripts": {
+        "type": "boolean",
+        "default": true,
+        "description": "Include GitHub Actions workflows and build configuration"
+      },
+      "fsdl.github.templateRepository": {
+        "type": "string",
+        "description": "GitHub repository to use as a template (format: owner/repo)",
+        "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$"
+      },
+      "fsdl.github.commitMessage": {
+        "type": "string",
+        "default": "Update system files",
+        "description": "Default commit message for automated updates"
+      },
+      "fsdl.github.tagReleases": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically create Git tags when publishing releases"
+      },
+      "fsdl.github.generateChangelog": {
+        "type": "boolean",
+        "default": true,
+        "description": "Generate CHANGELOG.md from commit history"
+      },
+      "fsdl.github.autoPublish": {
+        "type": "boolean",
+        "default": false,
+        "description": "Automatically publish to GitHub when system files are generated"
+      },
+      "fsdl.github.repositoryVisibility": {
+        "type": "string",
+        "default": "public",
+        "enum": [
+          "public",
+          "private"
+        ],
+        "enumDescriptions": [
+          "Create public repositories (visible to everyone, required for people to be able to install the system)",
+          "Create private repositories (visible only to you and collaborators)"
+        ],
+        "description": "Default visibility for new repositories"
+      },
+      "fsdl.github.licenseTemplate": {
+        "type": "string",
+        "description": "License template to include in new repositories. See https://choosealicense.com/licenses/ for more details",
+        "enum": [
+          "unlicense",
+          "mit",
+          "lgpl-3.0"
+        ],
+        "enumDescriptions": [
+          "The Unlicense - Public domain dedication, anyone can do what they want",
+          "MIT License - Permissive license with basic protections and attribution",
+          "GNU LGPL v3.0 - Copyleft license that prevents someone from making your system closed source but allows modules to do what they want"
+        ]
+      }
+    }
+  },
+  "activationEvents": [
+    "onLanguage:intelligent-system-design-language",
+    "onView:fsdl.github"
+  ],
+  "main": "./out/extension/main.cjs",
+  "bin": {
+    "intelligent-system-design-language-cli": "./bin/cli.js"
+  }
 }
