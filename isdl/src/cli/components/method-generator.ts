@@ -1580,7 +1580,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
         return expandToNode`
-            await ${accessPath}.function_${expression.method}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate, ${args})
+            await ${accessPath}.function_${expression.method.ref?.name}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate, ${args})
         `;
     }
 

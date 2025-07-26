@@ -208,7 +208,9 @@ MacroExecute:
 DocumentArrayExp:
     ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(StandardFieldParams|WhereParam|TableFieldsParam) ")")?;
 TableField:
-    ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=(StandardFieldParams|WhereParam|TableFieldsParam) ")")?;
+    ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
+TableParams:
+    (StandardFieldParams | WhereParam | TableFieldsParam);
 SingleDocumentExp:
     ExpressionModifier document=[Document:ID] name=ID StandardFieldParamsFrag;
 DocumentChoiceExp:
@@ -336,7 +338,7 @@ MethodParam:
 // Functions -----------
 
 FunctionCall:
-    "self." method=ID ("(" params+=Expression ("," params+=Expression)* ")")?;
+    "self." method=[FunctionDefinition:ID] ("(" params+=Expression ("," params+=Expression)* ")")?;
 FunctionDefinition:
     "function" name=ID ("(" params+=FunctionParam ("," params+=FunctionParam)* ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
 FunctionParam:

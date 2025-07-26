@@ -668,18 +668,18 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     <template>
         <v-app>
             <!-- App Bar -->
-            <v-app-bar :color="editMode ? 'amber-accent-3' : primaryColor" density="comfortable">
+            <v-app-bar :color="editModeRef ? 'amber-accent-3' : primaryColor" density="comfortable">
                 <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-                <v-app-bar-title v-if="!editMode">{{ context.document.name }}</v-app-bar-title>
-                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="document-name" v-if="editMode" density="compact"></v-text-field>
-                <v-alert :text="game.i18n.localize('EditModeWarning')" type="warning" density="compact" class="ga-2 ma-1" color="amber-accent-3" v-if="editMode"></v-alert>
+                <v-app-bar-title v-if="!editModeRef">{{ context.document.name }}</v-app-bar-title>
+                <v-text-field name="name" v-model="context.document.name" variant="outlined" class="document-name" v-if="editModeRef" density="compact"></v-text-field>
+                <v-alert :text="game.i18n.localize('EditModeWarning')" type="warning" density="compact" class="ga-2 ma-1" color="amber-accent-3" v-if="editModeRef"></v-alert>
                 <template v-slot:append>
                     <v-btn
-                        :icon="hovered ? (editMode ? 'fa-solid fa-dice-d20' : 'fa-solid fa-pen-to-square') : (editMode ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20')"
+                        :icon="hovered ? (editModeRef ? 'fa-solid fa-dice-d20' : 'fa-solid fa-pen-to-square') : (editMode ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20')"
                         @click="toggleEditMode"
                         @mouseover="hovered = true"
                         @mouseleave="hovered = false"
-                        :data-tooltip="editMode ? 'Swap to Play mode' : 'Swap to Edit mode'"
+                        :data-tooltip="editModeRef ? 'Swap to Play mode' : 'Swap to Edit mode'"
                     ></v-btn>
                 </template>
             </v-app-bar>
@@ -814,8 +814,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const icon = iconParam?.value ?? "fa-solid fa-table";
         const page = AstUtils.getContainerOfType(tab, isPage) as Page;
         const pageName = page ? page.name : document.name;
+        
+        // Check for label parameter
+        const labelParam = tab.params.find(p => isLabelParam(p)) as LabelParam | undefined;
+        const label = labelParam?.value ?? `${document.name}.${tab.name}`;
+        
         return expandToNode`
-            <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${pageName}', '${tab.name}')">{{ game.i18n.localize('${tab.name}') }}</v-tab>
+            <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${pageName}', '${tab.name}')">{{ game.i18n.localize('${label}') }}</v-tab>
         `;
     }
 

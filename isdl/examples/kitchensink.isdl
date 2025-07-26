@@ -207,6 +207,18 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
         })
         attribute Grit(min: 1, max: 6, style: plain, roll: roll(d20 + self.Grit))
     }
+
+    section PlainAttributes {
+        attribute FightPlain(min: 1, max: 30, style: plain, icon: "fa-solid fa-hand-fist", mod: {
+            return (self.FightPlain - 10) / 2
+        }, roll: roll(d20 + self.FightPlain))
+        attribute FlightPlain(min: 1, max: 30, style: plain, mod: {
+            return (self.FlightPlain - 10) / 2
+        })
+        attribute EndurePlain(min: 1, max: 30, style: plain, mod: {
+            return (self.EndurePlain - 10) / 2
+        })
+    }
     
     section StatusEffects {
         boolean Slowed
