@@ -102,6 +102,7 @@ describe('GitHubQuickActions', () => {
             uploadFiles: vi.fn(),
             ensureWorkflowFile: vi.fn(),
             publishSystem: vi.fn(),
+            updateSystem: vi.fn(),
         };
 
         quickActions = new GitHubQuickActions(mockGitHubManager);
@@ -266,7 +267,7 @@ describe('GitHubQuickActions', () => {
                 isPrivate: false,
                 includeReadme: true,
                 includeLicense: 'mit',
-                includeGitignore: false,
+                includeGitignore: true,
                 initializeWithSystemFiles: false,
             });
         });
@@ -470,6 +471,41 @@ describe('GitHubQuickActions', () => {
             await quickActions.publishSystem();
 
             expect(mockGitHubManager.publishSystem).toHaveBeenCalled();
+        });
+    });
+
+    describe('Update Integration', () => {
+        it('should redirect to repository selection when no repository connected for update', async () => {
+            mockGitHubManager.getCurrentRepository.mockReturnValue(null);
+
+            const mockShowInformationMessage = vi.mocked(vscode.window.showInformationMessage);
+            mockShowInformationMessage.mockResolvedValue('Select Repository');
+
+            const selectRepositorySpy = vi.spyOn(quickActions, 'selectRepository').mockResolvedValue(undefined);
+
+            await quickActions.updateSystem();
+
+            expect(mockShowInformationMessage).toHaveBeenCalledWith(
+                'No repository connected. Please select a repository first.',
+                'Select Repository',
+                'Create Repository'
+            );
+            expect(selectRepositorySpy).toHaveBeenCalled();
+        });
+
+        it('should call GitHub manager update when repository is connected', async () => {
+            const mockRepo = {
+                id: 1,
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            mockGitHubManager.getCurrentRepository.mockReturnValue(mockRepo);
+            mockGitHubManager.updateSystem.mockResolvedValue(true);
+
+            await quickActions.updateSystem();
+
+            expect(mockGitHubManager.updateSystem).toHaveBeenCalled();
         });
     });
 

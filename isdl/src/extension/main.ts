@@ -7,6 +7,8 @@ import { IntelligentSystemDesignLanguageQuickfixes } from '../language/intellige
 import { GitHubManager } from "./github/githubManager.js";
 import { GitHubTreeProvider } from "./github/githubTreeProvider.js";
 import { GitHubQuickActions } from "./github/githubQuickActions.js";
+import { GitHubGistManager } from "./github/githubGistManager.js";
+import { GitHubGistActions } from "./github/githubGistActions.js";
 
 let client: LanguageClient;
 
@@ -247,8 +249,10 @@ function registerCodeActions(context: vscode.ExtensionContext) {
 function registerGithub(context: vscode.ExtensionContext) {
     // Initialize GitHub components
     const githubManager = new GitHubManager(context);
-    const treeProvider = new GitHubTreeProvider(githubManager);
+    const gistManager = new GitHubGistManager(githubManager.getAuthProvider());
+    const treeProvider = new GitHubTreeProvider(githubManager, gistManager);
     const quickActions = new GitHubQuickActions(githubManager);
+    const gistActions = new GitHubGistActions(gistManager);
 
     // Register tree view
     const treeView = vscode.window.createTreeView('fsdl.github', {
@@ -275,6 +279,24 @@ function registerGithub(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('isdl.github.publish', async () => {
             await quickActions.publishSystem();
+        }),
+        vscode.commands.registerCommand('isdl.github.update', async () => {
+            await quickActions.updateSystem();
+        }),
+        vscode.commands.registerCommand('isdl.github.selectGist', async () => {
+            await gistActions.selectGist();
+        }),
+        vscode.commands.registerCommand('isdl.github.createGist', async () => {
+            await gistActions.createGist();
+        }),
+        vscode.commands.registerCommand('isdl.github.syncToGist', async () => {
+            await gistActions.syncToGist();
+        }),
+        vscode.commands.registerCommand('isdl.github.downloadFromGist', async () => {
+            await gistActions.downloadFromGist();
+        }),
+        vscode.commands.registerCommand('isdl.github.disconnectGist', async () => {
+            await gistActions.disconnectGist();
         }),
         vscode.commands.registerCommand('isdl.github.refresh', () => {
             treeProvider.refresh();

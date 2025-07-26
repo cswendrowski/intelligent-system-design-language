@@ -3,14 +3,14 @@
   "displayName": "Intelligent System Design Language",
   "description": "Intelligent System Design Language support for Visual Studio Code",
   "publisher": "IronMooseDevelopment",
-  "version": "0.1.101",
+  "version": "0.1.103",
   "repository": {
     "url": ""
   },
   "preview": true,
   "license": "LICENSE",
   "type": "module",
-  "icon": "out/fsdl.png",
+  "icon": "out/isdl.png",
   "scripts": {
     "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
     "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
@@ -133,6 +133,12 @@
         "command": "isdl.github.publish",
         "title": "Publish System",
         "category": "ISDL - GitHub",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "isdl.github.update",
+        "title": "Update Files",
+        "category": "ISDL - GitHub",
         "icon": "$(cloud-upload)"
       },
       {
@@ -140,6 +146,36 @@
         "title": "Refresh",
         "category": "ISDL - GitHub",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "isdl.github.selectGist",
+        "title": "Select Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(gist)"
+      },
+      {
+        "command": "isdl.github.createGist",
+        "title": "Create Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(gist-new)"
+      },
+      {
+        "command": "isdl.github.syncToGist",
+        "title": "Sync to Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "isdl.github.downloadFromGist",
+        "title": "Download from Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "isdl.github.disconnectGist",
+        "title": "Disconnect Gist",
+        "category": "ISDL - GitHub",
+        "icon": "$(diff-removed)"
       }
     ],
     "views": {
@@ -191,11 +227,31 @@
           "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
         },
         {
+          "command": "isdl.github.update",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
           "command": "isdl.github.createRepository",
           "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
         },
         {
           "command": "isdl.github.selectRepository",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.selectGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.createGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.syncToGist",
+          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+        },
+        {
+          "command": "isdl.github.downloadFromGist",
           "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
         }
       ],
@@ -203,7 +259,17 @@
         {
           "command": "isdl.github.publish",
           "when": "resourceExtname == .isdl && fsdl.github.authenticated",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "isdl.github.update",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "navigation@2"
+        },
+        {
+          "command": "isdl.github.syncToGist",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "navigation@3"
         }
       ],
       "explorer/context": [
@@ -213,9 +279,24 @@
           "group": "isdl@1"
         },
         {
+          "command": "isdl.github.update",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@2"
+        },
+        {
+          "command": "isdl.github.syncToGist",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@3"
+        },
+        {
+          "command": "isdl.github.createGist",
+          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "group": "isdl@4"
+        },
+        {
           "command": "isdl.github.createRepository",
           "when": "explorerResourceIsFolder && fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated",
-          "group": "isdl@2"
+          "group": "isdl@5"
         }
       ]
     }

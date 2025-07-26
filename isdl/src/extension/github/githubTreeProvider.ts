@@ -1,13 +1,22 @@
 import * as vscode from 'vscode';
 import { GitHubManager } from './githubManager.js';
+import { GitHubGistManager } from './githubGistManager.js';
 
 export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<GitHubTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    constructor(private githubManager: GitHubManager) {
+    constructor(
+        private githubManager: GitHubManager,
+        private gistManager: GitHubGistManager
+    ) {
         // Listen for GitHub state changes
         githubManager.onDidChangeState(() => {
+            this.refresh();
+        });
+        
+        // Listen for Gist state changes
+        gistManager.onDidChangeState(() => {
             this.refresh();
         });
     }
@@ -28,8 +37,8 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
         switch (element.contextValue) {
             case 'repository-section':
                 return this.getRepositoryItems();
-            case 'publishing-section':
-                return this.getPublishingItems();
+            case 'gist-section':
+                return this.getGistItems();
             default:
                 return [];
         }
@@ -37,8 +46,10 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
 
     private async getRootItems(): Promise<GitHubTreeItem[]> {
         const isAuthenticated = await this.githubManager.isAuthenticated();
+        const userInfo = await this.githubManager.getUserInfo();
         
-        if (!isAuthenticated) {
+        // If not authenticated or no valid user info, show connect option
+        if (!isAuthenticated || !userInfo) {
             return [
                 new GitHubTreeItem(
                     'Connect to GitHub',
@@ -54,19 +65,20 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
             ];
         }
 
-        const userInfo = await this.githubManager.getUserInfo();
         const currentRepo = this.githubManager.getCurrentRepository();
+
+        const currentGist = this.gistManager.getCurrentGist();
 
         const items: GitHubTreeItem[] = [
             new GitHubTreeItem(
-                `Connected as ${userInfo?.login || 'Unknown'}`,
-                userInfo?.name || 'GitHub User',
+                `Connected as ${userInfo.login}`,
+                userInfo.name || 'GitHub User',
                 vscode.TreeItemCollapsibleState.None,
                 'user',
                 {
                     command: 'isdl.github.openProfile',
                     title: 'Open Profile',
-                    arguments: [userInfo?.login]
+                    arguments: [userInfo.login]
                 },
                 '$(account)'
             ),
@@ -77,21 +89,17 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
                 'repository-section',
                 undefined,
                 currentRepo ? '$(repo)' : '$(repo-create)'
+            ),
+            new GitHubTreeItem(
+                'Gist',
+                currentGist ? `Connected to ${currentGist.description}` : 'No gist selected',
+                vscode.TreeItemCollapsibleState.Expanded,
+                'gist-section',
+                undefined,
+                currentGist ? '$(gist)' : '$(gist-new)'
             )
         ];
 
-        if (currentRepo) {
-            items.push(
-                new GitHubTreeItem(
-                    'Publishing',
-                    'Publish and manage your system',
-                    vscode.TreeItemCollapsibleState.Expanded,
-                    'publishing-section',
-                    undefined,
-                    '$(rocket)'
-                )
-            );
-        }
 
         items.push(
             new GitHubTreeItem(
@@ -140,7 +148,7 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
             ];
         }
 
-        return [
+        const items = [
             new GitHubTreeItem(
                 currentRepo.name,
                 currentRepo.description || 'No description',
@@ -152,48 +160,34 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
                     arguments: [vscode.Uri.parse(currentRepo.html_url)]
                 },
                 currentRepo.private ? '$(lock)' : '$(unlock)'
-            ),
-            new GitHubTreeItem(
-                'Change Repository',
-                'Switch to a different repository',
-                vscode.TreeItemCollapsibleState.None,
-                'change-repo',
-                {
-                    command: 'isdl.github.selectRepository',
-                    title: 'Change Repository'
-                },
-                '$(arrow-swap)'
-            ),
-            new GitHubTreeItem(
-                'Disconnect',
-                'Remove repository connection',
-                vscode.TreeItemCollapsibleState.None,
-                'disconnect-repo',
-                {
-                    command: 'isdl.github.disconnectRepository',
-                    title: 'Disconnect Repository'
-                },
-                '$(unlink)'
             )
         ];
-    }
 
-    private async getPublishingItems(): Promise<GitHubTreeItem[]> {
+        // Add publish and update actions based on whether system files are available
         const config = vscode.workspace.getConfiguration('fsdl');
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
-
-        const items: GitHubTreeItem[] = [];
 
         if (lastSelectedFolder) {
             items.push(
                 new GitHubTreeItem(
                     'Publish System',
-                    'Upload your system to GitHub',
+                    'Create new release with system files',
                     vscode.TreeItemCollapsibleState.None,
                     'publish',
                     {
                         command: 'isdl.github.publish',
                         title: 'Publish System'
+                    },
+                    '$(rocket)'
+                ),
+                new GitHubTreeItem(
+                    'Update Files',
+                    'Update repository files without releasing',
+                    vscode.TreeItemCollapsibleState.None,
+                    'update',
+                    {
+                        command: 'isdl.github.update',
+                        title: 'Update Files'
                     },
                     '$(cloud-upload)'
                 )
@@ -214,8 +208,154 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
             );
         }
 
+        items.push(
+            new GitHubTreeItem(
+                'Change Repository',
+                'Switch to a different repository',
+                vscode.TreeItemCollapsibleState.None,
+                'change-repo',
+                {
+                    command: 'isdl.github.selectRepository',
+                    title: 'Change Repository'
+                },
+                '$(arrow-swap)'
+            ),
+            new GitHubTreeItem(
+                'Disconnect',
+                'Remove repository connection',
+                vscode.TreeItemCollapsibleState.None,
+                'disconnect-repo',
+                {
+                    command: 'isdl.github.disconnectRepository',
+                    title: 'Disconnect Repository'
+                },
+                '$(diff-removed)'
+            )
+        );
+
         return items;
     }
+
+    private async getGistItems(): Promise<GitHubTreeItem[]> {
+        const currentGist = this.gistManager.getCurrentGist();
+
+        if (!currentGist) {
+            return [
+                new GitHubTreeItem(
+                    'Select Gist',
+                    'Choose from your existing gists',
+                    vscode.TreeItemCollapsibleState.None,
+                    'select-gist',
+                    {
+                        command: 'isdl.github.selectGist',
+                        title: 'Select Gist'
+                    },
+                    '$(gist)'
+                ),
+                new GitHubTreeItem(
+                    'Create Gist',
+                    'Create a new gist for your ISDL file',
+                    vscode.TreeItemCollapsibleState.None,
+                    'create-gist',
+                    {
+                        command: 'isdl.github.createGist',
+                        title: 'Create Gist'
+                    },
+                    '$(gist-new)'
+                )
+            ];
+        }
+
+        const items = [
+            new GitHubTreeItem(
+                currentGist.description,
+                currentGist.public ? 'Public gist' : 'Secret gist',
+                vscode.TreeItemCollapsibleState.None,
+                'current-gist',
+                {
+                    command: 'vscode.open',
+                    title: 'Open in GitHub',
+                    arguments: [vscode.Uri.parse(currentGist.html_url)]
+                },
+                currentGist.public ? '$(unlock)' : '$(lock)'
+            )
+        ];
+
+        // Show ISDL files in the gist
+        const isdlFiles = Object.keys(currentGist.files).filter(name => 
+            name.endsWith('.isdl') || name.endsWith('.fsdl')
+        );
+
+        if (isdlFiles.length > 0) {
+            isdlFiles.forEach(filename => {
+                items.push(
+                    new GitHubTreeItem(
+                        filename,
+                        `${currentGist.files[filename].size} bytes`,
+                        vscode.TreeItemCollapsibleState.None,
+                        'gist-file',
+                        {
+                            command: 'isdl.github.downloadFromGist',
+                            title: 'Download File',
+                            arguments: [filename]
+                        },
+                        '$(file-code)'
+                    )
+                );
+            });
+        }
+
+        // Add sync and management actions
+        items.push(
+            new GitHubTreeItem(
+                'Sync to Gist',
+                'Upload current ISDL file to this gist',
+                vscode.TreeItemCollapsibleState.None,
+                'sync-gist',
+                {
+                    command: 'isdl.github.syncToGist',
+                    title: 'Sync to Gist'
+                },
+                '$(cloud-upload)'
+            ),
+            new GitHubTreeItem(
+                'Download from Gist',
+                'Download ISDL file from this gist',
+                vscode.TreeItemCollapsibleState.None,
+                'download-gist',
+                {
+                    command: 'isdl.github.downloadFromGist',
+                    title: 'Download from Gist'
+                },
+                '$(cloud-download)'
+            ),
+            new GitHubTreeItem(
+                'Change Gist',
+                'Switch to a different gist',
+                vscode.TreeItemCollapsibleState.None,
+                'change-gist',
+                {
+                    command: 'isdl.github.selectGist',
+                    title: 'Change Gist'
+                },
+                '$(arrow-swap)'
+            ),
+            new GitHubTreeItem(
+                'Disconnect',
+                'Remove gist connection',
+                vscode.TreeItemCollapsibleState.None,
+                'disconnect-gist',
+                {
+                    command: 'isdl.github.disconnectGist',
+                    title: 'Disconnect Gist'
+                },
+                '$(diff-removed)'
+            )
+        );
+
+        return items;
+    }
+
 }
 
 class GitHubTreeItem extends vscode.TreeItem {

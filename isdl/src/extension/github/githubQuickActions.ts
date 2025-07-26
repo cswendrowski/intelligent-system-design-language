@@ -136,19 +136,19 @@ export class GitHubQuickActions {
             title: 'Create GitHub Repository - Step 2 of 4',
             prompt: 'Repository description (optional)',
             placeHolder: 'A Foundry VTT system built with ISDL'
-        }) || '';
+        }) || 'A Foundry VTT system built with ISDL';
 
         // Get visibility
         const visibility = await vscode.window.showQuickPick([
             {
                 label: '$(unlock) Public',
                 description: 'Anyone can see this repository',
-                detail: 'Recommended for sharing systems',
+                detail: 'Required for publishing systems that others can install',
                 picked: true
             },
             {
                 label: '$(lock) Private',
-                description: 'Only you can see this repository',
+                description: 'Only you and those you add can see this repository',
                 detail: 'Good for work-in-progress systems'
             }
         ], {
@@ -163,17 +163,7 @@ export class GitHubQuickActions {
         const options = await vscode.window.showQuickPick([
             {
                 label: '$(book) Include README',
-                description: 'Generate a comprehensive README.md',
-                picked: true
-            },
-            {
-                label: '$(law) Include License',
-                description: 'Add a license file',
-                picked: true
-            },
-            {
-                label: '$(file-submodule) Include .gitignore',
-                description: 'Add Node.js .gitignore file',
+                description: 'Generate an initial README.md',
                 picked: true
             },
             {
@@ -191,10 +181,8 @@ export class GitHubQuickActions {
 
         // Get license type if selected
         let licenseTemplate: string | undefined;
-        if (options.some(opt => opt.label.includes('License'))) {
-            licenseTemplate = await this.selectLicense();
-            if (!licenseTemplate) return;
-        }
+        licenseTemplate = await this.selectLicense();
+        if (!licenseTemplate) return;
 
         // Prepare repository options
         const repoOptions = {
@@ -203,7 +191,7 @@ export class GitHubQuickActions {
             isPrivate,
             includeReadme: options.some(opt => opt.label.includes('README')),
             includeLicense: licenseTemplate,
-            includeGitignore: options.some(opt => opt.label.includes('.gitignore')),
+            includeGitignore: true,
             initializeWithSystemFiles: options.some(opt => opt.label.includes('System Files'))
         };
 
@@ -253,6 +241,32 @@ export class GitHubQuickActions {
     }
 
     /**
+     * Quick update without release
+     */
+    async updateSystem(): Promise<void> {
+        const currentRepo = this.githubManager.getCurrentRepository();
+        
+        if (!currentRepo) {
+            const action = await vscode.window.showInformationMessage(
+                'No repository connected. Please select a repository first.',
+                'Select Repository',
+                'Create Repository'
+            );
+
+            if (action === 'Select Repository') {
+                await this.selectRepository();
+            } else if (action === 'Create Repository') {
+                await this.createRepository();
+            }
+            return;
+        }
+
+        await this.githubManager.updateSystem();
+        
+        // The updateSystem method handles its own success notifications
+    }
+
+    /**
      * Disconnect repository with confirmation
      */
     async disconnectRepository(): Promise<void> {
@@ -290,33 +304,21 @@ export class GitHubQuickActions {
     private async selectLicense(): Promise<string | undefined> {
         const licenseOptions = [
             {
+                label: "lGPL-3.0 License",
+                description: 'Lesser General Public License',
+                detail: 'Allows Modules written against your System to be whatever License they choose, but requires modifications to your System to be open source',
+                value: 'lgpl-3.0'
+            },
+            {
                 label: 'MIT License',
-                description: 'Permissive license (recommended)',
+                description: 'Permissive license',
                 detail: 'Short and simple permissive license with conditions only requiring preservation of copyright and license notices',
                 value: 'mit'
             },
             {
-                label: 'Apache License 2.0',
-                description: 'Permissive license with patent protection',
-                detail: 'Permissive license similar to MIT but also provides patent protection',
-                value: 'apache-2.0'
-            },
-            {
-                label: 'GNU GPL v3.0',
-                description: 'Copyleft license',
-                detail: 'Strong copyleft license that requires derivative works to be open source',
-                value: 'gpl-3.0'
-            },
-            {
-                label: 'Creative Commons Attribution 4.0',
-                description: 'For creative works',
-                detail: 'Allows others to distribute, remix, adapt, and build upon your work',
-                value: 'cc-by-4.0'
-            },
-            {
                 label: 'The Unlicense',
                 description: 'Public domain',
-                detail: 'Releases your work into the public domain',
+                detail: 'Releases your work into the public domain with no restrictions',
                 value: 'unlicense'
             }
         ];
@@ -380,7 +382,7 @@ export class GitHubQuickActions {
                         repository,
                         'README.md',
                         readmeContent,
-                        'Add comprehensive README'
+                        'Add initial README'
                     );
                 }
 
@@ -407,9 +409,9 @@ export class GitHubQuickActions {
 
 ${description}
 
-[![Foundry VTT](https://img.shields.io/badge/Foundry-v11+-informational)](https://foundryvtt.com/)
+[![Foundry VTT](https://img.shields.io/badge/Foundry-v12-informational?logo=foundryvirtualtabletop)](https://foundryvtt.com/)
 [![License](https://img.shields.io/github/license/${repository.full_name})](LICENSE)
-[![Latest Release](https://img.shields.io/github/release/${repository.full_name})](https://github.com/${repository.full_name}/releases)
+[![Latest Release](https://img.shields.io/github/v/release/${repository.full_name})](https://github.com/${repository.full_name}/releases)
 
 ## 🎲 About
 
@@ -423,7 +425,7 @@ This is a **Foundry Virtual Tabletop** system built using **ISDL** (Intelligent 
 3. Click **"Install System"**
 4. Enter this manifest URL:
    \`\`\`
-   https://raw.githubusercontent.com/${repository.full_name}/main/system.json
+   https://github.com/${repository.full_name}/releases/latest/download/system.json
    \`\`\`
 5. Click **"Install"**
 
@@ -474,12 +476,6 @@ code .
 4. Test changes in Foundry VTT
 5. Create a pull request with your improvements
 
-### ISDL Syntax Highlights
-- **Actors**: Define character types and their properties
-- **Items**: Create equipment, spells, abilities, and more
-- **Actions**: Set up automated dice rolls and effects
-- **Sheets**: Design custom layouts with Vue components
-- **Computed Properties**: Dynamic calculations and derivations
 
 ## 📁 Project Structure
 
@@ -495,35 +491,6 @@ ${repository.name}/
 └── assets/            # Images and media
 \`\`\`
 
-## 🎮 Usage
-
-### For Players
-- Create characters using the intuitive character sheet
-- Roll dice directly from your sheet
-- Track resources, conditions, and progress
-- Interact with items and abilities seamlessly
-
-### For Game Masters
-- Manage NPCs and creatures efficiently
-- Use automated tools for common tasks
-- Customize system settings to match your game
-- Track party resources and shared information
-
-## 🔧 Configuration
-
-The system can be configured through Foundry's system settings:
-
-- **Dice Formula Preferences**: Customize default dice behaviors
-- **Sheet Layouts**: Choose between different character sheet styles
-- **Automation Level**: Control how much the system automates
-- **House Rules**: Enable optional rules and variants
-
-## 🎯 Compatibility
-
-- **Foundry VTT**: v11.315 or higher
-- **Modules**: Compatible with most popular Foundry modules
-- **Browsers**: Chrome, Firefox, Safari, Edge (modern versions)
-- **Platforms**: Windows, macOS, Linux
 
 ## 🤝 Contributing
 
@@ -552,26 +519,6 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
 - **💬 Community**: Join our [Discord](https://discord.gg/foundryvtt)
 - **🐛 Issues**: Report bugs on [GitHub Issues](https://github.com/${repository.full_name}/issues)
 - **❓ Questions**: Use [GitHub Discussions](https://github.com/${repository.full_name}/discussions)
-
-### Common Issues
-- **System won't load**: Check Foundry version compatibility
-- **Sheets look broken**: Clear browser cache and hard refresh
-- **Dice not working**: Verify system settings and module conflicts
-
-## 🙏 Acknowledgments
-
-- **Foundry VTT Community**: For inspiration and support
-- **ISDL Framework**: Making system development accessible
-- **Contributors**: Everyone who has helped improve this system
-- **Playtesters**: Those who helped refine the gameplay experience
-
-## 📈 Roadmap
-
-- [ ] Enhanced character progression tools
-- [ ] Additional automation features  
-- [ ] Expanded localization support
-- [ ] Integration with popular VTT modules
-- [ ] Mobile app companion features
 
 ---
 

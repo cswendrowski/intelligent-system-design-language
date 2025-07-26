@@ -10,7 +10,7 @@ export interface GitHubUserInfo {
 
 export class GitHubAuthProvider {
     private static readonly GITHUB_AUTH_PROVIDER_ID = 'github';
-    private static readonly SCOPES = ['repo', 'user:email', 'actions:write', 'contents:write', 'workflow'];
+    private static readonly SCOPES = ['repo', 'user:email', 'actions:write', 'contents:write', 'workflow', 'gist'];
 
     constructor(private context: vscode.ExtensionContext) {
     }

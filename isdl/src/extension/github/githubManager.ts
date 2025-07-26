@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { GitHubAuthProvider, GitHubUserInfo } from './githubAuthProvider.js';
 import { GitHubConfigurationManager } from './githubConfig.js';
-import { Octokit } from '@octokit/rest';
+import { Octokit, RestEndpointMethodTypes } from '@octokit/rest';
 import { createIntelligentSystemDesignLanguageServices } from '../../language/intelligent-system-design-language-module.js';
 import { NodeFileSystem } from 'langium/node';
 import { Entry } from '../../language/generated/ast.js';
@@ -126,6 +126,10 @@ export class GitHubManager {
         return this.configManager;
     }
 
+    getAuthProvider(): GitHubAuthProvider {
+        return this.authProvider;
+    }
+
     // Repository methods
     getCurrentRepository(): GitHubRepository | null {
         return this.currentRepository;
@@ -244,26 +248,72 @@ export class GitHubManager {
             const config = this.configManager.getConfig();
             const owner = repository.full_name.split('/')[0];
 
-            // First, we need to create the initial commit using Git Data API
-            // Create a blob for the initial file
-            const blob = await this.octokit!.git.createBlob({
-                owner,
-                repo: repository.name,
-                content: Buffer.from('# Repository initialized with ISDL\n').toString('base64'),
-                encoding: 'base64'
-            });
+            // Check if repository has existing files on the default branch (usually master)
+            let baseTreeSha: string | undefined;
+            let parentCommitSha: string | undefined;
 
-            // Create a tree with the blob
-            const tree = await this.octokit!.git.createTree({
-                owner,
-                repo: repository.name,
-                tree: [{
-                    path: '.gitkeep',
-                    mode: '100644',
-                    type: 'blob',
-                    sha: blob.data.sha
-                }]
-            });
+            try {
+                // Try to get the existing master/main branch to preserve existing files
+                const defaultRef = await this.octokit!.git.getRef({
+                    owner,
+                    repo: repository.name,
+                    ref: 'heads/master'  // GitHub default for new repos with license
+                });
+
+                // Get the commit to extract the tree
+                const commit = await this.octokit!.git.getCommit({
+                    owner,
+                    repo: repository.name,
+                    commit_sha: defaultRef.data.object.sha
+                });
+
+                baseTreeSha = commit.data.tree.sha;
+                parentCommitSha = defaultRef.data.object.sha;
+
+                console.log('Found existing files on master branch, preserving them...');
+
+            } catch (error) {
+                // No existing branch or files, we'll create from scratch
+                console.log('No existing files found, creating new repository structure...');
+            }
+
+            let tree: any;
+            let commitParents: string[] = [];
+
+            if (baseTreeSha && parentCommitSha) {
+                // Use existing tree as base to preserve LICENSE, .gitignore, etc.
+                tree = await this.octokit!.git.createTree({
+                    owner,
+                    repo: repository.name,
+                    base_tree: baseTreeSha,
+                    tree: [{
+                        path: '.gitkeep',
+                        mode: '100644',
+                        type: 'blob',
+                        content: '# Repository initialized with ISDL\n'
+                    }]
+                });
+                commitParents = [parentCommitSha];
+            } else {
+                // Create new tree from scratch
+                const blob = await this.octokit!.git.createBlob({
+                    owner,
+                    repo: repository.name,
+                    content: Buffer.from('# Repository initialized with ISDL\n').toString('base64'),
+                    encoding: 'base64'
+                });
+
+                tree = await this.octokit!.git.createTree({
+                    owner,
+                    repo: repository.name,
+                    tree: [{
+                        path: '.gitkeep',
+                        mode: '100644',
+                        type: 'blob',
+                        sha: blob.data.sha
+                    }]
+                });
+            }
 
             // Create the initial commit
             const commit = await this.octokit!.git.createCommit({
@@ -271,7 +321,7 @@ export class GitHubManager {
                 repo: repository.name,
                 message: 'Initialize main branch',
                 tree: tree.data.sha,
-                parents: []
+                parents: commitParents
             });
 
             // Create the main branch reference
@@ -482,7 +532,6 @@ export class GitHubManager {
         }
     }
 
-
     /**
      * Upload multiple files to repository as a single commit with efficient change detection
      */
@@ -491,9 +540,9 @@ export class GitHubManager {
         files: { path: string; content: string }[],
         commitMessage: string,
         progressCallback?: (progress: number, current: string) => void
-    ): Promise<boolean> {
-        if (!await this.initializeOctokit()) return false;
-        if (files.length === 0) return true;
+    ): Promise<{ success: boolean; hasChanges: boolean; changedFiles: number }> {
+        if (!await this.initializeOctokit()) return { success: false, hasChanges: false, changedFiles: 0 };
+        if (files.length === 0) return { success: true, hasChanges: false, changedFiles: 0 };
 
         try {
             const owner = repository.full_name.split('/')[0];
@@ -520,7 +569,7 @@ export class GitHubManager {
                 if (progressCallback) {
                     progressCallback(100, 'All files up to date!');
                 }
-                return true;
+                return { success: true, hasChanges: false, changedFiles: 0 };
             }
 
             console.log(`🚀 Committing ${filesToCommit.length} changed files out of ${files.length} total`);
@@ -585,7 +634,7 @@ export class GitHubManager {
 
             if (blobs.length === 0) {
                 console.log('✓ No blobs needed - using existing file hashes');
-                return true;
+                return { success: true, hasChanges: false, changedFiles: 0 };
             }
 
             if (progressCallback) {
@@ -666,15 +715,119 @@ export class GitHubManager {
                 progressCallback(100, 'Upload complete!');
             }
 
-            return true;
+            return { success: true, hasChanges: true, changedFiles: filesToCommit.length };
 
         } catch (error: any) {
             console.error('Failed to upload files as batch commit:', error);
-            return false;
+            return { success: false, hasChanges: false, changedFiles: 0 };
         }
     }
 
     // Publishing methods
+    async updateSystem(): Promise<boolean> {
+        if (!this.currentRepository) {
+            vscode.window.showErrorMessage('No repository connected. Please select a repository first.');
+            return false;
+        }
+
+        return await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Updating system files...',
+            cancellable: false
+        }, async (progress) => {
+            try {
+                progress.report({ message: 'Selecting ISDL file...', increment: 10 });
+
+                // Select which .isdl file to use
+                const selectedFile = await this.selectIsdlFile();
+                if (!selectedFile) {
+                    vscode.window.showWarningMessage('No ISDL file selected. Update cancelled.');
+                    return false;
+                }
+
+                progress.report({ message: 'Collecting system files...', increment: 10 });
+
+                // Get the system files
+                const systemFiles = await this.collectSystemFilesForPublish(selectedFile);
+
+                if (systemFiles.length === 0) {
+                    vscode.window.showWarningMessage('No system files found. Please generate your system first.');
+                    return false;
+                }
+
+                progress.report({ message: 'Ensuring workflow file exists...', increment: 10 });
+
+                // Always ensure workflow file exists
+                await this.ensureWorkflowFile(this.currentRepository!);
+
+                progress.report({ message: 'Uploading files...', increment: 20 });
+
+                // Upload files without creating a release
+                const systemJsonFile = systemFiles.find(f => f.path === 'system.json');
+                const systemInfo = systemJsonFile ? JSON.parse(systemJsonFile.content) : null;
+                const systemId = systemInfo?.id || this.currentRepository!.name;
+
+                const uploadResult = await this.uploadFiles(
+                    this.currentRepository!,
+                    systemFiles,
+                    `Update ${systemId} system files`,
+                    (progressPercent, currentStep) => {
+                        progress.report({
+                            message: currentStep,
+                            increment: Math.min(progressPercent * 0.5, 50) // Use up to 50% of remaining progress
+                        });
+                    }
+                );
+
+                if (!uploadResult.success) {
+                    vscode.window.showErrorMessage('Failed to update system files. Check the output for details.');
+                    return false;
+                }
+
+                // Check if there were actually any changes to update
+                if (!uploadResult.hasChanges) {
+                    progress.report({ message: 'No changes detected', increment: 10 });
+                    
+                    const action = await vscode.window.showInformationMessage(
+                        'No changes detected in your system files. All files are already up to date in the repository.',
+                        'Regenerate System',
+                        'Open Repository',
+                        'Cancel'
+                    );
+
+                    if (action === 'Regenerate System') {
+                        await vscode.commands.executeCommand('fsdl.generate');
+                    } else if (action === 'Open Repository') {
+                        vscode.env.openExternal(vscode.Uri.parse(this.currentRepository!.html_url));
+                    }
+                    
+                    return false;
+                }
+
+                progress.report({ message: 'Update complete!', increment: 10 });
+
+                const repo = this.currentRepository!;
+                vscode.window.showInformationMessage(
+                    `System files updated in ${repo.name} successfully! (${uploadResult.changedFiles} of ${systemFiles.length} files changed)`,
+                    'Open Repository',
+                    'View Commits'
+                ).then(selection => {
+                    if (selection === 'Open Repository') {
+                        vscode.env.openExternal(vscode.Uri.parse(repo.html_url));
+                    } else if (selection === 'View Commits') {
+                        vscode.env.openExternal(vscode.Uri.parse(`${repo.html_url}/commits`));
+                    }
+                });
+
+                return true;
+
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to update system: ${error.message}`);
+                return false;
+            }
+        });
+    }
+
     async publishSystem(): Promise<boolean> {
         if (!this.currentRepository) {
             vscode.window.showErrorMessage('No repository connected. Please select a repository first.');
@@ -719,6 +872,26 @@ export class GitHubManager {
 
                 // Create a GitHub release
                 const releaseUrl = await this.createRelease(systemInfo, systemFiles, progress);
+
+                // Handle case where no changes were detected
+                if (releaseUrl === 'NO_CHANGES') {
+                    progress.report({ message: 'No changes detected', increment: 10 });
+                    
+                    const action = await vscode.window.showInformationMessage(
+                        'No changes detected in your system files. All files are already up to date in the repository.',
+                        'Regenerate System',
+                        'Open Repository',
+                        'Cancel'
+                    );
+
+                    if (action === 'Regenerate System') {
+                        await vscode.commands.executeCommand('fsdl.generate');
+                    } else if (action === 'Open Repository') {
+                        vscode.env.openExternal(vscode.Uri.parse(this.currentRepository!.html_url));
+                    }
+                    
+                    return false;
+                }
 
                 progress.report({ message: 'Publish complete!', increment: 10 });
 
@@ -986,7 +1159,7 @@ export class GitHubManager {
 
             // Generate release notes with ISDL changes
             console.log('📄 Generating release notes...');
-            const releaseNotes = await this.generateReleaseNotes(systemInfo, changeAnalysis.changes);
+            const releaseNotes = await this.generateReleaseNotes(systemInfo, changeAnalysis.changes, tagName);
             console.log(`📄 Release notes length: ${releaseNotes.length} characters`);
 
 
@@ -994,7 +1167,7 @@ export class GitHubManager {
 
             // Upload files with progress tracking including analysis phase
             let lastProgress = 25;
-            const success = await this.uploadFiles(
+            const uploadResult = await this.uploadFiles(
                 this.currentRepository!,
                 systemFiles,
                 `Update system files (${systemFiles.length} files)`,
@@ -1009,9 +1182,15 @@ export class GitHubManager {
                 }
             );
 
-            if (!success) {
+            if (!uploadResult.success) {
                 vscode.window.showErrorMessage('Failed to upload system files. Check the output for details.');
                 return;
+            }
+
+            // Check if there were actually any changes to publish
+            if (!uploadResult.hasChanges) {
+                console.log('📋 No changes detected, skipping release creation');
+                return 'NO_CHANGES';
             }
 
             // Create the release
@@ -1023,8 +1202,10 @@ export class GitHubManager {
                 name: `${systemInfo?.title || repo} v${version}`,
                 body: releaseNotes,
                 draft: false,
-                prerelease: false
-            };
+                prerelease: false,
+                make_latest: "true",
+                generate_release_notes: false, // We provide our own notes
+            } as RestEndpointMethodTypes['repos']['createRelease']['parameters'];
 
             console.log('📋 Release data:', JSON.stringify(releaseData, null, 2));
 
@@ -1235,7 +1416,7 @@ export class GitHubManager {
     /**
      * Generate release notes for the system with ISDL change analysis
      */
-    private async generateReleaseNotes(systemInfo: any, changes: IsdlChange[] = []): Promise<string> {
+    private async generateReleaseNotes(systemInfo: any, changes: IsdlChange[] = [], tagName: string): Promise<string> {
         const currentDate = new Date().toISOString().split('T')[0];
         const systemName = systemInfo?.title || systemInfo?.id || 'ISDL System';
 
@@ -1245,30 +1426,16 @@ export class GitHubManager {
         return `## ${systemName} Release
 
 📅 **Release Date:** ${currentDate}
-🎲 **Foundry VTT Compatibility:** v${systemInfo?.compatibility?.minimum || '11'} - v${systemInfo?.compatibility?.verified || '12'}
+🎲 **Foundry VTT Compatibility:** v${systemInfo?.compatibility?.minimum || '12'} - v${systemInfo?.compatibility?.verified || '12'}
 
 ### 📦 Installation
 
 **Manifest URL:**
 \`\`\`
-https://github.com/${this.currentRepository!.full_name}/releases/latest/download/system.json
+https://github.com/${this.currentRepository!.full_name}/releases/download/${tagName}/system.json
 \`\`\`
 
 ${changelogSection}
-
-### 📋 System Information
-
-- **System ID:** \`${systemInfo?.id || 'unknown'}\`
-- **Version:** \`${systemInfo?.version || 'latest'}\`
-- **Author:** ${systemInfo?.authors?.map((a: any) => a.name).join(', ') || systemInfo?.author || 'Unknown'}
-
-### 🛠️ Technical Details
-
-This release includes:
-- Updated system manifest (\`system.json\`)
-- Latest compiled templates and scripts
-- Comprehensive asset files
-- Localization updates
 
 ### 📖 Documentation
 
@@ -1498,6 +1665,73 @@ For installation instructions, usage guides, and troubleshooting:
     }
 
     /**
+     * Get the latest semantic version tag from the repository
+     */
+    private async getLatestSemanticTag(): Promise<string | null> {
+        if (!await this.initializeOctokit() || !this.currentRepository) return null;
+
+        try {
+            const owner = this.currentRepository.full_name.split('/')[0];
+            const repo = this.currentRepository.name;
+
+            // Get all tags
+            const tags = await this.octokit!.repos.listTags({
+                owner,
+                repo,
+                per_page: 100
+            });
+
+            if (tags.data.length === 0) {
+                return null;
+            }
+
+            // Parse all versions and find the highest semantic version
+            const versions = tags.data
+                .map(tag => {
+                    const version = tag.name.replace(/^v/, '');
+                    const parts = version.split('.');
+                    
+                    // Must have at least 2 parts and all parts must be valid numbers
+                    if (parts.length < 2) return null;
+                    
+                    const numericParts = parts.map(part => {
+                        const num = parseInt(part, 10);
+                        return isNaN(num) ? null : num;
+                    });
+                    
+                    // Check if any part failed to parse
+                    if (numericParts.some(part => part === null)) return null;
+                    
+                    // Ensure we have major.minor.patch format
+                    while (numericParts.length < 3) numericParts.push(0);
+                    
+                    return {
+                        original: tag.name,
+                        version: version,
+                        major: numericParts[0]!,
+                        minor: numericParts[1]!,
+                        patch: numericParts[2]!,
+                        numeric: numericParts[0]! * 10000 + numericParts[1]! * 100 + numericParts[2]!
+                    };
+                })
+                .filter((v): v is NonNullable<typeof v> => v !== null)
+                .sort((a, b) => b.numeric - a.numeric);
+
+            if (versions.length === 0) {
+                return null;
+            }
+
+            const latestVersion = versions[0];
+            console.log(`🏷️ Latest semantic version: "${latestVersion.version}" (${latestVersion.original})`);
+            return latestVersion.original;
+
+        } catch (error: any) {
+            console.warn('Failed to get latest semantic tag:', error);
+            return null;
+        }
+    }
+
+    /**
      * Get previous version of a file from the repository
      */
     private async getPreviousFileContent(filePath: string): Promise<string | null> {
@@ -1505,13 +1739,21 @@ For installation instructions, usage guides, and troubleshooting:
 
         try {
             const owner = this.currentRepository.full_name.split('/')[0];
-            const config = this.configManager.getConfig();
+            
+            // Get the latest tag to compare against
+            const latestTag = await this.getLatestSemanticTag();
+            if (!latestTag) {
+                console.log(`📝 No previous tags found, treating as new system`);
+                return null;
+            }
+
+            console.log(`🏷️ Comparing against last release: ${latestTag}`);
 
             const response = await this.octokit!.repos.getContent({
                 owner,
                 repo: this.currentRepository.name,
                 path: filePath,
-                ref: config.defaultBranch
+                ref: latestTag // Use the latest tag instead of default branch
             });
 
             if ('content' in response.data && response.data.content) {
@@ -1519,7 +1761,7 @@ For installation instructions, usage guides, and troubleshooting:
             }
         } catch (error: any) {
             if (error.status === 404) {
-                console.log(`📝 File ${filePath} not found in previous version`);
+                console.log(`📝 File ${filePath} not found in last release (${await this.getLatestSemanticTag()})`);
             } else {
                 console.warn(`Failed to get previous version of ${filePath}:`, error);
             }
@@ -1596,7 +1838,7 @@ For installation instructions, usage guides, and troubleshooting:
                 const docName = document.name;
 
                 if (docType === 'Actor' || docType === 'Item') {
-                    this.extractFieldsFromDocument(document, `${docType.toLowerCase()}.${docName}`, fields);
+                    this.extractFieldsFromDocument(document, docName, fields);
                 }
             }
         } catch (error) {
@@ -1645,7 +1887,7 @@ For installation instructions, usage guides, and troubleshooting:
             }
             // Handle layout elements (sections, rows, columns, etc.)
             else if (['Section', 'Row', 'Column', 'Page', 'Tab'].includes(itemType)) {
-                const layoutLocation = item.name ? `${location}.${item.name}` : location;
+                const layoutLocation = item.name ? `${location} - ${item.name}` : location;
                 this.extractFieldsFromDocument(item, layoutLocation, fields);
             }
         }
@@ -1704,7 +1946,7 @@ For installation instructions, usage guides, and troubleshooting:
                     category: field.category,
                     description: `Removed ${field.category} '${field.name}' from ${field.location}`,
                     name: field.name,
-                    details: `Type: ${field.type}${field.modifiers?.length ? `, Modifiers: ${field.modifiers.join(', ')}` : ''}`
+                    details: `Type: ${field.name}${field.modifiers?.length ? `, Modifiers: ${field.modifiers.join(', ')}` : ''}`
                 });
             }
         }
@@ -1717,7 +1959,7 @@ For installation instructions, usage guides, and troubleshooting:
                     category: field.category,
                     description: `Added ${field.category} '${field.name}' to ${field.location}`,
                     name: field.name,
-                    details: `Type: ${field.type}${field.modifiers?.length ? `, Modifiers: ${field.modifiers.join(', ')}` : ''}`
+                    details: `Type: ${field.name}${field.modifiers?.length ? `, Modifiers: ${field.modifiers.join(', ')}` : ''}`
                 });
             }
         }
@@ -1788,7 +2030,7 @@ For installation instructions, usage guides, and troubleshooting:
         const details: string[] = [];
 
         if (oldField.type !== newField.type) {
-            details.push(`Type changed from ${oldField.type} to ${newField.type}`);
+            details.push(`Type changed from ${oldField.name} to ${newField.name}`);
         }
 
         if (JSON.stringify(oldField.modifiers) !== JSON.stringify(newField.modifiers)) {

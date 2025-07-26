@@ -444,7 +444,9 @@ describe('GitHubManager', () => {
                 'Test commit'
             );
 
-            expect(result).toBe(true);
+            expect(result.success).toBe(true);
+            expect(result.hasChanges).toBe(true);
+            expect(result.changedFiles).toBe(2);
             expect(mockOctokit.git.getCommit).toHaveBeenCalledWith({
                 owner: 'user',
                 repo: 'test-repo',
@@ -498,7 +500,9 @@ describe('GitHubManager', () => {
                 'Initial commit'
             );
 
-            expect(result).toBe(true);
+            expect(result.success).toBe(true);
+            expect(result.hasChanges).toBe(true);
+            expect(result.changedFiles).toBe(1);
             expect(mockOctokit.git.createTree).toHaveBeenCalledWith(
                 expect.objectContaining({
                     owner: 'user',
@@ -510,6 +514,220 @@ describe('GitHubManager', () => {
             // Verify base_tree is not set
             const createTreeCall = mockOctokit.git.createTree.mock.calls[0][0];
             expect(createTreeCall).not.toHaveProperty('base_tree');
+        });
+    });
+
+    describe('Tag-based Comparison', () => {
+        it('should get latest semantic tag for comparison', async () => {
+            const mockTags = [
+                { name: 'v1.0.0' },
+                { name: 'v1.1.0' },
+                { name: 'v1.2.3' },
+                { name: 'v0.9.0' },
+                { name: 'random-tag' }, // Non-semantic tag
+            ];
+
+            // Set up repository
+            (githubManager as any).currentRepository = {
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            mockOctokit.repos.listTags.mockResolvedValue({
+                data: mockTags
+            });
+
+            const latestTag = await (githubManager as any).getLatestSemanticTag();
+
+            expect(mockOctokit.repos.listTags).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                per_page: 100
+            });
+
+            expect(latestTag).toBe('v1.2.3'); // Should get the highest semantic version
+        });
+
+        it('should return null when no semantic tags exist', async () => {
+            // Set up repository
+            (githubManager as any).currentRepository = {
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            mockOctokit.repos.listTags.mockResolvedValue({
+                data: [
+                    { name: 'random-tag' },
+                    { name: 'another-tag' }
+                ]
+            });
+
+            const latestTag = await (githubManager as any).getLatestSemanticTag();
+
+            expect(latestTag).toBeNull();
+        });
+
+        it('should return null when no tags exist', async () => {
+            // Set up repository
+            (githubManager as any).currentRepository = {
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            mockOctokit.repos.listTags.mockResolvedValue({
+                data: []
+            });
+
+            const latestTag = await (githubManager as any).getLatestSemanticTag();
+
+            expect(latestTag).toBeNull();
+        });
+
+        it('should get file content from latest tag for comparison', async () => {
+            // Set up repository
+            (githubManager as any).currentRepository = {
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            // Mock getting the latest tag
+            mockOctokit.repos.listTags.mockResolvedValue({
+                data: [{ name: 'v1.0.0' }]
+            });
+
+            // Mock getting file content from that tag
+            mockOctokit.repos.getContent.mockResolvedValue({
+                data: {
+                    content: Buffer.from('previous isdl content').toString('base64')
+                }
+            });
+
+            const content = await (githubManager as any).getPreviousFileContent('system.isdl');
+
+            expect(mockOctokit.repos.listTags).toHaveBeenCalled();
+            expect(mockOctokit.repos.getContent).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                path: 'system.isdl',
+                ref: 'v1.0.0' // Should use the tag, not the default branch
+            });
+
+            expect(content).toBe('previous isdl content');
+        });
+    });
+
+    describe('Main Branch Initialization', () => {
+        it('should preserve existing files when initializing main branch', async () => {
+            const mockRepository = {
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            // Mock existing master branch with LICENSE and .gitignore
+            const mockMasterRef = {
+                data: { object: { sha: 'master-commit-sha' } }
+            };
+
+            const mockMasterCommit = {
+                data: { tree: { sha: 'master-tree-sha' } }
+            };
+
+            mockOctokit.git.getRef.mockResolvedValue(mockMasterRef);
+            mockOctokit.git.getCommit.mockResolvedValue(mockMasterCommit);
+            mockOctokit.git.createTree.mockResolvedValue({ data: { sha: 'new-tree-sha' } });
+            mockOctokit.git.createCommit.mockResolvedValue({ data: { sha: 'new-commit-sha' } });
+            mockOctokit.git.createRef.mockResolvedValue({});
+            mockOctokit.repos.update.mockResolvedValue({});
+
+            await (githubManager as any).initializeMainBranch(mockRepository);
+
+            // Should check for existing master branch
+            expect(mockOctokit.git.getRef).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                ref: 'heads/master'
+            });
+
+            // Should get the commit to extract tree
+            expect(mockOctokit.git.getCommit).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                commit_sha: 'master-commit-sha'
+            });
+
+            // Should create tree with base_tree to preserve existing files
+            expect(mockOctokit.git.createTree).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                base_tree: 'master-tree-sha',
+                tree: [{
+                    path: '.gitkeep',
+                    mode: '100644',
+                    type: 'blob',
+                    content: '# Repository initialized with ISDL\n'
+                }]
+            });
+
+            // Should create commit with parent
+            expect(mockOctokit.git.createCommit).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                message: 'Initialize main branch',
+                tree: 'new-tree-sha',
+                parents: ['master-commit-sha']
+            });
+        });
+
+        it('should create new repository structure when no existing files found', async () => {
+            const mockRepository = {
+                name: 'test-repo',
+                full_name: 'user/test-repo',
+            };
+
+            // Mock no existing master branch
+            mockOctokit.git.getRef.mockRejectedValue({ status: 404 });
+            mockOctokit.git.createBlob.mockResolvedValue({ data: { sha: 'blob-sha' } });
+            mockOctokit.git.createTree.mockResolvedValue({ data: { sha: 'new-tree-sha' } });
+            mockOctokit.git.createCommit.mockResolvedValue({ data: { sha: 'new-commit-sha' } });
+            mockOctokit.git.createRef.mockResolvedValue({});
+
+            await (githubManager as any).initializeMainBranch(mockRepository);
+
+            // Should check for existing master branch
+            expect(mockOctokit.git.getRef).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                ref: 'heads/master'
+            });
+
+            // Should create blob for new file
+            expect(mockOctokit.git.createBlob).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                content: Buffer.from('# Repository initialized with ISDL\n').toString('base64'),
+                encoding: 'base64'
+            });
+
+            // Should create tree without base_tree
+            expect(mockOctokit.git.createTree).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                tree: [{
+                    path: '.gitkeep',
+                    mode: '100644',
+                    type: 'blob',
+                    sha: 'blob-sha'
+                }]
+            });
+
+            // Should create commit without parents
+            expect(mockOctokit.git.createCommit).toHaveBeenCalledWith({
+                owner: 'user',
+                repo: 'test-repo',
+                message: 'Initialize main branch',
+                tree: 'new-tree-sha',
+                parents: []
+            });
         });
     });
 
@@ -547,9 +765,10 @@ describe('GitHubManager', () => {
                 'Test commit'
             );
 
-            // TODO: This should actually return false when blob creation fails for all files
-            // Current implementation incorrectly returns true when no blobs are created
-            expect(result).toBe(true);
+            // When blob creation fails, no files get committed so hasChanges is false
+            expect(result.success).toBe(true);
+            expect(result.hasChanges).toBe(false);
+            expect(result.changedFiles).toBe(0);
         });
 
         it('should sanitize invalid version strings', async () => {

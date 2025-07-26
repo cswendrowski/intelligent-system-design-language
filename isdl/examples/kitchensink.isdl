@@ -71,14 +71,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 ])
             string Summary(icon: "fa-solid fa-info-circle", color: #a586c0)
             string Text2(icon: "fa-solid fa-book", label: "Locked Text Field", value: "This is a locked text field that cannot be edited by the player.", color: #a586c0)
-            string Text3(icon: "fa-solid fa-scroll", label: "Readonly Text Field", value: "This is a readonly text field that cannot be edited by the player.", color: #a586c0, visibility: {
-                if (User.isGM) {
-                    return Visibility.default
-                }
-                else {
-                    return Visibility.readonly
-                }
-            })
+            string Test3
+            string Test4
             
             html Background(visibility: {
                 return Visibility.hidden
