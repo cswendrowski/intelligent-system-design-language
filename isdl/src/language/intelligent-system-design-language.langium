@@ -1,6 +1,6 @@
 grammar IntelligentSystemDesignLanguage
 entry Entry:
-    config=Config documents+=Document*;
+    config=Config (templates+=Template | documents+=Document)*;
      
 // Config ------------------------------------------------------ 
 
@@ -10,15 +10,23 @@ Config:
 ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
  
+// Templates ------------------------------------------------------ 
+
+Template:
+    "template" name=ID ("(" params+=TemplateParam ("," params+=TemplateParam)* ")")? ClassBlock;
+
+TemplateParam:
+    (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam);
+
 // Documents ------------------------------------------------------ 
 
 Document:
     Actor | Item;
 
 Actor:
-    "actor" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ClassBlock;
+    "actor" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ("extends" extends=[Template:ID])? ClassBlock;
 Item:
-    "item" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ClassBlock;
+    "item" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ("extends" extends=[Template:ID])? ClassBlock;
 DocumentParam:
     (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam | DocumentCreatableParam | DocumentDefaultParam);
 DocumentSvgParam:

@@ -5,7 +5,14 @@ config KitchenSink {
     author = "Cody Swendrowski"
 }
 
-actor Hero(icon: "fa-solid fa-sword", background: texture) {
+template LifetimeStats {
+    page Stats {
+        number LifetimeActionsTaken
+        number LifetimeDamageDealt
+    }
+}
+
+actor Hero(icon: "fa-solid fa-sword", background: texture) extends LifetimeStats {
     
     function Print(number value) {
         log("Leveled up to Level " + value)

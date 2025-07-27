@@ -5,6 +5,7 @@ import {
     type Property,
     type Item,
     type Entry,
+    type Template,
     isProperty,
     Config,
     TrackerExp,
@@ -41,6 +42,7 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
     const checks: ValidationChecks<IntelligentSystemDesignLanguageAstType> = {
         Entry: validator.validateEntry,
         Config: validator.validateConfig,
+        Template: validator.validateTemplate,
         Actor: validator.validateActor,
         Item: validator.validateItem,
         Property: validator.validateProperty,
@@ -71,12 +73,54 @@ export class IntelligentSystemDesignLanguageValidator {
         }
     }
 
-    validateActor(actor: Actor, accept: ValidationAcceptor): void {
+    validateTemplate(template: Template, accept: ValidationAcceptor): void {
+        if (!template.body) {
+            accept('error', 'Template requires at least one property.', { node: template, property: 'body' });
+            return;
+        }
+
         const discoveredPropertyNames = new Set();
 
         function validateUniqueName(node: any, name: string): void {
             if (discoveredPropertyNames.has(name)) {
-                accept('error', `Actor has non-unique property name '${name}'.`, { node: node, property: 'name' });
+                accept('error', `Template has non-unique property name '${name}'.`, { node: node, property: 'name' });
+            }
+            discoveredPropertyNames.add(name);
+        }
+
+        const properties = getAllOfType<Property>(template.body, isProperty, false);
+        for (const property of properties) {
+            if (isDocumentArrayExp(property)) continue; // We allow multiple copies of the same document array exp in a template
+            validateUniqueName(property, property.name);
+        }
+
+        // Template names should be CapitalCase
+        if (template.name) {
+            const firstChar = template.name.substring(0, 1);
+            if (firstChar.toUpperCase() !== firstChar) {
+                accept('warning', 'Template names should start with a capital.', { node: template, property: 'name' });
+            }
+        }
+    }
+
+    validateActor(actor: Actor, accept: ValidationAcceptor): void {
+        const discoveredPropertyNames = new Set();
+
+        // Collect property names from template if extending one
+        // if (actor.extends && actor.extends.ref && actor.extends.ref.body) {
+        //     const templateProperties = getAllOfType<Property>(actor.extends.ref.body, isProperty, false);
+        //     for (const templateProperty of templateProperties) {
+        //         discoveredPropertyNames.add(templateProperty.name);
+        //     }
+        // }
+
+        function validateUniqueName(node: any, name: string): void {
+            if (discoveredPropertyNames.has(name)) {
+                if (actor.extends && actor.extends.ref) {
+                    accept('error', `Actor property '${name}' conflicts with inherited template property. Use a different name or override explicitly.`, { node: node, property: 'name' });
+                } else {
+                    accept('error', `Actor has non-unique property name '${name}'.`, { node: node, property: 'name' });
+                }
             }
             discoveredPropertyNames.add(name);
         }
@@ -85,6 +129,11 @@ export class IntelligentSystemDesignLanguageValidator {
         for (const property of properties) {
             if (isDocumentArrayExp(property)) continue; // We allow multiple copies of the same document array exp in an actor
             validateUniqueName(property, property.name);
+        }
+
+        // Validate that the extended template exists
+        if (actor.extends && !actor.extends.ref) {
+            accept('error', `Template '${actor.extends.$refText}' not found.`, { node: actor, property: 'extends' });
         }
     }
 
@@ -109,9 +158,21 @@ export class IntelligentSystemDesignLanguageValidator {
     validateItem(item: Item, accept: ValidationAcceptor): void {
         const discoveredPropertyNames = new Set();
 
+        // // Collect property names from template if extending one
+        // if (item.extends && item.extends.ref && item.extends.ref.body) {
+        //     const templateProperties = getAllOfType<Property>(item.extends.ref.body, isProperty, false);
+        //     for (const templateProperty of templateProperties) {
+        //         discoveredPropertyNames.add(templateProperty.name);
+        //     }
+        // }
+
         function validateUniqueName(node: any, name: string): void {
             if (discoveredPropertyNames.has(name)) {
-                accept('error', `Item has non-unique property name '${name}'.`, { node: node, property: 'name' });
+                if (item.extends && item.extends.ref) {
+                    accept('error', `Item property '${name}' conflicts with inherited template property. Use a different name or override explicitly.`, { node: node, property: 'name' });
+                } else {
+                    accept('error', `Item has non-unique property name '${name}'.`, { node: node, property: 'name' });
+                }
             }
             discoveredPropertyNames.add(name);
         }
@@ -122,6 +183,11 @@ export class IntelligentSystemDesignLanguageValidator {
         const properties = getAllOfType<Property>(item.body, isProperty, false);
         for (const property of properties) {
             validateUniqueName(property, property.name);
+        }
+
+        // Validate that the extended template exists
+        if (item.extends && !item.extends.ref) {
+            accept('error', `Template '${item.extends.$refText}' not found.`, { node: item, property: 'extends' });
         }
     }
 

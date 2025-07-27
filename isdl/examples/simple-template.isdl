@@ -1,0 +1,24 @@
+config SimpleTemplate {
+    label = "Simple Template Test"
+    id = "simple-template"
+    description = "Basic template functionality test"
+    author = "ISDL Team"
+}
+
+template BasicCharacter {
+    section Stats {
+        attribute Strength
+        attribute Dexterity
+        number Level
+    }
+}
+
+actor Hero extends BasicCharacter {
+    section Equipment {
+        string Weapon
+    }
+}
+
+item Weapon {
+    number Damage
+}
