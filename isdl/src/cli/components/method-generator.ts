@@ -113,7 +113,7 @@ import {
     isDieField,
     isTimeLimitParam,
     isCombatMethods,
-    isCombatProperty, isUserProperty, isMacroExecute, isMeasuredTemplateField
+    isCombatProperty, isUserProperty, isMacroExecute, isMeasuredTemplateField, isStringChoiceField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -435,13 +435,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     @system.${expression.property.ref?.name.toLowerCase()}
                 `;
             }
-            if (isAttributeExp(generatingProperty) || isResourceExp(generatingProperty)) {
-                return expandToNode`
-                    system.${expression.property.ref?.name.toLowerCase()}.value
-                `;
-            }
+            const systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
             return expandToNode`
-                system.${expression.property.ref?.name.toLowerCase()}
+                ${systemPath}
             `;
         }
 
@@ -1033,19 +1029,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 console.log("Access:", expression.property?.ref?.name, expression.propertyLookup?.ref?.name);
 
                 if (expression.propertyLookup != undefined) {
-                    path = `${path}[context.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}.toLowerCase()]`;
+                    path = `${path}[context.object.${getSystemPath(expression.propertyLookup.ref)}.toLowerCase()]`;
                     label = `${label}.${expression.propertyLookup.ref?.name}`;
                 }
                 else if (isParentPropertyRefExp(expression.property?.ref)) {
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if (expression.property?.ref.propertyType == 'resource' &&
-                        (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path} + ".value"`;
                     }
-                    if (expression.property?.ref.propertyType == 'attribute' &&
-                        (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
                         path = `${path} + ".mod"`;
                     }
 
@@ -1058,7 +1053,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path}.value`;
                     }
                     if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {

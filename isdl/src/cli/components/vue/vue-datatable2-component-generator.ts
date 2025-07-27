@@ -75,24 +75,48 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             }
 
             let localizeName = `${refDoc?.ref?.name}.${property.name}`;
+            let minWidth = '100px'; // Default minimum width
 
+            // Set appropriate minimum widths based on field type
             if (isStringExp(property)) {
                 if (property.params.some(p => isStringParamChoices(p))) {
                     localizeName += ".label";
-                }
-                else {
+                    minWidth = '110px'; // Choice fields need a bit more space
+                } else {
+                    minWidth = '140px'; // Text fields need more space for content
                     return expandToNode`
-                        { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, width: '200px' },
+                        { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}' },
                     `;
                 }
             }
 
             if (isDocumentChoiceExp(property) || isStringChoiceField(property)) {
                 localizeName += ".label";
+                minWidth = '120px'; // Document choices need extra space
+            }
+
+            if (isResourceExp(property) || isTrackerExp(property)) {
+                minWidth = '90px'; // Resource/tracker columns are compact
+            }
+
+            if (isDieField(property) || isDiceField(property)) {
+                minWidth = '80px'; // Dice fields are compact
+            }
+
+            if (isBooleanExp(property)) {
+                minWidth = '80px'; // Boolean chips are compact
+            }
+
+            if (isTimeExp(property) || isDateExp(property) || isDateTimeExp(property)) {
+                minWidth = '120px'; // Date fields need space for formatting
+            }
+
+            if (isMeasuredTemplateField(property)) {
+                minWidth = '130px'; // Template fields have longer text
             }
 
             return expandToNode`
-                { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable} },
+                { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}' },
             `;
         }
         return undefined;
@@ -143,9 +167,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 else {
                     return expandToNode`
                         <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
-                            <p class="text-caption" style="width: 200px;" :data-tooltip="getNestedValue(item, '${systemPath}')">
-                                {{ truncate(getNestedValue(item, '${systemPath}'), 55) }}
-                            </p>
+                            <div class="text-caption text-truncate" :data-tooltip="getNestedValue(item, '${systemPath}')" style="max-width: 300px;">
+                                {{ getNestedValue(item, '${systemPath}') }}
+                            </div>
                         </template>
                     `;
                 }
@@ -317,13 +341,14 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     title: game.i18n.localize("Image"), 
                     key: 'img', 
                     sortable: false,
-                    width: '30px'
+                    width: '50px',
+                    maxWidth: '50px'
                 },
                 { 
                     title: game.i18n.localize("Name"), 
                     key: 'name', 
                     sortable: true,
-                    width: '100px'
+                    minWidth: '120px'
                 }
             ];
             
@@ -334,7 +359,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     title: game.i18n.localize("Actions"), 
                     key: 'actions', 
                     sortable: false,
-                    width: '200px',
+                    width: '150px',
                     align: 'center'
                 }
             ];
@@ -557,6 +582,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         };
         
         const truncate = (text, maxLength) => {
+            if (!text) return '';
             if (text.length > maxLength) {
                 return text.substring(0, maxLength) + '...';
             }
@@ -643,6 +669,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 density="compact"
                 hide-default-footer
                 style="background: none;"
+                class="custom-datatable"
             >
                 <!-- Image slot -->
                 <template v-slot:item.img="{ item }">
@@ -654,7 +681,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 <!-- Name slot with description tooltip -->
                 <template v-slot:item.name="{ item }">
                     <div class="d-flex align-center" :data-tooltip="item.system.description">
-                        <div class="font-weight-medium" style="width: 100px;">{{ item.name }}</div>
+                        <div class="font-weight-medium text-truncate" style="min-width: 120px; max-width: 200px;">{{ item.name }}</div>
                     </div>
                 </template>
 
@@ -778,38 +805,6 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             </v-card>
         </v-dialog>
     </template>
-
-    <style scoped>
-    .v-data-table {
-        background: transparent;
-    }
-    
-    .column-config-list {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    
-    .column-config-item {
-        border: 1px solid transparent;
-        border-radius: 4px;
-        margin-bottom: 2px;
-        transition: all 0.2s ease;
-    }
-    
-    .column-config-item:hover {
-        background-color: rgba(var(--v-theme-on-surface), 0.05);
-        border-color: rgba(var(--v-theme-primary), 0.2);
-    }
-    
-    .column-config-item.dragging {
-        opacity: 0.5;
-        transform: scale(0.98);
-    }
-    
-    .drag-handle:hover {
-        cursor: grabbing !important;
-    }
-    </style>
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 

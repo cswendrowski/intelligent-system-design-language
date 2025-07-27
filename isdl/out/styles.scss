@@ -197,6 +197,76 @@
         > .window-content {
             padding: 16px;
         }
+
+        .custom-datatable {
+            table-layout: auto !important;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(.v-data-table__table) {
+            width: auto !important;
+            table-layout: auto !important;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(th) {
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: fit-content;
+            padding: 0 8px !important;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(th .v-data-table__column-header) {
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(td) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            background: transparent;
+        }
+
+        /* Allow text columns to grow naturally but with reasonable limits */
+        .custom-datatable :deep(td .text-caption.text-truncate) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 80px;
+            max-width: 300px;
+        }
+
+        .column-config-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .column-config-item {
+            border: 1px solid transparent;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .column-config-item:hover {
+            background-color: rgba(var(--v-theme-on-surface), 0.05);
+            border-color: rgba(var(--v-theme-primary), 0.2);
+        }
+
+        .column-config-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .drag-handle:hover {
+            cursor: grabbing !important;
+        }
     }
 
     .window-content {
