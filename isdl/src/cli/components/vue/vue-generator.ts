@@ -268,6 +268,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as MacroField } from './components/macro-field.vue';
     export { default as MeasuredTemplateField } from './components/measured-template.vue';
     export { default as ExtendedChoiceField } from './components/extended-choice-field.vue';
+    export { default as DiceField } from './components/dice.vue';
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}

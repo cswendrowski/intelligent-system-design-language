@@ -648,6 +648,56 @@
         margin-top: 0.75rem;
     }
 
+    .isdl-dice-field {
+        .inner-input {
+            margin: 0;
+        }
+
+        .inner-content {
+            padding: 4px;
+            width: 100%;
+            align-items: center;
+        }
+
+        // Style the inner controls
+        .dice-number-input,
+        .dice-type-select {
+            // Remove extra padding/margins for nested plain variants
+            .v-field {
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+
+            // Align input content properly
+            .v-field__input {
+                align-items: center;
+                padding: 0;
+            }
+        }
+
+        // Fine-tune number input specifically
+        .dice-number-input {
+            .v-number-input__control {
+                .v-btn {
+                    min-width: 24px;
+                    width: 24px;
+                }
+            }
+        }
+
+        .dice-type-select {
+            .v-field__append-inner {
+                padding: 0;
+                align-self: center;
+            }
+        }
+
+        // Styling for the container div
+        .d-flex {
+            min-height: 40px;
+        }
+    }
+
     .attributeExp {
         display: flex;
         flex-direction: column;
@@ -759,7 +809,7 @@
 
         .tracker-content {
             width: 100%;
-            padding: 0.5rem;
+            padding: 4px;
             min-height: 50px;
 
             .tracker-inner-content {

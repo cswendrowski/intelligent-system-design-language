@@ -41,7 +41,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         
         section Dice {
             die DieField
-            //dice DiceField
+            dice DiceField
             //roll RollField
         }
         

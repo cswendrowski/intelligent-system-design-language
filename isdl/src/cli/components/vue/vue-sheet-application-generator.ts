@@ -814,11 +814,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const icon = iconParam?.value ?? "fa-solid fa-table";
         const page = AstUtils.getContainerOfType(tab, isPage) as Page;
         const pageName = page ? page.name : document.name;
-        
+
         // Check for label parameter
         const labelParam = tab.params.find(p => isLabelParam(p)) as LabelParam | undefined;
         const label = labelParam?.value ?? `${document.name}.${tab.name}`;
-        
+
         return expandToNode`
             <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${pageName}', '${tab.name}')">{{ game.i18n.localize('${label}') }}</v-tab>
         `;
@@ -1461,43 +1461,19 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 }
 
                 if (isDiceField(element)) {
-                    // A custom input with both a number input and a dropdown for the die type
                     return expandToNode`
-                        <v-input 
-                            name="${systemPath}"
-                            v-model="context.${systemPath}"
-                            class="isdl-dice-field"
+                        <i-dice
+                            label="${label}"
+                            icon="${iconParam?.value}"
+                            systemPath="${systemPath}"
+                            :context="context"
+                            :editMode="editMode"
+                            :disabled="isDisabled('${element.name.toLowerCase()}')"
                             v-if="!isHidden('${element.name.toLowerCase()}')"
-                            >
-                            <template #label>
-                                <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
-                            </template>
-                            <div class="d-flex">
-                                <v-number-input
-                                    v-model="context.${systemPath}" 
-                                    :min="0" 
-                                    :step="1" 
-                                    variant="outlined" 
-                                    density="compact"
-                                    :disabled="isDisabled('${element.name.toLowerCase()}')"
-                                    class="flex-grow-1"
-                                    
-                                    style="max-width: 100px;"
-                                    name="${systemPath}.number"
-                                >
-                                
-                                </v-number-input>
-                                <v-select 
-                                    v-model="context.${systemPath}" 
-                                    :items="${choices}" 
-                                    item-value="value" 
-                                    item-title="label"
-                                    :disabled="isDisabled('${element.name.toLowerCase()}')"
-                                    variant="outlined"
-                                    density="compact">
-                                </v-select>
-                            </div>
-                        </v-input>
+                            :choices="${choices}"
+                            :primaryColor="primaryColor"
+                            :secondaryColor="secondaryColor"
+                        />
                     `;
                 }
             }

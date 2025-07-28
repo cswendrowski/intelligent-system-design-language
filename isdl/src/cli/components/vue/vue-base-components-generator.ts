@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { expandToNode, toString } from 'langium/generate';
+import {expandToNode, toString} from 'langium/generate';
 import generateMeasuredTemplateComponent from "./base-components/vue-measured-template.js";
 
 export function generateBaseVueComponents(destination: string) {
@@ -18,6 +18,7 @@ export function generateBaseVueComponents(destination: string) {
     generateMacroChoiceComponent(destination);
     generateMeasuredTemplateComponent(destination);
     generateExtendedChoiceComponent(destination);
+    generateDiceComponent(destination);
 }
 
 function generateAttributeComponent(destination: string) {
@@ -25,7 +26,7 @@ function generateAttributeComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `attribute.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -159,7 +160,7 @@ function generateResourceComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `resource.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -290,7 +291,7 @@ function generateDocumentLinkComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `document-link.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -363,7 +364,7 @@ function generateProsemirrorComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `prosemirror.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -394,7 +395,7 @@ function generateRollVisualizerComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `roll-visualizer.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -515,7 +516,7 @@ function generatePaperdollComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `paperdoll.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -571,7 +572,7 @@ function generateCalculator(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `calculator.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -677,7 +678,7 @@ function generateTextFieldComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `text-field.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -743,7 +744,7 @@ function generateDateTimeComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `date-time.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -798,7 +799,7 @@ function generateTrackerComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `tracker.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -1223,7 +1224,7 @@ export function generateMacroChoiceComponent(destination: string) {
     const generatedFilePath = path.join(generatedFileDir, `macro-field.vue`);
 
     if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
+        fs.mkdirSync(generatedFileDir, {recursive: true});
     }
 
     const fileNode = expandToNode`
@@ -1460,6 +1461,108 @@ export function generateExtendedChoiceComponent(destination: string) {
                 <v-chip label :color="item.raw.color" variant="elevated" class="text-caption" size="small" :data-tooltip="getTooltip(item.raw)"><span v-html="getLabel(item.raw.label, item.raw.icon)" ></span></v-chip>
             </template>
         </v-select>
+    </template>
+    `.appendNewLine();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateDiceComponent(destination: string) {
+    const generatedFileDir = path.join(destination, "system", "templates", "vue", "components");
+    const generatedFilePath = path.join(generatedFileDir, `dice.vue`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, {recursive: true});
+    }
+
+    const fileNode = expandToNode`
+    <script setup>
+        import { ref, computed, inject } from "vue";
+
+        const props = defineProps({
+            label: String,
+            icon: String,
+            systemPath: String,
+            context: Object,
+            editMode: Boolean,
+            disabled: Boolean,
+            choices: Array,
+            primaryColor: String,
+            secondaryColor: String
+        });
+
+        const document = inject("rawDocument");
+
+        const getLabel = (label, icon) => {
+            const localized = game.i18n.localize(label);
+            if (icon) {
+                return \`<i class="\${icon}"></i> \${localized}\`;
+            }
+            return localized;
+        };
+
+        const numberValue = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".number") ?? 1,
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".number", newValue)
+        });
+
+        const dieValue = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath + ".die") ?? "d6",
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".die", newValue)
+        });
+    </script>
+
+    <template>
+        <v-input 
+            class="isdl-dice-field"
+            :disabled="disabled"
+            hide-details
+        >
+            
+            <template #default>
+                <v-field
+                    class="v-field--active"
+                    variant="outlined"
+                    density="compact"
+                    :disabled="isDisabled"
+                >
+                    <template #label>
+                        <span v-html="getLabel(label, icon)" />
+                    </template>
+                    <div class="flexrow align-center inner-content">
+                        <v-number-input
+                            v-model="numberValue" 
+                            :min="0" 
+                            :step="1" 
+                            variant="plain" 
+                            density="compact"
+                            :disabled="disabled"
+                            hide-details
+                            class="dice-number-input inner-input"
+                            style="flex: 1; min-width: 50px; text-align: center; margin-right: 0.5rem;"
+                            control-variant="stacked"
+                        />
+                        
+                        <v-select 
+                            v-model="dieValue" 
+                            :items="choices" 
+                            item-value="value" 
+                            item-title="label"
+                            :disabled="disabled"
+                            variant="plain"
+                            density="compact"
+                            hide-details
+                            class="dice-type-select inner-input"
+                            style="flex: 2; min-width: 100px;"
+                        >
+                            <template #prepend-inner>
+                                <i :class="'fa-solid fa-dice-' + dieValue" style="padding-right: 6px;"></i>
+                            </template>
+                        </v-select>
+                    </div>
+                </v-field>
+            </template>
+        </v-input>
     </template>
     `.appendNewLine();
 

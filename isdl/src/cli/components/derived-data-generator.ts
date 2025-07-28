@@ -21,7 +21,7 @@ import {
     isTrackerExp,
     NumberParamInitial,
     WhereParam, Layout, isLayout, isMeasuredTemplateField, isTableField,
-    isAccess, isSelfPropertyRefExp
+    isAccess, isSelfPropertyRefExp, isDiceField
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -388,11 +388,21 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         if (this.system.${property.name.toLowerCase()}.type === 'ray') sum += \` \${this.system.${property.name.toLowerCase()}.width} squares wide\`;
                         return sum;
                     }
-                    this.system.${property.name.toLowerCase()}.summary = ${property.name.toLowerCase()}Summary();
-                    
+                    this.system.${property.name.toLowerCase()}.summary = ${property.name.toLowerCase()}Summary();  
                 `.appendNewLineIfNotEmpty();
             }
 
+            if (isDiceField(property)) {
+                return expandToNode`
+                    // ${property.name} Dice Field Derived Data
+                    
+                    const ${property.name.toLowerCase()}Value = () => {
+                        // Output a string of num + die
+                        return this.system.${property.name.toLowerCase()}.number + this.system.${property.name.toLowerCase()}.die;
+                    }
+                    this.system.${property.name.toLowerCase()}.value = ${property.name.toLowerCase()}Value();
+                `.appendNewLineIfNotEmpty();
+            }
 
             // if (isParentPropertyRefExp(property)) {
             //     console.log("Processing Derived Parent Property: " + property.name);
@@ -649,7 +659,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
         function getTopLevelProperties(body: (ClassExpression | Layout | Document)[]): (ClassExpression | Layout)[] {
             const result: (ClassExpression | Layout)[] = [];
-            
+
             for (const item of body) {
                 if (isDocument(item)) {
                     // Recursively process document bodies
@@ -665,7 +675,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     result.push(item as ClassExpression | Layout);
                 }
             }
-            
+
             return result;
         }
 
