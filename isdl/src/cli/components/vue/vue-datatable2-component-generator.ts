@@ -145,6 +145,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                             size="x-small"
                             variant="elevated"
                             class="text-caption"
+                            label
                         >
                             <v-icon v-if="getNestedValue(item, '${systemPath}')">fa-solid fa-check</v-icon>
                             <v-icon v-else>fa-solid fa-times</v-icon>

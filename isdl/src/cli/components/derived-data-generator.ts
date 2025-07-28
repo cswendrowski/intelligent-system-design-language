@@ -20,7 +20,8 @@ import {
     isHookHandler,
     isTrackerExp,
     NumberParamInitial,
-    WhereParam, Layout, isLayout, isMeasuredTemplateField, isTableField
+    WhereParam, Layout, isLayout, isMeasuredTemplateField, isTableField,
+    isAccess, isSelfPropertyRefExp
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -34,6 +35,8 @@ import {
     isNumberParamValue,
     isNumberParamMin,
     isWhereParam,
+    isDocument,
+    isPage,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -408,12 +411,292 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             return
         }
 
+        // Dependency analysis for computed properties
+        interface PropertyDependency {
+            property: ClassExpression | Layout;
+            dependencies: Set<string>;
+            isComputed: boolean;
+        }
+
+        function extractPropertyDependencies(methodBlock: MethodBlock): Set<string> {
+            const dependencies = new Set<string>();
+
+            function traverseExpression(node: any): void {
+                if (!node) return;
+
+                if (isAccess(node)) {
+                    // For access expressions like self.PropertyName, check if it's referencing another property
+                    if (node.property?.ref?.name) {
+                        dependencies.add(node.property.ref.name.toLowerCase());
+                    }
+                }
+
+                if (isSelfPropertyRefExp(node)) {
+                    // Self-reference expressions don't create dependencies on specific properties
+                    // since they're resolved at runtime based on user selection
+                    return;
+                }
+
+                // Recursively traverse child nodes
+                if (node.$children) {
+                    for (const child of node.$children) {
+                        traverseExpression(child);
+                    }
+                }
+
+                // Handle common expression properties
+                if (node.left) traverseExpression(node.left);
+                if (node.right) traverseExpression(node.right);
+                if (node.value) traverseExpression(node.value);
+                if (node.expression) traverseExpression(node.expression);
+                if (node.body && Array.isArray(node.body)) {
+                    for (const expr of node.body) {
+                        traverseExpression(expr);
+                    }
+                }
+                // Handle binary expression operands (e1, e2)
+                if (node.e1) traverseExpression(node.e1);
+                if (node.e2) traverseExpression(node.e2);
+            }
+
+            traverseExpression(methodBlock);
+            return dependencies;
+        }
+
+        function isPropertyComputed(property: ClassExpression | Layout): boolean {
+            if (isLayout(property)) {
+                return false; // Layouts don't have computed values themselves
+            }
+
+            // Check if any parameter contains a method block
+            if (isNumberExp(property)) {
+                const valueParam = property.params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+                const minParam = property.params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+                const maxParam = property.params.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+                return !!(valueParam && isMethodBlock(valueParam.value)) ||
+                       !!(minParam && isMethodBlock(minParam.value)) ||
+                       !!(maxParam && isMethodBlock(maxParam.value));
+            }
+
+            if (isStringExp(property)) {
+                const stringValue = property.params.find((p: any) => isStringParamValue(p)) as StringParamValue | undefined;
+                return !!(stringValue && isMethodBlock(stringValue.value));
+            }
+
+            if (isAttributeExp(property)) {
+                const modParam = property.params.find((p: any) => isAttributeParamMod(p)) as AttributeParamMod | undefined;
+                return !!(modParam && isMethodBlock(modParam.method));
+            }
+
+            if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+                const params = property.params as any[];
+                const valueParam = params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+                const minParam = params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+                const maxParam = params.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+                return !!(valueParam && isMethodBlock(valueParam.value)) ||
+                       !!(minParam && isMethodBlock(minParam.value)) ||
+                       !!(maxParam && isMethodBlock(maxParam.value));
+            }
+
+            return false;
+        }
+
+        function buildDependencyGraph(properties: (ClassExpression | Layout)[]): PropertyDependency[] {
+            const dependencies: PropertyDependency[] = [];
+
+            function processProperty(property: ClassExpression | Layout): PropertyDependency {
+                if (isLayout(property)) {
+                    // Recursively process layout children
+                    const childDeps = new Set<string>();
+                    for (const child of property.body) {
+                        const childDep = processProperty(child);
+                        childDep.dependencies.forEach(dep => childDeps.add(dep));
+                    }
+                    return {
+                        property,
+                        dependencies: childDeps,
+                        isComputed: false
+                    };
+                }
+
+                const deps = new Set<string>();
+                const computed = isPropertyComputed(property);
+
+                if (computed) {
+                    // Extract dependencies from method blocks
+                    if (isNumberExp(property)) {
+                        const valueParam = property.params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+                        const minParam = property.params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+                        const maxParam = property.params.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+                        if (valueParam && isMethodBlock(valueParam.value)) {
+                            extractPropertyDependencies(valueParam.value).forEach(dep => deps.add(dep));
+                        }
+                        if (minParam && isMethodBlock(minParam.value)) {
+                            extractPropertyDependencies(minParam.value).forEach(dep => deps.add(dep));
+                        }
+                        if (maxParam && isMethodBlock(maxParam.value)) {
+                            extractPropertyDependencies(maxParam.value).forEach(dep => deps.add(dep));
+                        }
+                    } else if (isStringExp(property)) {
+                        const stringValue = property.params.find((p: any) => isStringParamValue(p)) as StringParamValue | undefined;
+                        if (stringValue && isMethodBlock(stringValue.value)) {
+                            extractPropertyDependencies(stringValue.value).forEach(dep => deps.add(dep));
+                        }
+                    } else if (isAttributeExp(property)) {
+                        const modParam = property.params.find((p: any) => isAttributeParamMod(p)) as AttributeParamMod | undefined;
+                        if (modParam && isMethodBlock(modParam.method)) {
+                            extractPropertyDependencies(modParam.method).forEach(dep => deps.add(dep));
+                        }
+                    } else if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+                        const params = property.params as any[];
+                        const valueParam = params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+                        const minParam = params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+                        const maxParam = params.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+                        if (valueParam && isMethodBlock(valueParam.value)) {
+                            extractPropertyDependencies(valueParam.value).forEach(dep => deps.add(dep));
+                        }
+                        if (minParam && isMethodBlock(minParam.value)) {
+                            extractPropertyDependencies(minParam.value).forEach(dep => deps.add(dep));
+                        }
+                        if (maxParam && isMethodBlock(maxParam.value)) {
+                            extractPropertyDependencies(maxParam.value).forEach(dep => deps.add(dep));
+                        }
+                    }
+
+                    // Remove self-references (only for properties that have names)
+                    if ('name' in property && property.name) {
+                        deps.delete(property.name.toLowerCase());
+                    }
+                }
+
+                return {
+                    property,
+                    dependencies: deps,
+                    isComputed: computed
+                };
+            }
+
+            for (const property of properties) {
+                dependencies.push(processProperty(property));
+            }
+
+            return dependencies;
+        }
+
+        function topologicalSort(dependencies: PropertyDependency[]): { sorted: PropertyDependency[], cycles: string[][] } {
+            const sorted: PropertyDependency[] = [];
+            const visiting = new Set<string>();
+            const visited = new Set<string>();
+            const cycles: string[][] = [];
+
+            function getPropertyName(property: ClassExpression | Layout): string {
+                return ('name' in property && property.name) ? property.name.toLowerCase() : 'unknown';
+            }
+
+            function visit(depItem: PropertyDependency, path: string[] = []): void {
+                const name = getPropertyName(depItem.property);
+
+                if (visiting.has(name)) {
+                    // Found a cycle
+                    const cycleStart = path.indexOf(name);
+                    if (cycleStart >= 0) {
+                        cycles.push([...path.slice(cycleStart), name]);
+                    }
+                    return;
+                }
+
+                if (visited.has(name)) {
+                    return;
+                }
+
+                visiting.add(name);
+                path.push(name);
+
+                // Visit dependencies first
+                for (const depName of depItem.dependencies) {
+                    const depItem = dependencies.find(d => getPropertyName(d.property) === depName);
+                    if (depItem) {
+                        visit(depItem, [...path]);
+                    }
+                }
+
+                visiting.delete(name);
+                visited.add(name);
+                path.pop();
+                sorted.push(depItem);
+            }
+
+            // Visit all non-computed properties first
+            for (const depItem of dependencies) {
+                if (!depItem.isComputed && !visited.has(getPropertyName(depItem.property))) {
+                    visit(depItem);
+                }
+            }
+
+            // Then visit computed properties
+            for (const depItem of dependencies) {
+                if (depItem.isComputed && !visited.has(getPropertyName(depItem.property))) {
+                    visit(depItem);
+                }
+            }
+
+            return { sorted, cycles };
+        }
+
+        function getTopLevelProperties(body: (ClassExpression | Layout | Document)[]): (ClassExpression | Layout)[] {
+            const result: (ClassExpression | Layout)[] = [];
+            
+            for (const item of body) {
+                if (isDocument(item)) {
+                    // Recursively process document bodies
+                    result.push(...getTopLevelProperties(item.body));
+                } else if (isPage(item)) {
+                    // For pages, add the page itself (it's a Layout)
+                    result.push(item);
+                } else if (isLayout(item) && !isPage(item)) {
+                    // For sections and other layouts, add the layout itself
+                    result.push(item);
+                } else {
+                    // For regular properties (ClassExpression), add them directly
+                    result.push(item as ClassExpression | Layout);
+                }
+            }
+            
+            return result;
+        }
+
         function generateDerivedData(document: Document): CompositeGeneratorNode | undefined {
+            // Build dependency graph for top-level properties only (no duplicates from nested layouts)
+            const allProperties = getTopLevelProperties(document.body);
+            const dependencies = buildDependencyGraph(allProperties);
+            const { sorted, cycles } = topologicalSort(dependencies);
+
+            // Debug: Log dependency information (can be removed in production)
+            // console.log(`Dependencies for ${document.name}:`, dependencies.map(d => ({
+            //     name: ('name' in d.property && d.property.name) ? d.property.name : 'unknown',
+            //     deps: Array.from(d.dependencies),
+            //     computed: d.isComputed
+            // })));
+
+            // Log dependency cycles for debugging
+            if (cycles.length > 0) {
+                console.warn(`Dependency cycles detected in ${document.name}:`, cycles);
+            }
+
             return expandToNode`
                 async _prepare${document.name}DerivedData() {
                     const editMode = this.flags["${id}"]?.["edit-mode"] ?? true;
 
-                    ${joinToNode(document.body, property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true })}
+                    ${cycles.length > 0 ? expandToNode`
+                        // WARNING: Dependency cycles detected: ${cycles.map(cycle => cycle.join(' -> ')).join(', ')}
+                        // Properties will be processed in original order to prevent infinite loops.
+                    `.appendNewLine() : ""}
+
+                    ${joinToNode(sorted.map(dep => dep.property), property => generateDerivedAttribute(property), { appendNewLineIfNotEmpty: true })}
 
                     ${isActor(document) ? expandToNode`
                         // Reapply Active Effects for calculated values

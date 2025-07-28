@@ -1452,12 +1452,12 @@ export function generateExtendedChoiceComponent(destination: string) {
             <template v-slot:item="{ props: itemProps, item }">
               <v-list-item v-bind="itemProps" :value="item.raw.value" title="">
                 <v-list-item-title>
-                    <v-chip :color="item.raw.color" variant="elevated" class="text-caption" size="small" :data-tooltip="getTooltip(item.raw)"><span v-html="getLabel(item.raw.label, item.raw.icon)" ></span></v-chip>
+                    <v-chip label :color="item.raw.color" variant="elevated" class="text-caption" size="small" :data-tooltip="getTooltip(item.raw)"><span v-html="getLabel(item.raw.label, item.raw.icon)" ></span></v-chip>
                 </v-list-item-title>
               </v-list-item>
             </template>
             <template v-slot:selection="{ item, index }">
-                <v-chip :color="item.raw.color" variant="elevated" class="text-caption" size="small" :data-tooltip="getTooltip(item.raw)"><span v-html="getLabel(item.raw.label, item.raw.icon)" ></span></v-chip>
+                <v-chip label :color="item.raw.color" variant="elevated" class="text-caption" size="small" :data-tooltip="getTooltip(item.raw)"><span v-html="getLabel(item.raw.label, item.raw.icon)" ></span></v-chip>
             </template>
         </v-select>
     </template>
