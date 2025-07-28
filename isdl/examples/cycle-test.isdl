@@ -1,0 +1,29 @@
+config CycleTest {
+    label = "Dependency Cycle Test"
+    id = "cycle-test"
+    description = "Test file to demonstrate dependency cycle detection"
+}
+
+actor TestActor {
+    // Simple A ↔ B cycle
+    number PropertyA(value: {
+        return self.PropertyB + 1
+    })
+    
+    number PropertyB(value: {
+        return self.PropertyA + 1
+    })
+    
+    // Complex A → B → C → A cycle  
+    attribute CycleAttr1(mod: {
+        return self.CycleAttr2
+    })
+    
+    attribute CycleAttr2(mod: {
+        return self.CycleResource
+    })
+    
+    resource CycleResource(max: {
+        return self.CycleAttr1 + 10
+    })
+}

@@ -26,7 +26,11 @@ import {
     StringParamChoices,
     isStringExtendedChoice,
     isChoiceStringValue,
-    ChoiceStringValue, StringChoiceField, StringExp, DocumentArrayExp
+    ChoiceStringValue, StringChoiceField, StringExp, DocumentArrayExp,
+    Document, ClassExpression, Layout, isLayout, isNumberExp, isStringExp,
+    isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue,
+    StringParamValue, isAttributeParamMod, AttributeParamMod, isPipsExp,
+    MethodBlock, isMethodBlock, isAccess, isSelfPropertyRefExp
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
@@ -48,7 +52,8 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         PipsExp: validator.validatePips,
         StringChoiceField: validator.validateStringChoiceField,
         StringExp: validator.validateStringExp,
-        DocumentArrayExp: validator.validateDocumentArrayExp
+        DocumentArrayExp: validator.validateDocumentArrayExp,
+        Document: validator.validateDependencyCycles
     };
     registry.register(checks, validator);
 }
@@ -237,5 +242,240 @@ export class IntelligentSystemDesignLanguageValidator {
                 type: type
             }
         })
+    }
+
+    validateDependencyCycles(document: Document, accept: ValidationAcceptor): void {
+        // Build dependency graph for all properties
+        const allProperties = getAllOfType<ClassExpression | Layout>(document.body, (p): p is ClassExpression | Layout => true);
+        const dependencies = this.buildDependencyGraph(allProperties);
+        const cycles = this.detectCycles(dependencies);
+
+        // Report dependency cycles as warnings
+        for (const cycle of cycles) {
+            const cycleDescription = cycle.join(' → ');
+            const affectedProperty = allProperties.find(p => ('name' in p && p.name) ? p.name.toLowerCase() === cycle[0] : false);
+
+            if (affectedProperty) {
+                accept('warning',
+                    `Dependency cycle detected: ${cycleDescription}. This may cause infinite loops in computed values.`,
+                    {
+                        node: affectedProperty,
+                        property: 'name',
+                        code: 'dependency-cycle'
+                    }
+                );
+            }
+        }
+    }
+
+    private buildDependencyGraph(properties: (ClassExpression | Layout)[]): Map<string, Set<string>> {
+        const dependencies = new Map<string, Set<string>>();
+
+        for (const property of properties) {
+            if (isLayout(property)) {
+                // Recursively process layout children
+                for (const child of property.body) {
+                    const childDeps = this.buildDependencyGraph([child]);
+                    for (const [key, value] of childDeps) {
+                        dependencies.set(key, value);
+                    }
+                }
+                continue;
+            }
+
+            const deps = new Set<string>();
+            const propertyName = ('name' in property && property.name) ? property.name.toLowerCase() : 'unknown';
+
+            // Check if property has computed values that might depend on other properties
+            if (this.isPropertyComputed(property)) {
+                const extractedDeps = this.extractDependencies(property);
+                extractedDeps.forEach(dep => deps.add(dep));
+
+                // Remove self-references
+                deps.delete(propertyName);
+            }
+
+            dependencies.set(propertyName, deps);
+        }
+
+        return dependencies;
+    }
+
+    private isPropertyComputed(property: ClassExpression | Layout): boolean {
+        if (isLayout(property)) {
+            return false; // Layouts don't have computed values themselves
+        }
+
+        // Check if any parameter contains a method block
+        if (isNumberExp(property)) {
+            const valueParam = property.params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+            const minParam = property.params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+            const maxParam = property.params.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+            return !!(valueParam && isMethodBlock(valueParam.value)) ||
+                   !!(minParam && isMethodBlock(minParam.value)) ||
+                   !!(maxParam && isMethodBlock(maxParam.value));
+        }
+
+        if (isStringExp(property)) {
+            const stringValue = property.params.find((p: any) => isStringParamValue(p)) as StringParamValue | undefined;
+            return !!(stringValue && isMethodBlock(stringValue.value));
+        }
+
+        if (isAttributeExp(property)) {
+            const modParam = property.params.find((p: any) => isAttributeParamMod(p)) as AttributeParamMod | undefined;
+            return !!(modParam && isMethodBlock(modParam.method));
+        }
+
+        if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+            const numberParams = property.params as (NumberParamValue | NumberParamMin | NumberParamMax)[];
+            const valueParam = numberParams.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+            const minParam = numberParams.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+            const maxParam = numberParams.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+            return !!(valueParam && isMethodBlock(valueParam.value)) ||
+                   !!(minParam && isMethodBlock(minParam.value)) ||
+                   !!(maxParam && isMethodBlock(maxParam.value));
+        }
+
+        return false;
+    }
+
+    private extractDependencies(property: ClassExpression | Layout): Set<string> {
+        const dependencies = new Set<string>();
+
+        if (isLayout(property)) {
+            return dependencies;
+        }
+
+        // Extract dependencies from method blocks
+        if (isNumberExp(property)) {
+            const valueParam = property.params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+            const minParam = property.params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+            const maxParam = property.params.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+            if (valueParam && isMethodBlock(valueParam.value)) {
+                this.extractMethodBlockDependencies(valueParam.value).forEach(dep => dependencies.add(dep));
+            }
+            if (minParam && isMethodBlock(minParam.value)) {
+                this.extractMethodBlockDependencies(minParam.value).forEach(dep => dependencies.add(dep));
+            }
+            if (maxParam && isMethodBlock(maxParam.value)) {
+                this.extractMethodBlockDependencies(maxParam.value).forEach(dep => dependencies.add(dep));
+            }
+        } else if (isStringExp(property)) {
+            const stringValue = property.params.find((p: any) => isStringParamValue(p)) as StringParamValue | undefined;
+            if (stringValue && isMethodBlock(stringValue.value)) {
+                this.extractMethodBlockDependencies(stringValue.value).forEach(dep => dependencies.add(dep));
+            }
+        } else if (isAttributeExp(property)) {
+            const modParam = property.params.find((p: any) => isAttributeParamMod(p)) as AttributeParamMod | undefined;
+            if (modParam && isMethodBlock(modParam.method)) {
+                this.extractMethodBlockDependencies(modParam.method).forEach(dep => dependencies.add(dep));
+            }
+        } else if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+            const numberParams = property.params as (NumberParamValue | NumberParamMin | NumberParamMax)[];
+            const valueParam = numberParams.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+            const minParam = numberParams.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
+            const maxParam = numberParams.find((p: any) => isNumberParamMax(p)) as NumberParamMax | undefined;
+
+            if (valueParam && isMethodBlock(valueParam.value)) {
+                this.extractMethodBlockDependencies(valueParam.value).forEach(dep => dependencies.add(dep));
+            }
+            if (minParam && isMethodBlock(minParam.value)) {
+                this.extractMethodBlockDependencies(minParam.value).forEach(dep => dependencies.add(dep));
+            }
+            if (maxParam && isMethodBlock(maxParam.value)) {
+                this.extractMethodBlockDependencies(maxParam.value).forEach(dep => dependencies.add(dep));
+            }
+        }
+
+        return dependencies;
+    }
+
+    private extractMethodBlockDependencies(methodBlock: MethodBlock): Set<string> {
+        const dependencies = new Set<string>();
+
+        function traverseExpression(node: any): void {
+            if (!node) return;
+
+            if (isAccess(node) && node.property?.ref) {
+                dependencies.add(node.property.ref.name.toLowerCase());
+            }
+
+            if (isSelfPropertyRefExp(node)) {
+                // Self-reference expressions don't create dependencies on specific properties
+                // since they're resolved at runtime based on user selection
+                return;
+            }
+
+            // Recursively traverse child nodes
+            if (node.$children) {
+                for (const child of node.$children) {
+                    traverseExpression(child);
+                }
+            }
+
+            // Handle common expression properties
+            if (node.left) traverseExpression(node.left);
+            if (node.right) traverseExpression(node.right);
+            if (node.value) traverseExpression(node.value);
+            if (node.expression) traverseExpression(node.expression);
+            if (node.body && Array.isArray(node.body)) {
+                for (const expr of node.body) {
+                    traverseExpression(expr);
+                }
+            }
+        }
+
+        traverseExpression(methodBlock);
+        return dependencies;
+    }
+
+    private detectCycles(dependencies: Map<string, Set<string>>): string[][] {
+        const cycles: string[][] = [];
+        const visiting = new Set<string>();
+        const visited = new Set<string>();
+
+        function visit(property: string, path: string[] = []): void {
+            if (visiting.has(property)) {
+                // Found a cycle
+                const cycleStart = path.indexOf(property);
+                if (cycleStart >= 0) {
+                    cycles.push([...path.slice(cycleStart), property]);
+                }
+                return;
+            }
+
+            if (visited.has(property)) {
+                return;
+            }
+
+            visiting.add(property);
+            path.push(property);
+
+            // Visit dependencies
+            const deps = dependencies.get(property);
+            if (deps) {
+                for (const dep of deps) {
+                    if (dependencies.has(dep)) {
+                        visit(dep, [...path]);
+                    }
+                }
+            }
+
+            visiting.delete(property);
+            visited.add(property);
+            path.pop();
+        }
+
+        // Visit all properties
+        for (const property of dependencies.keys()) {
+            if (!visited.has(property)) {
+                visit(property);
+            }
+        }
+
+        return cycles;
     }
 }
