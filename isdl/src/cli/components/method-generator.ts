@@ -435,13 +435,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     @system.${expression.property.ref?.name.toLowerCase()}
                 `;
             }
-            const systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+            const systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression);
             return expandToNode`
                 ${systemPath}
             `;
         }
 
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression);
 
         if (isStatusProperty(generatingProperty)) {
             console.log("This is a status property, swapping to self-access");

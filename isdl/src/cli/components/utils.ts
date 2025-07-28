@@ -23,14 +23,45 @@ import {
     isParentAccess,
     isTargetTypeCheckExpression,
     Layout,
-    isLayout, isStringChoiceField,
+    isLayout, isStringChoiceField, isTargetAccess, isDocumentChoiceExp, Access,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
     return s.replace(/[^a-zA-Z0-9]/g, '');
 }
 
-export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], generatingProperty: Property | ParentAccess | undefined = undefined, safeAccess=true): string {
+function getPropertyAccessorSuffix(property: ClassExpression): string {
+    if (isResourceExp(property) || isTrackerExp(property) || isStringChoiceField(property)) {
+        return '.value';
+    } else if (isAttributeExp(property)) {
+        return '.mod';
+    }
+    // For numbers and other types (string, boolean, etc.), no additional accessor needed
+    return '';
+}
+
+function appendPropertyAccessor(systemPath: string, document: Document, propertyName: string, safeAccess: boolean = true): string {
+    if (!document || !document.body) {
+        return systemPath;
+    }
+
+    const allProperties = getAllOfType(document.body, (p): p is ClassExpression => true);
+    const targetProperty = allProperties.find(prop =>
+        'name' in prop && prop.name && prop.name.toLowerCase() === propertyName.toLowerCase()
+    ) as ClassExpression | undefined
+
+    if (targetProperty) {
+        const suffix = getPropertyAccessorSuffix(targetProperty);
+        if (suffix) {
+            const accessor = safeAccess ? '?' : '';
+            return `${systemPath}${accessor}${suffix}`;
+        }
+    }
+
+    return systemPath;
+}
+
+export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], generatingProperty: Property | ParentAccess | Access | undefined = undefined, safeAccess=true): string {
     // Not all references are to the baseline - resources and attributes have sub-paths
     if (reference == undefined) {
         return "";
@@ -55,10 +86,20 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     if (subProperties.length > 0) {
         let systemPath = `${basePath}${reference.name.toLowerCase()}`;
 
-        for (const subProperty of subProperties) {
-            if (isParentAccess(generatingProperty)) {
-                systemPath = `${systemPath}?.system`;
+        if (subProperties.length > 0) {
+            if (isDocumentChoiceExp(reference) ||
+                isParentAccess(generatingProperty) || isTargetAccess(generatingProperty)) {
+                if (safeAccess) {
+                    systemPath = `${systemPath}?.system`;
+                } else {
+                    systemPath = `${systemPath}.system`;
+                }
             }
+        }
+
+        // Process all sub-properties except the last one
+        for (let i = 0; i < subProperties.length - 1; i++) {
+            const subProperty = subProperties[i];
             if (safeAccess) {
                 systemPath = `${systemPath}?.${subProperty.toLowerCase()}`;
             }
@@ -66,35 +107,69 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
                 systemPath = `${systemPath}.${subProperty.toLowerCase()}`;
             }
         }
+
+        // Handle the final sub-property - need to determine if it should have .value/.mod appended
+        if (subProperties.length > 0) {
+            const finalProperty = subProperties[subProperties.length - 1];
+            const finalPropertyLower = finalProperty.toLowerCase();
+
+            if (safeAccess) {
+                systemPath = `${systemPath}?.${finalPropertyLower}`;
+            } else {
+                systemPath = `${systemPath}.${finalPropertyLower}`;
+            }
+
+            // For document choice accesses, append the appropriate accessor based on property type
+            if (isDocumentChoiceExp(reference)) {
+                const referencedDocument = reference.document.ref;
+                if (referencedDocument) {
+                    systemPath = appendPropertyAccessor(systemPath, referencedDocument, finalProperty, safeAccess);
+                }
+            }
+            // For parent/target accesses, use document-based property type detection
+            else if (isParentAccess(generatingProperty) || isTargetAccess(generatingProperty)) {
+                const referencedDocument = isParentAccess(generatingProperty)
+                    ? getParentDocument(generatingProperty)
+                    : getTargetDocument(generatingProperty);
+
+                if (referencedDocument) {
+                    systemPath = appendPropertyAccessor(systemPath, referencedDocument, finalProperty, safeAccess);
+                }
+            }
+        }
+
         return systemPath;
     }
 
-    if (isResourceExp(reference) || isTrackerExp(reference) || isStringChoiceField(reference)) {
-        return `${basePath}${reference.name.toLowerCase()}.value`;
-    }
-    if (isAttributeExp(reference)) {
-        return `${basePath}${reference.name.toLowerCase()}.mod`;
-    }
-    return `${basePath}${reference.name.toLowerCase()}`;
+    const suffix = getPropertyAccessorSuffix(reference);
+    return `${basePath}${reference.name.toLowerCase()}${suffix}`;
 }
 
 export function getAllOfType<T extends (ClassExpression | Layout)>(body: (ClassExpression | Layout | Document)[], comparisonFunc: (element: T) => boolean, samePageOnly: boolean = false) : T[] {
+    if (!body) return [];
+
     let result: T[] = [];
     const matchingResults = body.filter(x => comparisonFunc(x as T)).map(x => x as T);
     result.push(...matchingResults);
 
     if (!samePageOnly) {
         for (let page of body.filter(x => isPage(x)).map(x => x as Page)) {
-            result.push(...getAllOfType(page.body, comparisonFunc, samePageOnly));
+            if (page.body) {
+                result.push(...getAllOfType(page.body, comparisonFunc, samePageOnly));
+            }
         }
     }
 
     for (let layout of body.filter(x => isLayout(x) && !isPage(x)).map(x => x as Layout)) {
-        result.push(...getAllOfType(layout.body, comparisonFunc, samePageOnly));
+        if (layout.body) {
+            result.push(...getAllOfType(layout.body, comparisonFunc, samePageOnly));
+        }
     }
 
     for (let document of body.filter(x => isDocument(x)).map(x => x as Document)) {
-        result.push(...getAllOfType(document.body, comparisonFunc, samePageOnly));
+        if (document.body) {
+            result.push(...getAllOfType(document.body, comparisonFunc, samePageOnly));
+        }
     }
 
     return result;
