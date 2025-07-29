@@ -23,7 +23,7 @@ import {
     isParentAccess,
     isTargetTypeCheckExpression,
     Layout,
-    isLayout, isStringChoiceField, isTargetAccess, isDocumentChoiceExp, Access,
+    isLayout, isStringChoiceField, isTargetAccess, isDocumentChoiceExp, Access, isDiceField,
 } from "../../language/generated/ast.js"
 
 export function toMachineIdentifier(s: string): string {
@@ -31,7 +31,7 @@ export function toMachineIdentifier(s: string): string {
 }
 
 function getPropertyAccessorSuffix(property: ClassExpression): string {
-    if (isResourceExp(property) || isTrackerExp(property) || isStringChoiceField(property)) {
+    if (isResourceExp(property) || isTrackerExp(property) || isStringChoiceField(property) || isDiceField(property)) {
         return '.value';
     } else if (isAttributeExp(property)) {
         return '.mod';

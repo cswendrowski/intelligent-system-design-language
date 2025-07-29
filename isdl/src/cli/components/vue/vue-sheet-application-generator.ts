@@ -1465,7 +1465,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         <i-dice
                             label="${label}"
                             icon="${iconParam?.value}"
-                            systemPath="${systemPath}"
+                            systemPath="system.${element.name.toLowerCase()}"
                             :context="context"
                             :editMode="editMode"
                             :disabled="isDisabled('${element.name.toLowerCase()}')"

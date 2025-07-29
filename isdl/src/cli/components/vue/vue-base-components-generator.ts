@@ -1531,6 +1531,7 @@ function generateDiceComponent(destination: string) {
                     </template>
                     <div class="flexrow align-center inner-content">
                         <v-number-input
+                            :name="systemPath + '.number'"
                             v-model="numberValue" 
                             :min="0" 
                             :step="1" 
@@ -1544,6 +1545,7 @@ function generateDiceComponent(destination: string) {
                         />
                         
                         <v-select 
+                            :name="systemPath + '.die'"
                             v-model="dieValue" 
                             :items="choices" 
                             item-value="value" 

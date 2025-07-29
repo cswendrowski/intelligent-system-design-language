@@ -35,7 +35,7 @@ import type {
     HeightParam,
     NumberRange,
     TargetAccess,
-    TargetAssignment, PlayAudioFile, PlayAudioVolume, Each, TimeLimitParam,
+    TargetAssignment, PlayAudioFile, PlayAudioVolume, Each, TimeLimitParam, DieChoicesParam,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -113,7 +113,13 @@ import {
     isDieField,
     isTimeLimitParam,
     isCombatMethods,
-    isCombatProperty, isUserProperty, isMacroExecute, isMeasuredTemplateField, isStringChoiceField
+    isCombatProperty,
+    isUserProperty,
+    isMacroExecute,
+    isMeasuredTemplateField,
+    isStringChoiceField,
+    isDiceField,
+    isDieChoicesParam
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -181,6 +187,51 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     }
                 `;
             }
+        }
+
+        if (isDieField(expression.property?.ref)) {
+            // Die sizes are stored as strings such as "d6", "d8", etc. but when increments / decrements are applied, we want to treat them as numbers. d6++ should become d8, and so on based on the `choices`
+            const dieChoicesParam = expression.property?.ref.params.find(isDieChoicesParam) as DieChoicesParam | undefined;
+            const dieChoices = dieChoicesParam?.choices ?? ["d4", "d6", "d8", "d10", "d12", "d20"];
+            const propertyName = expression.property?.ref.name?.toLowerCase() ?? "die";
+
+            function generateModification() {
+                if (isIncrementDecrementAssignment(expression)) {
+                    const modifier = expression.term == "++" ? "+" : "-";
+                    return expandToNode`
+                        ${propertyName}NewDieIndex = Math.max(0, Math.min(${propertyName}DieChoices.length - 1, ${propertyName}CurrentDieIndex ${modifier} 1));
+                    `;
+                }
+                if (isQuickModifyAssignment(expression)) {
+                    let modifier = "+";
+                    switch (expression.term) {
+                        case "+=": modifier = "+"; break;
+                        case "-=": modifier = "-"; break;
+                        case "*=": modifier = "*"; break;
+                        case "/=": modifier = "/"; break;
+                        default: modifier = "+"; break;
+                    }
+                    return expandToNode`
+                        ${propertyName}NewDieIndex = Math.max(0, Math.min(${propertyName}DieChoices.length - 1, ${propertyName}CurrentDieIndex ${modifier} ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)}));
+                    `;
+                }
+                return expandToNode`
+                    ${propertyName}NewDieIndex = Math.max(0, Math.min(${propertyName}DieChoices.length - 1, ${translateExpression(entry, id, expression.exp, preDerived, generatingProperty)}));
+                `;
+            }
+
+            return expandToNode`
+                const ${propertyName}DieChoices = ${JSON.stringify(dieChoices)};
+                const ${propertyName}CurrentDieIndex = ${propertyName}DieChoices.indexOf(context.object.${systemPath});
+                if (${propertyName}CurrentDieIndex === -1) {
+                    console.error("Invalid die size: " + context.object.${systemPath});
+                    update["${systemPath}"] = '${dieChoices[0]}';
+                    return;
+                }
+                let ${propertyName}NewDieIndex = ${propertyName}CurrentDieIndex;
+                ${generateModification()}
+                update["${systemPath}"] = ${propertyName}DieChoices[${propertyName}NewDieIndex];
+            `;
         }
 
         if (isIncrementDecrementAssignment(expression)) {
@@ -1053,7 +1104,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${label}.${expression.property?.ref?.name}`;
 
-                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref) || isDiceField(expression.property?.ref))
                         && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path}.value`;
                     }
