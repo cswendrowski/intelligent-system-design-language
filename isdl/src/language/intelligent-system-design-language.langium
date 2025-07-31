@@ -73,7 +73,7 @@ ReferenceFields:
 DeprecatedFields:
     (PipsExp | DocumentArrayExp);
 fragment ExpressionModifier:
-    (modifier=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
+    (modifier=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 StandardFieldParams:
     (VisibilityParam | IconParam | ColorParam | LabelParam);
 fragment StandardFieldParamsFrag:
@@ -428,7 +428,7 @@ ActionParam:
 VisibilityParam:
     "visibility:" visibility=(VisibilityValue | MethodBlock);
 VisibilityValue:
-    "Visibility" "." visibility=("unlocked" | "default" | "secret" | "edit" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden");
+    "Visibility" "." visibility=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden");
  
 
 // Methods ------------------------------------------------------

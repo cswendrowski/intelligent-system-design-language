@@ -75,6 +75,9 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
             if (props.visibility === "edit") {
                 return !props.editMode;
             }
+            if (props.visibility === "play") {
+                return props.editMode;
+            }
 
             // Default to visible
             return false;

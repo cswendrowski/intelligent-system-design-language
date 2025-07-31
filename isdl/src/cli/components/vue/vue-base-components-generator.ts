@@ -843,6 +843,9 @@ function generateTrackerComponent(destination: string) {
             if (props.visibility === "edit") {
                 return !props.editMode;
             }
+            if (props.visibility === "play") {
+                return props.editMode;
+            }
 
             // Default to visible
             return false;
@@ -1269,6 +1272,9 @@ export function generateMacroChoiceComponent(destination: string) {
             }
             if (props.visibility === "edit") {
                 return !props.editMode;
+            }
+            if (props.visibility === "play") {
+                return props.editMode;
             }
 
             // Default to visible

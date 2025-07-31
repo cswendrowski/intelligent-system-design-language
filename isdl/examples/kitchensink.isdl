@@ -590,6 +590,67 @@ item Spell {
             }
         }
     }
+    
+    page VisibilityTests(icon: "fa-solid fa-eye", background: hideout) {
+        section EditModeOnly {
+            edit string EditModeString
+            edit number EditModeNumber
+            edit boolean EditModeBoolean
+            edit resource EditModeResource(max: 100)
+            edit attribute EditModeAttribute(min: 1, max: 20)
+        }
+        
+        section PlayModeOnly {
+            play string PlayModeString
+            play number PlayModeNumber
+            play boolean PlayModeBoolean
+            play resource PlayModeResource(max: 50)
+            play die PlayModeDie
+        }
+        
+        section OtherVisibilityStates {
+            hidden string HiddenField
+            gmOnly string GMOnlyField
+            secret string SecretField
+            readonly string ReadOnlyField
+            locked string LockedField
+        }
+    
+        section ActionsWithVisibility {
+            edit action EditModeAction {
+                log("This action only appears in edit mode!")
+                chat EditAction {
+                    "Edit mode action executed"
+                }
+            }
+            
+            play action PlayModeAction {
+                log("This action only appears in play mode!")
+                chat PlayAction {
+                    "Play mode action executed"
+                }
+            }
+            
+            gmOnly action GMOnlyAction {
+                log("Only GMs can use this action")
+                chat GMAction {
+                    "GM action executed"
+                }
+            }
+        }
+        
+        section MixedVisibilityDemo {
+            string AlwaysVisible
+            edit string ConfigurationNotes
+            play string CurrentGameStatus
+            
+            row {
+                edit number EditValue
+                play number PlayValue
+                number NormalValue
+            }
+        }
+    }
 }
 
 item Potion {

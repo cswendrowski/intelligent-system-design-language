@@ -619,6 +619,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             if (visibility === "edit") {
                 return !editModeRef.value;
             }
+            if (visibility === "play") {
+                return editModeRef.value;
+            }
 
             // Default to visible
             return false;
@@ -685,7 +688,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             </v-app-bar>
 
             <!-- Navigation Drawer -->
-            <v-navigation-drawer v-model="drawer" temporary style="background-color: #dddddd">
+            <v-navigation-drawer v-model="drawer" permanent style="background-color: #dddddd" width="175">
                 <v-img :src="context.document.img" style="background-color: lightgray" data-edit='img' data-action='onEditImage'>
                     <template #error>
                         <v-img src="/systems/${id}/img/missing-character.png" data-edit='img' data-action='onEditImage'></v-img>
@@ -922,7 +925,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <${componentName} 
                 :context="context" 
                 :color="${primaryColor}"
-                :editMode="editMode" 
+                :editMode="editModeRef"
                 :visibility="visibilityStates['${element.name.toLowerCase()}'].value">
             </${componentName}>
             `;
@@ -1107,7 +1110,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         systemPath="${systemPath}"
                         ${standardParamsFragment}
                         :context="context"
-                        :editMode="editMode" 
+                        :editMode="editModeRef" 
                         :primaryColor="primaryColor" 
                         :secondaryColor="secondaryColor">
                     </i-text-field>
@@ -1178,7 +1181,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         label="${label}"
                         icon="${iconParam?.value}"
                         :context="context"
-                        :editMode="editMode"
+                        :editMode="editModeRef"
                         ${standardParamsFragment}
                         :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor">
@@ -1194,7 +1197,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         systemPath="${systemPath}"
                         ${standardParamsFragment}
                         :context="context"
-                        :editMode="editMode"
+                        :editMode="editModeRef"
                         :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor">
                     </i-macro>
@@ -1278,7 +1281,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         label="${label}"
                         icon="${iconParam?.value}"
                         attributeStyle="${style}"
-                        :editMode="editMode"
+                        :editMode="editModeRef"
                         :hasMod="${hasMod}" 
                         :mod="context.${modSystemPath}"
                         systemPath="${valueSystemPath}" 
@@ -1344,7 +1347,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     label="${label}"
                     systemPath="system.${element.name.toLowerCase()}" :context="context" 
                     :visibility="visibilityStates['${element.name.toLowerCase()}'].value"
-                    :editMode="editMode"
+                    :editMode="editModeRef"
                     :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
                     trackerStyle="${style}"
                     icon="${icon}" 
@@ -1467,7 +1470,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             icon="${iconParam?.value}"
                             systemPath="system.${element.name.toLowerCase()}"
                             :context="context"
-                            :editMode="editMode"
+                            :editMode="editModeRef"
                             :disabled="isDisabled('${element.name.toLowerCase()}')"
                             v-if="!isHidden('${element.name.toLowerCase()}')"
                             :choices="${choices}"
