@@ -86,6 +86,9 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
     if (subProperties.length > 0) {
         let systemPath = `${basePath}${reference.name.toLowerCase()}`;
 
+        // For dice fields with number/die subproperties, we access them directly on the dice object
+        // No need to add .value for these specific subproperties
+
         if (subProperties.length > 0) {
             if (isDocumentChoiceExp(reference) ||
                 isParentAccess(generatingProperty) || isTargetAccess(generatingProperty)) {

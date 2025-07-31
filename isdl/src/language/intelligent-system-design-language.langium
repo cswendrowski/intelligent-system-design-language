@@ -350,7 +350,7 @@ FunctionParam:
 fragment SelfSpecialAccess:
     access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects");
 fragment Self:
-    (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=("Name" | ID))*;
+    (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
 Access:
     Self;
 Assignment:
@@ -366,7 +366,7 @@ QuickModifyAssignment:
 // Parent Access / Modification ------------------------------------------------------
 
 fragment Parent:
-    "parent" ( "." property=[Property:ID] | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | ID))*;
+    "parent" ( "." property=[Property:ID] | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
 ParentAccess:
     Parent;
 ParentAssignment:
@@ -382,7 +382,7 @@ ParentQuickModifyAssignment:
 // Target Access / Modification ------------------------------------------------------
 
 fragment Target:
-    "target" ( "." property=[Property:ID] ) ("." subProperties+=("Name" | ID))*;
+    "target" ( "." property=[Property:ID] ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
 TargetAccess:
     Target;
 TargetAssignment:

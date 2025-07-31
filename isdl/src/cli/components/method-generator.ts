@@ -155,7 +155,28 @@ export function translateExpression(entry: Entry, id: string, expression: string
     function translateAssignmentExpression(expression: Assignment): CompositeGeneratorNode | undefined {
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
 
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
+
+        // Special case: For dice .die subproperty increment/decrement, use die choice navigation instead of numeric increment
+        if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 && 
+            expression.subProperties[0].toLowerCase() === "die" && isIncrementDecrementAssignment(expression)) {
+            const fieldName = expression.property?.ref?.name.toLowerCase();
+            const modifier = expression.term == "++" ? "+ 1" : "- 1";
+            const readPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+            
+            return expandToNode`
+                const ${fieldName}DieChoices = ["d4","d6","d8","d10","d12","d20"];
+                const ${fieldName}CurrentDieIndex = ${fieldName}DieChoices.indexOf(context.object.${readPath});
+                if (${fieldName}CurrentDieIndex === -1) {
+                    console.error("Invalid die size: " + context.object.${readPath});
+                    update["${systemPath}"] = 'd4';
+                    return;
+                }
+                let ${fieldName}NewDieIndex = ${fieldName}CurrentDieIndex;
+                ${fieldName}NewDieIndex = Math.max(0, Math.min(${fieldName}DieChoices.length - 1, ${fieldName}CurrentDieIndex ${modifier}));
+                update["${systemPath}"] = ${fieldName}DieChoices[${fieldName}NewDieIndex];
+            `;
+        }
 
         if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref)) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "temp")) {
             // We need to check for temp first when decrementing
@@ -234,6 +255,27 @@ export function translateExpression(entry: Entry, id: string, expression: string
             `;
         }
 
+        // Special case for dice fields with .die subproperty - use die choice navigation
+        if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 && 
+            expression.subProperties[0].toLowerCase() === "die" && isIncrementDecrementAssignment(expression)) {
+            const fieldName = expression.property?.ref?.name.toLowerCase();
+            const modifier = expression.term == "++" ? "+ 1" : "- 1";
+            const readPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+            
+            return expandToNode`
+                const ${fieldName}DieChoices = ["d4","d6","d8","d10","d12","d20"];
+                const ${fieldName}CurrentDieIndex = ${fieldName}DieChoices.indexOf(context.object.${readPath});
+                if (${fieldName}CurrentDieIndex === -1) {
+                    console.error("Invalid die size: " + context.object.${readPath});
+                    update["${systemPath}"] = 'd4';
+                    return;
+                }
+                let ${fieldName}NewDieIndex = ${fieldName}CurrentDieIndex;
+                ${fieldName}NewDieIndex = Math.max(0, Math.min(${fieldName}DieChoices.length - 1, ${fieldName}CurrentDieIndex ${modifier}));
+                update["${systemPath}"] = ${fieldName}DieChoices[${fieldName}NewDieIndex];
+            `;
+        }
+
         if (isIncrementDecrementAssignment(expression)) {
             const modifier = expression.term == "++" ? "+" : "-";
             return expandToNode`
@@ -290,7 +332,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         // TODO: Not all references are to a system property - some will be to fleeting variables
 
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
 
         if (isParentIncrementDecrementAssignment(expression)) {
             const modifier = expression.term == "++" ? "+" : "-";
@@ -318,7 +360,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateTargetAssignmentExpression(expression: TargetAssignment): CompositeGeneratorNode | undefined {
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, false);
 
         if (isTargetIncrementDecrementAssignment(expression)) {
             const modifier = expression.term == "++" ? "+" : "-";
@@ -486,7 +528,16 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     @system.${expression.property.ref?.name.toLowerCase()}
                 `;
             }
-            const systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression);
+            
+            // Special case: For attribute self-references, use .value instead of .mod to avoid recursion
+            if (isAttributeExp(generatingProperty)) {
+                const systemPath = `system.${expression.property.ref?.name.toLowerCase()}.value`;
+                return expandToNode`
+                    ${systemPath}
+                `;
+            }
+            
+            const systemPath = getSystemPath(expression.property?.ref, expression.subProperties, generatingProperty);
             return expandToNode`
                 ${systemPath}
             `;
@@ -1081,11 +1132,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
                 if (expression.propertyLookup != undefined) {
                     path = `${path}[context.object.${getSystemPath(expression.propertyLookup.ref)}.toLowerCase()]`;
-                    label = `${label}.${expression.propertyLookup.ref?.name}`;
+                    label = `${expression.propertyLookup.ref?.name}`;
                 }
                 else if (isParentPropertyRefExp(expression.property?.ref)) {
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
-                    label = `${label}.${expression.property?.ref?.name}`;
+                    label = `${expression.property?.ref?.name}`;
 
                     if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
                         && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
@@ -1102,11 +1153,19 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
                 else {
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
-                    label = `${label}.${expression.property?.ref?.name}`;
+                    label = `${expression.property?.ref?.name}`;
 
-                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref) || isDiceField(expression.property?.ref))
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
                         && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
                         path = `${path}.value`;
+                    }
+                    if (isDiceField(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0)) {
+                        // For dice fields without subproperties, use the formatted dice string
+                        path = `${path}.formula`;
+                    }
+                    if (isDieField(expression.property?.ref)) {
+                        // For die fields, the value is just the die size (e.g., "d6"), we want to use the field name as label
+                        // Don't change the path, just ensure the label is the field name
                     }
                     if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
                         path = `${path}.mod`;

@@ -30,7 +30,7 @@ import {
     Document, ClassExpression, Layout, isLayout, isNumberExp, isStringExp,
     isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue,
     StringParamValue, isAttributeParamMod, AttributeParamMod, isPipsExp,
-    MethodBlock, isMethodBlock, isAccess, isSelfPropertyRefExp
+    MethodBlock, isMethodBlock, isAccess
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
@@ -403,7 +403,7 @@ export class IntelligentSystemDesignLanguageValidator {
                 dependencies.add(node.property.ref.name.toLowerCase());
             }
 
-            if (isSelfPropertyRefExp(node)) {
+            if (isAccess(node)) {
                 // Self-reference expressions don't create dependencies on specific properties
                 // since they're resolved at runtime based on user selection
                 return;

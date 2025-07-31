@@ -21,7 +21,7 @@ import {
     isTrackerExp,
     NumberParamInitial,
     WhereParam, Layout, isLayout, isMeasuredTemplateField, isTableField,
-    isAccess, isSelfPropertyRefExp, isDiceField
+    isAccess, isDiceField
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -441,7 +441,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     }
                 }
 
-                if (isSelfPropertyRefExp(node)) {
+                if (isAccess(node)) {
                     // Self-reference expressions don't create dependencies on specific properties
                     // since they're resolved at runtime based on user selection
                     return;

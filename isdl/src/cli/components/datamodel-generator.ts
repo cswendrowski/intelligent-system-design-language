@@ -382,7 +382,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 return expandToNode`
                     ${property.name.toLowerCase()}: new fields.SchemaField({
                         die: new fields.StringField({initial: "${initialDie}"}),
-                        number: new fields.NumberField({integer: true, initial: 0}),
+                        number: new fields.NumberField({integer: true, initial: 0, min: 0}),
                     }),
                 `;
             }
