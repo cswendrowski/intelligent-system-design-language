@@ -122,12 +122,20 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
                 systemPath = `${systemPath}.${finalPropertyLower}`;
             }
 
-            // For document choice accesses, append the appropriate accessor based on property type
+            // For document choice accesses, we need special handling
             if (isDocumentChoiceExp(reference)) {
                 const referencedDocument = reference.document.ref;
                 if (referencedDocument) {
-                    systemPath = appendPropertyAccessor(systemPath, referencedDocument, finalProperty, safeAccess);
-                }
+                    // For string choice fields, check if we're accessing a metadata property
+                    if (isStringChoiceField(reference)) {
+                        // Metadata properties are accessed directly (e.g., system.training.bonus)
+                        // Choice value itself would be accessed as system.training.value
+                        // Since we have subproperties, this must be a metadata access - don't append .value
+                    } else {
+                        // For non-choice fields, use normal property accessor logic
+                        systemPath = appendPropertyAccessor(systemPath, referencedDocument, finalProperty, safeAccess);
+                    }
+                } 
             }
             // For parent/target accesses, use document-based property type detection
             else if (isParentAccess(generatingProperty) || isTargetAccess(generatingProperty)) {

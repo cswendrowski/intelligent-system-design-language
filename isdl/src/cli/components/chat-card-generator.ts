@@ -366,7 +366,7 @@ export function generateStandardChatCardTemplate(destination: string) {
                         {{#if this.isRoll}}
                             <div class="dice-roll wide">
                                 <div class="dice-result">
-                                    <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.label}} {{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span></span> <span class="result">{{this.value._total}}</span></h4>
+                                    <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span></span> <span class="result">{{this.value._total}}</span></h4>
                                     {{{this.tooltip}}}
                                 </div>
                             </div>

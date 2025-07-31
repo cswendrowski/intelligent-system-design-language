@@ -528,15 +528,45 @@ item Spell {
     number Cost
     string Summary
 
+    section Dice {
+        die BonusDie
+        dice DamageDice
+
+        action IncrementBonusDie {
+            self.BonusDie++
+        }
+        action DecrementBonusDie {
+            self.BonusDie--
+        }
+
+        action IncrementDamageDiceNumber {
+            self.DamageDice.number++
+        }
+
+        action DecrementDamageDiceNumber {
+            self.DamageDice.number--
+        }
+
+        action IncrementDamageDiceDie {
+            self.DamageDice.die++
+        }
+
+        action DecrementDamageDiceDie {
+            self.DamageDice.die--
+        }
+    }
+
     action Roll {
         fleeting spellRoll = roll(d20 + self.Level + self.Training.bonus)
         fleeting dc = self.Training.checkDC
         fleeting success = spellRoll.total >= dc
+        fleeting damageRoll = roll(self.DamageDice + self.BonusDie)
         if (success) {
             chat SpellCast {
                 flavor "Success!"
                 self.Summary
                 spellRoll
+                damageRoll
                 tag dc
                 tag self.Type
                 tag self.Class
@@ -550,6 +580,7 @@ item Spell {
                 flavor "Failed!"
                 self.Summary
                 spellRoll
+                damageRoll
                 tag dc
                 tag self.Type
                 tag self.Class

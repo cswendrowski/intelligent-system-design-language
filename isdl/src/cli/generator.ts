@@ -407,7 +407,7 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
                 // Replace flavor terms such as 5[STR] with just the flavor text
                 let cleanFormula = this._formula;
                 for ( const term of this.terms ) {
-                    if ( term instanceof foundry.dice.terms.NumericTerm ) {
+                    if ( term.formula && term.flavor ) {
                         cleanFormula = cleanFormula.replace(term.formula, term.flavor);
                     }
                 }

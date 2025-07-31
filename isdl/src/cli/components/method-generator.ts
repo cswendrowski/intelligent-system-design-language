@@ -158,12 +158,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
 
         // Special case: For dice .die subproperty increment/decrement, use die choice navigation instead of numeric increment
-        if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 && 
+        if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 &&
             expression.subProperties[0].toLowerCase() === "die" && isIncrementDecrementAssignment(expression)) {
             const fieldName = expression.property?.ref?.name.toLowerCase();
             const modifier = expression.term == "++" ? "+ 1" : "- 1";
             const readPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
-            
+
             return expandToNode`
                 const ${fieldName}DieChoices = ["d4","d6","d8","d10","d12","d20"];
                 const ${fieldName}CurrentDieIndex = ${fieldName}DieChoices.indexOf(context.object.${readPath});
@@ -256,12 +256,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
         // Special case for dice fields with .die subproperty - use die choice navigation
-        if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 && 
+        if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 &&
             expression.subProperties[0].toLowerCase() === "die" && isIncrementDecrementAssignment(expression)) {
             const fieldName = expression.property?.ref?.name.toLowerCase();
             const modifier = expression.term == "++" ? "+ 1" : "- 1";
             const readPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
-            
+
             return expandToNode`
                 const ${fieldName}DieChoices = ["d4","d6","d8","d10","d12","d20"];
                 const ${fieldName}CurrentDieIndex = ${fieldName}DieChoices.indexOf(context.object.${readPath});
@@ -528,7 +528,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     @system.${expression.property.ref?.name.toLowerCase()}
                 `;
             }
-            
+
             // Special case: For attribute self-references, use .value instead of .mod to avoid recursion
             if (isAttributeExp(generatingProperty)) {
                 const systemPath = `system.${expression.property.ref?.name.toLowerCase()}.value`;
@@ -536,7 +536,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     ${systemPath}
                 `;
             }
-            
+
             const systemPath = getSystemPath(expression.property?.ref, expression.subProperties, generatingProperty);
             return expandToNode`
                 ${systemPath}
@@ -1020,11 +1020,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
                 let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
 
-                if (isDieField(expression.property?.ref)) {
-                    return expandToNode`
-                        \'@${path.replaceAll(".", "")}\'
-                    `;
-                }
+                // if (isDieField(expression.property?.ref)) {
+                //     return expandToNode`
+                //         \'@${path.replaceAll(".", "")}\'
+                //     `;
+                // }
 
                 if (isParentPropertyRefExp(expression.property?.ref)) {
                     label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
@@ -1156,12 +1156,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     label = `${expression.property?.ref?.name}`;
 
                     if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
-                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "value")) {
                         path = `${path}.value`;
                     }
                     if (isDiceField(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0)) {
-                        // For dice fields without subproperties, use the formatted dice string
-                        path = `${path}.formula`;
+                        // For dice fields without subproperties, use the dice value
+                        path = `${path}.value`;
                     }
                     if (isDieField(expression.property?.ref)) {
                         // For die fields, the value is just the die size (e.g., "d6"), we want to use the field name as label
