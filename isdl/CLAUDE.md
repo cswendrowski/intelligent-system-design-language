@@ -50,6 +50,8 @@ npm run fsdl:generate
 node ./bin/cli.js generate <file.isdl> --destination <output-dir>
 ```
 
+You can generate test output into the /test-output/ folder.
+
 ## File Extensions
 
 The project supports two file extensions:

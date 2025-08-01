@@ -43,6 +43,40 @@ function copyAssets(outDir) {
     }
 }
 
+function copyStyles(outDir) {
+    // Copy main styles.scss
+    const mainStylesSrc = path.resolve('src/styles.scss');
+    const mainStylesDest = path.join(outDir, 'styles.scss');
+    
+    if (fs.existsSync(mainStylesSrc)) {
+        fs.copyFileSync(mainStylesSrc, mainStylesDest);
+        console.log(getTime() + 'Copied styles.scss to output directory ' + mainStylesDest);
+    }
+    
+    // Copy SCSS partials
+    const scssPartials = ['_backgrounds.scss', '_handlebars.scss', '_vuetifyOverrides.scss'];
+    
+    for (const partial of scssPartials) {
+        const src = path.resolve('src', partial);
+        const dest = path.join(outDir, partial);
+        const clinDest = path.join(outDir, 'cli', 'components', partial);
+        
+        if (fs.existsSync(src)) {
+            // Copy to main out directory
+            fs.copyFileSync(src, dest);
+            console.log(getTime() + `Copied ${partial} to output directory ` + dest);
+            
+            // Copy to cli/components directory (needed for CSS generation)
+            const clinDir = path.dirname(clinDest);
+            if (!fs.existsSync(clinDir)) {
+                fs.mkdirSync(clinDir, { recursive: true });
+            }
+            fs.copyFileSync(src, clinDest);
+            console.log(getTime() + `Copied ${partial} to CLI components directory ` + clinDest);
+        }
+    }
+}
+
 const plugins = [{
     name: 'watch-plugin',
     setup(build) {
@@ -51,6 +85,7 @@ const plugins = [{
                 console.log(getTime() + success);
                 copyPackageJson('out');
                 copyAssets('out');
+                copyStyles('out');
             }
         });
     },
@@ -82,5 +117,6 @@ if (watch) {
     await ctx.rebuild();
     copyPackageJson('out');
     copyAssets('out');
+    copyStyles('out');
     ctx.dispose();
 }
