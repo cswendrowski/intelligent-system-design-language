@@ -27,7 +27,7 @@ import {
 import { getSystemPath } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
-    const generatedFileDir = path.join(destination, "system", "sheets");
+    const generatedFileDir = path.join(destination, "system", "sheets", "vue");
     const generatedFilePath = path.join(generatedFileDir, `active-effect-sheet.mjs`);
 
     if (!fs.existsSync(generatedFileDir)) {
@@ -68,6 +68,13 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
             `;
         }
 
+        if (isNumberExp(property)) {
+            return expandToNode`
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}", 1);
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}");
+            `;
+        }
+
         return expandToNode`
             addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.${getSystemPath(property)}");
         `;
@@ -88,30 +95,76 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
     // }
 
     const fileNode = expandToNode`
-        export default class ${entry.config.name}EffectSheet extends ActiveEffectConfig {
+        import VueRenderingMixin from './VueRenderingMixin.mjs';
+        import { ActiveEffectApp } from "./components/components.vue.es.mjs";
+        const { DOCUMENT_OWNERSHIP_LEVELS } = CONST;
+        export default class ${entry.config.name}EffectVueSheet extends VueRenderingMixin(foundry.applications.api.DocumentSheetV2) {
+            
+            vueParts = {
+                "active-effect": {
+                    component: ActiveEffectApp,
+                    template: "<active-effect :context=\\"context\\">Vue rendering for sheet failed.</active-effect>"
+                }
+            };
 
+            _arrayEntryKey = 0;
+            _renderKey = 0;
+            
+            
             /** @override */
-            static get defaultOptions() {
-                return foundry.utils.mergeObject(super.defaultOptions, {
-                    classes: ["${id}", "sheet", "active-effect", "active-effect-sheet"],
-                    template: "systems/${id}/system/templates/active-effect-sheet.hbs",
+            static DEFAULT_OPTIONS = {
+                classes: ["${id}", "sheet", "vue-sheet", "active-effect", "active-effect-sheet"],
+                viewPermission: DOCUMENT_OWNERSHIP_LEVELS.LIMITED,
+                editPermission: DOCUMENT_OWNERSHIP_LEVELS.OWNER,
+                position: {
                     width: 600,
                     height: 600,
-                    tabs: [{navSelector: ".tabs", contentSelector: "form", initial: "info"}],
-                    closeOnSubmit: false,
-                    submitOnChange: true
-                });
-            }
+                },
+                window: {
+                    resizable: true,
+                    title: "Active Effect"
+                },
+                tag: "form",
+                actions: {
+                    onEditImage: this._onEditImage
+                },
+                changeActions: {
+                },
+                // Custom property that's merged into this.options
+                dragDrop: [
+                ],
+                form: {
+                    submitOnChange: true,
+                    submitOnClose: true,
+                    closeOnSubmit: false
+                }
+            };
 
             /* -------------------------------------------- */
-
-            /** @override */
-            async getData() {
-                const context = await super.getData();
+            
+            async _prepareContext(options) {
+                const context = await super._prepareContext(options);
+                this.object = this.document.toObject();
+                context.effect = this.object;
+                context.descriptionHTML = await TextEditor.enrichHTML(this.object.description, {secrets: this.object.isOwner});
+            
+                // Status Conditions
+                const statuses = CONFIG.statusEffects.map(s => {
+                  return {
+                    id: s.id,
+                    label: game.i18n.localize(s.name),
+                    selected: context.effect.statuses.includes(s.id) ? "selected" : ""
+                  };
+                });
+                context.statuses = statuses;
                 if ( context.effect.origin ) {
                     context.originLink = await TextEditor.enrichHTML("@UUID[" + context.effect.origin + "]");
                 }
-
+                context.modes = Object.entries(CONST.ACTIVE_EFFECT_MODES).reduce((obj, e) => {
+                    obj[e[1]] = game.i18n.localize(\`EFFECT.MODE_\${e[0]}\`);
+                    return obj;
+                });
+                
                 function setValue(obj, access, value, mode){
                     if ( typeof(access)=='string' ) {
                         access = access.split('.');
@@ -132,32 +185,103 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 for ( const change of context.effect.changes ) {
                     setValue(context, change.key, change.value, change.mode);
                 }
+                
+                // Output initialization
+                const vueContext = {
+                    // Validates both permissions and compendium status
+                    editable: this.isEditable,
+                    owner: this.document.isOwner,
+                    limited: this.document.limited,
 
+                    // Add the document.
+                    object: context.effect,
+                    document: this.document,
+
+                    // Add the data to context.data for easier access, as well as flags.
+                    system: this.document.system,
+                    flags: this.document.flags,
+
+                    // Editors
+                    editors: {},
+
+                    // Force re-renders. Defined in the vue mixin.
+                    _renderKey: this._renderKey ?? 0,
+                    _arrayEntryKey: this._arrayEntryKey ?? 0,
+                    // tabs: this._getTabs(options.parts),
+                };
+                
+                await this._enrichEditor(vueContext, "description");
+                
                 const modes = CONST.ACTIVE_EFFECT_MODES;
                 const numberModes = [modes.MULTIPLY, modes.ADD, modes.DOWNGRADE, modes.UPGRADE, modes.OVERRIDE];
                 const stringModes = [modes.OVERRIDE];
                 const booleanModes = [modes.OVERRIDE];
 
-                context.numberModes = numberModes.reduce((obj, mode) => {
-                    obj[mode] = context.modes[mode];
+                vueContext.numberModes = numberModes.reduce((obj, mode) => {
+                    obj.push({
+                        value: mode,
+                        label: context.modes[mode]
+                    });
                     return obj;
-                }, {});
-                context.stringModes = stringModes.reduce((obj, mode) => {
-                    obj[mode] = context.modes[mode];
-                    return obj;
-                }, {});
-                context.booleanModes = booleanModes.reduce((obj, mode) => {
-                    obj[mode] = context.modes[mode];
-                    return obj;
-                }, {});
-                context.resourceModes = {
-                    0: "Add Once"
-                };
-                context.trackerModes = {
-                    0: "Add Once"
+                }, []);
+                vueContext.numberModes.push({
+                    value: 0,
+                    label: game.i18n.localize("EFFECTS.AddOnce")
+                });
+                vueContext.stringModes = stringModes.map((mode) => ({
+                    value: mode,
+                    label: context.modes[mode]
+                }));
+                vueContext.booleanModes = booleanModes.map((mode) => ({
+                    value: mode,
+                    label: context.modes[mode]
+                }));
+                vueContext.resourceModes = [
+                    { value: 0, label: "Add Once" }
+                ];
+                vueContext.trackerModes = [
+                    { value: 0, label: "Add Once" }
+                ];
+
+                console.dir(vueContext);
+                return vueContext;
+            }
+            
+            
+            async _enrichEditor(context, field) {
+                const enrichmentOptions = {
+                    // Whether to show secret blocks in the finished html
+                    secrets: this.document.isOwner,
+                    // Data to fill in for inline rolls
+                    rollData: {},
+                    // Relative UUID resolution
+                    relativeTo: this.document
                 };
 
-                return context;
+                const editorOptions = {
+                    toggled: true,
+                    collaborate: true,
+                    documentUUID: this.document.uuid,
+                    height: 300
+                };
+
+                const editorValue = this.document.system?.[field] ?? foundry.utils.getProperty(this.document.system, field);
+                context.editors[\`\${field}\`] = {
+                    enriched: await TextEditor.enrichHTML(editorValue, enrichmentOptions),
+                    element: foundry.applications.elements.HTMLProseMirrorElement.create({
+                        ...editorOptions,
+                        name: \`system.\${field}\`,
+                        value: editorValue ?? ""
+                    })
+                };
+            }
+            
+            /* -------------------------------------------- */
+            
+            _prepareSubmitData(event, form, formData) {
+                // We don't modify the image via the sheet itself, so we can remove it from the submit data to avoid errors.
+                delete formData.object.img;
+                return super._prepareSubmitData(event, form, formData);
             }
 
             /* -------------------------------------------- */
@@ -165,7 +289,6 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
             async _updateObject(event, formData) {
                 let ae = foundry.utils.duplicate(this.object);
                 ae.name = formData.name;
-                ae.img = formData.img;
                 ae.description = formData.description;
                 ae.origin = formData.origin;
                 ae.disabled = formData.disabled;
