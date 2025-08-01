@@ -1,0 +1,533 @@
+@use "./backgrounds";
+
+@mixin handlebarsSheet {
+
+    .property {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+    .notification {
+        margin-top: 1rem;
+        flex-grow: 0;
+    }
+
+    .window-app {
+        min-width: 400px;
+    }
+
+    .window-content {
+        padding: 0;
+    }
+
+    &.dialog {
+        height: unset;
+    }
+
+    .dialog-content {
+        margin: 0.5rem;
+    }
+
+    .window-content>form {
+        padding: 8px;
+        @include backgrounds.topography;
+
+        &.dead {
+            @include backgrounds.skulls;
+        }
+
+        &.dark {
+            @include backgrounds.topography-dark;
+
+            // &.dead {
+            //     @include background-skulls-dark;
+            // }
+        }
+
+        &.hideout {
+            @include backgrounds.hideout;
+        }
+
+        &.graphpaper {
+            @include backgrounds.graphpaper;
+        }
+
+        &.texture {
+            @include backgrounds.texture;
+        }
+
+        &.squares {
+            @include backgrounds.squares;
+        }
+
+        &.dominoes {
+            @include backgrounds.dominoes;
+        }
+
+        &.temple {
+            @include backgrounds.temple;
+        }
+
+        &.food {
+            @include backgrounds.food;
+        }
+
+        &.anchors {
+            @include backgrounds.anchors;
+        }
+
+        &.bubbles {
+            @include backgrounds.bubbles;
+        }
+
+        &.diamonds {
+            @include backgrounds.diamonds;
+        }
+
+        &.circuitboard {
+            @include backgrounds.circuitboard;
+        }
+
+        &.bricks {
+            @include backgrounds.bricks;
+        }
+
+        &.signal {
+            @include backgrounds.signal;
+        }
+    }
+
+    &.edit-mode {
+        .window-content>form {
+            @include backgrounds.cogs;
+        }
+    }
+
+    .sheet-header,
+    .sheet-tabs,
+    footer {
+        flex: 0;
+    }
+
+    .editor {
+        height: 190px;
+    }
+
+    .grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 10px;
+    }
+
+    .form-group {
+        &.double-wide {
+            grid-column: span 2;
+        }
+
+        &.triple-wide {
+            grid-column: span 3;
+        }
+    }
+
+    .section {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: start;
+        align-content: start;
+        border-radius: 0.5rem;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+
+        >fieldset {
+            margin-bottom: 0.25rem;
+        }
+
+        >.property {
+            grid-column: span 3;
+        }
+
+        >.attributeExp {
+            grid-column: span 1;
+        }
+    }
+
+    label {
+        background: #333;
+        color: #fff;
+        text-align: left;
+        width: 100%;
+        font-weight: bold;
+        padding-left: 0.5rem;
+    }
+
+    input,
+    select {
+        background: #e9e9e9;
+        border: 1px solid #e9e9e9;
+        font-size: 19px;
+        box-shadow: inset #c9c9c9 0px 0px 4px 0px;
+
+        &:disabled {
+            background: rgba(233, 233, 233, 0.3);
+            border: 1px solid rgba(233, 233, 233, 0.3);
+        }
+    }
+
+    input[type="checkbox"] {
+        flex: 0 0 26px;
+        width: 26px;
+        height: 26px;
+        margin-left: 0;
+    }
+
+    button {
+        max-height: 4rem;
+        padding: 0.25rem;
+        margin: 0.25rem;
+    }
+
+    .dt-body-center {
+        text-align: center;
+    }
+
+    .dt-buttons {
+        display: flex;
+        height: 52px;
+    }
+
+    table.dataTable th.dt-type-numeric {
+        text-align: center;
+    }
+
+    table.dataTable td.dt-type-numeric {
+        text-align: center;
+    }
+
+    .pages-container {
+        >.tab {
+            height: 100%;
+        }
+    }
+
+    .pages {
+        flex: 0;
+        margin-left: -10px;
+        margin-right: -10px;
+        margin-top: 15px;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: space-around;
+        text-align: center;
+
+        a.item {
+            width: 100%;
+            padding: 10px 0;
+            border-bottom: 2px solid #000;
+            font-size: 16px;
+
+            &.active {
+                color: #000;
+                border: 2px solid #000;
+                border-bottom: 0;
+                text-shadow: none;
+                font-weight: bold;
+            }
+        }
+    }
+
+    .tabs {
+        flex: 0;
+        margin: 15px 2px 0;
+
+        a.item {
+            width: 100%;
+            padding: 10px 0;
+            border-bottom: 2px solid #000;
+
+            &.active {
+                color: #000;
+                border: 2px solid #000;
+                border-bottom: 0;
+                text-shadow: none;
+                font-weight: bold;
+            }
+        }
+    }
+
+    fieldset {
+        border-width: 2px;
+        border-style: solid;
+        border-color: #333;
+    }
+
+    legend {
+        font-weight: bold;
+        font-size: 15px;
+        padding: 0px 5px;
+    }
+
+    .tabs-container fieldset {
+        border-top: 0;
+    }
+
+    .tabs-container {
+        >.tab {
+            height: 100%;
+        }
+    }
+
+    .attributeExp {
+        display: flex;
+        flex-direction: column;
+        margin: 5px;
+        border: 3px solid #333;
+        border-radius: 4px;
+
+        >label {
+            text-align: center;
+        }
+
+        >input {
+            text-align: center;
+        }
+
+        >.mod {
+            font-size: 26px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    }
+
+    .date {
+        >input {
+            min-width: 100px;
+        }
+    }
+
+    .time {
+        >input {
+            min-width: 100px;
+        }
+    }
+
+    .pips {
+        .pips-container {
+            margin-left: 5px;
+            display: flex;
+            gap: 5px;
+
+            &.circles {
+                .pip {
+                    border-radius: 50%;
+                }
+            }
+        }
+
+        .pip {
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border: 1px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pip.filled {
+            background-color: black;
+        }
+    }
+
+    .paper-doll {
+        .paper-doll-container {
+            position: relative;
+            height: 275px;
+            width: 275px;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .paper-doll-slot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px dashed rgba(0, 0, 0, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+        }
+    }
+
+    .damage-track {
+        .damage-track-container {
+            margin-left: 5px;
+            display: flex;
+            gap: 5px;
+
+            &.circles {
+                .pip {
+                    border-radius: 50%;
+                }
+            }
+        }
+
+        .damage {
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border: 1px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            // Up to 5 tiers of damage types, progressing from pale yellow to bright red
+            &.tier-1 {
+                background-color: #f0f0a0;
+            }
+
+            &.tier-2 {
+                background-color: #c9a511;
+            }
+
+            &.tier-3 {
+                background-color: #f09880;
+            }
+
+            &.tier-4 {
+                background-color: #f06060;
+            }
+
+            &.tier-5 {
+                background-color: #f01515;
+            }
+        }
+    }
+
+    .calculator-toggle {
+        flex: 0 25px;
+        text-align: center;
+        font-size: 18px;
+        line-height: 26px;
+        padding-left: 0.5rem;
+    }
+
+    .calc-button:hover {
+        background: rgba(50, 50, 50, 0.7);
+    }
+
+    .calculator {
+        display: none;
+        position: absolute;
+        top: 50px;
+        left: 50px;
+        background: rgba(30, 30, 30, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+
+        input {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: none;
+            margin-bottom: 5px;
+        }
+
+        .calc-buttons {
+            display: flex;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.4);
+            border: none;
+            padding: 8px;
+            font-size: 16px;
+            margin: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+
+            &.active {
+                background: rgba(195, 111, 110, 0.8);
+            }
+        }
+    }
+
+    .numberExp {
+
+        >label {
+            max-width: 40%;
+        }
+
+        &.calc {
+            input[type="number"] {
+                flex: 1 94px;
+            }
+        }
+    }
+
+    .resourceExp {
+
+        margin-left: 5px;
+        margin-right: 5px;
+
+        .max>input[type="number"] {
+            flex: 1 110px;
+        }
+
+        .values {
+            flex: 1 110px;
+        }
+
+        .temp {
+            flex: 0 40px;
+            text-align: center;
+        }
+    }
+
+    .single-document {
+
+        .single-document-content {
+            display: flex;
+            margin-left: 8px;
+
+            >.content-link {
+                flex: 3;
+                margin-left: -8px;
+                height: 26px;
+                line-height: 24px;
+            }
+        }
+
+        >.content-link {
+            height: 26px;
+            line-height: 22px;
+        }
+
+        .single-document-remove {
+            margin-left: 0.25rem;
+            flex: 0;
+            line-height: 26px;
+        }
+
+        .single-document-none {
+            padding-left: 0.25rem;
+            border: 1px gray dashed;
+            height: 26px;
+            line-height: 22px;
+            margin: 0;
+        }
+    }
+
+    /* Dark mode */
+    // @media (prefers-color-scheme: dark) {
+    //     .window-content {
+    //         @include background-topography-dark;
+    //         color: antiquewhite;
+
+    //         &.dead {
+
+    //         }
+    //     }
+    // }
+}
