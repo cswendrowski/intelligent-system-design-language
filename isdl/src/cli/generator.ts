@@ -175,7 +175,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             "version": "This is auto replaced",
             "compatibility": {
                 "minimum": 12,
-                "verified": 12
+                "verified": 13
             },
             "authors": [
                 {
@@ -183,8 +183,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                 }
             ],
             "scripts": [
-                "scripts/datatables.min.js",
-                "scripts/progressbar.min.js"
+                "scripts/datatables.min.js"
             ],
             "esmodules": [
                 "system/${id}-main.mjs",
@@ -192,7 +191,6 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             ],
             "styles": [
                 "css/datatables.min.css",
-                "css/vuetify.min.css",
                 "css/materialdesignicons.min.css",
                 "css/${id}.css",
                 "css/${id}-custom.css"

@@ -54,7 +54,7 @@ function copyStyles(outDir) {
     }
     
     // Copy SCSS partials
-    const scssPartials = ['_backgrounds.scss', '_handlebars.scss', '_vuetifyOverrides.scss'];
+    const scssPartials = ['_backgrounds.scss', '_handlebars.scss', '_vuetifyOverrides.scss', '_vuetifyStyles.scss'];
     
     for (const partial of scssPartials) {
         const src = path.resolve('src', partial);

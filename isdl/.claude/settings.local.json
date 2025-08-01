@@ -14,7 +14,8 @@
       "Bash(ls:*)",
       "Bash(cp out/styles.scss src/styles.scss)",
       "Bash(find:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

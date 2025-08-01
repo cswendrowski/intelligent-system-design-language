@@ -16,7 +16,7 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
             console.log('${id} | Ready');
 
             registerSockets();
-            moveVuetifyStyles();
+            //moveVuetifyStyles();
             reopenLastState();
             indexPacks();
 

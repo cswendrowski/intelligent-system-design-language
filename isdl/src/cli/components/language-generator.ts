@@ -192,7 +192,8 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 }
             },
             "EFFECTS": {
-                "AddOnce": "Add Once"
+                "AddOnce": "Add Once",
+                "TabEffects": "Effects"
             },
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
         }

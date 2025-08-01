@@ -2,3 +2,5 @@
 *.vsix
 
 isdl/test-output/
+
+isdl/temp-output/

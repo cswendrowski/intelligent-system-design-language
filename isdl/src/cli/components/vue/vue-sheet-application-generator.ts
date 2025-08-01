@@ -576,7 +576,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                         {
                             text: '<i class="fas fa-plus"></i> Add',
                             action: (e, dt, node, config) => {
-                                ActiveEffect.createDocuments([{label: "New Effect"}], {parent: document}).then(effect => {
+                                ActiveEffect.createDocuments([{label: "New Effect", name: "New Effect"}], {parent: document}).then(effect => {
                                     effect[0].sheet.render(true);
                                 });
                             }
@@ -688,7 +688,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             </v-app-bar>
 
             <!-- Navigation Drawer -->
-            <v-navigation-drawer v-model="drawer" permanent style="background-color: #dddddd" width="175">
+            <v-navigation-drawer v-model="drawer" temporary style="background-color: #dddddd">
                 <v-img :src="context.document.img" style="background-color: lightgray" data-edit='img' data-action='onEditImage'>
                     <template #error>
                         <v-img src="/systems/${id}/img/missing-character.png" data-edit='img' data-action='onEditImage'></v-img>
@@ -777,7 +777,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
                                 <v-tabs-window-item value="description" data-tab="description" class="tabs-container">
-                                    <i-prosemirror :field="context.editors['system.description']" :disabled="!editMode"></i-prosemirror>
+                                    <i-prosemirror :field="context.editors['system.description']" :disabled="!editModeRef"></i-prosemirror>
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
                                 ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), {appendNewLineIfNotEmpty: true})}

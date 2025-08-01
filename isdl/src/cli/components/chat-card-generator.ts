@@ -60,6 +60,10 @@ export function generateChatCardClass(entry: Entry, destination: string) {
             static activateListeners(html) {
                 html.on("click", ".collapsible", ${entry.config.name}ChatCard._onChatCardToggleCollapsible.bind(this));
                 html.on("click", ".action", ${entry.config.name}ChatCard._handleActionClick.bind(this));
+                html.on("click", ".dice-roll", event => {
+                    const rollElement = event.currentTarget;
+                    rollElement.classList.toggle("expanded");
+                });
             
                 // Customize the drag data of effects
                 html.find(".effect").each((i, li) => {
@@ -407,7 +411,7 @@ export function generateStandardChatCardTemplate(destination: string) {
             </div>
             {{#if hasEffects}}
             <div class="chat-effects collapsible">
-                <h3 class="title">{{localize "EFFECT.TabEffects"}} <i class="collapse-icon fas fa-chevron-down fa-fw"></i></h3>
+                <h3 class="title">{{localize "EFFECTS.TabEffects"}} <i class="collapse-icon fas fa-chevron-down fa-fw"></i></h3>
                 <div class="effects collapsible-content">
                 {{#each document.effects}}
                     <div class="effect" draggable="true" data-uuid="{{this.uuid}}">
