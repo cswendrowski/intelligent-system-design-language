@@ -1426,7 +1426,7 @@ export class GitHubManager {
         return `## ${systemName} Release
 
 📅 **Release Date:** ${currentDate}
-🎲 **Foundry VTT Compatibility:** v${systemInfo?.compatibility?.minimum || '12'} - v${systemInfo?.compatibility?.verified || '12'}
+🎲 **Foundry VTT Compatibility:** v${systemInfo?.compatibility?.minimum || '12'} - v${systemInfo?.compatibility?.verified || '13'}
 
 ### 📦 Installation
 

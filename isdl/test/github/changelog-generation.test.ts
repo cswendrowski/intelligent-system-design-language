@@ -41,8 +41,8 @@ describe('Changelog Generation', () => {
                 version: '1.0.0',
                 author: 'Test Author',
                 compatibility: {
-                    minimum: '11',
-                    verified: '12',
+                    minimum: '12',
+                    verified: '13',
                 },
             };
 
