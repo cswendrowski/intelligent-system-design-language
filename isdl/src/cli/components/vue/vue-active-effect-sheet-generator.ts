@@ -46,7 +46,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
     function generateVueComponentScript(entry: Entry, id: string, destination: string) {
         return expandToNode`
         <script setup>
-        import { ref, inject } from 'vue';
+        import { ref, inject, onMounted, computed } from 'vue';
         
         const document = inject('rawDocument');
         const props = defineProps(['context']);
@@ -60,6 +60,151 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         const drawer = ref(false);
         const page = ref('details');
         const tab = ref('description');
+        
+        // Available fields for each document type
+        const availableFields = ref({});
+        const selectedFields = ref({});
+        
+        // Create field name mapping for each document
+        const createFieldMapping = () => {
+            const mapping = {};
+            ${joinToNode(documents, document => {
+                const fields = getAllOfType<Property>(document.body, isProperty, false).filter(property =>
+                    !isInitiativeProperty(property) &&
+                    !isStatusProperty(property) &&
+                    !isHookHandler(property) &&
+                    !isTableField(property) &&
+                    !isDocumentArrayExp(property) &&
+                    !isDocumentFields(property) &&
+                    !isHtmlExp(property) &&
+                    property.modifier !== "locked"
+                );
+                
+                return expandToNode`
+                    mapping['${document.name}'] = {
+                        ${joinToNode(fields, field => `'${field.name.toLowerCase()}': '${field.name}'`, { separator: ',\n                        ' })}
+                    };
+                `;
+            }, { appendNewLineIfNotEmpty: true })}
+            return mapping;
+        };
+        
+        // Helper method to get change value from the changes array
+        const getChangeValue = (key) => {
+            const change = props.context?.document?.changes?.find(x => x.key === key);
+            return change?.value || '';
+        };
+        
+        // Helper method to get numeric change value from the changes array
+        const getChangeNumberValue = (key) => {
+            const change = props.context?.document?.changes?.find(x => x.key === key);
+            if (!change?.value) return 0;
+            const num = Number(change.value);
+            return isNaN(num) ? 0 : num;
+        };
+        
+        // Helper method to get change mode from the changes array
+        const getChangeMode = (key) => {
+            const change = props.context?.document?.changes?.find(x => x.key === key);
+            return change?.mode || 0;
+        };
+        
+        // Initialize selectedFields from existing changes
+        const initializeSelectedFields = () => {
+            if (!props.context?.document?.changes) return;
+            
+            const fieldMapping = createFieldMapping();
+            
+            for (const change of props.context.document.changes) {
+                // Parse the key to extract document name and field name
+                // Format: "hero.system.availableskilllevels" or "hero.system.resourcefield.value"
+                const parts = change.key.split('.');
+                if (parts.length >= 3) {
+                    const documentName = parts[0];
+                    const fieldNameLower = parts[2];
+                    
+                    // Convert document name to proper case (e.g., "hero" -> "Hero")
+                    const docName = documentName.charAt(0).toUpperCase() + documentName.slice(1);
+                    
+                    // Look up the proper field name from our mapping
+                    const properFieldName = fieldMapping[docName]?.[fieldNameLower];
+                    
+                    if (properFieldName) {
+                        if (!selectedFields.value[docName]) {
+                            selectedFields.value[docName] = [];
+                        }
+                        
+                        if (!selectedFields.value[docName].includes(properFieldName)) {
+                            selectedFields.value[docName].push(properFieldName);
+                        }
+                    }
+                }
+            }
+        };
+        
+        // Generate a summary of current changes
+        const changesSummary = computed(() => {
+            if (!props.context?.document?.changes || props.context.document.changes.length === 0) {
+                return 'No changes configured';
+            }
+            
+            const changes = props.context.document.changes.filter(change => {
+                // Skip zero values for numbers
+                const numValue = Number(change.value);
+                return !((!isNaN(numValue) && numValue === 0) || change.value === '' || change.value === null);
+            });
+            
+            if (changes.length === 0) {
+                return 'No changes configured';
+            }
+            
+            // Group changes by document type
+            const groupedChanges = {};
+            changes.forEach(change => {
+                const parts = change.key.split('.');
+                if (parts.length >= 3) {
+                    const documentName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1); // Capitalize
+                    const fieldPath = parts.slice(2).join('.');
+                    
+                    if (!groupedChanges[documentName]) {
+                        groupedChanges[documentName] = [];
+                    }
+                    
+                    console.log(change.key, fieldPath, parts);
+                    
+                    // Convert field names to human readable
+                    const humanFieldName = fieldPath
+                        .replace(/\./g, ' ')
+                        .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space before capitals
+                        .replace(/\b\w/g, l => l.toUpperCase()) // Capitalize words
+                        .replace(/ Value$/, '') // Remove " Value" suffix
+                        .replace(/ Max$/, ' Max') // Keep " Max" suffix
+                        .replace(/ Min$/, ' Min'); // Keep " Min" suffix
+                    
+                    // Format the mode symbol
+                    const modeSymbol = change.mode === 1 ? ' × ' : 
+                                     change.mode === 2 ? ' + ' :
+                                     change.mode === 3 ? ' ↓ ' :
+                                     change.mode === 4 ? ' ↑ ' :
+                                     change.mode === 5 ? ' (Once) + ' : ' ';
+                    
+                    console.log("Human Field Name:", humanFieldName, "Mode Symbol:", modeSymbol);
+                    groupedChanges[documentName].push(humanFieldName + modeSymbol + change.value);
+                }
+            });
+            
+            // Format as "Document: change1, change2"
+            const documentSummaries = Object.entries(groupedChanges).map(([docName, changes]) => {
+                return docName + ': ' + changes.join(', ');
+            });
+            
+            return documentSummaries.join(' | ');
+        });
+        
+        // Initialize on component mount
+        onMounted(() => {
+            initializeSelectedFields();
+        });
         </script>
     `;
     }
@@ -95,15 +240,28 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                             <v-tabs-window-item value="details" data-tab="details">
                                 <v-col cols="12" style="padding: 0">
                                     <v-switch
-                                        v-model="context.document.disabled"
-                                        name="disabled"
+                                        :model-value="!context.document.disabled"
+                                        @update:model-value="context.document.disabled = !$event"
+                                        name="enabled"
                                         :color="primaryColor"
                                         label="Enabled">
                                     </v-switch>
+                                    <v-card class="mt-3 mb-3" variant="outlined">
+                                        <v-card-title class="text-body-2">
+                                            <v-icon icon="fa-solid fa-magic" class="mr-2"></v-icon>
+                                            Current Changes
+                                        </v-card-title>
+                                        <v-card-text class="pt-2">
+                                            <div class="text-body-2 text-medium-emphasis">
+                                                {{ changesSummary }}
+                                            </div>
+                                        </v-card-text>
+                                    </v-card>
                                     <i-prosemirror
                                         label="Description"
                                         icon="fa-solid fa-file-lines"
                                         :field="context.editors['description']"
+                                        class="mt-2"
                                         >
                                     </i-prosemirror>
                                 </v-col>
@@ -130,13 +288,67 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
     }
 
     function generateDocumentPage(document: Document) {
-        const fields = getAllOfType<Property>(document.body, isProperty, false);
+        const fields = getAllOfType<Property>(document.body, isProperty, false).filter(property =>
+            !isInitiativeProperty(property) &&
+            !isStatusProperty(property) &&
+            !isHookHandler(property) &&
+            !isTableField(property) &&
+            !isDocumentArrayExp(property) &&
+            !isDocumentFields(property) &&
+            !isHtmlExp(property) &&
+            property.modifier !== "locked"
+        );
+
         return expandToNode`
             <v-tabs-window-item value="${document.name}" data-tab="${document.name}">
-                 <v-col cols="12">
-                    ${joinToNode(fields, (property) => generateField(document, property), { appendNewLineIfNotEmpty: true })}
+                 <v-col cols="12" style="padding: 0">
+                    <v-card class="mb-4">
+                        <v-card-title>Available Fields</v-card-title>
+                        <v-card-text>
+                            <v-autocomplete
+                                label="Add Field to Change"
+                                :items="[${joinToNode(fields, (property) => `{title: '${property.name}', value: '${property.name}'}`, { separator: ', ' })}]"
+                                item-title="title"
+                                item-value="value"
+                                v-model="selectedFields['${document.name}']"
+                                :color="primaryColor"
+                                variant="outlined"
+                                density="compact"
+                                multiple
+                                chips
+                                closable-chips>
+                                <template #chip="{ props, item }">
+                                    <v-chip v-bind="props" :text="item.title" closable></v-chip>
+                                </template>
+                            </v-autocomplete>
+                        </v-card-text>
+                    </v-card>
+                    
+                    <div v-for="fieldName in selectedFields['${document.name}'] || []" :key="fieldName">
+                        ${joinToNode(fields, (property) => generateConditionalField(document, property), { appendNewLineIfNotEmpty: true })}
+                    </div>
                 </v-col>
             </v-tabs-window-item>
+        `;
+    }
+
+    function generateConditionalField(document: Document, property: Property): CompositeGeneratorNode | undefined {
+        return expandToNode`
+            <div v-if="fieldName === '${property.name}'">
+                ${generateField(document, property)}
+            </div>
+        `;
+    }
+
+    function generateRemoveButton(document: Document, property: Property) {
+        return expandToNode`
+            <v-btn 
+                icon="fa-solid fa-xmark" 
+                size="small" 
+                variant="text" 
+                @click="selectedFields['${document.name}'] = selectedFields['${document.name}'].filter(f => f !== '${property.name}')"
+                style="float: right;">
+            </v-btn>
         `;
     }
 
@@ -147,11 +359,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isNumberExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -161,7 +377,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Value"
                                 :color="primaryColor"
                                 variant="outlined"
@@ -176,11 +393,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isAttributeExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value')"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -190,7 +411,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}.value"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value')"
                                 label="Value"
                                 :color="primaryColor"
                                 variant="outlined"
@@ -206,12 +428,16 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
             // Resource has both a current and max that can be changed
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                          <v-label>Resource Current</v-label>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value')"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -221,17 +447,19 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}.value"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value')"
                                 label="Current Value"
                                 :color="primaryColor"
                                 variant="outlined"
                                 density="compact">
                             </v-number-input>
                         </v-row>
-                        <v-label class="">Resource Max</v-label>
+                        <v-label class="mt-2">Resource Max</v-label>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max')"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -241,7 +469,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}.max"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max')"
                                 label="Max Value"
                                 :color="primaryColor"
                                 variant="outlined"
@@ -256,11 +485,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isStringExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.stringModes"
                                 item-title="label"
@@ -270,7 +503,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-text-field
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
+                                :model-value="getChangeValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Text Value"
                                 :color="primaryColor"
                                 variant="outlined"
@@ -285,11 +519,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isBooleanExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.booleanModes"
                                 item-title="label"
@@ -299,7 +537,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-switch
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
+                                :model-value="getChangeValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Boolean Value"
                                 :color="primaryColor"
                                 variant="outlined"
@@ -314,11 +553,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isStringChoiceField(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.choiceModes"
                                 item-title="label"
@@ -328,7 +570,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
                                 label="Choice Value"
                                 :items="[]"
                                 :color="primaryColor"
@@ -344,12 +586,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isTrackerExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-label class="">Tracker Value</v-label>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -359,17 +604,19 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}.value"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.value')"
                                 label="Current Value"
                                 :color="primaryColor"
                                 variant="outlined"
                                 density="compact">
                             </v-number-input>
                         </v-row>
-                        <v-label class="">Tracker Max</v-label>
+                        <v-label class="mt-2">Tracker Max</v-label>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-max-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max')"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -379,7 +626,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}.max"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.max')"
                                 label="Max Value"
                                 :color="primaryColor"
                                 variant="outlined"
@@ -394,11 +642,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isDateExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.dateModes"
                                 item-title="label"
@@ -408,7 +659,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-text-field
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
                                 label="Date Value"
                                 type="date"
                                 :color="primaryColor"
@@ -424,11 +675,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isTimeExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.timeModes"
                                 item-title="label"
@@ -438,7 +692,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-text-field
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
                                 label="Time Value"
                                 type="time"
                                 :color="primaryColor"
@@ -454,11 +708,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isDateTimeExp(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.dateTimeModes"
                                 item-title="label"
@@ -468,7 +725,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-text-field
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
                                 label="DateTime Value"
                                 type="datetime-local"
                                 :color="primaryColor"
@@ -484,11 +741,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isDieField(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.dieModes"
                                 item-title="label"
@@ -498,7 +758,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}"
                                 label="Die Type"
                                 :items="context.dieTypes"
                                 item-title="label"
@@ -516,11 +776,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isDiceField(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.diceModes"
                                 item-title="label"
@@ -530,14 +794,16 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-number-input
-                                name="${document.name.toLowerCase()}.${property.name}.number"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.number"
+                                :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.number')"
                                 label="Number of Dice"
                                 :color="primaryColor"
                                 variant="outlined"
                                 density="compact">
                             </v-number-input>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}.type"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.die"
+                                :model-value="getChangeValue('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.die')"
                                 label="Die Type"
                                 :items="context.dieTypes"
                                 item-title="label"
@@ -555,11 +821,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         if (isMeasuredTemplateField(property)) {
             return expandToNode`
                 <v-card class="mb-4">
-                    <v-card-title>${property.name}</v-card-title>
+                    <v-card-title>
+                        ${property.name}
+                        ${generateRemoveButton(document, property)}
+                    </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 label="Mode"
                                 :items="context.templateModes"
                                 item-title="label"
@@ -569,14 +838,14 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 density="compact">
                             </v-select>
                             <v-text-field
-                                name="${document.name.toLowerCase()}.${property.name}.distance"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.distance"
                                 label="Distance"
                                 :color="primaryColor"
                                 variant="outlined"
                                 density="compact">
                             </v-text-field>
                             <v-select
-                                name="${document.name.toLowerCase()}.${property.name}.type"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}.type"
                                 label="Template Type"
                                 :items="context.templateTypes"
                                 item-title="label"

@@ -88,6 +88,13 @@
         .v-card {
             padding: 0.25rem;
         }
+
+        .v-autocomplete__selection {
+            .v-chip__close {
+                border: none;
+                background: none;
+            }
+        }
     }
 
     position: absolute;

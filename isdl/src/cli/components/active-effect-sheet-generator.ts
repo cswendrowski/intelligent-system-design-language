@@ -71,7 +71,6 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
         if (isNumberExp(property)) {
             return expandToNode`
                 addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}", 1);
-                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${property.name.toLowerCase()}");
             `;
         }
 
@@ -134,6 +133,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 dragDrop: [
                 ],
                 form: {
+                    handler: ${entry.config.name}EffectVueSheet.#onSubmitForm,
                     submitOnChange: true,
                     submitOnClose: true,
                     closeOnSubmit: false
@@ -165,7 +165,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                     return obj;
                 });
                 
-                function setValue(obj, access, value, mode){
+                function setValue(obj, access, value, mode) {
                     if ( typeof(access)=='string' ) {
                         access = access.split('.');
                     }
@@ -243,7 +243,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                     { value: 0, label: "Add Once" }
                 ];
 
-                console.dir(vueContext);
+                console.dir("Vue Active Effect Context", vueContext);
                 return vueContext;
             }
             
@@ -286,33 +286,41 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
             /* -------------------------------------------- */
 
-            async _updateObject(event, formData) {
-                let ae = foundry.utils.duplicate(this.object);
-                ae.name = formData.name;
-                ae.description = formData.description;
-                ae.origin = formData.origin;
-                ae.disabled = formData.disabled;
-                ae.transfer = formData.transfer;
+            /**
+             * Process form submission for the sheet
+             * @this {${entry.config.name}EffectVueSheet}     The handler is called with the application as its bound scope
+             * @param {SubmitEvent} event                     The originating form submission event
+             * @param {HTMLFormElement} form                  The form element that was submitted
+             * @param {FormDataExtended} formData             Processed data for the submitted form
+             * @returns {Promise<void>}
+             */
+            static async #onSubmitForm(event, form, formData) {
+                let ae = foundry.utils.duplicate(this.document);
+                console.log("Updating Active Effect", ae, formData);
+                ae.name = formData.object.name;
+                ae.description = formData.object.description;
+                ae.origin = formData.object.origin;
+                ae.disabled = formData.object.disabled;
+                ae.transfer = formData.object.transfer;
 
                 if ( !ae.flags["${id}"] ) {
                     ae.flags["${id}"] = {};
                 }
 
                 // Retrieve the existing effects.
-                const effectData = await this.getData();
-                let changes = effectData?.data?.changes ? effectData.data.changes : [];
+                let changes = this.document.changes ? [...this.document.changes] : [];
 
                 // Build an array of effects from the form data
                 let newChanges = [];
 
                 function addChange(documentName, key, customMode) {
-                    const value = foundry.utils.getProperty(formData, key);
+                    const value = foundry.utils.getProperty(formData.object, key);
                     if ( !value ) {
                         // If there is a current change for this key, remove it.
                         changes = changes.filter(c => c.key !== key);
                         return;
                     }
-                    const mode = foundry.utils.getProperty(formData, key + "-mode");
+                    const mode = foundry.utils.getProperty(formData.object, key + "-mode");
                     newChanges.push({
                         key: key,
                         value: value,
@@ -338,17 +346,17 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
                 // Filter changes for empty form fields.
                 ae.changes = ae.changes.filter(c => c.value !== null);
-
-                await this.object.update(ae);
+                console.log("Active Effect Changes", ae.changes);
+                await this.document.update(ae);
 
                 // Rerender the parent sheets to update the effect lists.
-                this.object.parent?.sheet?.render();
-                if ( this.object.parent?.documentName === "Item" ) {
-                    this.object.parent?.parent?.applyActiveEffects();
+                this.document.parent?.sheet?.render();
+                if ( this.document.parent?.documentName === "Item" ) {
+                    this.document.parent?.parent?.applyActiveEffects();
 
                     // Wait half a second
                     await new Promise(r => setTimeout(r, 500));
-                    this.object.parent?.parent?.sheet?.render();
+                    this.document.parent?.parent?.sheet?.render();
                 }
             }
         }
