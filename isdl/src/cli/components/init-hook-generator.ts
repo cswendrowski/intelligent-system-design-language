@@ -113,7 +113,6 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         ${joinToNode(entry.documents, document => `import ${document.name}VueSheet from "../sheets/vue/${isActor(document) ? "actor" : "item"}/${document.name.toLowerCase()}-sheet.mjs"`, { appendNewLineIfNotEmpty: true })}
         import DataTableApp from "../sheets/vue/datatable-app.mjs";
         ${joinToNode(entry.documents, generateDocumentPromptImports, { appendNewLineIfNotEmpty: true })}
-        import ${entry.config.name}EffectSheet from "../sheets/active-effect-sheet.mjs";
         import ${entry.config.name}EffectVueSheet from "../sheets/vue/active-effect-sheet.mjs";
         import ${entry.config.name}Actor from "../documents/actor.mjs";
         import ${entry.config.name}Item from "../documents/item.mjs";
@@ -232,8 +231,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             ${joinToNode(entry.documents.filter(d => isItem(d)), document => `Items.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}
         
             // Active Effects
-            DocumentSheetConfig.registerSheet(ActiveEffect, "${id}", ${entry.config.name}EffectSheet, { makeDefault: true });
-            DocumentSheetConfig.registerSheet(ActiveEffect, "${id}", ${entry.config.name}EffectVueSheet, { makeDefault: false });
+            DocumentSheetConfig.registerSheet(ActiveEffect, "${id}", ${entry.config.name}EffectVueSheet, { makeDefault: true });
         }
 
         /* -------------------------------------------- */
