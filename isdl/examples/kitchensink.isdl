@@ -6,25 +6,25 @@ config KitchenSink {
 }
 
 actor Hero(icon: "fa-solid fa-sword", background: texture) {
-    
+
     function Print(number value) {
         log("Leveled up to Level " + value)
     }
-    
+
     function FightFightFight(number mod) returns number {
         fleeting rollResult = roll(d6 + self.Fight + mod)
         return rollResult.total
     }
-    
+
     page PlainFields {
-        
+
         section Basic {
             string StringField
             number NumberField
             boolean BooleanField
             html HtmlField
         }
-        
+
         section Complex {
             resource ResourceField
             tracker TrackerField
@@ -32,19 +32,19 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             measuredTemplate MeasuredTemplateField
             //damageTrack DamageTrackField
         }
-        
+
         section DateTime {
             date DateField
             time TimeField
             datetime DateTimeField
         }
-        
+
         section Dice {
             die DieField
             dice DiceField
             //roll RollField
         }
-        
+
         section DocumentLinks {
             table<Skill> SkillsTable
             Skill SingleDocumentField
@@ -60,7 +60,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             }
         }
     }
-    
+
     page Info(background: hideout) {
         section BasicInfo {
             gmOnly choice<string> HeroType(choices: ["A", "B", "C"], icon: "fa-solid fa-cube", color: #a586c0)
@@ -73,12 +73,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             string Text2(icon: "fa-solid fa-book", label: "Locked Text Field", value: "This is a locked text field that cannot be edited by the player.", color: #a586c0)
             string Test3
             string Test4
-            
+
             html Background(visibility: {
                 return Visibility.hidden
             }, icon: "fa-solid fa-scroll", color: #a586c0)
             hidden string BackgroundText
-            
+
             action EndCombat(visibility: {
                 if (User.isGM) {
                     return Visibility.default
@@ -97,11 +97,11 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             }) {
                 Combat.nextTurn()
             }
-            
+
         }
-        
+
         section Level {
-            
+
             row {
                 gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
                 secret tracker Shield(min: 0, style: segmented, segments: 5, icon: "fa-solid fa-shield-halved")
@@ -125,7 +125,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             tracker Plain(style: plain, color: #a586c0, value: {
                 return self.Level
             })
-            
+
             on preApplyDamage (damage) {
                 if (self.Shield > 0) {
                     fleeting shieldAmount = self.Shield
@@ -137,7 +137,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                     }
                 }
             }
-            
+
             on appliedDamage(damage) {
                 if (self.HP <= 0) {
                     self.Wounds += 1
@@ -154,14 +154,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                     }
                 }
             }
-            
+
             function VisibleUnlessDisabled(boolean disabled) returns string {
                 if (disabled) {
                     return Visibility.hidden
                 }
                 return Visibility.default
             }
-            
+
             action LevelUp(visibility: { if (self.Experience < 10) return Visibility.locked }, color: #a586c0) {
             self.Experience -= 10
             self.Level++
@@ -175,9 +175,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             return self.Experience
         })
     }
-    
+
     tracker Experience(min: 0, max: 100, color: #a586c0)
-    
+
     action FlipACoin {
         fleeting result = roll(d2)
         fleeting resultText = "Heads"
@@ -219,12 +219,12 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
             return (self.EndurePlain - 10) / 2
         })
     }
-    
+
     section StatusEffects {
         boolean Slowed
         boolean Dazed
     }
-    
+
     row {
         section Counter {
             column {
@@ -242,43 +242,43 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
                     self.Count--
                 }
             }
-            
+
             on combatStart {
                 log("Combat started")
                 self.Count = 0
             }
-            
+
             on combatEnd {
                 log("Combat ended")
                 self.Count = 0
             }
-            
+
             on roundStart (roundNumber) {
                 log("Round " + roundNumber)
                 self.Count = 0
             }
-            
+
             on roundEnd (roundNumber) {
                 log("Round " + roundNumber + " ended")
             }
-            
+
             on turnStart {
                 log("Turn of " + self.Name)
             }
-            
+
             on turnEnd {
                 log("Turn of " + self.Name + " ended")
             }
-            
+
             on turnIsNext {
                 log("Turn of " + self.Name + " is next")
             }
-            
+
             on death {
                 log("Death of " + self.Name)
             }
         }
-        
+
         section FancyCounter {
             readonly number Count2
             unlocked number FancyCounterAmount
@@ -293,7 +293,7 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
             }
         }
     }
-    
+
     section Test {
         number SomeThing
         unlocked number AnotherThing
@@ -306,7 +306,7 @@ section Health {
         death status Dead(when: self.HP <= 0)
         status Staggered
     row {
-   
+
         health resource HP(max: {
             return self.Endure + 6
         }, icon: "fa-solid fa-heart")
@@ -320,7 +320,7 @@ section Health {
             return self.Flight
         })
     }
-        
+
     row {
         resource Stagger(max: {return self.Endure + self.Fight})
         action Recover(visibility: { if (self.Stagger < 1) return Visibility.locked }) {
@@ -335,7 +335,7 @@ section Health {
             }
         }
     }
-    
+
     row {
         column {
             resource Mana(max: 10)
@@ -363,7 +363,7 @@ number Level2
 action Roll {
     fleeting levelToBonus = [ 1, 2, 4, 6, 8 ]
     fleeting itemBonus = 0
-    
+
     each skill in self.Skills {
         itemBonus += skill.SkillMod
     }
@@ -378,14 +378,14 @@ action Roll {
 
 section Damage {
     damageTrack Damage(max: 5, types: ["bashing", "lethal", "aggravated"])
-    
+
     action HealDamageTrack(icon: "fa-solid fa-flask-round-potion") {
         if ( self.Damage.bashing > 0 ) {
             self.Damage.bashing--
             self.Damage.empty++
         }
     }
-    
+
     action TakeBashing {
         eternal amount = 5
         if ( self.Damage.bashing < amount ) {
@@ -397,6 +397,8 @@ section Damage {
         self.Damage.bashing += @js{roll._total}
     }
 }
+
+number EffectMe
 
 hidden number AvailableSkillLevels
 
@@ -417,9 +419,9 @@ actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp
     max: 7,
     icon: "fa-solid fa-chart-line",
     color: #FF7F50)
-    
+
     attribute Monster
-    
+
     number Defense(value: {
         if (self.Armor exists) {
             return self.Level + self.Armor.system.bonus
@@ -443,14 +445,14 @@ item Skill {
         if (self.Trained > 0) {return 2 + self.SkillMod}
         return 0 + self.SkillMod
     })
-    
+
     action Roll {
         fleeting skill = 0
         fleeting answer = prompt(label: "Bonus", target: user, width: 1000, location: 250, 250) {
             number Bonus
             boolean HasAdvantage
         }
-        
+
         if (answer.HasAdvantage) {
             skill = self.Skill
             fleeting abilityRoll = roll(self.Die + self.Ability + skill + answer.Bonus)
@@ -469,7 +471,7 @@ item Skill {
             }
         }
     }
-    
+
     action SimpleFightRoll {
         if (parent is Hero) {
             fleeting abilityRoll = roll(self.Die + parent.Fight.mod)
@@ -590,7 +592,7 @@ item Spell {
             }
         }
     }
-    
+
     page VisibilityTests(icon: "fa-solid fa-eye", background: hideout) {
         section EditModeOnly {
             edit string EditModeString
@@ -599,7 +601,7 @@ item Spell {
             edit resource EditModeResource(max: 100)
             edit attribute EditModeAttribute(min: 1, max: 20)
         }
-        
+
         section PlayModeOnly {
             play string PlayModeString
             play number PlayModeNumber
@@ -607,7 +609,7 @@ item Spell {
             play resource PlayModeResource(max: 50)
             play die PlayModeDie
         }
-        
+
         section OtherVisibilityStates {
             hidden string HiddenField
             gmOnly string GMOnlyField
@@ -615,7 +617,7 @@ item Spell {
             readonly string ReadOnlyField
             locked string LockedField
         }
-    
+
         section ActionsWithVisibility {
             edit action EditModeAction {
                 log("This action only appears in edit mode!")
@@ -623,14 +625,14 @@ item Spell {
                     "Edit mode action executed"
                 }
             }
-            
+
             play action PlayModeAction {
                 log("This action only appears in play mode!")
                 chat PlayAction {
                     "Play mode action executed"
                 }
             }
-            
+
             gmOnly action GMOnlyAction {
                 log("Only GMs can use this action")
                 chat GMAction {
@@ -638,12 +640,12 @@ item Spell {
                 }
             }
         }
-        
+
         section MixedVisibilityDemo {
             string AlwaysVisible
             edit string ConfigurationNotes
             play string CurrentGameStatus
-            
+
             row {
                 edit number EditValue
                 play number PlayValue
@@ -659,7 +661,7 @@ item Potion {
         self.Quantity--
         chat PotionUsed {}
         self.update()
-        
+
         if (self.Quantity == 0) {
             self.delete()
         }

@@ -173,13 +173,12 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     console.log(change.key, fieldPath, parts);
                     
                     // Convert field names to human readable
-                    const humanFieldName = fieldPath
-                        .replace(/\./g, ' ')
-                        .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space before capitals
-                        .replace(/\b\w/g, l => l.toUpperCase()) // Capitalize words
-                        .replace(/ Value$/, '') // Remove " Value" suffix
-                        .replace(/ Max$/, ' Max') // Keep " Max" suffix
-                        .replace(/ Min$/, ' Min'); // Keep " Min" suffix
+                    let step1 = fieldPath.replaceAll('.', ' ');
+                    let step2 = step1.replace(/([a-z])([A-Z])/g, '$1 $2');
+                    let step3 = step2.replace(/\b\w/g, l => l.toUpperCase());
+                    console.log("Debug steps:", fieldPath, "->", step1, "->", step2, "->", step3);
+                    
+                    const humanFieldName = step3;
                     
                     // Format the mode symbol
                     const modeSymbol = change.mode === 1 ? ' × ' : 
@@ -228,7 +227,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     </v-img>
                     <v-tabs v-model="page" direction="vertical">
                         <v-tab value="details" prepend-icon="fa-solid fa-book">Details</v-tab>
-                        <v-tab value="duration" prepend-icon="fa-solid fa-clock">Duration</v-tab>
+<!--                        <v-tab value="duration" prepend-icon="fa-solid fa-clock">Duration</v-tab>-->
                         ${joinToNode(documents, generateNavListItem, { appendNewLineIfNotEmpty: true })}
                     </v-tabs>
                 </v-navigation-drawer>
@@ -369,10 +368,10 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                 name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
                                 :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
+                                :color="primaryColor"
                                 :items="context.numberModes"
                                 item-title="label"
                                 item-value="value"
-                                :color="primaryColor"
                                 variant="outlined"
                                 density="compact">
                             </v-select>
