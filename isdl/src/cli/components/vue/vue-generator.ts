@@ -28,6 +28,7 @@ import { generateVueMixin } from './vue-mixin.js';
 import { getAllOfType } from '../utils.js';
 import { generateDatatableVueSheet } from './vue-datatable-sheet-class-generator.js';
 import { AstUtils } from 'langium';
+import {generateActiveEffectVueSheet} from "./vue-active-effect-sheet-generator.js";
 import {generateDocumentCreationVueSheet} from "./vue-document-creation-app.js";
 import {generateDocumentCreationDialog} from "./vue-document-creation-sheet.js";
 
@@ -49,6 +50,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     copyMaterialDesign(destination);
 
     generateVueMixin(destination);
+    generateActiveEffectVueSheet(entry, id, destination);
     generateIndexMjs(entry, destination);
     generateBaseVueComponents(destination);
 
@@ -264,6 +266,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as TextField } from './components/text-field.vue';
     export { default as DateTime } from './components/date-time.vue';
     export { default as Tracker } from './components/tracker.vue';
+    export { default as ActiveEffectApp } from './active-effect-app.vue';
     export { default as DocumentCreationApp } from './document-create-app.vue';
     export { default as MacroField } from './components/macro-field.vue';
     export { default as MeasuredTemplateField } from './components/measured-template.vue';

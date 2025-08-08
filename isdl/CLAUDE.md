@@ -88,7 +88,7 @@ The extension includes comprehensive GitHub publishing features:
 
 ## Important Notes
 
-- The project generates Foundry VTT v11+ compatible systems
+- The project generates Foundry VTT v12 and v13 compatible systems
 - Generated code includes Vue 3 reactive character sheets
 - Support for complex RPG mechanics like damage tracks, dice rolling, and status effects
 - Extensive customization options through ISDL syntax parameters

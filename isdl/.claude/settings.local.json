@@ -15,7 +15,9 @@
       "Bash(cp out/styles.scss src/styles.scss)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

@@ -1,0 +1,765 @@
+@use "./backgrounds";
+
+@mixin isdlStyles {
+
+    &.isdl-prompt,
+    .isdl-datatable {
+        .v-application__wrap {
+            min-height: 100%;
+        }
+    }
+
+    &.isdl-datatable {
+        color: black;
+        background-repeat: repeat;
+        @include backgrounds.topography;
+
+        >.window-content {
+            padding: 16px;
+        }
+
+        .custom-datatable {
+            table-layout: auto !important;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(.v-data-table__table) {
+            width: auto !important;
+            table-layout: auto !important;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(th) {
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: fit-content;
+            padding: 0 8px !important;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(th .v-data-table__column-header) {
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: transparent;
+        }
+
+        .custom-datatable :deep(td) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            background: transparent;
+        }
+
+        /* Allow text columns to grow naturally but with reasonable limits */
+        .custom-datatable :deep(td .text-caption.text-truncate) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 80px;
+            max-width: 300px;
+        }
+
+        .column-config-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .column-config-item {
+            border: 1px solid transparent;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .column-config-item:hover {
+            background-color: rgba(var(--v-theme-on-surface), 0.05);
+            border-color: rgba(var(--v-theme-primary), 0.2);
+        }
+
+        .column-config-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .drag-handle:hover {
+            cursor: grabbing !important;
+        }
+    }
+
+    .v-input {
+        &:not(.document-name) {
+            .v-input__control {
+                background-color: #e9e9e9;
+            }
+        }
+    }
+
+    .v-alert__prepend {
+        padding-top: 8px;
+    }
+
+    .v-main>.v-container {
+        background-repeat: repeat;
+        @include backgrounds.topography;
+
+        &.edit-mode {
+            @include backgrounds.cogs;
+        }
+
+        &.dead {
+            @include backgrounds.skulls;
+        }
+
+        &.hideout {
+            @include backgrounds.hideout;
+        }
+
+        &.graphpaper {
+            @include backgrounds.graphpaper;
+        }
+
+        &.texture {
+            @include backgrounds.texture;
+        }
+
+        &.squares {
+            @include backgrounds.squares;
+        }
+
+        &.dominoes {
+            @include backgrounds.dominoes;
+        }
+
+        &.temple {
+            @include backgrounds.temple;
+        }
+
+        &.food {
+            @include backgrounds.food;
+        }
+
+        &.anchors {
+            @include backgrounds.anchors;
+        }
+
+        &.bubbles {
+            @include backgrounds.bubbles;
+        }
+
+        &.diamonds {
+            @include backgrounds.diamonds;
+        }
+
+        &.circuitboard {
+            @include backgrounds.circuitboard;
+        }
+
+        &.bricks {
+            @include backgrounds.bricks;
+        }
+
+        &.signal {
+            @include backgrounds.signal;
+        }
+    }
+
+    .v-container {
+        min-height: 0;
+        padding: 0;
+
+        >.v-window {
+            padding: 16px;
+            height: 100%;
+
+            >.v-window__container {
+                >.v-window-item {
+                    height: 100%;
+                }
+            }
+        }
+    }
+
+    .v-slide-group__content {
+        >button {
+            width: unset;
+        }
+    }
+
+    .dt-body-center {
+        text-align: center;
+    }
+
+    .dt-buttons {
+        display: flex;
+        height: 52px;
+        align-items: center;
+    }
+
+    .dtr-control {
+        padding: 0;
+
+        >div {
+            >div {
+                display: flex;
+            }
+        }
+    }
+
+    .tabs-window {
+        height: 100%;
+
+        >.v-window__container {
+            height: 100%;
+        }
+
+        .dt-button-background {
+            display: none;
+            height: 0px;
+        }
+    }
+
+    table.dataTable th.dt-type-numeric {
+        text-align: center;
+    }
+
+    table.dataTable td.dt-type-numeric {
+        text-align: center;
+    }
+
+    .buttons-columnVisibility {
+        color: black
+    }
+
+    .prose-mirror-wrapper {
+        background-color: #dddddd;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: inset 0px 0px 2px 0px black;
+        padding: 1rem;
+
+        .editor-menu {
+            color: black;
+            background: none;
+
+            i {
+                margin-right: 4px;
+                padding-left: 3px;
+            }
+        }
+
+        .toggle {
+            width: 30px;
+
+            >i {
+                padding-left: 4px;
+            }
+        }
+    }
+
+    .resource-card,
+    .tracker-card {
+        min-width: 300px;
+        margin-bottom: 1rem;
+        flex: 1;
+
+        .v-progress-linear__background {
+            opacity: 0.2;
+        }
+    }
+
+    .v-label {
+        color: black;
+    }
+
+    .v-field-label--floating {
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .v-text-field {
+        .v-field__field {
+            input {
+                padding-left: 16px;
+            }
+        }
+    }
+
+    .v-number-input {
+        .v-field__input {
+            padding-left: 16px;
+            padding-top: 2px;
+        }
+
+        &.calculated-number {
+            .v-field__field {
+                margin-right: -36px;
+            }
+        }
+
+        .v-field__field {
+            input {
+                border: none;
+            }
+        }
+    }
+
+    .v-text-field {
+        .v-field__field {
+            input {
+                border: none;
+            }
+        }
+    }
+
+
+    .v-field__input {
+        height: 100%;
+    }
+
+    .v-field__field {
+        >input {
+            background: unset;
+        }
+    }
+
+    .v-col {
+        &.section {
+            min-width: 332px;
+        }
+    }
+
+    .v-row {
+        column-gap: 1rem;
+
+        >.v-col {
+            padding-left: 0;
+            padding-right: 0;
+        }
+    }
+
+    .isdl-datatable,
+    .datatable {
+        background: none;
+
+        >.v-card-title {
+            background: none;
+        }
+
+        table {
+            background: none;
+        }
+
+        thead {
+            background: rgba(0, 0, 0, 0.5);
+            color: var(--color-text-light-highlight);
+            text-shadow: 1px 1px var(--color-shadow-dark);
+            border-bottom: 1px solid var(--color-border-dark);
+        }
+    }
+
+    .v-input {
+        flex: 1;
+        min-width: 150px;
+        max-width: 600px;
+        margin-top: 0.75rem;
+
+        &.document-name {
+            margin: 0;
+        }
+
+        >.v-input__details {
+            display: none;
+        }
+    }
+
+
+    .isdl-html {
+        min-width: 300px;
+        max-width: 600px;
+        flex: 1;
+    }
+
+    // Description tab can be full width
+    .v-tabs-window-item {
+        .isdl-html {
+            max-width: unset;
+        }
+    }
+
+    .action-btn,
+    .isdl-property,
+    .isdl-single-document,
+    .single-wide {
+        min-width: 150px;
+        max-width: 600px;
+    }
+
+    .action-btn {
+        margin-top: 12px;
+        height: 40px;
+        flex: 1;
+        padding: 0;
+        align-self: center;
+
+        .v-btn__content {
+            justify-content: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .isdl-tracker,
+    .double-wide {
+        min-width: 300px;
+        max-width: 600px;
+
+        .slim-number {
+            font-size: 0.75rem;
+        }
+
+        .tracker-inner-content {
+            >.v-progress-linear {
+                border: 1px solid black;
+            }
+        }
+    }
+
+    .isdl-single-document {
+        margin-bottom: 1rem;
+        max-width: 50%;
+    }
+
+    .v-card {
+        .v-card-text {
+            column-gap: 1rem;
+        }
+    }
+
+    .calc-button:hover {
+        background: rgba(50, 50, 50, 0.7);
+    }
+
+    .v-field,
+    .v-field__field {
+        z-index: 10;
+    }
+
+    .v-btn-group {
+        min-width: 300px;
+    }
+
+    .calculator {
+        position: absolute;
+        top: 50px;
+        left: 50px;
+        background: rgba(30, 30, 30, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        z-index: 20;
+
+        input {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: none;
+            margin-bottom: 5px;
+            background-color: #dddddd;
+        }
+
+        .calc-buttons {
+            display: flex;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.4);
+            border: none;
+            padding: 8px;
+            font-size: 16px;
+            margin: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+
+            &.active {
+                background: rgba(195, 111, 110, 0.8);
+            }
+        }
+    }
+
+    .dice-container {
+        margin-top: 0.75rem;
+    }
+
+    .isdl-dice-field {
+        .inner-input {
+            margin: 0;
+        }
+
+        .inner-content {
+            padding: 4px;
+            width: 100%;
+            align-items: center;
+        }
+
+        // Style the inner controls
+        .dice-number-input,
+        .dice-type-select {
+
+            // Remove extra padding/margins for nested plain variants
+            .v-field {
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+
+            // Align input content properly
+            .v-field__input {
+                align-items: center;
+                padding: 0;
+            }
+        }
+
+        // Fine-tune number input specifically
+        .dice-number-input {
+            .v-number-input__control {
+                .v-btn {
+                    min-width: 24px;
+                    width: 24px;
+                }
+            }
+        }
+
+        .dice-type-select {
+            .v-field__append-inner {
+                padding: 0;
+                align-self: center;
+            }
+        }
+
+        // Styling for the container div
+        .d-flex {
+            min-height: 40px;
+        }
+    }
+
+    .attributeExp {
+        display: flex;
+        flex-direction: column;
+        border: 3px solid #333;
+        border-radius: 4px;
+        min-width: 75px;
+
+        &.no-mod {
+            max-height: 70px;
+        }
+
+        >label {
+            justify-content: center;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        .v-input {
+            min-width: 100px;
+            max-width: 100%;
+            text-align: center;
+            margin: 0;
+            flex: unset;
+        }
+
+        .v-field__input {
+            padding: 0 !important;
+        }
+
+        >.mod {
+            font-size: 26px;
+            font-weight: bold;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+
+    }
+
+    .dice-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(2px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s ease-in-out;
+        z-index: 10;
+
+        &.plain {
+            height: 100%;
+        }
+    }
+
+    .dice-overlay:hover {
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .dice-roll-btn {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .dice-overlay:hover .dice-roll-btn {
+        transform: scale(1.1);
+    }
+
+    .dice-container {
+        position: relative;
+    }
+
+    .isdl-paperdoll {
+        min-width: 307px;
+        width: 307px;
+        max-width: 307px;
+
+        .paper-doll-container {
+            position: relative;
+            height: 275px;
+            width: 275px;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .paper-doll-slot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px dashed rgba(0, 0, 0, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+        }
+    }
+
+    .isdl-datetime {
+        input {
+            border: none;
+            height: 40px;
+            padding-left: 16px;
+            padding-right: 0px;
+        }
+    }
+
+    .isdl-tracker {
+
+        .tracker-content {
+            width: 100%;
+            height: 100%;
+            padding: 4px;
+            min-height: 40px;
+            justify-content: center;
+
+            .tracker-inner-content {
+                >* {
+                    align-self: center;
+                    width: 100%;
+                }
+            }
+        }
+
+        &.dial,
+        &.clock {
+            .tracker-content {
+                min-height: 116px;
+            }
+        }
+    }
+
+    .isdl-measured-template {
+
+        >.v-input__control {
+            >.v-field {
+                >.v-field__append-inner {
+                    position: fixed;
+                    top: 8px;
+                    right: 0;
+                    z-index: 100;
+                }
+            }
+        }
+
+        .map-icon {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            transform-origin: center;
+        }
+
+        .map-icon:hover {
+            animation: mapUnfold 0.8s ease-in-out;
+        }
+
+        @keyframes mapUnfold {
+            0% {
+                transform: scale(1) rotateY(0deg);
+            }
+
+            25% {
+                transform: scale(0.95) rotateY(-8deg) rotateX(5deg);
+            }
+
+            50% {
+                transform: scale(1.05) rotateY(3deg) rotateX(-2deg);
+            }
+
+            75% {
+                transform: scale(1.02) rotateY(-1deg) rotateX(1deg);
+            }
+
+            100% {
+                transform: scale(1) rotateY(0deg) rotateX(0deg);
+            }
+        }
+
+        /* Gentle flutter when clicked */
+        .map-icon:active {
+            animation: mapFlutter 0.5s ease-in-out;
+        }
+
+        @keyframes mapFlutter {
+
+            0%,
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            25% {
+                transform: scale(1.02) rotate(-2deg) translateY(-1px);
+            }
+
+            75% {
+                transform: scale(1.02) rotate(2deg) translateY(-1px);
+            }
+        }
+
+        .template-canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    }
+
+    .v-autocomplete {
+        .v-field__input {
+            input {
+                border: none;
+                background: none
+            }
+        }
+    }
+
+
+}

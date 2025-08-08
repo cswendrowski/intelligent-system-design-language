@@ -6,7 +6,7 @@ import {
     AttributeExp, AttributeRollParam,
     AttributeStyleParam,
     BackgroundParam, BooleanExp,
-    BooleanParamValue, ChoiceCustomProperty, ChoiceStringValue,
+    ChoiceCustomProperty, ChoiceStringValue,
     ClassExpression,
     ColorParam, DateExp, DateTimeExp, DiceField, DieChoicesParam, DieField,
     Document,
@@ -192,6 +192,20 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
     const properties = getAllOfType<Property>(document.body, isProperty, false);
 
+    function isComputedField(element: Property | Action): boolean {
+        if (isStringExp(element)) {
+            return element.params.find(isStringParamValue) !== undefined;
+        }
+        if (isBooleanExp(element)) {
+            return element.params.find(isBooleanParamValue) !== undefined;
+        }
+        if (isNumberExp(element) || isAttributeExp(element) || isResourceExp(element) || isTrackerExp(element)) {
+            const numberParams = element.params as NumberFieldParams[];
+            return numberParams.find(isNumberParamValue) !== undefined;
+        }
+        return false;
+    }
+
     function generateVisibilityState(element: Property | Action): CompositeGeneratorNode {
         if (element.modifier != undefined) {
             return expandToNode`
@@ -203,38 +217,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
         if (isProperty(element) || isAction(element)) {
             const standardParams = element.params as StandardFieldParams[];
-
-            if (isStringExp(element)) {
-                const stringValueParam = element.params.find(isStringParamValue) as StringParamValue | undefined;
-                if (stringValueParam) {
-                    return expandToNode`
-                    '${element.name.toLowerCase()}': computed(() => {
-                        return 'locked';
-                    })
-                    `;
-                }
-            }
-            if (isBooleanExp(element)) {
-                const booleanValueParam = element.params.find(isBooleanParamValue) as BooleanParamValue | undefined;
-                if (booleanValueParam) {
-                    return expandToNode`
-                    '${element.name.toLowerCase()}': computed(() => {
-                        return 'locked';
-                    })
-                    `;
-                }
-            }
-            if (isNumberExp(element) || isAttributeExp(element) || isResourceExp(element) || isTrackerExp(element)) {
-                const numberParams = element.params as NumberFieldParams[];
-                const numberValueParam = numberParams.find(isNumberParamValue) as NumberParamValue | undefined;
-                if (numberValueParam) {
-                    return expandToNode`
-                    '${element.name.toLowerCase()}': computed(() => {
-                        return 'locked';
-                    })
-                    `;
-                }
-            }
 
             const visibilityParam = standardParams.find(function (p: any) {
                 return isVisibilityParam(p);
@@ -546,8 +528,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 }
             },
             {
-                data: 'origin',
+                data: 'flags',
                 title: game.i18n.localize("Source"),
+                render: function (data, type, context) {
+                    console.log(data, type, context);
+                    return data["${id}"].source;
+                }
             },
             { 
                 data: null,
@@ -602,6 +588,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             ${joinToNode(actions, generateVisibilityState, {separator: ',', appendNewLineIfNotEmpty: true})}
         };
 
+        // Computed fields mapping
+        const computedFields = {
+            ${joinToNode(properties, prop => expandToNode`'${prop.name.toLowerCase()}': ${isComputedField(prop)}`, {separator: ',', appendNewLineIfNotEmpty: true})},
+            ${joinToNode(actions, action => expandToNode`'${action.name.toLowerCase()}': ${isComputedField(action)}`, {separator: ',', appendNewLineIfNotEmpty: true})}
+        };
+
 
         const isHidden = (type) => {
             const visibility = visibilityStates[type].value;
@@ -628,6 +620,11 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         };
 
         const isDisabled = (type) => {
+            // Computed fields are always disabled
+            if (computedFields[type]) {
+                return true;
+            }
+            
             const visibility = visibilityStates[type].value;
             const disabledStates = ["readonly", "locked"];
             if (disabledStates.includes(visibility)) {

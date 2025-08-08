@@ -454,7 +454,7 @@ This system was created using the ISDL VS Code extension. To modify or contribut
 - [VS Code](https://code.visualstudio.com/)
 - [ISDL Extension](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.fsdl)
 - [Node.js](https://nodejs.org/) (v18+)
-- [Foundry VTT](https://foundryvtt.com/) (v11+)
+- [Foundry VTT](https://foundryvtt.com/) (v12-v13)
 
 ### Setup
 \`\`\`bash
