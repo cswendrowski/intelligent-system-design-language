@@ -1184,7 +1184,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             change.key = change.key.replace(type + ".", "");
                         }
                         if ( edit ) typedEffect.disabled = true;
-                        typedEffect.source = source;
+                        typedEffect.flags["${id}"].source = source;
                         return typedEffect;
                     }
 

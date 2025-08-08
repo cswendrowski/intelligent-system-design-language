@@ -207,6 +207,8 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                     // Force re-renders. Defined in the vue mixin.
                     _renderKey: this._renderKey ?? 0,
                     _arrayEntryKey: this._arrayEntryKey ?? 0,
+                    isItemEffect: this.document.parent.documentName === "Item",
+                    originLink: context.originLink
                     // tabs: this._getTabs(options.parts),
                 };
                 

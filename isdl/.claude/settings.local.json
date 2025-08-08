@@ -16,7 +16,8 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "Bash(cp:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

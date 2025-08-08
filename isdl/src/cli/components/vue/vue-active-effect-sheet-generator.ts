@@ -176,7 +176,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     let step1 = fieldPath.replaceAll('.', ' ');
                     let step2 = step1.replace(/([a-z])([A-Z])/g, '$1 $2');
                     let step3 = step2.replace(/\b\w/g, l => l.toUpperCase());
-                    console.log("Debug steps:", fieldPath, "->", step1, "->", step2, "->", step3);
+                    //console.log("Debug steps:", fieldPath, "->", step1, "->", step2, "->", step3);
                     
                     const humanFieldName = step3;
                     
@@ -185,9 +185,9 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                      change.mode === 2 ? ' + ' :
                                      change.mode === 3 ? ' ↓ ' :
                                      change.mode === 4 ? ' ↑ ' :
-                                     change.mode === 5 ? ' (Once) + ' : ' ';
+                                     change.mode === 0 ? ' (Once) + ' : ' ';
                     
-                    console.log("Human Field Name:", humanFieldName, "Mode Symbol:", modeSymbol);
+                    //console.log("Human Field Name:", humanFieldName, "Mode Symbol:", modeSymbol);
                     groupedChanges[documentName].push(humanFieldName + modeSymbol + change.value);
                 }
             });
@@ -245,6 +245,20 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                                         :color="primaryColor"
                                         label="Enabled">
                                     </v-switch>
+                                    <v-switch
+                                        v-if="context.isItemEffect"
+                                        :model-value="context.document.transfer"
+                                        name="transfer"
+                                        :color="secondaryColor"
+                                        label="Active on parent Actor">
+                                    </v-switch>
+                                    <v-text-field
+                                        v-if="context.originLink"
+                                        :model-value="context.originLink"
+                                        label="Origin"
+                                        :disabled="true"
+                                    >
+                                    </v-text-field>
                                     <v-card class="mt-3 mb-3" variant="outlined">
                                         <v-card-title class="text-body-2">
                                             <v-icon icon="fa-solid fa-magic" class="mr-2"></v-icon>

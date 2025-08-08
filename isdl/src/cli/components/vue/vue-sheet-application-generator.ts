@@ -528,8 +528,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                 }
             },
             {
-                data: 'origin',
+                data: 'flags',
                 title: game.i18n.localize("Source"),
+                render: function (data, type, context) {
+                    console.log(data, type, context);
+                    return data["${id}"].source;
+                }
             },
             { 
                 data: null,
