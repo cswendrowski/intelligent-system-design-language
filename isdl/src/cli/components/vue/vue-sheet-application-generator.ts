@@ -219,7 +219,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             ];
 
             const editItem = (item) => {
-                item.sheet.render(true);
+                const foundryItem = document.effects.get(item._id);
+                foundryItem.sheet.render(true);
             };
 
             const toggleEffect = async (item) => {
