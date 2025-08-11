@@ -1,4 +1,4 @@
-import type {
+import {
     ReturnExpression,
     Assignment,
     BinaryExpression,
@@ -35,7 +35,8 @@ import type {
     HeightParam,
     NumberRange,
     TargetAccess,
-    TargetAssignment, PlayAudioFile, PlayAudioVolume, Each, TimeLimitParam, DieChoicesParam,
+    TargetAssignment, PlayAudioFile, PlayAudioVolume, Each, TimeLimitParam, DieChoicesParam, RollParam, isRollParam,
+    isTypeParam, TypeParam,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -54,6 +55,7 @@ import {
     isFleetingAccess,
     isHtmlExp,
     isRoll,
+    isDamageRoll,
     isParentAccess,
     isParentAssignment,
     isVariableAssignment,
@@ -842,6 +844,27 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 let roll = false;
                 let wide = false;
                 //console.log(expression.variable.ref?.value);
+
+                // Check if this is a damage roll first (before regular roll check)
+                if (isDamageRoll(expression.variable.ref?.value)) {
+                    roll = true;
+                    wide = true;
+                    return expandToNode`
+                        { 
+                            isRoll: ${roll}, 
+                            isDamageRoll: true,
+                            label: "${humanize(expression.variable.ref?.name ?? "")}", 
+                            value: ${accessPath}, 
+                            wide: ${wide}, 
+                            tooltip: await ${accessPath}.getTooltip(),
+                            damageType: ${accessPath}.options.type.value,
+                            damageIcon: ${accessPath}.options.type.icon,
+                            damageColor: ${accessPath}.options.type.color,
+                            damageMetadata: ${accessPath}.options.type
+                        },
+                    `;
+                }
+
                 if (isRoll(expression.variable.ref?.value)) {
                     roll = true
                     wide = true;
@@ -921,7 +944,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             });
         `;
     }
-    if (isRoll(expression)) {
+    if (isRoll(expression) || isDamageRoll(expression)) {
         console.log("Translating Roll Expression");
 
         function translateDiceParts(expression: Expression): CompositeGeneratorNode | undefined {
@@ -1274,6 +1297,28 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return undefined;
         }
 
+
+        if (isDamageRoll(expression)) {
+            const rollParam = expression.params.find(isRollParam) as RollParam;
+            const rollExpression = rollParam.value as Roll;
+            const typeParam = expression.params.find(isTypeParam) as TypeParam;
+            let damageTypeDataAccess = '';
+
+            if (isAccess(typeParam.value)) {
+                damageTypeDataAccess = `context.object.system.${typeParam.value?.property?.ref?.name.toLowerCase()}`;
+            } else if (isParentAccess(typeParam.value)) {
+                // Handle parent.SomeDamageType
+                const parentPath = typeParam.value.property?.ref?.name?.toLowerCase() ?? '';
+                damageTypeDataAccess = `context.object.parent?.system.${parentPath}`;
+            }
+            return expandToNode`
+                await new ${entry.config.name}DamageRoll(
+                    ${joinToNode(rollExpression.parts, e => translateDiceParts(e), {separator: " + "})},
+                     {${joinToNode(rollExpression.parts, e => translateDiceData(e), {separator: ", "})}},
+                     { type: ${damageTypeDataAccess} }
+                ).roll()
+            `;
+        }
 
         return expandToNode`
             await new ${entry.config.name}Roll(${joinToNode(expression.parts, e => translateDiceParts(e), {separator: " + "})}, {${joinToNode(expression.parts, e => translateDiceData(e), {separator: ", "})}}).roll()

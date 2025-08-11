@@ -48,6 +48,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
         import VueRenderingMixin from '../VueRenderingMixin.mjs';
         import { ${document.name}${titleize(type)}App } from "../components/components.vue.es.mjs";
         import ${entry.config.name}Roll from "../../../rolls/roll.mjs";
+        import ${entry.config.name}DamageRoll from "../../../rolls/damage-roll.mjs";
         const { DOCUMENT_OWNERSHIP_LEVELS } = CONST;
 
         export default class ${document.name}VueSheet extends VueRenderingMixin(foundry.applications.sheets.${titleize(type)}SheetV2) {

@@ -950,6 +950,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 function generateBody() {
                     return expandToNode`
                         const ${entry.config.name}Roll = game.system.rollClass;
+                        const ${entry.config.name}DamageRoll = game.system.damageRollClass;
                         const context = {
                             object: document,
                             target: game.user.getTargetOrNothing()
@@ -1082,10 +1083,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             const on${name} = async (document, context) => {
                                 const preApply = async (${hook.params.map(p => p.name).join(", ")}) => {
                                     ${generateBody()}
-                                    return ${hook.params.pop()?.name};
+                                    return ${hook.params.shift()?.name};
                                 }
                                 if (document.uuid == this.uuid) {
-                                    context.amount = await preApply(context.amount);
+                                    context.amount = await preApply(context.amount, context.damageType, context.damageMetadata);
                                 }
                             }
                             game.system.documentHooks.set("${name}-" + this.uuid, on${name});
@@ -1096,12 +1097,12 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     case "appliedTemp":
                         return expandToNode`
                             if (game.system.documentHooks.has("${name}-" + this.uuid)) return;
-                            const on${name} = async (document, amount) => {
+                            const on${name} = async (document, context) => {
                                 const applied = async (${hook.params.map(p => p.name).join(", ")}) => {
                                     ${generateBody()}
                                 }
                                 if (document.uuid == this.uuid) {
-                                    await applied(amount);
+                                    await applied(context.amount, context.damageType, context.damageMetadata);
                                 }
                             };
                             game.system.documentHooks.set("${name}-" + this.uuid, on${name});
@@ -1143,6 +1144,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 /* -------------------------------------------- */
 
                 reapplyActiveEffectsForName(name) {
+                    if (this.documentName !== "Actor") return;
                     for (const effect of this.appliedEffects) {
                         for (const change of effect.changes) {
                             if (change.key == name) {
@@ -1184,6 +1186,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             change.key = change.key.replace(type + ".", "");
                         }
                         if ( edit ) typedEffect.disabled = true;
+                        if (!typedEffect.flags) typedEffect.flags = {};
+                        if (!typedEffect.flags["${id}"]) typedEffect.flags["${id}"] = {};
                         typedEffect.flags["${id}"].source = source;
                         return typedEffect;
                     }

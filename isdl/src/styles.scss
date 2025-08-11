@@ -473,6 +473,36 @@
             line-height: 33px;
           }
         }
+
+        // Enhanced styling for damage rolls
+        &.damage-roll {
+          position: relative;
+
+          .dice-total {
+            .damage-type {
+              font-weight: normal;
+              font-size: 14px;
+              margin-left: 8px;
+              opacity: 0.9;
+            }
+          }
+
+          .damage-metadata {
+            margin-top: 0.25rem;
+            margin-left: 0.25px;
+            font-size: 12px;
+            color: var(--color-text-dark-1);
+
+            .damage-property {
+              display: inline-block;
+              padding: 2px 6px;
+              background: rgba(0, 0, 0, 0.2);
+              border-radius: 3px;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+          }
+
+        }
       }
 
       .measured-template {

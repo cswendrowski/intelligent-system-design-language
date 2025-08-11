@@ -27,6 +27,7 @@ import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
 import {generateInitHookMjs} from "./components/init-hook-generator.js";
 import {generateReadyHookMjs} from "./components/ready-hook-generator.js";
 import {generateMeasuredTemplatePreview} from "./components/measured-template-preview.js";
+import {generateDamageRoll} from "./components/damage-roll-generator.js";
 
 export async function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): Promise<string> {
     const config = entry.config;
@@ -73,6 +74,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateStandardChatCardTemplate(data.destination);
     generateRenderChatLogHookMjs(entry, id, data.destination);
     generateExtendedRoll(entry, id, data.destination);
+    generateDamageRoll(entry, id, data.destination);
     generateContextMenu2(entry, id, data.destination);
     generateDocumentCreateHbs(entry, id, data.destination);
     generateCombatant(entry, id, data.destination);

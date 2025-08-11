@@ -50,7 +50,7 @@ import {
     isSegmentsParameter,
     isSingleDocumentExp,
     isSizeParam,
-    isStatusProperty, isStringChoiceField,
+    isStatusProperty, isStringChoiceField, isDamageTypeChoiceField,
     isStringExp, isStringExtendedChoice,
     isStringParamChoices,
     isStringParamValue, isTableField,
@@ -70,11 +70,11 @@ import {
     ResourceExp,
     SegmentsParameter,
     SizeParam,
-    StandardFieldParams, StringChoice, StringChoiceField, StringExp,
+    StandardFieldParams, StringChoice, StringChoiceField, DamageTypeChoiceField, StringExp,
     StringParamChoices,
     StringParamValue, TableField, TimeExp, TrackerExp,
     TrackerStyleParameter,
-    VisibilityParam
+    VisibilityParam, Expression
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
 import {generateDatatableComponent} from './vue-datatable-component-generator.js';
@@ -138,6 +138,284 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         return expandToNode`
         import ${document.name}${pageName}${table.name}VuetifyDatatable from './components/datatables/${document.name.toLowerCase()}${pageName}${table.name}VuetifyDatatable.vue';
         `;
+    }
+
+    function importEffectsDataTable(): CompositeGeneratorNode {
+        generateEffectsVuetifyDatatableComponent(id, document, destination);
+        return expandToNode`
+        import ${document.name}EffectsVuetifyDatatable from './components/datatables/${document.name.toLowerCase()}EffectsVuetifyDatatable.vue';
+        `;
+    }
+
+    function generateEffectsVuetifyDatatableComponent(id: string, document: Document, destination: string): void {
+        const type = isActor(document) ? 'actor' : 'item';
+        const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "datatables");
+        const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}EffectsVuetifyDatatable.vue`);
+
+        if (!fs.existsSync(generatedFileDir)) {
+            fs.mkdirSync(generatedFileDir, { recursive: true });
+        }
+
+        const fileNode = expandToNode`
+        <script setup>
+            import { ref, computed, inject, onMounted } from "vue";
+
+            const props = defineProps({
+                context: Object,
+                primaryColor: String,
+                secondaryColor: String,
+                tertiaryColor: String
+            });
+            
+            const document = inject('rawDocument');
+            const search = ref('');
+            const loading = ref(false);
+            
+            const data = ref([]);
+
+            function updateEffects() {
+                data.value = Array.from(document.allApplicableEffects());
+            }
+    
+            updateEffects();
+    
+            Hooks.on("createActiveEffect", updateEffects);
+            Hooks.on("updateActiveEffect", updateEffects);
+            Hooks.on("deleteActiveEffect", updateEffects);
+            
+            const headers = [
+                { 
+                    title: game.i18n.localize("Image"), 
+                    key: 'img', 
+                    sortable: false,
+                    width: '50px',
+                    maxWidth: '50px'
+                },
+                { 
+                    title: game.i18n.localize("Name"), 
+                    key: 'name', 
+                    sortable: true,
+                    minWidth: '120px'
+                },
+                { 
+                    title: game.i18n.localize("Source"), 
+                    key: 'source', 
+                    sortable: true,
+                    minWidth: '120px'
+                },
+                { 
+                    title: game.i18n.localize("Duration"), 
+                    key: 'duration', 
+                    sortable: true,
+                    minWidth: '100px'
+                },
+                { 
+                    title: game.i18n.localize("Actions"), 
+                    key: 'actions', 
+                    sortable: false,
+                    width: '150px',
+                    align: 'center'
+                }
+            ];
+
+            const editItem = (item) => {
+                item.sheet.render(true);
+            };
+
+            const toggleEffect = async (item) => {
+                const update = {
+                    _id: item._id,
+                    disabled: !item.disabled
+                };
+                item.disabled = !item.disabled;
+                document.updateEmbeddedDocuments("ActiveEffect", [update]);
+            };
+
+            const deleteEffect = async (item) => {
+                const shouldDelete = await Dialog.confirm({
+                    title: "Delete Confirmation",
+                    content: \`<p>Are you sure you would like to delete the "\${item.name}" Effect?</p>\`,
+                    defaultYes: false
+                });
+                if (shouldDelete) {
+                    await document.deleteEmbeddedDocuments("ActiveEffect", [item.id]);
+                    // Don't call updateEffects() here as the Hooks will handle it
+                };
+            };
+
+            const addNewEffect = async () => {
+                loading.value = true;
+                try {
+                    const effects = await ActiveEffect.createDocuments([{
+                        name: "New Effect",
+                        icon: "icons/svg/aura.svg"
+                    }], {parent: document});
+                    
+                    if (effects && effects[0]) {
+                        effects[0].sheet.render(true);
+                        updateEffects();
+                    }
+                } catch (error) {
+                    console.error("Error creating effect:", error);
+                    ui.notifications.error("Failed to create new effect");
+                } finally {
+                    loading.value = false;
+                }
+            };
+            
+            const formatDuration = (effect) => {
+                if (!effect.duration) return "Permanent";
+                if (effect.duration.type === "none") return "Permanent";
+                if (effect.duration.type === "turns") {
+                    return \`\${effect.duration.remaining} turns\`;
+                }
+                if (effect.duration.type === "seconds") {
+                    return \`\${effect.duration.remaining} seconds\`;
+                }
+                return "Temporary";
+            };
+        </script>
+
+        <template>
+            <v-card flat class="isdl-datatable">
+                <v-card-title class="d-flex align-center pe-1" style="height: 40px;">
+                    <v-icon icon="fa-solid fa-sparkles" size="small" />
+                    &nbsp; {{ game.i18n.localize("Effects") }}
+                    <v-spacer></v-spacer>
+                    <v-text-field
+                            v-model="search"
+                            density="compact"
+                            label="Search"
+                            prepend-inner-icon="fa-solid fa-magnify"
+                            variant="outlined"
+                            flat
+                            hide-details
+                            single-line
+                            clearable
+                            style="margin: 0; margin-right: 8px;"
+                    ></v-text-field>
+                    <v-btn
+                        :color="primaryColor || 'primary'"
+                        prepend-icon="fa-solid fa-plus"
+                        rounded="0"
+                        size="small"
+                        :loading="loading"
+                        @click="addNewEffect"
+                        style="max-width: 80px; height: 38px;"
+                    >
+                        {{ game.i18n.localize("Add") }}
+                    </v-btn>
+                </v-card-title>
+                <v-divider></v-divider>
+                
+                <v-data-table
+                    v-model:search="search"
+                    :headers="headers"
+                    :items="data"
+                    :search="search"
+                    hover
+                    density="compact"
+                    hide-default-footer
+                    style="background: none;"
+                    class="custom-datatable"
+                >
+                    <!-- Image slot -->
+                    <template v-slot:item.img="{ item }">
+                        <v-avatar size="40" rounded="0">
+                            <v-img :src="item.icon" :alt="item.name" cover></v-img>
+                        </v-avatar>
+                    </template>
+
+                    <!-- Name slot -->
+                    <template v-slot:item.name="{ item }">
+                        <div class="d-flex align-center">
+                            <div class="font-weight-medium text-truncate" style="min-width: 120px; max-width: 200px;">{{ item.name }}</div>
+                        </div>
+                    </template>
+
+                    <!-- Source slot -->
+                    <template v-slot:item.source="{ item }">
+                        <v-chip
+                            label
+                            size="x-small"
+                            variant="elevated"
+                            class="text-caption text-truncate" 
+                            style="max-width: 150px;"
+                             :data-tooltip="item.flags?.['${id}']?.source || 'Unknown'">
+                            {{ item.flags?.['${id}']?.source || 'Unknown' }}
+                        </v-chip>
+                    </template>
+
+                    <!-- Duration slot -->
+                    <template v-slot:item.duration="{ item }">
+                        <v-chip 
+                            label
+                            size="x-small"
+                            variant="elevated"
+                            class="text-caption"
+                            :color="item.duration?.type === 'none' ? 'primary' : 'secondary'"
+                        >
+                            {{ formatDuration(item) }}
+                        </v-chip>
+                    </template>
+
+                    <!-- Actions slot -->
+                    <template v-slot:item.actions="{ item }">
+                        <div class="d-flex align-center justify-center ga-1">
+                            <v-tooltip :text="item.disabled ? 'Enable' : 'Disable'">
+                                <template v-slot:activator="{ props }">
+                                    <v-btn
+                                        v-bind="props"
+                                        :icon="item.disabled ? 'fa-solid fa-pause' : 'fa-solid fa-play'"
+                                        size="x-small"
+                                        variant="text"
+                                        :color="item.disabled ? 'warning' : 'success'"
+                                        @click="toggleEffect(item)"
+                                    ></v-btn>
+                                </template>
+                            </v-tooltip>
+                            <v-tooltip text="Edit">
+                                <template v-slot:activator="{ props }">
+                                    <v-btn
+                                        v-bind="props"
+                                        icon="fa-solid fa-edit"
+                                        size="x-small"
+                                        variant="text"
+                                        @click="editItem(item)"
+                                    ></v-btn>
+                                </template>
+                            </v-tooltip>
+                            <v-tooltip text="Delete">
+                                <template v-slot:activator="{ props }">
+                                    <v-btn
+                                        v-bind="props"
+                                        icon="fa-solid fa-trash"
+                                        size="x-small"
+                                        variant="text"
+                                        color="error"
+                                        @click="deleteEffect(item)"
+                                    ></v-btn>
+                                </template>
+                            </v-tooltip>
+                        </div>
+                    </template>
+
+                    <!-- No data slot -->
+                    <template v-slot:no-data>
+                        <div class="text-center pa-4">
+                            <v-icon size="48" color="grey-lighten-1">fa-solid fa-magic</v-icon>
+                            <div class="text-h6 mt-2">No effects found</div>
+                            <div class="text-body-2 text-medium-emphasis">
+                                Add your first effect to get started
+                            </div>
+                        </div>
+                    </template>
+                </v-data-table>
+            </v-card>
+        </template>
+        `;
+
+        fs.writeFileSync(generatedFilePath, toString(fileNode));
     }
 
     function importPageOfDataTable(page: Page): CompositeGeneratorNode {
@@ -325,17 +603,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         ${joinToNode(pages, importPageOfDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, {appendNewLineIfNotEmpty: true})}
+        ${importEffectsDataTable()}
         import ${entry.config.name}Roll from "../../../../rolls/roll.mjs";
-        import DataTable from 'datatables.net-vue3';
-        import DataTablesCore from 'datatables.net-dt';
-        import 'datatables.net-responsive-dt';
-        import 'datatables.net-colreorder-dt';
-        import 'datatables.net-rowreorder-dt';
-        import 'datatables.net-buttons-dt';
-        import ColVis from "datatables.net-buttons/js/buttons.colVis";
-
-        DataTable.use(DataTablesCore);
-        DataTable.use(ColVis);
 
         const document = inject('rawDocument');
         const props = defineProps(['context']);
@@ -453,125 +722,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         Hooks.on("createActiveEffect", updateEffects);
         Hooks.on("updateActiveEffect", updateEffects);
         Hooks.on("deleteActiveEffect", updateEffects);
-
-        const getEffect = (id) => {
-            let ae = document.effects.get(id);
-            if (ae) return ae;
-            ae = document.items.find(i => i.effects.has(id)).effects.get(id);
-            if (!ae) {
-                console.error("Could not find effect with id: " + id);
-                return;
-            }
-            return ae;
-        }
-
-        const editEffect = (rowData) => {
-            const effect = getEffect(rowData._id);
-            effect.sheet.render(true);
-        };
-
-        const toggleEffect = (rowData) => {
-            const effect = getEffect(rowData._id);
-            effect.disabled = !effect.disabled;
-            rowData.disabled = effect.disabled;
-            document.updateEmbeddedDocuments("ActiveEffect", [effect]);
-        };
-
-        const sendEffectToChat = async (rowData) => {
-            const effect = getEffect(rowData._id);
-            const chatDescription = effect.description ?? effect.system.description;
-            const content = await renderTemplate("systems/${id}/system/templates/chat/standard-card.hbs", { 
-                cssClass: "${id}",
-                document: effect,
-                hasEffects: false,
-                description: chatDescription,
-                hasDescription: chatDescription != ""
-            });
-            ChatMessage.create({
-                content: content,
-                speaker: ChatMessage.getSpeaker(),
-                style: CONST.CHAT_MESSAGE_STYLES.IC
-            });
-        };
-
-        const deleteEffect = async (rowData) => {
-            const effect = getEffect(rowData._id);
-            const shouldDelete = await Dialog.confirm({
-                title: "Delete Confirmation",
-                content: \`<p>Are you sure you would like to delete the "\${effect.name}" Active Effect?</p>\`,
-                defaultYes: false
-            });
-            if ( shouldDelete ) {
-                effect.delete();
-                updateEffects();
-            }
-        };
-
-        const effectsColumns = [
-            { 
-                data: 'img', 
-                title: game.i18n.localize("Image"),
-                render: '#image',
-                responsivePriority: 1,
-                orderable: false,
-            },
-            { 
-                data: 'name',
-                title: game.i18n.localize("Name"),
-                responsivePriority: 1,
-                width: '200px',
-                render: function (data, type, context) {
-                    if (type === 'display') {
-                        return \`<span data-tooltip="\${context.description}">\${data}</span>\`;
-                    }
-                    return data;
-                }
-            },
-            {
-                data: 'flags',
-                title: game.i18n.localize("Source"),
-                render: function (data, type, context) {
-                    console.log(data, type, context);
-                    return data["${id}"].source;
-                }
-            },
-            { 
-                data: null,
-                title: game.i18n.localize("Actions"),
-                render: '#actions',
-                orderable: false,
-                width: '200px'
-            }
-        ];
-
-        const effectsOptions = {
-            paging: false,
-            stateSave: true,
-            responsive: true,
-            colReorder: false,
-            order: [[1, 'asc']],
-            createdRow: (row, data) => {
-                console.dir(data, data.uuid);
-                row.setAttribute("data-id", data._id);
-                row.setAttribute("data-uuid", data.uuid);
-                row.setAttribute("data-type", 'ActiveEffect');
-            },
-            layout: {
-                topStart: {
-                    buttons: [
-                        {
-                            text: '<i class="fas fa-plus"></i> Add',
-                            action: (e, dt, node, config) => {
-                                ActiveEffect.createDocuments([{label: "New Effect", name: "New Effect"}], {parent: document}).then(effect => {
-                                    effect[0].sheet.render(true);
-                                });
-                            }
-                        },
-                        'colvis'
-                    ]
-                }
-            }
-        };
         
         // Combat
         const currentCombatant = ref(game.combat?.combatant);
@@ -779,25 +929,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                 ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
                                 ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), {appendNewLineIfNotEmpty: true})}
                                 <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
-                                    <DataTable class="display compact" :data="effects" :columns="effectsColumns" :options="effectsOptions">
-                                        <template #image="props">
-                                            <img :src="props.cellData" width=40 height=40></img>
-                                        </template>
-                                        <template #actions="props">
-                                            <div class="flexrow">
-                                                <a 
-                                                    class="row-action" 
-                                                    data-action="toggle" 
-                                                    @click="toggleEffect(props.rowData)" 
-                                                    :data-tooltip="game.i18n.localize(props.rowData.disabled ? 'Enable' : 'Disable')">
-                                                    <i :class="props.rowData.disabled ? 'fas fa-toggle-off' : 'fas fa-toggle-on'"></i>
-                                                </a>
-                                                <a class="row-action" data-action="edit" @click="editEffect(props.rowData)" :data-tooltip="game.i18n.localize('Edit')"><i class="fas fa-edit"></i></a>
-                                                <a class="row-action" data-action="sendToChat" @click="sendEffectToChat(props.rowData)" :data-tooltip="game.i18n.localize('SendToChat')"><i class="fas fa-message"></i></a>
-                                                <a class="row-action" data-action="delete" @click="deleteEffect(props.rowData)" :data-tooltip="game.i18n.localize('Delete')"><i class="fas fa-delete-left"></i></a>
-                                            </div>
-                                        </template>
-                                    </DataTable>
+                                    <${document.name}EffectsVuetifyDatatable 
+                                        :context="context"
+                                        :primaryColor="primaryColor"
+                                        :secondaryColor="secondaryColor"
+                                        :tertiaryColor="tertiaryColor"
+                                    />
                                 </v-tabs-window-item>
                             </v-tabs-window>
                         </v-tabs-window-item>
@@ -1150,6 +1287,69 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                         if (customProperties.length > 0) {
                             return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}', customKeys: [${joinToNode(customProperties, custom => `{ key: '${custom.key}', label: '${humanize(custom.key)}', value: ${custom.value} }`, {separator: ','})}] }`;
+                        }
+                    }
+
+                    return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}' }`;
+                }
+
+                return expandToNode`
+                    <i-extended-choice
+                        label="${label}.label"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        :context="context"
+                        :items="[${joinToNode(choicesParam.choices, choiceData, {separator: ',', appendNewLineIfNotEmpty: true})}]"
+                        :primaryColor="primaryColor"
+                        :secondaryColor="secondaryColor"
+                        ${standardParamsFragment}
+                    ></i-extended-choice>
+                    `;
+
+            }
+
+            if (isDamageTypeChoiceField(element)) {
+                const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
+                if (!choicesParam) {
+                    console.warn(`DamageTypeChoiceField ${element.name} does not have a choices parameter.`);
+                    return expandToNode``;
+                }
+                if (choicesParam?.choices?.length === 0) return expandToNode``;
+
+                function choiceValue(choice: StringChoice): string {
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return toMachineIdentifier(choice.value);
+                    }
+                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                    if (value) {
+                        return toMachineIdentifier(value.value);
+                    }
+                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                    if (label) {
+                        return toMachineIdentifier(label.value);
+                    }
+                    return "unknown";
+                }
+
+                function choiceData(choice: StringChoice): CompositeGeneratorNode {
+                    let choiceField = element as DamageTypeChoiceField;
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '', color: '' }`;
+                    }
+                    let icon = choice.value.properties.find(isIconParam) as IconParam | undefined;
+                    let color = choice.value.properties.find(isColorParam) as ColorParam | undefined;
+
+                    function asStringOrVal(value: string | boolean | number | Expression): string {
+                        // If string, return as "value", else just value
+                        if (typeof value === 'string') return `'${value}'`;
+                        return `${value}`;
+                    }
+
+                    if (isStringExtendedChoice(choice.value)) {
+                        let customProperties = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
+
+                        if (customProperties.length > 0) {
+                            return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}', customKeys: [${joinToNode(customProperties, custom => `{ key: '${custom.key}', label: '${humanize(custom.key)}', value: ${asStringOrVal(custom.value)} }`, {separator: ','})}] }`;
                         }
                     }
 

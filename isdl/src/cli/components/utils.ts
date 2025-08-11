@@ -1,9 +1,9 @@
 import { AstNode, AstUtils } from 'langium';
-import type {
+import {
     ClassExpression,
     Document,
     Entry,
-    IfStatement,
+    IfStatement, isDamageTypeChoiceField,
     Page,
     ParentAccess,
     ParentTypeCheckExpression,
@@ -31,7 +31,7 @@ export function toMachineIdentifier(s: string): string {
 }
 
 function getPropertyAccessorSuffix(property: ClassExpression): string {
-    if (isResourceExp(property) || isTrackerExp(property) || isStringChoiceField(property) || isDiceField(property)) {
+    if (isResourceExp(property) || isTrackerExp(property) || isStringChoiceField(property) || isDiceField(property) || isDamageTypeChoiceField(property)) {
         return '.value';
     } else if (isAttributeExp(property)) {
         return '.mod';
@@ -135,7 +135,7 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
                         // For non-choice fields, use normal property accessor logic
                         systemPath = appendPropertyAccessor(systemPath, referencedDocument, finalProperty, safeAccess);
                     }
-                } 
+                }
             }
             // For parent/target accesses, use document-based property type detection
             else if (isParentAccess(generatingProperty) || isTargetAccess(generatingProperty)) {

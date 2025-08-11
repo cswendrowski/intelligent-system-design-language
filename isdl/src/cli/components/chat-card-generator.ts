@@ -126,7 +126,43 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         : rollElement.find('.result');
 
                         if (element.length === 0) return null;
-                        return getRollValue(element);
+                        
+                        // Check if this is a damage roll by looking for damage roll attributes
+                        const isDamageRoll = rollElement.hasClass('damage-roll') || rollElement.closest('.damage-roll').length > 0;
+                        const damageRollElement = isDamageRoll ? (rollElement.hasClass('damage-roll') ? rollElement : rollElement.closest('.damage-roll')) : null;
+                        
+                        const rollValue = getRollValue(element);
+                        
+                        // If this is a damage roll, extract metadata
+                        if (isDamageRoll && damageRollElement && damageRollElement.length > 0) {
+                            const damageType = damageRollElement.attr('data-damage-type') || null;
+                            const damageTypeSpan = damageRollElement.find('.damage-type');
+                            const damageColor = damageTypeSpan.length > 0 ? damageTypeSpan.css('color') : null;
+                            const damageIcon = damageRollElement.find('i').first().attr('class') || null;
+                            
+                            // Extract custom metadata from damage-metadata section if present
+                            const metadata = {};
+                            damageRollElement.find('.damage-metadata .damage-property').each(function() {
+                                const property = $(this).attr('data-property');
+                                const text = $(this).text();
+                                const colonIndex = text.indexOf(':');
+                                if (colonIndex !== -1 && property) {
+                                    const value = text.substring(colonIndex + 1).trim();
+                                    metadata[property] = value;
+                                }
+                            });
+                            
+                            return {
+                                value: rollValue,
+                                isDamageRoll: true,
+                                damageType: damageType,
+                                damageColor: damageColor,
+                                damageIcon: damageIcon,
+                                metadata: metadata
+                            };
+                        }
+                        
+                        return { value: rollValue, isDamageRoll: false };
                     }
 
                     function getRollValue(roll) {
@@ -164,9 +200,10 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         const applyTargetType = menu?.dataset?.target ?? 'selected';
                         const applyMod = menu?.dataset?.mod ? Number(menu.dataset.mod) : 1;
 
-                        let baseRoll = getRollFromElement(element);
-                        if ( !baseRoll ) return;
+                        let rollData = getRollFromElement(element);
+                        if ( !rollData ) return;
 
+                        let baseRoll = rollData.value;
                         if ( type === 'healing' ) {
                             baseRoll = -baseRoll;
                         }
@@ -180,7 +217,17 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                             const update = {};
 
                             let roll = foundry.utils.duplicate(baseRoll);
-                            const context = { amount: roll };
+                            
+                            // Create enhanced context with damage type and metadata if available
+                            const context = { 
+                                amount: roll,
+                                damageType: rollData.isDamageRoll ? rollData.damageType : null,
+                                damageMetadata: rollData.isDamageRoll ? rollData.metadata : {},
+                                color: rollData.isDamageRoll ? rollData.damageColor : null,
+                                icon: rollData.isDamageRoll ? rollData.damageIcon : null,
+                                isDamageRoll: rollData.isDamageRoll
+                            };
+                            
                             await Hooks.callAllAsync('preApply' + type.titleCase(), target.actor, context);
                             roll = context.amount;
 
@@ -189,7 +236,9 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                             }
 
                             target.actor.update(update);
-                            Hooks.callAll('applied' + type.titleCase(), target.actor, roll);
+                            
+                            // Call the applied hook with enhanced context
+                            Hooks.callAll('applied' + type.titleCase(), target.actor, context);
                         }
                     }
 
@@ -368,12 +417,29 @@ export function generateStandardChatCardTemplate(destination: string) {
                 <dl>
                     {{#each parts}}
                         {{#if this.isRoll}}
-                            <div class="dice-roll wide">
-                                <div class="dice-result">
-                                    <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span></span> <span class="result">{{this.value._total}}</span></h4>
-                                    {{{this.tooltip}}}
+                            {{#if this.isDamageRoll}}
+                                <div class="dice-roll damage-roll wide" data-damage-type="{{this.damageType}}">
+                                    <div class="dice-result">
+                                        <h4 class="dice-total">
+                                            {{#if this.damageIcon}}<i class="{{this.damageIcon}}" style="color: {{this.damageColor}};"></i>{{else}}<i class="fa-solid fa-dice-d20"></i>{{/if}}
+                                            <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}">
+                                                <span class="label">{{this.label}}:</span> 
+                                                <span class="formula">{{this.value.cleanFormula}}</span>
+                                                {{#if this.damageType}}<span class="damage-type" style="color: {{this.damageColor}};">[{{this.damageType}}]</span>{{/if}}
+                                            </span> 
+                                            <span class="result">{{this.value._total}}</span>
+                                        </h4>
+                                        {{{this.tooltip}}}
+                                    </div>
                                 </div>
-                            </div>
+                            {{else}}
+                                <div class="dice-roll wide">
+                                    <div class="dice-result">
+                                        <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span></span> <span class="result">{{this.value._total}}</span></h4>
+                                        {{{this.tooltip}}}
+                                    </div>
+                                </div>
+                            {{/if}}
                         {{else if this.isMeasuredTemplate}}
                             <div class="measured-template wide" data-type="{{this.object.type}}" data-distance="{{this.object.distance}}" data-direction="{{this.object.direction}}" data-angle="{{this.object.angle}}" data-width="{{this.object.width}}">
                                 <div class="measured-template-button">

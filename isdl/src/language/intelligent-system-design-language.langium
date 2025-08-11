@@ -59,7 +59,7 @@ ClassExpression:
 Property:
     (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | DeprecatedFields);
 BasicFields:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField);
 ComplexFields:
     (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField);
 DateTimeFields:
@@ -89,6 +89,9 @@ StringExp:
 
 StringChoiceField:
     ExpressionModifier "choice" "<" "string" ">" name=ID ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
+
+DamageTypeChoiceField:
+    ExpressionModifier "choice" "<" "damageType" ">" name=ID ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
 
 StringParameter:
     (StringParamChoices | StringParamValue | StandardFieldParams);
@@ -456,11 +459,19 @@ JS:
 LogExpression:
     "log" "(" params+=Expression ("," params+=Expression)* ")";
 VariableExpression:
-    type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll | Prompt);
+    type=("fleeting" | "eternal") name=ID "=" value=(Expression | Roll | DamageRoll | Prompt);
 ReturnExpression:
     "return" value=Expression;
 Roll:
     "roll" "(" parts+=(Expression)* ")";
+DamageRoll:
+    "damage" "(" params+=DamageRollParam ("," params+=DamageRollParam)* ")";
+DamageRollParam:
+    (RollParam | TypeParam);
+RollParam:
+    "roll:" value=Expression;
+TypeParam:
+    "type:" value=(Access | ParentAccess | TargetAccess | Literal);
 SelfMethod:
     "self." method=("delete()" | "update()");
 Wait:
@@ -540,7 +551,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | Ref | Roll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
+    Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=") e2=Expression;
 ShorthandComparisonExpression:
