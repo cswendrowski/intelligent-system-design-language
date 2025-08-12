@@ -5,6 +5,67 @@ config KitchenSink {
     author = "Cody Swendrowski"
 }
 
+actor BasicHero {
+    // Name and Description are automatically part of every Document
+    health resource HP(max: 20)
+
+    action Heal {
+        fleeting amount = roll(1d8)
+        self.HP += amount.total
+        chat Healing {
+            self.Name + " heals for " + amount.total + " HP!"
+        }
+    }
+}
+
+actor Superhero {
+    page Alias {
+        string SuperheroName
+    }
+
+    page Info(background: hideout) {
+        choice<string> Type(choices: ["A", "B", "C"])
+        string Summary
+
+        html Background
+
+        section Level {
+            number Experience
+            number Level(min: 1, max: 10)
+
+            action LevelUp(visibility: {
+                if (self.Experience < 10) {
+                    return Visibility.locked
+                }
+            }) {
+                self.Experience -= 10
+                self.Level++
+            }
+        }
+    }
+
+    page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
+        section Attributes {
+            attribute Fight(min: 1, max: 30, mod: {
+                return (self.Fight - 10) / 2
+            })
+            attribute Flight(min: 1, max: 30, mod: {
+                return (self.Flight - 10) / 2
+            })
+        }
+
+        section StatusEffects {
+            boolean Slowed
+            boolean Dazed
+        }
+    }
+
+    // Will show up on the base page
+    section Health {
+        resource HP(max: 10)
+    }
+}
+
 actor Hero(icon: "fa-solid fa-sword", background: texture) {
 
     function Print(number value) {
@@ -48,7 +109,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         section DocumentLinks {
             table<Skill> SkillsTable
             Skill SingleDocumentField
-            choice<Skill> ChoiceField
+            row {
+                choice<Skill> ChoiceField
+            }
             macro MacroField
             paperdoll PaperdollField {
                 Skill A(left: 0px, top: 0px)
@@ -101,7 +164,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
 
         section Level {
-
+            tracker Experience(min: 0, max: 100, color: #a586c0)
             row {
                 gmOnly tracker Fate(min: 0, style: icons, icon: "fa-bolt-lightning")
                 secret tracker Shield(min: 0, style: segmented, segments: 5, icon: "fa-solid fa-shield-halved")
@@ -126,19 +189,22 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 return self.Level
             })
 
-            on preApplyDamage (damage) {
+            on preApplyDamage (amount, type, metadata) {
+                log(type)
+                log(metadata)
+
                 if (self.Shield > 0) {
                     fleeting shieldAmount = self.Shield
-                    self.Shield -= damage
-                    if (damage > shieldAmount) {
-                        damage -= shieldAmount
+                    self.Shield -= amount
+                    if (amount > shieldAmount) {
+                        amount -= shieldAmount
                         } else {
-                        damage = 0
+                        amount = 0
                     }
                 }
             }
 
-            on appliedDamage(damage) {
+            on appliedDamage(amount, type, metadata) {
                 if (self.HP <= 0) {
                     self.Wounds += 1
                     self.HP = self.Endure + 6
@@ -176,7 +242,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         })
     }
 
-    tracker Experience(min: 0, max: 100, color: #a586c0)
+
 
     action FlipACoin {
         fleeting result = roll(d2)
@@ -514,12 +580,12 @@ item Spell {
         { value: "Defense", icon: "fa-solid fa-shield", color: #00FF00 },
         { value: "Healing", icon: "fa-solid fa-heart", color: #0000FF }
     ])
-    choice<string> Class(choices: [
+    choice<damageType> Class(choices: [
         "None",
-        { label: "🔥Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF4500 },
-        { label: "💧Water", value: "Water", icon: "fa-solid fa-water", color: #1E90FF },
-        { label: "🌍Earth", value: "Earth", icon: "fa-solid fa-earth", color: #8B4513 },
-        { label: "🌬️Air", value: "Air", icon: "fa-solid fa-wind", color: #87CEEB }
+        { label: "🔥Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF4500, resistance: "water" },
+        { label: "💧Water", value: "Water", icon: "fa-solid fa-water", color: #1E90FF, resistance: "fire" },
+        { label: "🌍Earth", value: "Earth", icon: "fa-solid fa-earth", color: #8B4513, resistance: "air" },
+        { label: "🌬️Air", value: "Air", icon: "fa-solid fa-wind", color: #87CEEB, resistance: "earth" }
     ])
     choice<string> Training(choices: [
         { value: "Basic", icon: "fa-solid fa-graduation-cap", color: #FFD700, bonus: 0, checkDC: 16 },
@@ -562,7 +628,7 @@ item Spell {
         fleeting spellRoll = roll(d20 + self.Level + self.Training.bonus)
         fleeting dc = self.Training.checkDC
         fleeting success = spellRoll.total >= dc
-        fleeting damageRoll = roll(self.DamageDice + self.BonusDie)
+        fleeting damageRoll = damage(roll: roll(self.DamageDice + self.BonusDie), type: self.Class)
         if (success) {
             chat SpellCast {
                 flavor "Success!"

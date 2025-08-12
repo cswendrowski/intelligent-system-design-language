@@ -19,7 +19,7 @@ import {
     isStringExp, isTableField,
     isTimeExp,
     isTrackerExp,
-    Property
+    Property, isDamageTypeChoiceField, isStringParamChoices, StringParamChoices
 } from "../../../language/generated/ast.js";
 import path from "node:path";
 import fs from "node:fs";
@@ -35,6 +35,49 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
     }
 
     const documents = entry.documents.filter(isActor);
+
+    // Collect all damage types from the entry
+    function collectDamageTypes(entry: Entry): string[] {
+        const damageTypes = new Set<string>();
+
+        // Search through all documents for damage type choice fields
+        for (const document of entry.documents) {
+            const damageTypeFields = getAllOfType(document.body, isDamageTypeChoiceField);
+
+            for (const field of damageTypeFields) {
+                const damageField = field as any; // Cast to access params
+                const choicesParam = damageField.params?.find((p: any) => isStringParamChoices(p)) as StringParamChoices | undefined;
+                if (choicesParam && choicesParam.choices) {
+                    for (const choice of choicesParam.choices) {
+                        // Handle simple string choices like "None"
+                        if (typeof choice.value === 'string') {
+                            damageTypes.add(choice.value);
+                        }
+                        // Handle extended choices like { label: "🔥Fire", value: "Fire", ... }
+                        else if (choice.value && typeof choice.value === 'object') {
+                            const extendedChoice = choice.value as any;
+
+                            // Try direct access to value property first
+                            if (extendedChoice.value && typeof extendedChoice.value === 'string') {
+                                damageTypes.add(extendedChoice.value);
+                            }
+                            // Try properties array access
+                            else if (extendedChoice.properties && Array.isArray(extendedChoice.properties)) {
+                                // Based on the ISDL syntax { label: "🔥Fire", value: "Fire", icon: "...", color: "...", ... }
+                                // Property 0 = label, Property 1 = value, Property 2 = icon, Property 3 = color, rest = custom
+                                if (extendedChoice.properties.length > 1 && extendedChoice.properties[1].value) {
+                                    const damageTypeValue = extendedChoice.properties[1].value;
+                                    damageTypes.add(damageTypeValue);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return Array.from(damageTypes).sort();
+    }
 
     const fileNode = expandToNode`
     ${generateVueComponentScript(entry, id, destination)}
@@ -68,6 +111,8 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
         // Create field name mapping for each document
         const createFieldMapping = () => {
             const mapping = {};
+            const damageTypes = [${collectDamageTypes(entry).map(type => `'${type}'`).join(', ')}];
+            
             ${joinToNode(documents, document => {
                 const fields = getAllOfType<Property>(document.body, isProperty, false).filter(property =>
                     !isInitiativeProperty(property) &&
@@ -82,7 +127,16 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                 
                 return expandToNode`
                     mapping['${document.name}'] = {
-                        ${joinToNode(fields, field => `'${field.name.toLowerCase()}': '${field.name}'`, { separator: ',\n                        ' })}
+                        ${joinToNode(fields, field => `'${field.name.toLowerCase()}': '${field.name}'`, { separator: ',\n                        ' })}${fields.length > 0 ? ',' : ''}
+                        // Auto-generated damage type fields
+                        ${collectDamageTypes(entry).map((damageType: string) => {
+                            const safeTypeName = damageType.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            return [
+                                `'${safeTypeName}bonusdamage': '${damageType} Bonus Damage'`,
+                                `'${safeTypeName}damageresistanceflat': '${damageType} Damage Resistance (Flat)'`,
+                                `'${safeTypeName}damageresistancepercent': '${damageType} Damage Resistance (%)'`
+                            ].join(',\n                        ');
+                        }).join(',\n                        ')}
                     };
                 `;
             }, { appendNewLineIfNotEmpty: true })}
@@ -115,6 +169,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
             
             const fieldMapping = createFieldMapping();
             
+            console.log(fieldMapping, props.context.document.changes);
             for (const change of props.context.document.changes) {
                 // Parse the key to extract document name and field name
                 // Format: "hero.system.availableskilllevels" or "hero.system.resourcefield.value"
@@ -128,6 +183,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     
                     // Look up the proper field name from our mapping
                     const properFieldName = fieldMapping[docName]?.[fieldNameLower];
+                    console.log(properFieldName);
                     
                     if (properFieldName) {
                         if (!selectedFields.value[docName]) {
@@ -312,6 +368,15 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
             property.modifier !== "locked"
         );
 
+        const damageTypes = collectDamageTypes(entry);
+        const damageTypeFields = damageTypes.map((damageType: string) => {
+            return [
+                `{title: '${damageType} Bonus Damage', value: '${damageType} Bonus Damage'}`,
+                `{title: '${damageType} Damage Resistance (Flat)', value: '${damageType} Damage Resistance (Flat)'}`,
+                `{title: '${damageType} Damage Resistance (%)', value: '${damageType} Damage Resistance (%)'}`
+            ];
+        }).flat().join(', ');
+
         return expandToNode`
             <v-tabs-window-item value="${document.name}" data-tab="${document.name}">
                  <v-col cols="12" style="padding: 0">
@@ -320,7 +385,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                         <v-card-text>
                             <v-autocomplete
                                 label="Add Field to Change"
-                                :items="[${joinToNode(fields, (property) => `{title: '${property.name}', value: '${property.name}'}`, { separator: ', ' })}]"
+                                :items="[${joinToNode(fields, (property) => `{title: '${property.name}', value: '${property.name}'}`, { separator: ', ' })}${fields.length > 0 && damageTypeFields ? ', ' : ''}${damageTypeFields}]"
                                 item-title="title"
                                 item-value="value"
                                 v-model="selectedFields['${document.name}']"
@@ -339,6 +404,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     
                     <div v-for="fieldName in selectedFields['${document.name}'] || []" :key="fieldName">
                         ${joinToNode(fields, (property) => generateConditionalField(document, property), { appendNewLineIfNotEmpty: true })}
+                        ${generateDamageTypeConditionalFields(document, damageTypes)}
                     </div>
                 </v-col>
             </v-tabs-window-item>
@@ -351,6 +417,136 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                 ${generateField(document, property)}
             </div>
         `;
+    }
+
+    function generateDamageTypeConditionalFields(document: Document, damageTypes: string[]): CompositeGeneratorNode | undefined {
+        if (damageTypes.length === 0) {
+            return expandToNode``;
+        }
+
+        return joinToNode(damageTypes, damageType => {
+            const safeTypeName = damageType.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return expandToNode`
+                <!-- ${damageType} Bonus Damage -->
+                <div v-if="fieldName === '${damageType} Bonus Damage'">
+                    <v-card class="mb-4">
+                        <v-card-title>
+                            ${damageType} Bonus Damage
+                            <v-btn 
+                                icon="fa-solid fa-xmark" 
+                                size="small" 
+                                variant="text" 
+                                @click="selectedFields['${document.name}'] = selectedFields['${document.name}'].filter(f => f !== '${damageType} Bonus Damage')"
+                                style="float: right;">
+                            </v-btn>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-row>
+                                <v-select
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage-mode"
+                                    :model-value="getChangeMode('${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage')"
+                                    label="Mode"
+                                    :color="primaryColor"
+                                    :items="context.basicNumberModes"
+                                    item-title="label"
+                                    item-value="value"
+                                    variant="outlined"
+                                    density="compact">
+                                </v-select>
+                                <v-number-input
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage"
+                                    :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage')"
+                                    label="Bonus Damage"
+                                    :color="primaryColor"
+                                    variant="outlined"
+                                    density="compact">
+                                </v-number-input>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </div>
+
+                <!-- ${damageType} Damage Resistance (Flat) -->
+                <div v-if="fieldName === '${damageType} Damage Resistance (Flat)'">
+                    <v-card class="mb-4">
+                        <v-card-title>
+                            ${damageType} Damage Resistance (Flat)
+                            <v-btn 
+                                icon="fa-solid fa-xmark" 
+                                size="small" 
+                                variant="text" 
+                                @click="selectedFields['${document.name}'] = selectedFields['${document.name}'].filter(f => f !== '${damageType} Damage Resistance (Flat)')"
+                                style="float: right;">
+                            </v-btn>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-row>
+                                <v-select
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat-mode"
+                                    :model-value="getChangeMode('${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat')"
+                                    label="Mode"
+                                    :color="primaryColor"
+                                    :items="context.basicNumberModes"
+                                    item-title="label"
+                                    item-value="value"
+                                    variant="outlined"
+                                    density="compact">
+                                </v-select>
+                                <v-number-input
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat"
+                                    :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat')"
+                                    label="Flat Resistance"
+                                    :color="primaryColor"
+                                    variant="outlined"
+                                    density="compact">
+                                </v-number-input>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </div>
+
+                <!-- ${damageType} Damage Resistance (%) -->
+                <div v-if="fieldName === '${damageType} Damage Resistance (%)'">
+                    <v-card class="mb-4">
+                        <v-card-title>
+                            ${damageType} Damage Resistance (%)
+                            <v-btn 
+                                icon="fa-solid fa-xmark" 
+                                size="small" 
+                                variant="text" 
+                                @click="selectedFields['${document.name}'] = selectedFields['${document.name}'].filter(f => f !== '${damageType} Damage Resistance (%)')"
+                                style="float: right;">
+                            </v-btn>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-row>
+                                <v-select
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent-mode"
+                                    :model-value="getChangeMode('${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent')"
+                                    label="Mode"
+                                    :color="primaryColor"
+                                    :items="context.basicNumberModes"
+                                    item-title="label"
+                                    item-value="value"tec
+                                    variant="outlined"
+                                    density="compact">
+                                </v-select>
+                                <v-number-input
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent"
+                                    :model-value="getChangeNumberValue('${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent')"
+                                    label="Percent Resistance (0-100)"
+                                    :min="0"
+                                    :max="100"
+                                    :color="primaryColor"
+                                    variant="outlined"
+                                    density="compact">
+                                </v-number-input>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </div>
+            `;
+        }, { appendNewLineIfNotEmpty: true });
     }
 
     function generateRemoveButton(document: Document, property: Property) {

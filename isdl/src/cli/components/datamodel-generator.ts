@@ -525,6 +525,73 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
     let nonCalculatedStatusEffects = statusEffects.filter(x => !x.params.some(p => isStatusParamWhen(p)));
 
     // Name and img come with all docs. We'll go ahead and staple Description on as well
+    // Collect all damage types from the entry
+    function collectDamageTypes(entry: Entry): string[] {
+        const damageTypes = new Set<string>();
+
+        // Search through all documents for damage type choice fields
+        for (const document of entry.documents) {
+            const damageTypeFields = getAllOfType(document.body, isDamageTypeChoiceField);
+
+            for (const field of damageTypeFields) {
+                const damageField = field as any; // Cast to access params
+                const choicesParam = damageField.params?.find((p: any) => isStringParamChoices(p)) as StringParamChoices | undefined;
+                if (choicesParam && choicesParam.choices) {
+                    for (const choice of choicesParam.choices) {
+                        // Handle simple string choices like "None"
+                        if (typeof choice.value === 'string') {
+                            damageTypes.add(choice.value);
+                        }
+                        // Handle extended choices like { label: "🔥Fire", value: "Fire", ... }
+                        else if (choice.value && typeof choice.value === 'object') {
+                            const extendedChoice = choice.value as any;
+
+                            // Try direct access to value property first
+                            if (extendedChoice.value && typeof extendedChoice.value === 'string') {
+                                damageTypes.add(extendedChoice.value);
+                            }
+                            // Try properties array access
+                            else if (extendedChoice.properties && Array.isArray(extendedChoice.properties)) {
+                                // Based on the ISDL syntax { label: "🔥Fire", value: "Fire", icon: "...", color: "...", ... }
+                                // Property 0 = label, Property 1 = value, Property 2 = icon, Property 3 = color, rest = custom
+                                if (extendedChoice.properties.length > 1 && extendedChoice.properties[1].value) {
+                                    const damageTypeValue = extendedChoice.properties[1].value;
+                                    damageTypes.add(damageTypeValue);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return Array.from(damageTypes).sort();
+    }
+
+    // Generate damage type fields for Active Effects
+    function generateDamageTypeFields(entry: Entry): CompositeGeneratorNode | undefined {
+        const damageTypes = collectDamageTypes(entry);
+
+        if (damageTypes.length === 0) {
+            return expandToNode``;
+        }
+
+        const damageTypeFields = damageTypes.map(damageType => {
+            const safeTypeName = damageType.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return expandToNode`
+                // ${damageType} damage type fields
+                ${safeTypeName}bonusdamage: new fields.NumberField({required: false, initial: 5, integer: true}),
+                ${safeTypeName}damageresistanceflat: new fields.NumberField({required: false, initial: 5, integer: true}),
+                ${safeTypeName}damageresistancepercent: new fields.NumberField({required: false, initial: 5, min: 0, max: 100, integer: true}),
+            `;
+        });
+
+        return expandToNode`
+            // Auto-generated damage type Active Effect fields
+            ${joinToNode(damageTypeFields, field => field, { appendNewLineIfNotEmpty: true })}
+        `;
+    }
+
     const fileNode = expandToNode`
         import ${config.name}Actor from "../../documents/actor.mjs";
         import ${config.name}Item from "../../documents/item.mjs";
@@ -538,6 +605,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                     description: new fields.HTMLField({required: false, blank: true, initial: ""}),
                     ${joinToNode(document.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
                     ${expandToNode`${generateDocumentPromptModels(document)}`.appendNewLineIfNotEmpty()}
+                    ${isActor(document) ? expandToNode`${generateDamageTypeFields(entry)}`.appendNewLineIfNotEmpty() : ""}
                 };
             }
 

@@ -22,9 +22,9 @@ import {
     isStatusProperty,
     isStringExp,
     isTrackerExp,
-    Layout, isLayout, isMacroField
+    Layout, isLayout, isMacroField, isDamageTypeChoiceField, isStringParamChoices, StringParamChoices
 } from '../../language/generated/ast.js';
-import { getSystemPath } from './utils.js';
+import { getSystemPath, getAllOfType } from './utils.js';
 
 export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, "system", "sheets", "vue");
@@ -77,6 +77,74 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
         return expandToNode`
             addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.${getSystemPath(property)}");
         `;
+    }
+
+    function generateDamageTypeActiveEffectFields(entry: Entry, document: Document): CompositeGeneratorNode | undefined {
+        if (!isActor(document)) return expandToNode``;
+
+        const damageTypes = collectDamageTypes(entry);
+
+        if (damageTypes.length === 0) {
+            return expandToNode``;
+        }
+
+        const damageTypeFields = damageTypes.map(damageType => {
+            const safeTypeName = damageType.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return expandToNode`
+                // ${damageType} damage type Active Effect fields
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage");
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat");
+                addChange("${document.name.toLowerCase()}", "${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent");
+            `;
+        });
+
+        return expandToNode`
+            // Auto-generated damage type Active Effect fields
+            ${joinToNode(damageTypeFields, field => field, { appendNewLineIfNotEmpty: true })}
+        `;
+    }
+
+    // Collect all damage types from the entry (same function as in datamodel-generator)
+    function collectDamageTypes(entry: Entry): string[] {
+        const damageTypes = new Set<string>();
+
+        // Search through all documents for damage type choice fields
+        for (const document of entry.documents) {
+            const damageTypeFields = getAllOfType(document.body, isDamageTypeChoiceField);
+
+            for (const field of damageTypeFields) {
+                const damageField = field as any; // Cast to access params
+                const choicesParam = damageField.params?.find((p: any) => isStringParamChoices(p)) as StringParamChoices | undefined;
+                if (choicesParam && choicesParam.choices) {
+                    for (const choice of choicesParam.choices) {
+                        // Handle simple string choices like "None"
+                        if (typeof choice.value === 'string') {
+                            damageTypes.add(choice.value);
+                        }
+                        // Handle extended choices like { label: "🔥Fire", value: "Fire", ... }
+                        else if (choice.value && typeof choice.value === 'object') {
+                            const extendedChoice = choice.value as any;
+
+                            // Try direct access to value property first
+                            if (extendedChoice.value && typeof extendedChoice.value === 'string') {
+                                damageTypes.add(extendedChoice.value);
+                            }
+                            // Try properties array access
+                            else if (extendedChoice.properties && Array.isArray(extendedChoice.properties)) {
+                                // Based on the ISDL syntax { label: "🔥Fire", value: "Fire", icon: "...", color: "...", ... }
+                                // Property 0 = label, Property 1 = value, Property 2 = icon, Property 3 = color, rest = custom
+                                if (extendedChoice.properties.length > 1 && extendedChoice.properties[1].value) {
+                                    const damageTypeValue = extendedChoice.properties[1].value;
+                                    damageTypes.add(damageTypeValue);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return Array.from(damageTypes).sort();
     }
 
     // let stringChoices = document.body.filter(x => isStringExp(x) && x.choices != undefined && x.choices.length > 0).map(x => x as StringExp);
@@ -133,7 +201,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 dragDrop: [
                 ],
                 form: {
-                    handler: ${entry.config.name}EffectVueSheet.#onSubmitForm,
+                    handler: ${entry.config.name}EffectVueSheet._onSubmitForm,
                     submitOnChange: true,
                     submitOnClose: true,
                     closeOnSubmit: false
@@ -226,6 +294,13 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                     });
                     return obj;
                 }, []);
+                vueContext.basicNumberModes = numberModes.reduce((obj, mode) => {
+                    obj.push({
+                        value: mode,
+                        label: context.modes[mode]
+                    });
+                    return obj;
+                }, []);
                 vueContext.numberModes.push({
                     value: 0,
                     label: game.i18n.localize("EFFECTS.AddOnce")
@@ -296,7 +371,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
              * @param {FormDataExtended} formData             Processed data for the submitted form
              * @returns {Promise<void>}
              */
-            static async #onSubmitForm(event, form, formData) {
+            static async _onSubmitForm(event, form, formData) {
                 let ae = foundry.utils.duplicate(this.document);
                 console.log("Updating Active Effect", ae, formData);
                 ae.name = formData.object.name;
@@ -332,6 +407,9 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 }
 
                 ${joinToNode(entry.documents.filter(d => isActor(d)), document => joinToNode(document.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true }))}
+
+                // Auto-generated damage type Active Effect fields
+                ${joinToNode(entry.documents.filter(d => isActor(d)), document => generateDamageTypeActiveEffectFields(entry, document), { appendNewLineIfNotEmpty: true })}
 
                 // Update the existing changes to replace duplicates.
                 for (let i = 0; i < changes.length; i++) {

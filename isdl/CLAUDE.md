@@ -92,3 +92,9 @@ The extension includes comprehensive GitHub publishing features:
 - Generated code includes Vue 3 reactive character sheets
 - Support for complex RPG mechanics like damage tracks, dice rolling, and status effects
 - Extensive customization options through ISDL syntax parameters
+- Aimed at people new to development
+
+## Implementation notes
+- System paths are always lowercase, such as system.firebonusdamage
+- User facing strings such as labels should be localized and added to the generated localization file
+- When checking Langium AST types, use the generated type checker method such as isConfig
