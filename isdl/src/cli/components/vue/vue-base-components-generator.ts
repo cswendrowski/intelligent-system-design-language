@@ -15,6 +15,12 @@ import generateDiceComponent from "./base-components/vue-dice.js";
 import generateDamageApplicationComponent from "./base-components/vue-damage-application.js";
 import generateDamageBonusesComponent from "./base-components/vue-damage-bonuses.js";
 import generateDamageResistancesComponent from "./base-components/vue-damage-resistances.js";
+import generateBooleanComponent from "./base-components/vue-boolean.js";
+import generateDieComponent from "./base-components/vue-die.js";
+import generateStringMethodComponent from "./base-components/vue-string-method.js";
+import generateNumberComponent from "./base-components/vue-number.js";
+import generateStringChoiceComponent from "./base-components/vue-string-choice.js";
+import generateParentPropertyReferenceComponent from "./base-components/vue-parent-property-reference.js";
 import {Entry} from "../../../language/generated/ast.js";
 
 export function generateBaseVueComponents(destination: string, entry?: Entry) {
@@ -35,4 +41,10 @@ export function generateBaseVueComponents(destination: string, entry?: Entry) {
     generateDamageApplicationComponent(destination);
     generateDamageBonusesComponent(destination, entry);
     generateDamageResistancesComponent(destination, entry);
+    generateBooleanComponent(destination, entry);
+    generateDieComponent(destination, entry);
+    generateStringMethodComponent(destination, entry);
+    generateNumberComponent(destination, entry);
+    generateStringChoiceComponent(destination, entry);
+    generateParentPropertyReferenceComponent(destination, entry);
 }

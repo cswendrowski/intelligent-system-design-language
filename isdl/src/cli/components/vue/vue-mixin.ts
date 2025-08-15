@@ -27,6 +27,12 @@ export function generateVueMixin(description: string) {
         "i-dice": "DiceField",
         "i-bonuses": "DamageBonuses",
         "i-resistances": "DamageResistances",
+        "i-boolean": "BooleanField",
+        "i-die": "DieField",
+        "i-string": "StringMethodField",
+        "i-number": "NumberField",
+        "i-string-choice": "StringChoiceField",
+        "i-parent-property-reference": "ParentPropertyReferenceField",
     };
 
     const fileNode = expandToNode`

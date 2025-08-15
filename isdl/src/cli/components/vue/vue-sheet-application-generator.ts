@@ -1083,10 +1083,6 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             const colorParam = standardParams.find(p => isColorParam(p)) as ColorParam | undefined;
 
             const label = `${document.name}.${element.name}`;
-            const labelFragment = `
-                <template #label>
-                    <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
-                </template>`;
             const standardParamsFragment = colorParam ? `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
@@ -1167,20 +1163,14 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 refChoices = refChoices.filter(x => x != undefined);
                 const choices = refChoices.map(c => `{ label: '${c?.parent} - ${c?.name}', value: '${c?.path}' }`).join(", ");
                 return expandToNode`
-                <v-select 
-                    name="${systemPath}" 
-                    v-model="context.${systemPath}" 
-                    :items="[${choices}]" 
-                    item-title="label" 
-                    item-value="value" 
-                    ${standardParamsFragment} 
-                    variant="outlined" 
-                    class="double-wide"
-                    density="compact">
-                        <template #label>
-                            <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
-                        </template>
-                </v-select>
+                <i-parent-property-reference
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    :refChoices="[${choices}]"
+                    ${standardParamsFragment}>
+                </i-parent-property-reference>
                 `;
             }
 
@@ -1190,16 +1180,14 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
                 if (valueParam !== undefined) {
                     return expandToNode`
-                    <v-text-field 
-                        name="${systemPath}"
-                        v-model="context.${systemPath}" 
-                        ${standardParamsFragment}
-                        variant="outlined" 
-                        density="compact"
-                        append-inner-icon="fa-solid fa-function" 
-                        :data-tooltip="context.${systemPath}">
-                        ${labelFragment}
-                    </v-text-field>
+                    <i-string
+                        :context="context"
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        methodValue="${valueParam.value}"
+                        ${standardParamsFragment}>
+                    </i-string>
                     `;
                 }
 
@@ -1223,19 +1211,15 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     // Map the choices to a string array
                     const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${choiceValue(c)}'), value: '${choiceValue(c)}' }`).join(", ");
                     return expandToNode`
-                    <v-select 
-                        name="${systemPath}" 
-                        v-model="context.${systemPath}" 
-                        :items="[${choices}]" 
-                        item-title="label" 
-                        item-value="value" 
-                        ${standardParamsFragment}
-                        variant="outlined" 
-                        density="compact">
-                        <template #label>
-                            <span v-html="getLabel('${label}.label', ${iconParam ? `'${iconParam.value}'` : undefined})" />
-                        </template>
-                    </v-select>
+                    <i-string-choice
+                        :context="context"
+                        label="${label}.label"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        :items="[${choices}]"
+                        :isExtended="false"
+                        ${standardParamsFragment}>
+                    </i-string-choice>
                     `;
                 }
                 return expandToNode`
@@ -1295,16 +1279,17 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 }
 
                 return expandToNode`
-                    <i-extended-choice
+                    <i-string-choice
+                        :context="context"
                         label="${label}.label"
                         icon="${iconParam?.value}"
                         systemPath="${systemPath}"
-                        :context="context"
                         :items="[${joinToNode(choicesParam.choices, choiceData, {separator: ',', appendNewLineIfNotEmpty: true})}]"
+                        :isExtended="true"
                         :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor"
-                        ${standardParamsFragment}
-                    ></i-extended-choice>
+                        ${standardParamsFragment}>
+                    </i-string-choice>
                     `;
 
             }
@@ -1358,16 +1343,17 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 }
 
                 return expandToNode`
-                    <i-extended-choice
+                    <i-string-choice
+                        :context="context"
                         label="${label}.label"
                         icon="${iconParam?.value}"
                         systemPath="${systemPath}"
-                        :context="context"
                         :items="[${joinToNode(choicesParam.choices, choiceData, {separator: ',', appendNewLineIfNotEmpty: true})}]"
+                        :isExtended="true"
                         :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor"
-                        ${standardParamsFragment}
-                    ></i-extended-choice>
+                        ${standardParamsFragment}>
+                    </i-string-choice>
                     `;
 
             }
@@ -1453,36 +1439,32 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isBooleanExp(element)) {
                 return expandToNode`
-                <v-checkbox
-                    v-model="context.${systemPath}"
-                    name="${systemPath}"
-                    ${standardParamsFragment}
-                    :color="primaryColor">
-                    ${labelFragment}
-                </v-checkbox>
+                <i-boolean
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    ${standardParamsFragment}>
+                </i-boolean>
                 `;
             }
 
             if (isNumberExp(element)) {
-                // If this is a calculated value, we don't want to allow editing
                 const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
 
                 return expandToNode`
-                <v-number-input
-                    controlVariant="stacked"
-                    density="compact"
-                    variant="outlined"
-                    ${valueParam != undefined ? ` append-inner-icon="fa-solid fa-function" control-variant="hidden" class="calculated-number" :model-value="context.${systemPath}"` : `v-model="context.${systemPath}"`}
-                    name="${systemPath}"
-                    ${standardParamsFragment}
-                >
-                ${labelFragment}
-                ${valueParam == undefined ? `
-                <template #append-inner>
-                    <i-calculator v-if="editMode" :context="context" :systemPath="'${systemPath}'" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-calculator>
-                </template>
-                ` : ``}
-                </v-number-input>
+                <i-number
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    :hasValueParam="${valueParam != undefined}"
+                    methodValue="${valueParam?.value || ''}"
+                    :editMode="editMode"
+                    :primaryColor="primaryColor"
+                    :secondaryColor="secondaryColor"
+                    ${standardParamsFragment}>
+                </i-number>
                 `;
             }
 
@@ -1666,22 +1648,15 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 let choices = choicesParam ? `[${choicesParam.choices.join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
 
                 if (isDieField(element)) {
-                    // render as a simple dropdown
                     return expandToNode`
-                    <v-select 
-                        name="${systemPath}" 
-                        v-model="context.${systemPath}" 
-                        :items="${choices}" 
-                        ${standardParamsFragment} 
-                        variant="outlined" 
-                        density="compact">
-                        <template #label>
-                            <span v-html="getLabel('${label}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
-                        </template>
-                        <template #prepend-inner>
-                            <i :class="'fa-solid fa-dice-' + context.${systemPath}"></i>
-                        </template>
-                    </v-select>
+                    <i-die
+                        :context="context"
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        :choices="${choices}"
+                        ${standardParamsFragment}>
+                    </i-die>
                     `;
                 }
 

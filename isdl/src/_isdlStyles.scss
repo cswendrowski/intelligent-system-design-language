@@ -393,6 +393,7 @@
     .isdl-property,
     .isdl-single-document,
     .single-wide {
+        flex: 1;
         min-width: 150px;
         max-width: 600px;
     }
@@ -415,6 +416,7 @@
     .double-wide {
         min-width: 300px;
         max-width: 600px;
+        flex: 2;
 
         .slim-number {
             font-size: 0.75rem;
@@ -428,6 +430,7 @@
     }
 
     .isdl-single-document {
+        margin-top: 0.75rem;
         margin-bottom: 1rem;
         max-width: 50%;
     }
@@ -626,6 +629,7 @@
         min-width: 307px;
         width: 307px;
         max-width: 307px;
+        margin-top: 0.75rem;
 
         .paper-doll-container {
             position: relative;
@@ -682,6 +686,56 @@
     flex: 1;
     .v-card-text {
       padding: 0;
+    }
+  }
+
+  .isdl-boolean {
+    .field-label {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+  }
+
+  .isdl-die {
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+  }
+
+  .isdl-string-method {
+    .field-label {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+  }
+
+  .isdl-number {
+    .field-label {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+  }
+
+  .isdl-string-choice {
+    .field-label {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+  }
+
+  .isdl-parent-property-reference {
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
     }
   }
 

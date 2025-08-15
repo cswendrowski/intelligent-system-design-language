@@ -157,9 +157,9 @@ export default function generateYourFieldComponent(destination: string, entry?: 
     </script>
 
     <template>
-        <div class="your-field">
+        <base-vuetify-field class="your-field">
             <!-- Your component template here -->
-        </div>
+        </base-vuetify-field>
     </template>
     `.appendNewLine();
 
@@ -172,8 +172,10 @@ export default function generateYourFieldComponent(destination: string, entry?: 
 - Use `inject("rawDocument")` to access the actor/item document
 - Disable editable fields when `disabled` is true
 - Scoped styles aren't supported and should go in `_isdlStyles.scss` instead
+- All fields should be applied with either the single-wide field (most common) or double-wide if it needs extra space
+- Style classes should use the .isdl-fieldname as a scope in SCSS, and focus on being compact
 - Editable inputs should have a `name="${systemPath}"`. For complex fields with multiple subproperties, this might be `name="${systemPath}.subproperty"` instead.
-- If you need more than one color, you can bind `primaryColor`, `secondaryColor`, and `teritaryColor`
+- If you need more than one color, you can bind `secondaryColor`, and `teritaryColor`
 - Human readable text (labels, messages, etc) need to be localized with `game.i18n.localize(<text>)` and have an entry in the localization file
 
 ### 3. Base Components Generator (`src/cli/components/vue/vue-base-components-generator.ts`)
