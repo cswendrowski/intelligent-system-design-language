@@ -185,7 +185,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
                 hint: game.i18n.localize('SETTINGS.DamageApplicationChatCardHint'),
                 scope: 'world',
                 config: true,
-                default: 'none',
+                default: 'gm',
                 type: String,
                 choices: {
                     'none': game.i18n.localize('SETTINGS.DamageApplicationChatCard.None'),
