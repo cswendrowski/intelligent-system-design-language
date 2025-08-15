@@ -1314,7 +1314,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return expandToNode`
                 await new ${entry.config.name}DamageRoll(
                     ${joinToNode(rollExpression.parts, e => translateDiceParts(e), {separator: " + "})},
-                     {${joinToNode(rollExpression.parts, e => translateDiceData(e), {separator: ", "})}},
+                     {${joinToNode(rollExpression.parts, e => translateDiceData(e), {separator: ", "})}, 
+                     actor: context.actor},
                      { type: ${damageTypeDataAccess} }
                 ).roll()
             `;

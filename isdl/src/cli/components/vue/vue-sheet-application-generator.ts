@@ -33,7 +33,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField,
+    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -1424,6 +1424,30 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     :secondaryColor="secondaryColor"
                     ${standardParamsFragment}>
                 </i-measured-template>
+                `;
+            }
+
+            if (isDamageBonusesField(element)) {
+                return expandToNode`
+                <i-bonuses
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    ${standardParamsFragment}>
+                </i-bonuses>
+                `;
+            }
+
+            if (isDamageResistancesField(element)) {
+                return expandToNode`
+                <i-resistances
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    ${standardParamsFragment}>
+                </i-resistances>
                 `;
             }
 

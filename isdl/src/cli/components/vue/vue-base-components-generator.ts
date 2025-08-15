@@ -13,8 +13,11 @@ import generateMacroChoiceComponent from "./base-components/vue-macro-choice.js"
 import generateExtendedChoiceComponent from "./base-components/vue-extended-choice.js";
 import generateDiceComponent from "./base-components/vue-dice.js";
 import generateDamageApplicationComponent from "./base-components/vue-damage-application.js";
+import generateDamageBonusesComponent from "./base-components/vue-damage-bonuses.js";
+import generateDamageResistancesComponent from "./base-components/vue-damage-resistances.js";
+import {Entry} from "../../../language/generated/ast.js";
 
-export function generateBaseVueComponents(destination: string) {
+export function generateBaseVueComponents(destination: string, entry?: Entry) {
     generateAttributeComponent(destination);
     generateResourceComponent(destination);
     generateDocumentLinkComponent(destination);
@@ -30,4 +33,6 @@ export function generateBaseVueComponents(destination: string) {
     generateExtendedChoiceComponent(destination);
     generateDiceComponent(destination);
     generateDamageApplicationComponent(destination);
+    generateDamageBonusesComponent(destination, entry);
+    generateDamageResistancesComponent(destination, entry);
 }

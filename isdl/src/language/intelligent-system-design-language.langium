@@ -61,7 +61,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField);
+    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
 DiceFields:
@@ -149,6 +149,16 @@ ResourceParameter:
 
 MeasuredTemplateField:
     ExpressionModifier "measuredTemplate" name=ID StandardFieldParamsFrag;
+
+// Damage Bonuses -------------
+
+DamageBonusesField:
+    ExpressionModifier "bonuses" name=ID StandardFieldParamsFrag;
+
+// Damage Resistances -------------
+
+DamageResistancesField:
+    ExpressionModifier "resistances" name=ID StandardFieldParamsFrag;
 
 // Tracker -------------
 

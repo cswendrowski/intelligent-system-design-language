@@ -678,6 +678,13 @@
         }
     }
 
+  .isdl-damage-bonuses, .isdl-damage-resistances {
+    flex: 1;
+    .v-card-text {
+      padding: 0;
+    }
+  }
+
     .isdl-measured-template {
 
         >.v-input__control {

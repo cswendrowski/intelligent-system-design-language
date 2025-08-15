@@ -31,13 +31,14 @@ export function generateChatCardClass(entry: Entry, destination: string) {
 
                 // If the type is temp, add to the temp health.
                 if ( type === 'temp' ) {
-                    update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} + roll;
+                    update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} + (finalDamage !== undefined ? finalDamage : roll);
                     break;
                 }
 
                 // If the type is damage and we have temp health, apply to temp health first.
                 if ( type === 'damage' && target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} > 0 ) {
-                    update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} - roll;
+                    const appliedDamage = finalDamage !== undefined ? finalDamage : roll;
+                    update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] = target.actor.${getSystemPath(healthResource, ['temp'], undefined, false)} - appliedDamage;
 
                     if ( update['${getSystemPath(healthResource, ['temp'], undefined, false)}'] < 0 ) {
                         update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} + update['${getSystemPath(healthResource, ['temp'], undefined, false)}'];
@@ -46,7 +47,7 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                 }
                 else {
                     // Otherwise, apply to the main health.
-                    update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} - roll;
+                    update['${getSystemPath(healthResource)}'] = target.actor.${getSystemPath(healthResource)} - (finalDamage !== undefined ? finalDamage : roll);
                 }
                 break;
         `;
@@ -60,6 +61,7 @@ export function generateChatCardClass(entry: Entry, destination: string) {
             static activateListeners(html) {
                 html.on("click", ".collapsible", ${entry.config.name}ChatCard._onChatCardToggleCollapsible.bind(this));
                 html.on("click", ".action", ${entry.config.name}ChatCard._handleActionClick.bind(this));
+                html.on("click", ".revert-target-damage", ${entry.config.name}ChatCard._onRevertTargetDamage.bind(this));
                 html.on("click", ".dice-roll", event => {
                     const rollElement = event.currentTarget;
                     rollElement.classList.toggle("expanded");
@@ -199,6 +201,7 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         const menu = element.find('#context-menu2')?.[0];
                         const applyTargetType = menu?.dataset?.target ?? 'selected';
                         const applyMod = menu?.dataset?.mod ? Number(menu.dataset.mod) : 1;
+                        const bonusDamage = menu?.dataset?.bonus ? Number(menu.dataset.bonus) : 0;
 
                         let rollData = getRollFromElement(element);
                         if ( !rollData ) return;
@@ -211,6 +214,19 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         baseRoll *= applyMod;
 
                         const targets = getTargets(applyTargetType);
+                        const applicationSummary = {
+                            type: type,
+                            originalDamage: rollData.value,
+                            bonusDamage: bonusDamage,
+                            multiplier: applyMod,
+                            totalBaseDamage: baseRoll,
+                            damageType: rollData.isDamageRoll ? rollData.damageType : null,
+                            damageColor: rollData.isDamageRoll ? rollData.damageColor : null,
+                            damageIcon: rollData.isDamageRoll ? rollData.damageIcon : null,
+                            targets: [],
+                            timestamp: Date.now(),
+                            userId: game.user.id
+                        };
 
                         for ( const target of targets ) {
                             console.log(type, baseRoll, target);
@@ -231,15 +247,145 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                             await Hooks.callAllAsync('preApply' + type.titleCase(), target.actor, context);
                             roll = context.amount;
 
+                            // Calculate resistance information for this target
+                            let flatResistance = 0;
+                            let percentResistance = 0;
+                            let finalDamage = roll;
+                            
+                            if (rollData.isDamageRoll && rollData.damageType && type === 'damage') {
+                                // Get resistance information from actor using datamodel field names
+                                const damageTypeKey = rollData.damageType.toLowerCase().replace(/\s+/g, '');
+                                const flatResistanceField = \`\${damageTypeKey}damageresistanceflat\`;
+                                const percentResistanceField = \`\${damageTypeKey}damageresistancepercent\`;
+                                
+                                flatResistance = target.actor.system[flatResistanceField] || 0;
+                                percentResistance = target.actor.system[percentResistanceField] || 0;
+                                
+                                if (flatResistance > 0 || percentResistance > 0) {
+                                    // Apply resistance: (damage - flat) * (1 - percent/100)
+                                    finalDamage = Math.max(0, (roll - flatResistance) * (1 - percentResistance / 100));
+                                    finalDamage = Math.floor(finalDamage);
+                                }
+                            }
+
+                            // Store pre-application state for revert functionality
+                            const preState = {};
+                            const targetSummary = {
+                                uuid: target.document.uuid,
+                                name: target.actor.name,
+                                appliedAmount: roll,
+                                finalDamage: finalDamage,
+                                flatResistance: flatResistance,
+                                percentResistance: percentResistance,
+                                preState: {},
+                                postState: {}
+                            };
+
                             switch ( target.actor.type ) {
                                 ${joinToNode(entry.documents, document => generateHpElement(document), { appendNewLineIfNotEmpty: true })}
                             }
 
-                            target.actor.update(update);
+                            // Store pre-state for revert
+                            for (const [key, value] of Object.entries(update)) {
+                                targetSummary.preState[key] = foundry.utils.getProperty(target.actor, key);
+                                targetSummary.postState[key] = value;
+                            }
+
+                            await target.actor.update(update);
+                            applicationSummary.targets.push(targetSummary);
                             
                             // Call the applied hook with enhanced context
                             Hooks.callAll('applied' + type.titleCase(), target.actor, context);
                         }
+
+                        // Create damage application summary chat card
+                        await createDamageApplicationChatCard(applicationSummary);
+                    }
+
+                    async function createDamageApplicationChatCard(summary) {
+                        const setting = game.settings.get('${id}', 'damageApplicationChatCard');
+                        if (setting === 'none') return;
+
+                        const whisper = setting === 'gm' ? ChatMessage.getWhisperRecipients('GM') : [];
+                        const typeLabel = summary.type === 'damage' ? 'Damage' : summary.type === 'healing' ? 'Healing' : 'Temp HP';
+                        
+                        // Create HTML content for the chat card
+                        const targetRows = summary.targets.map((target, index) => {
+                            let resistanceText = 'N/A';
+                            
+                            if (summary.type === 'damage' && summary.damageType) {
+                                const hasFlat = target.flatResistance > 0;
+                                const hasPercent = target.percentResistance > 0;
+                                
+                                if (hasFlat || hasPercent) {
+                                    const parts = [];
+                                    if (hasFlat) parts.push(\`\${target.flatResistance}\`);
+                                    if (hasPercent) parts.push(\`\${target.percentResistance}%\`);
+                                    resistanceText = parts.join(', ');
+                                } else {
+                                    resistanceText = 'None';
+                                }
+                            }
+                            
+                            return \`
+                                <tr class="target-row" data-target-index="\${index}">
+                                    <td><strong>\${target.name}</strong></td>
+                                    <td>\${resistanceText}</td>
+                                    <td><strong>\${summary.type === 'healing' ? '+' : ''}\${target.finalDamage}</strong></td>
+                                    <td>
+                                        <button type="button" class="revert-target-damage" data-target-index="\${index}" data-summary='\${JSON.stringify(summary)}' title="Revert this target">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            \`;
+                        }).join('');
+
+                        const content = \`
+                            <div class="damage-application-summary">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-sword-cross"></i> \${typeLabel} Applied</h3>
+                                </div>
+                                
+                                <div class="damage-summary">
+                                    <div class="base-damage">
+                                        <strong>Base Damage:</strong> \${summary.originalDamage}
+                                        \${summary.bonusDamage > 0 ? \`+ \${summary.bonusDamage} bonus\` : ''}
+                                        \${summary.multiplier !== 1 ? \` × \${summary.multiplier}\` : ''}
+                                        = <strong>\${summary.totalBaseDamage}</strong>
+                                        \${summary.damageType ? \`<br><strong>Type:</strong> <span class="damage-type" style="color: \${summary.damageColor || '#666'}">\${summary.damageIcon ? \`<i class="\${summary.damageIcon}"></i> \` : ''}\${summary.damageType}</span>\` : ''}
+                                    </div>
+                                </div>
+
+                                <div class="targets-summary">
+                                    <h4>Applied to Targets:</h4>
+                                    <table class="damage-targets">
+                                        <thead>
+                                            <tr>
+                                                <th>Target</th>
+                                                <th>Resistance</th>
+                                                <th>Final Damage</th>
+                                                <th>Revert</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            \${targetRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        \`;
+
+                        await ChatMessage.create({
+                            user: game.user.id,
+                            content: content,
+                            whisper: whisper,
+                            flags: {
+                                [game.system.id]: {
+                                    damageApplicationSummary: summary
+                                }
+                            }
+                        });
                     }
 
                     if ( allowTargeting ) {
@@ -370,6 +516,57 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         game.system.measuredTemplatePreviewClass.place(context, game.user.character?.sheet);                 
                         break;
                 }   
+            }
+
+            static async _onRevertTargetDamage(event) {
+                const button = event.currentTarget;
+                const summaryData = JSON.parse(button.dataset.summary);
+                const targetIndex = parseInt(button.dataset.targetIndex);
+                const targetData = summaryData.targets[targetIndex];
+                
+                if (!targetData) {
+                    ui.notifications.error("Target data not found");
+                    return;
+                }
+                
+                // Confirm revert
+                const confirm = await Dialog.confirm({
+                    title: "Revert Target Damage",
+                    content: \`<p>Are you sure you want to revert the \${summaryData.type} application to <strong>\${targetData.name}</strong>?</p><p>This will restore the actor to their previous state.</p>\`,
+                    yes: () => true,
+                    no: () => false
+                });
+                
+                if (!confirm) return;
+                
+                const tokenDocument = await fromUuid(targetData.uuid);
+                if (!tokenDocument || !tokenDocument.actor) {
+                    ui.notifications.warn(\`Cannot find target: \${targetData.name}\`);
+                    return;
+                }
+                
+                try {
+                    await tokenDocument.actor.update(targetData.preState);
+                    console.log(\`Reverted \${targetData.name} to pre-application state\`);
+                    
+                    // Update the button to show it's been reverted
+                    button.disabled = true;
+                    button.innerHTML = '<i class="fas fa-check"></i>';
+                    button.classList.add('reverted');
+                    button.title = 'Reverted';
+                    
+                    // Mark the table row as reverted
+                    const targetRow = button.closest('.target-row');
+                    if (targetRow) {
+                        targetRow.classList.add('reverted');
+                        targetRow.style.opacity = '0.6';
+                        targetRow.style.textDecoration = 'line-through';
+                    }
+                    
+                    ui.notifications.info(\`Damage application reverted for \${targetData.name}\`);
+                } catch (error) {
+                    ui.notifications.error(\`Failed to revert \${targetData.name}: \${error.message}\`);
+                }
             }
         }
     `.appendNewLineIfNotEmpty();

@@ -180,6 +180,20 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
                 type: String
             });
 
+            game.settings.register('${id}', 'damageApplicationChatCard', {
+                name: game.i18n.localize('SETTINGS.DamageApplicationChatCardName'),
+                hint: game.i18n.localize('SETTINGS.DamageApplicationChatCardHint'),
+                scope: 'world',
+                config: true,
+                default: 'none',
+                type: String,
+                choices: {
+                    'none': game.i18n.localize('SETTINGS.DamageApplicationChatCard.None'),
+                    'public': game.i18n.localize('SETTINGS.DamageApplicationChatCard.Public'),
+                    'gm': game.i18n.localize('SETTINGS.DamageApplicationChatCard.GM')
+                }
+            });
+
             game.settings.register('${id}', 'hotReloadLastState', {
                 scope: 'client',
                 config: false,

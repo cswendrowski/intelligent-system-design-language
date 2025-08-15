@@ -20,6 +20,18 @@ export function generateDamageRoll(entry: Entry, id: string, destination: string
         export default class ${entry.config.name}DamageRoll extends ${entry.config.name}Roll {
             
             constructor(formula, data = {}, options = {}) {
+                // Add AE Damage Type Bonus if damage type is specified and actor exists
+                if (options.type?.value && data.actor) {
+                    const damageTypeKey = options.type.value.toLowerCase().replace(/\\s+/g, '');
+                    const bonusField = \`\${damageTypeKey}bonusdamage\`;
+                    const aeBonus = data.actor.system[bonusField];
+                    
+                    if (aeBonus && aeBonus !== 0) {
+                        // Add the AE bonus as a separate term to the formula
+                        formula = \`\${formula} + \${aeBonus}[AE \${options.type.value} Damage Bonus]\`;
+                    }
+                }
+                
                 super(formula, data, options);
                 
                 // Store damage type metadata

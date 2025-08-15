@@ -25,6 +25,8 @@ export function generateVueMixin(description: string) {
         "i-measured-template": "MeasuredTemplateField",
         "i-extended-choice": "ExtendedChoiceField",
         "i-dice": "DiceField",
+        "i-bonuses": "DamageBonuses",
+        "i-resistances": "DamageResistances",
     };
 
     const fileNode = expandToNode`

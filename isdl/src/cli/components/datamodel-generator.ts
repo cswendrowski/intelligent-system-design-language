@@ -580,9 +580,9 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             const safeTypeName = damageType.toLowerCase().replace(/[^a-z0-9]/g, '');
             return expandToNode`
                 // ${damageType} damage type fields
-                ${safeTypeName}bonusdamage: new fields.NumberField({required: false, initial: 5, integer: true}),
-                ${safeTypeName}damageresistanceflat: new fields.NumberField({required: false, initial: 5, integer: true}),
-                ${safeTypeName}damageresistancepercent: new fields.NumberField({required: false, initial: 5, min: 0, max: 100, integer: true}),
+                ${safeTypeName}bonusdamage: new fields.NumberField({required: false, initial: 0, integer: true}),
+                ${safeTypeName}damageresistanceflat: new fields.NumberField({required: false, initial: 0, integer: true}),
+                ${safeTypeName}damageresistancepercent: new fields.NumberField({required: false, initial: 0, min: 0, max: 100, integer: true}),
             `;
         });
 

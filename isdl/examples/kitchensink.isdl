@@ -136,6 +136,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             string Text2(icon: "fa-solid fa-book", label: "Locked Text Field", value: "This is a locked text field that cannot be edited by the player.", color: #a586c0)
             string Test3
             string Test4
+            bonuses Bonuses
+            resistances Resistances
 
             html Background(visibility: {
                 return Visibility.hidden

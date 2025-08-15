@@ -17,7 +17,7 @@ import {
     isActor,
     isItem,
     isHookHandler,
-    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField,
+    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isDamageBonusesField, isDamageResistancesField,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -145,6 +145,24 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             `;
             }
 
+            if (isDamageBonusesField(property)) {
+                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+                const label = labelParam ? labelParam.value : humanize(property.name);
+
+                return expandToNode`
+                    "${property.name}": "${label}"
+                `;
+            }
+
+            if (isDamageResistancesField(property)) {
+                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+                const label = labelParam ? labelParam.value : humanize(property.name);
+
+                return expandToNode`
+                    "${property.name}": "${label}"
+                `;
+            }
+
             return expandToNode`
                 "${property.name}": "${label}"
             `;
@@ -182,7 +200,14 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 "RoundUpDamageApplicationName": "Round Up Damage",
                 "RoundUpDamageApplicationHint": "When enabled, damage is rounded up to the nearest whole number. When disabled, damage is rounded down.",
                 "AllowTargetDamageApplicationName": "Allow Target Damage Application",
-                "AllowTargetDamageApplicationHint": "Whether or not to allow damage and healing on chat messages to be applied to targeted tokens in addition to selected tokens. Targeting does not require permissions, so this can allow players and GMs to apply damage to ANY token they can see."
+                "AllowTargetDamageApplicationHint": "Whether or not to allow damage and healing on chat messages to be applied to targeted tokens in addition to selected tokens. Targeting does not require permissions, so this can allow players and GMs to apply damage to ANY token they can see.",
+                "DamageApplicationChatCardName": "Damage Application Summary",
+                "DamageApplicationChatCardHint": "Controls when to send chat cards summarizing damage/healing applications with revert functionality.",
+                "DamageApplicationChatCard": {
+                    "None": "Don't send",
+                    "Public": "Send to All (public message)",
+                    "GM": "Send to GM (GM-only message)"
+                }
             },
             "CONTEXT": {
                 "ApplyChanges": "Apply",

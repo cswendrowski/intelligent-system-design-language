@@ -52,7 +52,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
     generateVueMixin(destination);
     generateActiveEffectVueSheet(entry, id, destination);
     generateIndexMjs(entry, destination);
-    generateBaseVueComponents(destination);
+    generateBaseVueComponents(destination, entry);
 
     generateDatatableVueSheet(entry, id, destination);
     generateDocumentCreationDialog(entry, id, destination);
@@ -272,6 +272,8 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as MeasuredTemplateField } from './components/measured-template.vue';
     export { default as ExtendedChoiceField } from './components/extended-choice-field.vue';
     export { default as DiceField } from './components/dice.vue';
+    export { default as DamageBonuses } from "./components/damage-bonuses.vue";
+    export { default as DamageResistances } from "./components/damage-resistances.vue";
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
