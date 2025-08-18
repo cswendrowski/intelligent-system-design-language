@@ -170,6 +170,7 @@ export default function generateYourFieldComponent(destination: string, entry?: 
 **Key Points:**
 - Always include standard props: `label`, `systemPath`, `context`, `disabled`, `color`, and `icon`
 - Use `inject("rawDocument")` to access the actor/item document
+- The base component shouldn't handle visibility, use `v-if` on the sheet generation when rendering the component, and pass in `disabled` as a prop for disabling inputs
 - Disable editable fields when `disabled` is true
 - Scoped styles aren't supported and should go in `_isdlStyles.scss` instead
 - All fields should be applied with either the single-wide field (most common) or double-wide if it needs extra space
