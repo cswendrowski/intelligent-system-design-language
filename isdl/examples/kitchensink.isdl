@@ -129,6 +129,23 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 skillTotalRoll
             }
         }
+
+        section SelfRefs {
+            self<attribute> SelfAttribute
+            self<resource> SelfResource
+            self<number> SelfNumber
+            self<boolean> SelfBoolean
+            self<date> SelfDate
+            self<time> SelfTime
+            self<datetime> SelfDateTime
+            self<die> SelfDie
+            //self<dice> SelfDice
+            self<string> SelfString
+            self<tracker> SelfTracker
+            self<choice> SelfChoice
+            self<paperdoll> SelfPaperdoll
+            self<html> SelfHtml
+        }
     }
 
     page Info(background: hideout) {

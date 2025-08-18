@@ -35,6 +35,7 @@ import {
     isDateTimeExp,
     isPaperDollExp,
     isParentPropertyRefExp,
+    isSelfPropertyRefExp,
     isDocumentChoiceExp,
     isDocumentChoicesExp,
     isAction,
@@ -445,6 +446,14 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
 
         if (isParentPropertyRefExp(property)) {
             console.log(`Parent property ref: ${property.name}`);
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
+            `;
+        }
+
+        if (isSelfPropertyRefExp(property)) {
+            console.log(`Self property ref: ${property.name}`);
 
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),

@@ -88,6 +88,7 @@ import {
     isUpdateSelf,
     isParentTypeCheckExpression,
     isParentPropertyRefExp,
+    isSelfPropertyRefExp,
     isLogExpression,
     isTrackerExp,
     isVisibilityValue,
@@ -833,6 +834,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     `;
                 }
 
+                if (isSelfPropertyRefExp(expression.property?.ref)) {
+                    return expandToNode`
+                        { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: foundry.utils.getProperty(context.object, context.object.${systemPath}).replace("system", "").replaceAll(".", "").titleCase(), wide: ${wide}, hasValue: context.object.${systemPath} != "" },
+                    `;
+                }
+
                 return expandToNode`
                     { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.object.${systemPath}, wide: ${wide}, hasValue: context.object.${systemPath} != "" },
                 `;
@@ -1069,6 +1076,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 if (isParentPropertyRefExp(expression.property?.ref)) {
                     label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
                 }
+                else if (isSelfPropertyRefExp(expression.property?.ref)) {
+                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
+                }
                 else {
                     for (const subProperty of expression.subProperties ?? []) {
                         path = `${path}.${subProperty}`;
@@ -1189,6 +1199,16 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     console.log(label, path);
                     return expandToNode`
                         "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path})
+                    `;
+                }
+                else if (isSelfPropertyRefExp(expression.property?.ref)) {
+                    // For self property references, we dynamically resolve the property path
+                    const selfPropertyPath = `context.object.system.${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${expression.property?.ref?.name}`;
+
+                    console.log(label, selfPropertyPath);
+                    return expandToNode`
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, ${selfPropertyPath})
                     `;
                 }
                 else {

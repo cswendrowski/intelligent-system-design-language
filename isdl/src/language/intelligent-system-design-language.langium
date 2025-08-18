@@ -69,7 +69,7 @@ DiceFields:
 DocumentFields:
     (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField | TableField);
 ReferenceFields:
-    (ParentPropertyRefExp);
+    (ParentPropertyRefExp | SelfPropertyRefExp);
 DeprecatedFields:
     (PipsExp | DocumentArrayExp);
 fragment ExpressionModifier:
@@ -289,6 +289,18 @@ ParentPropertyRefChoiceParam:
     "choices:" "[" choices+=ParentPropertyRefChoice ("," choices+=ParentPropertyRefChoice)* "]";
 ParentPropertyRefChoice:
     document=[Document:ID] ("." property=[Property:ID])?;
+
+// SelfPropertyRef -------------
+
+SelfPropertyRefExp:
+    ExpressionModifier "self" "<" propertyType=("attribute" | "resource" | "number" | "boolean" | "date" | "time" | "datetime" | "die" | "dice" | "string" | "tracker" | "choice" | "paperdoll" | "html" ) ">"
+    name=ID ( "(" params+=SelfPropertyRefParams ("," params+=SelfPropertyRefParams)* ")")?;
+SelfPropertyRefParams:
+    (StandardFieldParams | SelfPropertyRefChoiceParam);
+SelfPropertyRefChoiceParam:
+    "choices:" "[" choices+=SelfPropertyRefChoice ("," choices+=SelfPropertyRefChoice)* "]";
+SelfPropertyRefChoice:
+    property=[Property:ID];
 
 
 // Field Params ------------------------------------------------------

@@ -45,6 +45,7 @@ import {
     isPaperDollExp,
     isParentPropertyRefChoiceParam,
     isParentPropertyRefExp,
+    isSelfPropertyRefExp,
     isPipsExp,
     isProperty,
     isResourceExp, isRow,
@@ -1193,6 +1194,90 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     :refChoices="[${choices}]"
                     ${standardParamsFragment}>
                 </i-parent-property-reference>
+                `;
+            }
+
+            if (isSelfPropertyRefExp(element)) {
+                const choicesParam = element.params.find(p => p.$type === 'SelfPropertyRefChoiceParam');
+                let allChoices: Property[] = [];
+                
+                // Get the current document
+                const currentDocument = getDocument(element);
+                if (!currentDocument) {
+                    return expandToNode`
+                    <div class="error">Self property reference error: Cannot find current document</div>
+                    `;
+                }
+
+                switch (element.propertyType) {
+                    case "attribute":
+                        allChoices = getAllOfType<AttributeExp>(currentDocument.body, isAttributeExp);
+                        break;
+                    case "resource":
+                        allChoices = getAllOfType<ResourceExp>(currentDocument.body, isResourceExp);
+                        break;
+                    case "number":
+                        allChoices = getAllOfType<NumberExp>(currentDocument.body, isNumberExp);
+                        break;
+                    case "boolean":
+                        allChoices = getAllOfType<BooleanExp>(currentDocument.body, isBooleanExp);
+                        break;
+                    case "date":
+                        allChoices = getAllOfType<DateExp>(currentDocument.body, isDateExp);
+                        break;
+                    case "time":
+                        allChoices = getAllOfType<TimeExp>(currentDocument.body, isTimeExp);
+                        break;
+                    case "datetime":
+                        allChoices = getAllOfType<DateTimeExp>(currentDocument.body, isDateTimeExp);
+                        break;
+                    case "die":
+                        allChoices = getAllOfType<DieField>(currentDocument.body, isDieField);
+                        break;
+                    case "dice":
+                        allChoices = getAllOfType<DiceField>(currentDocument.body, isDiceField);
+                        break;
+                    case "string":
+                        allChoices = getAllOfType<StringExp>(currentDocument.body, isStringExp);
+                        break;
+                    case "tracker":
+                        allChoices = getAllOfType<TrackerExp>(currentDocument.body, isTrackerExp);
+                        break;
+                    case "choice":
+                        allChoices = getAllOfType<DocumentChoiceExp>(currentDocument.body, isDocumentChoiceExp);
+                        break;
+                    case "paperdoll":
+                        allChoices = getAllOfType<PaperDollExp>(currentDocument.body, isPaperDollExp);
+                        break;
+                    case "html":
+                        allChoices = getAllOfType<HtmlExp>(currentDocument.body, isHtmlExp);
+                        break;
+                }
+
+                let refChoices = allChoices.filter(x => x !== element).map(x => {
+                    return {
+                        path: `system.${x.name.toLowerCase()}`,
+                        name: x.name
+                    };
+                });
+
+                // Filter based on choices parameter if provided
+                if (choicesParam && (choicesParam as any).choices?.length > 0) {
+                    const allowedProperties = (choicesParam as any).choices.map((c: any) => c.property.ref?.name.toLowerCase());
+                    refChoices = refChoices.filter(x => allowedProperties.includes(x.name.toLowerCase()));
+                }
+
+                const choices = refChoices.map(c => `{ title: '${c.name}', value: '${c.path}' }`).join(", ");
+                return expandToNode`
+                <i-self-property-reference
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    propertyType="${element.propertyType}"
+                    :choices="[${choices}]"
+                    ${standardParamsFragment}>
+                </i-self-property-reference>
                 `;
             }
 

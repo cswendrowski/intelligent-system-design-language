@@ -14,9 +14,6 @@ export default function generateParentPropertyReferenceComponent(destination: st
     const fileNode = expandToNode`
 <template>
   <div class="isdl-parent-property-reference single-wide">
-    <div class="field-label" v-if="props.label">
-      <span v-html="getLabel(props.label, props.icon)" />
-    </div>
     <v-select
       :name="props.systemPath"
       v-model="value"
@@ -90,9 +87,9 @@ const isHidden = computed(() => {
 // Expose helper function
 const getLabel = (label, icon) => {
   if (icon) {
-    return \`<i class="\${icon}"></i> \${label}\`;
+    return \`<i class="\${icon}"></i> \${game.i18n.localize(label)}\`;
   }
-  return label;
+  return game.i18n.localize(label);
 };
 </script>
     `.appendNewLine();

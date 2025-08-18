@@ -21,6 +21,7 @@ import generateStringMethodComponent from "./base-components/vue-string-method.j
 import generateNumberComponent from "./base-components/vue-number.js";
 import generateStringChoiceComponent from "./base-components/vue-string-choice.js";
 import generateParentPropertyReferenceComponent from "./base-components/vue-parent-property-reference.js";
+import generateSelfPropertyReferenceComponent from "./base-components/vue-self-property-reference.js";
 import {Entry} from "../../../language/generated/ast.js";
 
 export function generateBaseVueComponents(destination: string, entry?: Entry) {
@@ -47,4 +48,5 @@ export function generateBaseVueComponents(destination: string, entry?: Entry) {
     generateNumberComponent(destination, entry);
     generateStringChoiceComponent(destination, entry);
     generateParentPropertyReferenceComponent(destination, entry);
+    generateSelfPropertyReferenceComponent(destination, entry);
 }

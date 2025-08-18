@@ -155,9 +155,10 @@ hidden number ShieldPenalty(value: {return self.WornShield.armorrating - 1})
 section DiceRollers {
     string Attributes(icon: "fa-solid fa-chart-bar", value: {return "WARRIOR: " + self.Warrior + " ROGUE: " + self.Rogue + " MAGE: " + self.Mage})
     row {
-    unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
+        unlocked self<attribute> AttributeToUse(icon: "fa-solid fa-dice-d20")
+        unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
     //        unlocked choice<Spell> Spell
-    unlocked choice<Skill> Skill
+        unlocked choice<Skill> Skill
     }
     action RollAttribute(icon: "fa-solid fa-dice"){
         fleeting Level = "None"
