@@ -523,6 +523,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
     let calculatedStatusEffects = statusEffects.filter(x => x.params.some(p => isStatusParamWhen(p)));
     let nonCalculatedStatusEffects = statusEffects.filter(x => !x.params.some(p => isStatusParamWhen(p)));
 
+
     // Name and img come with all docs. We'll go ahead and staple Description on as well
     // Collect all damage types from the entry
     function collectDamageTypes(entry: Entry): string[] {

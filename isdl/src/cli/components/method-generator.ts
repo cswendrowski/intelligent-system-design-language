@@ -121,7 +121,8 @@ import {
     isMeasuredTemplateField,
     isStringChoiceField,
     isDiceField,
-    isDieChoicesParam
+    isDieChoicesParam,
+    isDocumentChoicesExp
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -544,6 +545,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 ${systemPath}
             `;
         }
+
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression);
 
@@ -1049,6 +1051,21 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 //     `;
                 // }
 
+                // Special handling for document choices - expand into individual terms
+                if (expression.property && isDocumentChoicesExp(expression.property.ref) && expression.subProperties && expression.subProperties.length > 0) {
+                    const choicesFieldName = expression.property.ref.name.toLowerCase();
+                    const subPropertyName = expression.subProperties[0].toLowerCase();
+                    const subPropertyLabel = humanize(expression.subProperties[0]);
+
+                    // Generate dynamic expansion for each document in the choices array
+                    return expandToNode`
+                        context.object.system.${choicesFieldName}.map((doc, index) => {
+                            if (!doc || !doc.system) return '';
+                            return '@' + doc.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '${subPropertyName}[' + doc.name + ' ${subPropertyLabel}]';
+                        }).filter(Boolean).join(' + ')
+                    `;
+                }
+
                 if (isParentPropertyRefExp(expression.property?.ref)) {
                     label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
                 }
@@ -1175,6 +1192,34 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     `;
                 }
                 else {
+                    // Special handling for document choices - expand into individual data entries
+                    if (expression.property && isDocumentChoicesExp(expression.property.ref) && expression.subProperties && expression.subProperties.length > 0) {
+                        const choicesFieldName = expression.property.ref.name.toLowerCase();
+                        const subPropertyName = expression.subProperties[0].toLowerCase();
+
+                        // Generate data for each document in the choices array
+                        return expandToNode`
+                            ...Object.fromEntries(context.object.system.${choicesFieldName}.map((doc, index) => {
+                                if (!doc || !doc.system) return null;
+                                
+                                // Determine the accessor based on property type
+                                let accessor = '.${subPropertyName}';
+                                ${isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) ? `
+                                if (doc.system.${subPropertyName} && typeof doc.system.${subPropertyName} === 'object' && 'value' in doc.system.${subPropertyName}) {
+                                    accessor = '.${subPropertyName}.value';
+                                }` : ''}
+                                ${isAttributeExp(expression.property?.ref) ? `
+                                if (doc.system.${subPropertyName} && typeof doc.system.${subPropertyName} === 'object' && 'mod' in doc.system.${subPropertyName}) {
+                                    accessor = '.${subPropertyName}.mod';
+                                }` : ''}
+                                
+                                const key = doc.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '${subPropertyName}';
+                                const value = foundry.utils.getProperty(doc, 'system' + accessor) ?? 0;
+                                return [key, value];
+                            }).filter(Boolean))
+                        `;
+                    }
+
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${expression.property?.ref?.name}`;
 

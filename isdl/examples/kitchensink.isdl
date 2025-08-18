@@ -123,6 +123,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 self.MacroField.execute()
             }
         }
+        action RollSkills {
+            fleeting skillTotalRoll = roll(d20 + self.ChoicesField.SkillMod)
+            chat skillRoll {
+                skillTotalRoll
+            }
+        }
     }
 
     page Info(background: hideout) {

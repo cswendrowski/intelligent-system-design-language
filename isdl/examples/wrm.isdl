@@ -7,62 +7,29 @@ config wrm {
 
 actor Character {
     // PAGE 1 - CHARACTER DEFAULT
-    section Attributes{
-        //WARRIOR
-        edit attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
-        // ROGUE
-        edit attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
-        // MAGE
-        edit attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
-    }
-
-    section ImportantNumbers {
-        number Advances(min: 0)
-        number BonusAdv(min: 0)
+    section Attributes {
+            //WARRIOR
+            edit attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
+            // ROGUE
+            edit attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
+            // MAGE
+            edit attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
         hidden number DefenseMod(initial: 0)
         hidden number CastPenaltyMod(initial: 0)
         hidden number ManaMult(initial: 2)
     }
-    table<Advancement> Advancements
-    table<Skill> Skills
-    table<Talent> Talents
-    table<Language> Languages
-    table<Project> Projects
-    // Page 2 -- Belongings
-    page Belongings(icon: "fa-solid fa-backpack") {
+table<Advancement> Advancements
+table<Skill> Skills
+table<Talent> Talents(fields: [PreReq, Kind, Trigger, Requirement, Activation, UseLimit])
+table<Language> Languages
+table<Project> Projects(fields:[TaskDL, Completion])
+// Page 2 -- Belongings
+page Belongings(icon: "fa-solid fa-backpack") {
     section Armor {
         //Equipment WornHelmet
         unlocked choice<string> Cleanliness(choices: ["Pristine","Clean","Grubby","Dirty","Grimy","Filthy"])
-        choice<Armor> WornArmor
-        choice<Armor> WornShield
-        hidden number ShieldBonus(value: {
-            if (self.WornShield exists) {
-                return self.WornShield.system.armorrating
-                }
-                return 0
-                })
+
     }
-        //    paperdoll Clothing(image: "systems/wrm/img/paperdoll_lowpoly_dual.png", size: 50px) {
-        //        // LEFT - Clothing and Accessories
-        //        Equipment Clothing(left: 47px, top: 60px)
-        //        Equipment Legwear(left: 47px, top: 139px)
-        //        Equipment Belt(left: 115px, top: 100px)
-        //        Equipment Outerwear(left: 0px, top: 60px)
-        //        Equipment Footwear(left: 47px, top: 215px)
-        //        Equipment AccessoryI(left: 0px, top: 0px)
-        //        Equipment AccessoryII(left: 43px, top: 0px)
-        //        Equipment AccessoryIII(left: 86px, top: 0px)
-        //        // RIGHT - Armor and Weapons
-        //        Armor ArmorHelmet(left: 187px, top: 13px)
-        //        Armor ArmorBody(left: 187px, top: 53px)
-        //        Armor ArmorShoulders(left: 140px, top: 53px)
-        //        Armor ArmorArms(left: 140px, top: 96px)
-        //        Armor ArmorLegs(left: 187px, top: 139px)
-        //        Armor ArmorShield(left: 250px, top: 103px)
-        //        Weapon WeaponI(left: 250px, top: 60px)
-        //        Weapon WeaponII(left: 187px, top: 103px)
-        //        Weapon WeaponIII(left: 250px, top: 146px)
-        //        }
     section Finance {
         unlocked number Silver
         unlocked number BankedSilver
@@ -70,7 +37,7 @@ actor Character {
         readonly number MonthlyIncome(value: {return 300 * self.Investments})
     }
     section CostOfLiving {
-        unlocked choice<string> LodgingQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
+        unlocked choice<string> LodgingQuality(icon: "fa-solid fa-bed-front", choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
         hidden number LodgingQualityCost(value: {
             if (self.LodgingQuality == "Extravagant") {return 800}
             if (self.LodgingQuality == "Rich") {return 400}
@@ -79,7 +46,7 @@ actor Character {
             if (self.LodgingQuality == "Bare") {return 50}
             else {return 0}
         })
-        unlocked choice<string> MealQuality(choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
+        unlocked choice<string> MealQuality(icon: "fa-solid fa-plate-utensils", choices:["Free","Bare","Modest","Good","Rich","Extravagant"])
         hidden number MealQualityCost(value: {
             if (self.MealQuality == "Extravagant") {return 160}
             if (self.MealQuality == "Rich") {return 80}
@@ -88,229 +55,318 @@ actor Character {
             if (self.MealQuality == "Bare") {return 10}
             else {return 0}
         })
-        string Breakdown(value: {return self.LodgingQualityCost + "sp + " + self.MealQualityCost + "sp"})
-        unlocked number Days(min:1)
-        readonly number Cost(value: {return (self.LodgingQualityCost + self.MealQualityCost) * self.Days})
-        action PayCash(icon: "fa-duotone fa-solid fa-coins", visibility: {if (self.Silver < self.Cost) return Visibility.locked}) {
-            self.Silver -= self.Cost
-            self.update()
-            chat Paid {
-                flavor ("I paid " + self.Cost + " Silver out of pocket for cost of living!" )
-                tag self.Cost
-                }
-        }
-        action UseBank(icon: "fa-solid fa-building-columns", visibility: {if (self.BankedSilver < self.Cost) return Visibility.locked}) {
-            self.BankedSilver -= self.Cost
-            self.update()
-            chat Paid {
-                flavor ("I paid " + self.Cost + " Silver from my bank for cost of living!" )
-                tag self.Cost
-                }
+        string Breakdown(icon: "fa-solid fa-receipt", value: {return self.LodgingQualityCost + "sp + " + self.MealQualityCost + "sp"})
+        unlocked number Days(icon: "fa-solid fa-calendar-days", min:1)
+        readonly number Cost(icon: "fa-solid fa-coins", value: {return (self.LodgingQualityCost + self.MealQualityCost) * self.Days})
+        unlocked choice<string> Payment(choices:[
+        { label: "Coin", value: "Silver", icon: "fa-duotone fa-solid fa-coins"},
+        { label: "Bank", value: "Bank", icon: "fa-duotone fa-solid fa-building-columns"}
+        ])
+        action PayBill(icon: "fa-solid fa-hand-holding-circle-dollar", visibility: {
+            if (self.Payment == "Silver" and self.Silver < self.Cost) { return Visibility.locked }
+            else if (self.Payment == "Bank" and self.BankedSilver < self.Cost) { return Visibility.locked }
+            // Implied Visibility.default otherwise
+            }) {
+            fleeting source = "out of pocket"
+            if (self.Payment == "Silver") { self.Silver -= self.Cost }
+            else {
+                self.BankedSilver -= self.Cost
+                source = "from my bank"
             }
+            self.update() // You only need this if you want to output BankedSilver / Silver
+            chat Paid {
+                flavor ("I paid " + self.Cost + " Silver " + source + " for cost of living!" )
+                tag self.Cost
+            }
+        }
     }
     table<Armor> Armors
     table<Consumable> Consumables
     table<Equipment> Wearables
     table<Item> Items
     table<Weapon> Weapons
+}
+// PAGE 3 -- COMBAT
+page Combat(icon: "fa-solid fa-swords") {
+    section Status {
+        row {
+            play number Defense(icon: "fa-solid fa-person-falling-burst", value: {return 3 + ((self.Warrior + self.Rogue + self.Mage) / 3) + self.ShieldBonus + self.DefenseMod})
+            play string MovementString(icon: "fa-solid fa-person-running-fast", label: "Movement (yds)", value: {return self.ShortMovement + " / " + self.FullMovement})
+            edit number ShortMovement(icon: "fa-solid fa-person-walking", initial: 5)
+            edit number FullMovement(icon: "fa-solid fa-person-running-fast", initial: 10)
+        }
+        row {
+            number DamageAbsorb (icon: "fa-solid fa-helmet-battle", value: {return self.WornArmor.armorrating - self.WornArmor.armorreduction})
+            number ArmorPenalty(icon: "fa-solid fa-angles-down", value: {return self.WornArmor.armorrating - 1})
+        }
+            edit choice<Armor> WornArmor
+            edit choice<Armor> WornShield
     }
-    // PAGE 3 -- COMBAT
-    page Combat(icon: "fa-solid fa-swords") {
-        health resource Health(icon: "fa-solid fa-heart", max: {return 6 + self.Warrior.value})
-        resource Fate(icon: "fa-solid fa-dice-two", min: 0, max: {
-            if (self.Rogue == 0) {return 1}
-            else {return self.Rogue}
+section Resources {
+        row {
+            health resource Health(icon: "fa-solid fa-heart", max: {return 6 + self.Warrior.value})
+            resource Fate(icon: "fa-solid fa-dice-two", color: #50a500, min: 0, max: {
+                if (self.Rogue == 0) {return 1}
+                else {return self.Rogue}
             })
-        resource Mana(icon: "fa-solid fa-sparkles", min: 0, max: {return self.Mage * self.ManaMult})
-    section Defenses {
-        attribute ShortMovement(icon: "fa-solid fa-person-walking", initial: 5)
-        attribute FullMovement(icon: "fa-solid fa-person-running-fast", initial: 10)
-        hidden number ShieldPenalty(value: {return self.WornShield.system.armorrating - 1})
-        attribute Defense(icon: "fa-solid fa-person-falling-burst", value: {return 3 + ((self.Warrior + self.Rogue + self.Mage) / 3) + self.ShieldBonus + self.DefenseMod})
-        attribute ArmorPenalty(icon: "fa-solid fa-angles-down", value: {return self.WornArmor.system.armorrating - 1})
-        readonly tracker DamageAbsorb (style: icons, icon: "fa-solid fa-helmet-battle", value: {return self.WornArmor.system.armorrating - self.WornArmor.system.armorreduction}, max: {return self.WornArmor.system.armorrating} )
-        string Attributes(icon: "fa-solid fa-chart-bar", value: {return "W: " + self.Warrior + " R: " + self.Rogue + " M: " + self.Mage})
-        //readonly tracker ShieldAbsorb (style: icons, icon: "fa-solid fa-shield-slash", value: {return self.WornShield.system.armorrating}, max: {return self.WornShield.system.armorrating} )
-        //readonly tracker ShieldState (style: icons, icon: "fa-solid fa-shield-halved", value: {return self.WornShield.system.armorstate}, max: 7)
-        //readonly tracker PenaltyBar (style: icons, icon: "fa-solid fa-angles-down", color: #800000, value: {return ((self.WornArmor.system.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)},max: {return ((self.WornArmor.system.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)})
+            resource Mana(icon: "fa-solid fa-sparkles", color: #9d48ff, min: 0, max: {return self.Mage * self.ManaMult}, visibility: {
+            if (self.HasManaUse) {return Visibility.default}
+            return Visibility.hidden
+            })
+            tracker Combo(style: icons, icon: "fa-solid fa-hand-back-fist", color: #ff7300, min: 0, visibility: {
+            if (self.HasCombo) {return Visibility.default}
+            return Visibility.hidden
+            })
+            tracker ForagePoints(style: icons, icon: "fa-solid fa-leaf", min: 0, visibility: {
+            if (self.HasForage) {return Visibility.default}
+            return Visibility.hidden
+            })
+            tracker ElixirPoints(style: icons, icon: "fa-solid fa-flask-round-potion", min: 0, visibility: {
+            if (self.HasElixirs) {return Visibility.default}
+            return Visibility.hidden
+            })
+            tracker StormPoints(style: icons, icon: "fa-solid fa-cloud-bolt", color: #ffd000,min: 0, visibility: {
+                if (self.HasStormsong) {return Visibility.default}
+                return Visibility.hidden
+            })
+            tracker ConduitChannels(style: icons, icon: "fa-solid fa-eye-evil", color: #be00b5, min: 0, max: {return self.ConduitTier}, visibility: {
+                if (self.ConduitTier > 0) {return Visibility.default}
+                return Visibility.hidden
+            })
+            string RageBonus(icon: "fa-solid fa-face-angry", value: {
+                if (self.RageTier == 1) {return "Warrior Cast +1, MP Cost -1"}
+                if (self.RageTier == 2) {return "Warrior Cast +2, MP Cost -1, Effect +1"}
+                if (self.RageTier == 3) {return "Warrior Cast +3, MP Cost -2, Effect +1"}
+                if (self.RageTier == 4) {return "Warrior Cast +4, MP Cost -2, Effect +2"}
+                if (self.RageTier == 5) {return "Warrior Cast +5, MP Cost -3, Effect +2"}
+                if (self.RageTier == 6) {return "Warrior Cast +6, MP Cost -3, Effect +4"}
+                else {return "No rage Effect"}
+            }, visibility: {
+                if (self.RageTier < 1) {return Visibility.default}
+                return Visibility.hidden
+            })
+        }
+hidden number ShieldPenalty(value: {return self.WornShield.armorrating - 1})
+}
+//readonly tracker DamageAbsorb (style: icons, icon: "fa-solid fa-helmet-battle", value: {return self.WornArmor.armorrating - self.WornArmor.armorreduction}, max: {return self.WornArmor.armorrating} )
+//readonly tracker ShieldAbsorb (style: icons, icon: "fa-solid fa-shield-slash", value: {return self.WornShield.armorrating}, max: {return self.WornShield.armorrating} )
+//readonly tracker ShieldState (style: icons, icon: "fa-solid fa-shield-halved", value: {return self.WornShield.armorstate}, max: 7)
+//readonly tracker PenaltyBar (style: icons, icon: "fa-solid fa-angles-down", color: #800000, value: {return ((self.WornArmor.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)},max: {return ((self.WornArmor.armorrating - 1) + self.ShieldPenalty + self.CastPenaltyMod)})
+section DiceRollers {
+    string Attributes(icon: "fa-solid fa-chart-bar", value: {return "WARRIOR: " + self.Warrior + " ROGUE: " + self.Rogue + " MAGE: " + self.Mage})
+    row {
+    unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
+    //        unlocked choice<Spell> Spell
+    unlocked choice<Skill> Skill
     }
-    section DiceRollers {
-        unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
-//        unlocked choice<Spell> Spell
-        unlocked choice<Skill> Skill
-        action RollAttribute(icon: "fa-solid fa-dice"){
-            fleeting Level = "None"
-            if (self.Skill exists) {Level = self.Skill.system.skilllevel}
-            fleeting SkillUsed = "None"
-            if (self.Skill exists) {SkillUsed = self.Skill}
-            fleeting Skill = self.Skill.system.SkillTotal
+    action RollAttribute(icon: "fa-solid fa-dice"){
+        fleeting Level = "None"
+        if (self.Skill exists) {Level = self.Skill.skilllevel}
+        fleeting SkillUsed = "None"
+        if (self.Skill exists) {SkillUsed = self.Skill}
+        fleeting Skill = self.Skill.SkillTotal
+        fleeting Prompt = prompt(label: "Roll Modifiers") {
+            choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
+            number AddModifier
+        }
+        fleeting Modifier = Prompt.AddModifier
+        fleeting Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)
+        if (Level == "None") {
+            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute].mod + Skill + Modifier)}
+            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute].mod + Skill + Modifier)}
+            else {Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)}
+        }
+        else {
+            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute].mod + Skill + Modifier)}
+            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute].mod + Skill + Modifier)}
+            else {Roll = roll(1d6x + self[self.Attribute].mod + Skill + Modifier)}
+        }
+        chat RollResult {
+            flavor("Rolling!")
+            Roll
+            tag self.Attribute
+            tag Level
+            tag Skill
+        }
+    }
+    unlocked choice<Weapon> Weapon
+        action RollAttack(icon: "fa-solid fa-dice") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
                 choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
                 number AddModifier
             }
-            fleeting Modifier = Prompt.AddModifier
-            fleeting Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)
+            fleeting Modifier = Prompt.AddModifier + self.Weapon.AttackMod
+            fleeting range = "Melee"
+            if (self.Weapon.RangedWeapon == true) {
+                range = self.Weapon.IdealRange + " Yds"
+            }
+            // See if the character has the needed Skill.
+            fleeting Level = "None"
+            fleeting Skill = 0
+            if (parent is Character) {
+                each skill in parent.Skills {
+                    if (skill.Name equals self.Skill.Name) {
+                        Level = skill.SkillLevel
+                        Skill = skill.SkillTotal
+                    }
+                }
+            }
+            fleeting Roll = roll(1d6 + self.Weapon.Attribute + Skill + Modifier)
             if (Level == "None") {
-                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute].mod + Skill + Modifier)}
-                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute].mod + Skill + Modifier)}
-                else {Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)}
+                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute] + Skill + Modifier)}
+                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute] + Skill + Modifier)}
+                else {Roll = roll(1d6 + self[self.Attribute] + Skill + Modifier)}
             }
             else {
-                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute].mod + Skill + Modifier)}
-                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute].mod + Skill + Modifier)}
-                else {Roll = roll(1d6x + self[self.Attribute].mod + Skill + Modifier)}
+                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute] + Skill + Modifier)}
+                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute] + Skill + Modifier)}
+                else {Roll = roll(1d6x + self[self.Attribute] + Skill + Modifier)}
             }
-            chat RollResult {
-                flavor("Rolling!")
+            chat RollOutcome {
                 Roll
-                tag self.Attribute
-                tag Level
-                tag Skill
+                tag self.Weapon.Attribute
+                tag self.Weapon.Skill
+                tag range
             }
-           }
+        }
+    unlocked choice<Spell> Spell
+}
+section QuickActions {
+    //        action WARRIOR(icon: "fa-solid fa-helmet-battle"){
+        //            fleeting Prompt = prompt(label: "WARRIOR Roll Modifiers") {
+            //                string Advantage(choices: ["None","Advantage","Disadvantage"])
+            //                number AddModifier
+        //            }
+        //            fleeting Modifier = Prompt.AddModifier
+        //            fleeting Roll = roll(1d6 + self.Warrior + Modifier)
+        //            //if (Prompt.Advantage == "None") {Roll = roll(1d6 + self.Warrior)}
+        //            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Warrior + Modifier)}
+        //            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Warrior + Modifier)}
+        //            chat RollResult {
+            //                flavor("Rolling a basic WARRIOR check.")
+            //                Roll
+        //            }
+    //        }
+    //        action ROGUE(icon: "fa-solid fa-hood-cloak"){
+        //            fleeting Prompt = prompt(label: "ROGUE Roll Modifiers") {
+            //                string Advantage(choices: ["None","Advantage","Disadvantage"])
+            //                number AddModifier
+        //            }
+        //            fleeting Modifier = Prompt.AddModifier
+        //            fleeting Roll = roll(1d6 + self.Rogue + Modifier)
+        //            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Rogue + Modifier)}
+        //            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Rogue + Modifier)}
+        //            chat RollResult {
+            //                flavor("Rolling a basic ROGUE check.")
+            //                Roll
+        //            }
+    //        }
+    //        action MAGE(icon: "fa-solid fa-hat-wizard"){
+        //            fleeting Prompt = prompt(label: "MAGE Roll Modifiers") {
+            //                string Advantage(choices: ["None","Advantage","Disadvantage"])
+            //                number AddModifier
+        //            }
+        //            fleeting Modifier = Prompt.AddModifier
+        //            fleeting Roll = roll(1d6 + self.Mage + Modifier)
+        //            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Mage + Modifier)}
+        //            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Mage + Modifier)}
+        //            chat RollResult {
+            //                flavor("Rolling a basic MAGE check.")
+            //                Roll
+        //            }
+    //        }
+    //action Recover(icon: "fa-regular fa-bars-progress"){
+        //    fleeting Prompt = prompt(label: "Recover Resources") {
+            //        choice<string> RecoverResource(choices: ["All","Fate","Health","Mana"])
+        //    }
+        //    if (Prompt.RecoverResource == "All") {
+            //        self.Health = self.Health.Max
+            //        self.Fate = self.Fate.Max
+            //        self.Mana = self.Mana.Max
+            //        chat AllReset {"I've reset my Fate, Health and Mana points to full."}
+        //    }
+        //    if (Prompt.RecoverResource == "Fate") {
+            //        self.Fate = self.Fate.Max
+            //        chat FateReset {"I've reset my Fate points to full."}
+        //    }
+        //    if (Prompt.RecoverResource == "Health") {
+            //        self.Health = self.Health.Max
+            //        chat HealthReset {"I've reset my Health points to full."}
+        //    }
+        //    if (Prompt.RecoverResource == "Mana") {
+            //        self.Mana = self.Mana.Max
+            //        chat ManaReset {"I've reset my Mana points to full."}
+        //    }
+    //}
+    action Talents(icon: "fa-solid fa-arrows-rotate-reverse"){
+        each talent in self.Talents {
+            if (talent.UsesLeft < talent.MaxUses) {
+                talent.usesleft = talent.MaxUses
+            }
+        }
+        chat TalentReset {"I've reset all my talent uses to full."}
     }
-    section QuickActions {
-//        action WARRIOR(icon: "fa-solid fa-helmet-battle"){
-//            fleeting Prompt = prompt(label: "WARRIOR Roll Modifiers") {
-//                string Advantage(choices: ["None","Advantage","Disadvantage"])
-//                number AddModifier
-//            }
-//            fleeting Modifier = Prompt.AddModifier
-//            fleeting Roll = roll(1d6 + self.Warrior + Modifier)
-//            //if (Prompt.Advantage == "None") {Roll = roll(1d6 + self.Warrior)}
-//            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Warrior + Modifier)}
-//            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Warrior + Modifier)}
-//            chat RollResult {
-//                flavor("Rolling a basic WARRIOR check.")
-//                Roll
-//            }
-//        }
-//        action ROGUE(icon: "fa-solid fa-hood-cloak"){
-//            fleeting Prompt = prompt(label: "ROGUE Roll Modifiers") {
-//                string Advantage(choices: ["None","Advantage","Disadvantage"])
-//                number AddModifier
-//            }
-//            fleeting Modifier = Prompt.AddModifier
-//            fleeting Roll = roll(1d6 + self.Rogue + Modifier)
-//            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Rogue + Modifier)}
-//            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Rogue + Modifier)}
-//            chat RollResult {
-//                flavor("Rolling a basic ROGUE check.")
-//                Roll
-//            }
-//        }
-//        action MAGE(icon: "fa-solid fa-hat-wizard"){
-//            fleeting Prompt = prompt(label: "MAGE Roll Modifiers") {
-//                string Advantage(choices: ["None","Advantage","Disadvantage"])
-//                number AddModifier
-//            }
-//            fleeting Modifier = Prompt.AddModifier
-//            fleeting Roll = roll(1d6 + self.Mage + Modifier)
-//            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Mage + Modifier)}
-//            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Mage + Modifier)}
-//            chat RollResult {
-//                flavor("Rolling a basic MAGE check.")
-//                Roll
-//            }
-//        }
-        action Recover(icon: "fa-regular fa-bars-progress"){
-            fleeting Prompt = prompt(label: "Recover Resources") {
-                choice<string> RecoverResource(choices: ["All","Fate","Health","Mana"])
-            }
-            if (Prompt.RecoverResource == "All") {
-                self.Health = self.Health.Max
-                self.Fate = self.Fate.Max
-                self.Mana = self.Mana.Max
-                chat AllReset {"I've reset my Fate, Health and Mana points to full."}
-            }
-            if (Prompt.RecoverResource == "Fate") {
-                self.Fate = self.Fate.Max
-                chat FateReset {"I've reset my Fate points to full."}
-            }
-            if (Prompt.RecoverResource == "Health") {
-                self.Health = self.Health.Max
-                chat HealthReset {"I've reset my Health points to full."}
-            }
-            if (Prompt.ResoverResource == "Mana") {
-                self.Mana = self.Mana.Max
-                chat ManaReset {"I've reset my Mana points to full."}
-            }
+    action YesOrNo(icon: "fa-solid fa-circle-question"){
+        fleeting flip = roll(1d6)
+        fleeting Answer = "??"
+        if (flip.Total > 3) {Answer = "Yes"}
+        else {Answer = "No"}
+        chat Output {
+            flavor ("The real question is: Yes or No?")
+            Answer
         }
-        action Talents(icon: "fa-solid fa-arrows-rotate-reverse"){
-                   each talent in self.Talents {
-                       if (talent.UsesLeft < talent.MaxUses) {
-                        talent.system.usesleft = talent.MaxUses
-                       }
-                   }
-                   chat TalentReset {"I've reset all my talent uses to full."}
-         }
-        action YesOrNo(icon: "fa-solid fa-circle-question"){
-            fleeting flip = roll(1d6)
-            fleeting Answer = "??"
-            if (flip.Total > 3) {Answer = "Yes"}
-            else {Answer = "No"}
-            chat Output {
-                flavor ("The real question is: Yes or No?")
-                Answer
-                }
-            }
-        action Coin(icon: "fa-solid fa-coin"){
-            fleeting flip = roll(1d2)
-            fleeting Result = "??"
-            if (flip.Total == 2) {Result = "Heads"}
-            else {Result = "Tails"}
-            chat Output {
-                flavor ("The coin's up!")
-                Result
-                }
+    }
+    action Coin(icon: "fa-solid fa-coin"){
+        fleeting flip = roll(1d2)
+        fleeting Result = "??"
+        if (flip.Total == 2) {Result = "Heads"}
+        else {Result = "Tails"}
+        chat Output {
+            flavor ("The coin's up!")
+            Result
         }
-        action Rating(icon: "fa-solid fa-star"){
-            fleeting Score = roll(d10)
-            chat Output {
-                flavor ("On a scale from 1 to 10 you give this a...")
-                Score
-                }
+    }
+    action Rating(icon: "fa-solid fa-star"){
+        fleeting Score = roll(d10)
+        chat Output {
+            flavor ("On a scale from 1 to 10 you give this a...")
+            Score
         }
+    }
 
-    }
-        //action HPReset(icon: "fa-solid fa-heart", visibility: {if (self.Health == self.Health.Max) return Visibility.locked}) {
-        //    self.Health = self.Health.Max
-        //    chat HealthReset {"I've reset my Health points to " self.Health + "."}
-        //    }
-        //action FPReset(icon: "fa-solid fa-clover", visibility: {if (self.Fate == self.Fate.Max) return Visibility.locked}) {
-        //    self.Fate = self.Fate.Max
-        //    chat FateReset {"I've reset my Fate points to " self.Fate + "."}
-        //    }
-        //action MPReset(icon: "fa-solid fa-sparkles", visibility: {if (self.Mana == self.Mana.Max) return Visibility.locked}) {
-        //    self.Mana = self.Mana.Max
-        //    chat ManaReset {"I've reset my Mana points to " self.Mana + "."}
-        //    }
-        // action ResetTurn(icon:"fa-solid fa-circle-three-quarters-stroke"){
-        //    chat Reset{flavor("Resetting all per-turn talent uses. TODO")}
-        // }
-        //action ResetBattle(icon:"fa-solid fa-circle-quarter-stroke"){
-        //    chat Reset{flavor("Resetting all per-battle/scene talent uses. TODO")}
-        // }
-        //action Aaaaaaaa(icon:"fa-solid fa-person-harassing"){
-        //    chat Reset{flavor("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")}
-        // }
-        // action DamageShield(icon:"fa-solid fa-shield-slash"){
-        //     chat Damage{flavor("Shield damaged.")}
-        // }
-        // action DamageArmor(icon:"fa-solid fa-claw-marks", disabled: self.WornArmor !exists){
-        //     chat Damage{flavor("Armor damaged.")}
-        // }
-        // action DamageHelmet(icon:"fa-solid fa-helmet-battle"){
-        //    chat Damage{flavor("Helmet damaged.")}
-        // }
+}
 
-    table<Armor> YourArmors
-    table<Consumable> YourConsumables
-    table<Skill> YourSkills
-    table<Spell> YourSpells
-    table<Talent> YourTalents
-    table<Weapon> YourWeapons
-    }
+table<Armor> YourArmors(fields:[ArmorRating, ArmorCondition, Brittle, Heavy, Noisy, Repair, Shape])
+table<Consumable> YourConsumables(fields:[Kind, UseLimit, Uses, Refillable])
+table<Skill> YourSkills
+table<Spell> YourSpells(fields:[Circle, Difficulty, Mana])
+table<Talent> YourTalents(fields: [PreReq, Kind, Trigger, Requirement, Activation, UseLimit])
+table<Weapon> YourWeapons(fields:[Skill, AttackMod, DamageType, DamString, TwoHanded, MeleeWeapon, RangedWeapon, ThrownWeapon, RangeComp])
+}
+page Settings(icon: "fa-solid fa-gears") {
+    section ResourceTrackers {
+        boolean HasCombo(icon: "fa-solid fa-hand-back-fist")
+        boolean HasElixirs(icon: "fa-solid fa-flask-vial")
+        boolean HasForage(icon: "fa-solid fa-leaf")
+        boolean HasManaUse(icon: "fa-solid fa-sparkles")
+        }
+    section SpecialResources {
+        number ConduitTier(icon: "fa-solid fa-eye-evil", min: 0, max: 6)
+        number RageTier(icon: "fa-solid fa-face-angry", min: 0, max: 6)
+        boolean HasStormsong(icon: "fa-solid fa-cloud-bolt")
+        }
+    section Progression {
+        number Advances(min: 0)
+        number BonusAdv(min: 0)
+        }
+// Hidden Numbers and Shit
+        hidden number ShieldBonus(value: {
+            if (self.WornShield exists) {
+                return self.WornShield.ArmorRating
+            }
+            return 0
+        })
+}
 }
 
 //////// ITEMS BEGIN HERE
@@ -327,33 +383,25 @@ item Language(svg: "icons/svg/quill-ink.svg", description: "A useful language.")
 
 // TALENT
 item Talent(svg: "icons/svg/upgrade.svg", description: "A useful ability or improvement.") {
+    //string PreReq
+    //string Trigger
+    //string Requirement
     section Details {
-        string PreReq
-        choice<string> Kind(choices: ["Standard","Inherent","Free","Special","Negative","Temporary"])
-        string Trigger
-        string Requirement
+        choice<string> Kind(choices: ["Standard","Inherent","Free","Special"])
         choice<string> Activation(choices: ["Passive", "Action", "Reaction", "Special"])
         choice<string> UseLimit(choices: ["Passive","At-Will","Turn","Round","Battle","Day","Session"])
+        boolean Negative
+        boolean Temporary
     }
     section Tracking {
-        tracker Combo(style: icons, icon: "fa-hand-back-fist", min: 0, max: {return self.MaxCombo}, visibility: {
-            if (!self.HasCombo) {return Visibility.hidden}
-            })
-        tracker Resource(min: 0, max: {return self.MaxResource}, visibility: {
-            if (!self.HasResource) {return Visibility.hidden}
-            })
-        tracker Uses(style: slashes, min: 0, max: {return self.MaxUses}, visibility: {
-            if (!self.HasFreeUses) {return Visibility.hidden}
-            })
-    }
-    section Config {
-        boolean HasCombo
-        number MaxCombo(min: 0)
-        boolean HasResource
-        number MaxResource
         boolean HasFreeUses
-        number MaxUses(min: 0)
-    }
+        number MaxUses(min: 0, visibility: {
+            if (!self.HasFreeUses) {return Visibility.hidden}
+        })
+        tracker Uses(style: slashes, min: 0, max: {return self.MaxUses}, visibility: {
+        if (!self.HasFreeUses) {return Visibility.hidden}
+    })
+}
 }
 
 //SKILL
@@ -373,7 +421,7 @@ item Skill(svg: "icons/svg/weight-lifting-up.svg", description: "A useful bit of
     }
     section RollConfig {
         unlocked parent<attribute> Attribute(choices: [Character.Warrior, Character.Rogue, Character.Mage])
-    // ROLLERS
+        // ROLLERS
         action Roll(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
                 choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
@@ -402,6 +450,7 @@ item Skill(svg: "icons/svg/weight-lifting-up.svg", description: "A useful bit of
 }
 
 // CONSUMABLE
+// Kind, UseLimit, Uses, Refillable
 item Consumable(svg: "icons/svg/square-bottle.svg", description: "An item that is consumed on use.") {
     section Details {
         choice<string> Kind(choices:["Ammo","Food","Elixir","Ration","Light","Liquor","Other"])
@@ -419,28 +468,30 @@ item Consumable(svg: "icons/svg/square-bottle.svg", description: "An item that i
             // If it's non-refill, self delete when Uses are 0.
             if (self.Refillable == false) {
                 if (self.Uses == 0) {self.delete()}
-                }
+            }
         }
     }
 }
 
 // WEAPON
+// Skill, AttackMod, Damage, DamString, TwoHanded, MeleeWeapon, RangedWeapon, ThrownWeapon, RangeComp
 item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offensive gear.") {
     section Qualities {
         number Value(min:0)
-        boolean TwoHanded
-        boolean MeleeWeapon
-        boolean RangedWeapon
-        boolean ThrownWeapon
-        number IdealRange(min: 0)
-        number MaxRange(min: 0)
+        boolean TwoHanded(label: "2H")
+        boolean MeleeWeapon(label: "Melee")
+        boolean RangedWeapon(label: "Ranged")
+        boolean ThrownWeapon(label: "Thrown")
+        edit number IdealRange(min: 0)
+        edit number MaxRange(min: 0)
+        string RangeComp(label: "Range", value: {return self.IdealRange + " / " + self.MaxRange})
     }
     section Use {
         parent<attribute> Attribute(choices: [Character.Warrior, Character.Rogue, Character.Mage])
         string Skill
         number AttackMod
 
-    // ROLLERS
+        // ROLLERS
         action Attack(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
                 choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
@@ -483,9 +534,10 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
     }
     section Damage {
         choice<string> DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"])
+        string DamString(label: "Damage", value: {return self.DiceCount + "D6 + " + self.DamageMod})
         number DiceCount(min: 1)
         choice<string> Limit(choices: [ "None","Max5","Max4","Max3","Max2"])
-        number DamageMod
+        number DamageMod(initial: 0)
         hidden string DamageRoll(value:{
             if (self.Limit == "None") {return self.DiceCount + "d6x"}
             else {return self.DiceCount + "d6xmin1" + self.Limit}
@@ -494,11 +546,11 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
             //else if (self.Limit == "Max4") {return self.DiceCount + "d6xmin1max4"}
             //else if (self.Limit == "Max3") {return self.DiceCount + "d6xmin1max3"}
         })
-    action Damage(icon: "fa-solid fa-heart-crack" ){
-        fleeting damageRoll = roll(self.DamageRoll + self.DamageMod)
-        chat AttackOutcome {
-            damageRoll
-            tag self.DamageType
+        action Damage(icon: "fa-solid fa-heart-crack" ){
+            fleeting damageRoll = roll(self.DamageRoll + self.DamageMod)
+            chat AttackOutcome {
+                damageRoll
+                tag self.DamageType
             }
         }
     }
@@ -520,37 +572,38 @@ item Item(svg: "icons/svg/open-treasure-chest.svg", description: "A random item 
 }
 
 // SPELL
+// Circle, Difficulty, Mana,
 item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you can cast.") {
     section Basics {
         number Circle(initial: 1, min: 0, max: 7)
-        number Difficulty(value: {
+        number Difficulty(label: "DL", value: {
             @js{let spellDLScale = [0, 5, 7, 9, 13, 19, 25, 31];}
             return @js{spellDLScale[system.circle]}
         })
-        number Mana(value: {
+        number Mana(label: "MP", value: {
             @js{let spellMPScale = [0, 1, 2, 4, 8, 16, 32, 64];}
             return @js{spellMPScale[system.circle]}
         })
         choice<string> Source(choices:["Innate","Channeled","Planar"])
         choice<string> Field(choices: ["Forming", "Shaping", "Twisting", "Unaligned"])
         choice<string> Consumes(choices: ["Mana","Blood","Favor","Fate","Other"])
-        }
+    }
     section Effect{
-      //  string DamageClass(choices: ["Physical","Magical"])
+        //  string DamageClass(choices: ["Physical","Magical"])
         boolean Intangible
         boolean DealsDamage
         choice<string> DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"], visibility: {
             if (self.DealsDamage == false) {return Visibility.hidden}
-            })
+        })
         choice<string> Range(choices: ["Self","Touch","Ranged","Line of Sight"])
-      //  number Targets(value: {
-      //      @js{let spellTargetScale = [0, 1, 2, 3, 5, 8, 13, 21];}
-      //      return @js{spellTargetScale[system.circle]}
-      //      })
-      //  number DamageDice(value: {return self.Circle})
-      //  number DamageMod(value: {return self.Circle})
-      //  number FlatDamage(value: {return self.Circle})
-    }
+        //  number Targets(value: {
+            //      @js{let spellTargetScale = [0, 1, 2, 3, 5, 8, 13, 21];}
+            //      return @js{spellTargetScale[system.circle]}
+            //      })
+            //  number DamageDice(value: {return self.Circle})
+            //  number DamageMod(value: {return self.Circle})
+            //  number FlatDamage(value: {return self.Circle})
+        }
         section CastConfiguration {
             unlocked number Enhancements
             unlocked number FreeEnhances
@@ -561,204 +614,206 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             readonly number CastPenalty(value: {
                 if (parent is Character) {
                     return Math.round(parent.ArmorPenalty / 2)
-                    }
-                    else {return 0}
-                    })
+                }
+                else {return 0}
+            })
             hidden number FinalMana(value: {return self.Mana + self.CastPenalty + self.EnhanceCost + self.CostMod})
             hidden number FinalDL(value: {return self.Difficulty + self.CastPenalty + self.EnhanceDL})
             string DLBreakdown(value: {return "DL: " + self.FinalDL + " (Base: " + self.Difficulty + " Enh: +" + self.EnhanceDL + " Pen: +" + self.CastPenalty + ")"})
             string MPBreakdown(value: {return "MP: " + self.FinalMana + " (Base: " + self.Mana + " Enh: +" + self.EnhanceCost + " Pen: +" + self.CastPenalty + " Mod: +" + self.CostMod + ")"})
         }
-}
-
-// ADVANCEMENT
-item Advancement(svg: "icons/svg/progression.svg", description: "A record of a character's growth.") {
-    section Details {
-    choice<string> AdvancementType(choices: ["Standard","Bonus"])
-    choice<string> Adding(choices: ["Attribute","Talent","Skill","Language","Health","Mana","Ability"])
-    string Note
     }
-    section Logging {
-    date Awarded
-    string IngameDate
-    }
-}
 
-// ARMOR
-item Armor(svg: "icons/svg/mail-shirt.svg", description: "A piece of protective gear") {
-section Protection {
-    number ArmorRating(icon: "fa-solid fa-helmet-battle", min: 0, max: 10)
-    hidden number ArmorState(min: 0, max: 7)
-    hidden number ArmorStateMax(initial: 7)
-    //string ArmorCondition(choices:["New","Good","Worn","Battered","Damaged","Ruined","Destroyed"])
-    string ArmorCondition(value:{
-        if (self.ArmorState == 7) {return "New"}
-        if (self.ArmorState == 6) {return "Good"}
-        if (self.ArmorState == 5) {return "Worn"}
-        if (self.ArmorState == 4) {return "Battered"}
-        if (self.ArmorState == 3) {return "Damaged"}
-        if (self.ArmorState == 2) {return "Ruined"}
-        if (self.ArmorState == 1) {return "Destroyed"}
-        else {return "Destroyed"}
-    })
-    hidden number ArmorReduction(value: {
-        if (self.ArmorCondition == "Damaged") {return Math.round(self.ArmorRating / 2)}
-        if (self.ArmorCondition == "Ruined") {return Math.round(self.ArmorRating / 2)}
-        if (self.ArmorCondition == "Destroyed") {return self.ArmorRating}
-        else {return 0}
-    })
-    // readonly number ArmorAbsorb(icon: "fa-solid fa-helmet-battle", value: {return self.ArmorRating - self.ArmorReduction})
-        action Repair(icon:"fa-solid fa-hammer-crash") {
-            self.ArmorState ++
-            self.update()
-            if (self.ArmorState > 7) {self.ArmorState = 7}
-            chat ArmorRepaired {
-                flavor ("Armor repaired!")
-            }
+    // ADVANCEMENT
+    item Advancement(svg: "icons/svg/progression.svg", description: "A record of a character's growth.") {
+        section Details {
+            choice<string> AdvancementType(choices: ["Standard","Bonus"])
+            choice<string> Adding(choices: ["Attribute","Talent","Skill","Language","Health","Mana","Ability"])
+            string Note
         }
-        action Damage(icon:"fa-solid fa-burst") {
-            self.ArmorState --
-            self.update()
-            if (self.ArmorState < 1) {self.ArmorState = 1}
-            chat ArmorDamaged {
-                flavor("Armor damaged!")
-                }
-            }
-}
-    section Tags {
-        boolean Brittle
-        boolean Heavy
-        boolean Irreparable
-        boolean Noisy
+        section Logging {
+            date Awarded
+            string IngameDate
+        }
     }
-    section Qualities {
-        number SilverValue
-        readonly string Repair(value: {
-            if (self.Irreparable == true) {return "Magic Only"}
-            else {return self.SilverValue / 10 + "s, " + self.ArmorRating / 2 + " days"}
+
+    // ARMOR
+    // ArmorRating, ArmorCondition, Brittle, Heavy, Noisy, Repair, Shape
+    item Armor(svg: "icons/svg/mail-shirt.svg", description: "A piece of protective gear") {
+        section Protection {
+            number ArmorRating(label: "Protection", icon: "fa-solid fa-helmet-battle", min: 0, max: 10)
+            hidden number ArmorState(min: 0, max: 7)
+            hidden number ArmorStateMax(initial: 7)
+            //string ArmorCondition(choices:["New","Good","Worn","Battered","Damaged","Ruined","Destroyed"])
+            string ArmorCondition(label: "Condition", value:{
+                if (self.ArmorState == 7) {return "New"}
+                if (self.ArmorState == 6) {return "Good"}
+                if (self.ArmorState == 5) {return "Worn"}
+                if (self.ArmorState == 4) {return "Battered"}
+                if (self.ArmorState == 3) {return "Damaged"}
+                if (self.ArmorState == 2) {return "Ruined"}
+                if (self.ArmorState == 1) {return "Destroyed"}
+                else {return "Destroyed"}
             })
-        choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
-        }
-}
-
-// PROJECTS
-item Project(svg: "icons/svg/scroll-quill.svg", description: "A task that takes time to complete.") {
-    //string Difficulty(choices: ["Easy","Routine","Challenging","Hard","Extreme","Insane","Impossible"])
-    //string Complexity(choices: ["Minimal","Moderate","Considerable","Heavy","Extreme","Insane","Immense"])
-section Details {
-    number Difficulty
-    readonly number TaskDL(value: {return 5 + self.Difficulty})
-    number Work
-}
-section Tracking {
-    number Progress(max: {
-    if (self.Work > 0) {return self.Work}
-    else {return 1}
-    })
-    hidden number Done(value: {return (self.Progress / self.Work) * 100})
-    readonly string Completion(value: {return self.Done + "%"})
-    }
-}
-
-// EQUIPMENT
-item Equipment(svg: "icons/svg/pirate-coat.svg", description: "A wearable piece of equipment.") {
-    section Qualities {
-        choice<string> Kind(choices: ["Headwear","Facewear","Cloak","Clothing","Legwear","Footwear","Neckwear","Belt","Bracelet","Gloves","Ring"])
-        //string Kind(choices: ["OuterWear","Bracelet","Coat","Clothing","Ring","Footwear","Gloves","Belt","Headwear","Cloak","Neckwear"])
-        choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
-        choice<string> ClothingStyle(choices: ["Utility","Casual","Dress","Formal","Royal"])
-        choice<string> Condition(choices: ["New","Good","Worn","Battered","Damaged","Ruined","Destroyed","Pristine"])
-        string Origin
-        boolean IsMagical
-        number SilverValue(min:0)
-    }
-    //section Appearance {
-        //string Quality(choices: ["Shoddy", "Decent", "Good", "Excellent", "Fantastic", "Amazing"])
-        //string State(choices: ["New", "Decent", "Worn", "Damaged", "Ruined"])
-        //string Condition(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
-        //string Value(choices: ["Cheap", "Modest", "Good", "Rich", "Extravagant"])
-        //string Structure(choices: ["New", "Decent", "Worn", "Damaged", "Ruined"])
-        //string Appearance(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
-    //}
-}
-
-// Follower
-item Follower {
-    section Abilities {
-    number Warrior
-    number Rogue
-    number Mage
-    }
-}
-
-
-//item Potion {
-//    number Quantity
-//    action Use(icon: "fa-solid fa-flask-round-potion") {
-//        self.Quantity--
-//        chat PotionUsed {}
-//        self.update()
-//
-//        if (self.Quantity == 0) {
-//            self.delete()
-//        }
-//    }
-//}
-
-actor Army {
-    section Attributes {
-        choice<string> Experience(choices: ["Untrained","Trained","Veteran","Elite"])
-        choice<string> Class(choices: ["Light", "Medium", "Heavy"])
-        choice<string> Weaponry(choices: ["Spears","Swords","Pikes","Bows"])
-        string Movement(value: {
-        if (self.Class == "Light") {return "Fast: 1/2/3"}
-        if (self.Class == "Heavy") {return "Slow: 1/1/2"}
-        if (self.Class == "Mounted") {return "Swift: 2/3/4"}
-        else {return "Base: 1/2/2"}
-        })
-        hidden number ArmorBonus(initial: 0)
-        number Armor(value: {
-        if (self.Class == "Light") {return 3 + self.ArmorBonus}
-        if (self.Class == "Heavy") {return 5 + self.ArmorBonus}
-        else {return 4 + self.ArmorBonus}
-    })
-    }
-    section Resources {
-        resource Resolve(max: {
-            if (self.Experience == "Trained") {return 8}
-            if (self.Experience == "Veteran") {return 10}
-            if (self.Experience == "Elite") {return 12}
-            else {return 6}
-        })
-        resource Stamina(max: {
-            if (self.Experience == "Trained") {return 8}
-            if (self.Experience == "Veteran") {return 10}
-            if (self.Experience == "Elite") {return 12}
-            else {return 6}
-        })
-        health resource Health(max: {
-            if (self.Experience == "Trained") {return 8}
-            if (self.Experience == "Veteran") {return 10}
-            if (self.Experience == "Elite") {return 12}
-            else {return 6}
-        })
-    }
-    section Actions {
-        action Clash(icon: "fa-solid fa-swords", visibility: { if (self.Stamina < 1) return Visibility.locked}){
-                fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
-                    choice<string> Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
-                    choice<string> Flanking(choices:["Difficulty -1 step if enemy Flanked."])
-                    choice<string> Holding(choices:["Difficulty +1 step if enemy is Holding."])
-                }
-                fleeting clashDice = Math.round((self.Health + self.Stamina + self.Resolve) / 3)
-                fleeting rolltext = clashDice + "d6x6" + Prompt.Difficulty
-                fleeting Roll = roll(rolltext)
-                self.Stamina --
-                chat RollResult {
-                    flavor("Rolling Clash check. Stamina reduced by 1.")
-                    Roll
+            hidden number ArmorReduction(value: {
+                if (self.ArmorCondition == "Damaged") {return Math.round(self.ArmorRating / 2)}
+                if (self.ArmorCondition == "Ruined") {return Math.round(self.ArmorRating / 2)}
+                if (self.ArmorCondition == "Destroyed") {return self.ArmorRating}
+                else {return 0}
+            })
+            // readonly number ArmorAbsorb(icon: "fa-solid fa-helmet-battle", value: {return self.ArmorRating - self.ArmorReduction})
+            action Repair(icon:"fa-solid fa-hammer-crash") {
+                self.ArmorState ++
+                self.update()
+                if (self.ArmorState > 7) {self.ArmorState = 7}
+                chat ArmorRepaired {
+                    flavor ("Armor repaired!")
                 }
             }
+            action Damage(icon:"fa-solid fa-burst") {
+                self.ArmorState --
+                self.update()
+                if (self.ArmorState < 1) {self.ArmorState = 1}
+                chat ArmorDamaged {
+                    flavor("Armor damaged!")
+                }
+            }
+        }
+        section Tags {
+            boolean Brittle
+            boolean Heavy
+            boolean Irreparable
+            boolean Noisy
+        }
+        section Qualities {
+            number SilverValue
+            readonly string Repair(value: {
+                if (self.Irreparable == true) {return "Magic Only"}
+                else {return self.SilverValue / 10 + "s, " + self.ArmorRating / 2 + " days"}
+            })
+            choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
+        }
+    }
+
+    // PROJECTS
+    // TaskDL, Completion
+    item Project(svg: "icons/svg/scroll-quill.svg", description: "A task that takes time to complete.") {
+        //string Difficulty(choices: ["Easy","Routine","Challenging","Hard","Extreme","Insane","Impossible"])
+        //string Complexity(choices: ["Minimal","Moderate","Considerable","Heavy","Extreme","Insane","Immense"])
+        section Details {
+            number Difficulty
+            readonly number TaskDL(value: {return 5 + self.Difficulty})
+            number Work
+        }
+        section Tracking {
+            number Progress(max: {
+                if (self.Work > 0) {return self.Work}
+                else {return 1}
+            })
+            hidden number Done(value: {return (self.Progress / self.Work) * 100})
+            readonly string Completion(value: {return self.Done + "%"})
+        }
+    }
+
+    // EQUIPMENT
+    item Equipment(svg: "icons/svg/pirate-coat.svg", description: "A wearable piece of equipment.") {
+        section Qualities {
+            choice<string> Kind(choices: ["Headwear","Facewear","Cloak","Clothing","Legwear","Footwear","Neckwear","Belt","Bracelet","Gloves","Ring"])
+            //string Kind(choices: ["OuterWear","Bracelet","Coat","Clothing","Ring","Footwear","Gloves","Belt","Headwear","Cloak","Neckwear"])
+            choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
+            choice<string> ClothingStyle(choices: ["Utility","Casual","Dress","Formal","Royal"])
+            choice<string> Condition(choices: ["New","Good","Worn","Battered","Damaged","Ruined","Destroyed","Pristine"])
+            string Origin
+            boolean IsMagical
+            number SilverValue(min:0)
+        }
+        //section Appearance {
+            //string Quality(choices: ["Shoddy", "Decent", "Good", "Excellent", "Fantastic", "Amazing"])
+            //string State(choices: ["New", "Decent", "Worn", "Damaged", "Ruined"])
+            //string Condition(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
+            //string Value(choices: ["Cheap", "Modest", "Good", "Rich", "Extravagant"])
+            //string Structure(choices: ["New", "Decent", "Worn", "Damaged", "Ruined"])
+            //string Appearance(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
+        //}
+    }
+
+    // Follower
+    item Follower {
+        section Abilities {
+            number Warrior
+            number Rogue
+            number Mage
+        }
+    }
+
+
+    //item Potion {
+        //    number Quantity
+        //    action Use(icon: "fa-solid fa-flask-round-potion") {
+            //        self.Quantity--
+            //        chat PotionUsed {}
+            //        self.update()
+            //
+            //        if (self.Quantity == 0) {
+                //            self.delete()
+            //        }
+        //    }
+    //}
+
+    actor Army {
+        section Attributes {
+            choice<string> Experience(choices: ["Untrained","Trained","Veteran","Elite"])
+            choice<string> Class(choices: ["Light", "Medium", "Heavy"])
+            choice<string> Weaponry(choices: ["Spears","Swords","Pikes","Bows"])
+            string Movement(value: {
+                if (self.Class == "Light") {return "Fast: 1/2/3"}
+                if (self.Class == "Heavy") {return "Slow: 1/1/2"}
+                if (self.Class == "Mounted") {return "Swift: 2/3/4"}
+                else {return "Base: 1/2/2"}
+            })
+            hidden number ArmorBonus(initial: 0)
+            number Armor(value: {
+                if (self.Class == "Light") {return 3 + self.ArmorBonus}
+                if (self.Class == "Heavy") {return 5 + self.ArmorBonus}
+                else {return 4 + self.ArmorBonus}
+            })
+        }
+        section Resources {
+            resource Resolve(max: {
+                if (self.Experience == "Trained") {return 8}
+                if (self.Experience == "Veteran") {return 10}
+                if (self.Experience == "Elite") {return 12}
+                else {return 6}
+            })
+            resource Stamina(max: {
+                if (self.Experience == "Trained") {return 8}
+                if (self.Experience == "Veteran") {return 10}
+                if (self.Experience == "Elite") {return 12}
+                else {return 6}
+            })
+            health resource Health(max: {
+                if (self.Experience == "Trained") {return 8}
+                if (self.Experience == "Veteran") {return 10}
+                if (self.Experience == "Elite") {return 12}
+                else {return 6}
+            })
+        }
+        section Actions {
+            action Clash(icon: "fa-solid fa-swords", visibility: { if (self.Stamina < 1) return Visibility.locked}){
+            fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
+                choice<string> Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
+                choice<string> Flanking(choices:["Difficulty -1 step if enemy Flanked."])
+                choice<string> Holding(choices:["Difficulty +1 step if enemy is Holding."])
+            }
+            fleeting clashDice = Math.round((self.Health + self.Stamina + self.Resolve) / 3)
+            fleeting rolltext = clashDice + "d6x6" + Prompt.Difficulty
+            fleeting Roll = roll(rolltext)
+            self.Stamina --
+            chat RollResult {
+                flavor("Rolling Clash check. Stamina reduced by 1.")
+                Roll
+            }
+        }
         action Rest(icon: "fa-solid fa-people-arrows"){
             self.Health ++
             self.Stamina ++
@@ -768,8 +823,8 @@ actor Army {
             }
         }
         action Rally(icon: "fa-solid fa-person-military-pointing"){
-                fleeting Roll = roll(1d6x6)
-                self.Resolve += Roll.result
+            fleeting Roll = roll(1d6x6)
+            self.Resolve += Roll.result
             chat RollResult {
                 flavor("Unit has Rallied. Recovered 1d6 Resolve and ended the Routed condition.")
                 Roll
@@ -797,31 +852,31 @@ item ArmyTalent {
         //boolean DoesDamage
         choice<string> EffectType(choices: ["General","Damage"])
         action UseTalent(visibility: { if (self.EffectType == "Damage") return Visibility.hidden}, icon: "fa-solid fa-chevrons-up"){
-                chat RollResult {
-                    flavor("Talent activated! See effect.")
-                    self.Effect
-                    tag self.Activation
-                }
-            }
-        action RollDamage(visibility: { if (self.EffectType == "General") return Visibility.hidden}, icon: "fa-solid fa-burst"){
-                fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
-                    choice<string> Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
-                    choice<string> Flanking(choices:["Difficulty -1 step if enemy Flanked."])
-                    choice<string> Holding(choices:["Difficulty +1 step if enemy is Holding."])
-                }
-                fleeting rolltext = self.Dice + "d6x6" + Prompt.Difficulty
-                fleeting Roll = roll(rolltext)
-                if (parent is Army) {
-                    parent.Stamina--
-                    }
-                chat RollResult {
-                    flavor("Rolling Damage check. Stamina reduced by 1.")
-                    Roll
-                    self.Effect
-                    tag self.Activation
-                }
-            }
+        chat RollResult {
+            flavor("Talent activated! See effect.")
+            self.Effect
+            tag self.Activation
+        }
     }
+    action RollDamage(visibility: { if (self.EffectType == "General") return Visibility.hidden}, icon: "fa-solid fa-burst"){
+    fleeting Prompt = prompt(label: "Clash Roll Modifiers") {
+        choice<string> Difficulty(choices: ["cs>=2","cs>=3","cs>=4","cs>=5"])
+        choice<string> Flanking(choices:["Difficulty -1 step if enemy Flanked."])
+        choice<string> Holding(choices:["Difficulty +1 step if enemy is Holding."])
+    }
+    fleeting rolltext = self.Dice + "d6x6" + Prompt.Difficulty
+    fleeting Roll = roll(rolltext)
+    if (parent is Army) {
+        parent.Stamina--
+    }
+    chat RollResult {
+        flavor("Rolling Damage check. Stamina reduced by 1.")
+        Roll
+        self.Effect
+        tag self.Activation
+    }
+}
+}
 }
 
 actor Testbed {
