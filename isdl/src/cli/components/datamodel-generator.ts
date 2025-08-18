@@ -36,6 +36,7 @@ import {
     isPaperDollExp,
     isParentPropertyRefExp,
     isDocumentChoiceExp,
+    isDocumentChoicesExp,
     isAction,
     isVariableExpression,
     isPrompt,
@@ -421,6 +422,12 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             `;
         }
 
+        if (isDocumentChoicesExp(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new UuidDocumentArrayField(),
+            `;
+        }
+
         if (isPaperDollExp(property)) {
 
             function generatePaperDollElementField(property: PaperDollElement): CompositeGeneratorNode | undefined {
@@ -485,14 +492,6 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
 
         if (isLayout(property)) {
             return joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true });
-
-            // TODO: It would be nice to support sections in the data model, but we would need to complicate
-            // how we do html template generation to point to the section path, which is possibly nested.
-            // return expandToNode`
-            //     ${property.name.toLowerCase()}: new fields.SchemaField({
-            //         ${joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
-            //     }),
-            // `;
         }
 
         return
@@ -596,6 +595,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         import ${config.name}Actor from "../../documents/actor.mjs";
         import ${config.name}Item from "../../documents/item.mjs";
         import UuidDocumentField from "../UuidDocumentField.mjs";
+        import UuidDocumentArrayField from "../UuidDocumentArrayField.mjs";
 
         export default class ${document.name}TypeDataModel extends foundry.abstract.DataModel {
             /** @inheritDoc */
@@ -674,6 +674,56 @@ export function generateUuidDocumentField(destination: string) {
                 if ( !game.collections ) return value; // server-side
 
                 return () => fromUuidSync(value);
+            }
+        }
+    `.appendNewLineIfNotEmpty();
+
+    if (!fs.existsSync(dataModelPath)) {
+        fs.mkdirSync(dataModelPath, { recursive: true });
+    }
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+export function generateUuidDocumentArrayField(destination: string) {
+    const dataModelPath = path.join(destination, "system", "datamodels");
+    const generatedFilePath = path.join(dataModelPath, "UuidDocumentArrayField.mjs");
+
+    const fileNode = expandToNode`
+        export default class UuidDocumentArrayField extends foundry.data.fields.ArrayField {
+
+            constructor(options = {}) {
+                super(new foundry.data.fields.StringField({
+                    required: false,
+                    blank: false,
+                    nullable: false,
+                    initial: null,
+                    readonly: false,
+                    validationError: "is not a valid Document UUID string"
+                }), foundry.utils.mergeObject({
+                    initial: []
+                }, options));
+            }
+        
+            /** @override */
+            _cast(value) {
+                if (!Array.isArray(value)) return [];
+                return value.map(item => {
+                    if (item instanceof foundry.abstract.Document) return item.uuid;
+                    return String(item);
+                }).filter(uuid => uuid && uuid !== "null" && uuid !== "undefined");
+            }
+
+            /** @inheritdoc */
+            initialize(value, model, options={}) {
+                if (!game.collections) return value; // server-side
+                if (!Array.isArray(value)) return [];
+
+                return () => { 
+                    return value.map(uuid => {
+                        if (!uuid || uuid === "null" || uuid === "undefined") return null;
+                        return fromUuidSync(uuid);
+                    }).filter(Boolean);
+                }
             }
         }
     `.appendNewLineIfNotEmpty();

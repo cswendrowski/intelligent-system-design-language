@@ -12,6 +12,7 @@ import {
     Document,
     DocumentArrayExp,
     DocumentChoiceExp,
+    DocumentChoicesExp,
     Entry, HtmlExp,
     IconParam,
     ImageParam,
@@ -30,6 +31,7 @@ import {
     isDieField,
     isDocumentArrayExp,
     isDocumentChoiceExp,
+    isDocumentChoicesExp,
     isEntry,
     isHtmlExp,
     isIconParam,
@@ -80,10 +82,12 @@ import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineI
 import {generateDatatableComponent} from './vue-datatable-component-generator.js';
 import {AstUtils} from 'langium';
 import {generateActionComponent} from './vue-action-component-generator.js';
-import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
+// import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
+import {generateDocumentChoicesComponent} from './base-components/vue-document-choices.js';
 import {translateBodyExpressionToJavascript, translateExpression} from '../method-generator.js';
 import {humanize} from "inflection";
 import {generateVuetifyDatatableComponent} from "./vue-datatable2-component-generator.js";
+import {generateDocumentChoiceComponent} from "./base-components/vue-document-choice.js";
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -108,6 +112,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     const actions = getAllOfType<Action>(document.body, isAction, false);
     const paperDoll = getAllOfType<PaperDollExp>(document.body, isPaperDollExp);
     const documentChoices = getAllOfType<DocumentChoiceExp>(document.body, isDocumentChoiceExp);
+    const documentChoicesPlural = getAllOfType<DocumentChoicesExp>(document.body, isDocumentChoicesExp);
 
     function getPageFirstTab(page: Page): string {
         const firstTab = page.body.find(x => isDocumentArrayExp(x)) as DocumentArrayExp | undefined;
@@ -442,6 +447,14 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         `;
     }
 
+    function importDocumentChoicesComponent(documentChoices: DocumentChoicesExp): CompositeGeneratorNode {
+        generateDocumentChoicesComponent(entry, id, document, documentChoices, destination);
+        const componentName = `${document.name.toLowerCase()}${documentChoices.name}DocumentChoices`;
+        return expandToNode`
+        import ${componentName} from './components/document-choices/${componentName}.vue';
+        `;
+    }
+
     function paperDollSlots(element: PaperDollExp): CompositeGeneratorNode {
 
         let slots = [];
@@ -604,6 +617,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         ${joinToNode(pages, importPageOfDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(documentChoicesPlural, importDocumentChoicesComponent, {appendNewLineIfNotEmpty: true})}
         ${importEffectsDataTable()}
         import ${entry.config.name}Roll from "../../../../rolls/roll.mjs";
 
@@ -1360,6 +1374,21 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isDocumentChoiceExp(element)) {
                 const componentName = `${document.name.toLowerCase()}${element.name}DocumentChoice`;
+                return expandToNode`
+                    <${componentName}
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        :context="context"
+                        :editMode="editModeRef"
+                        ${standardParamsFragment}
+                        :primaryColor="primaryColor"
+                        :secondaryColor="secondaryColor">
+                    </${componentName}>
+                `;
+            }
+
+            if (isDocumentChoicesExp(element)) {
+                const componentName = `${document.name.toLowerCase()}${element.name}DocumentChoices`;
                 return expandToNode`
                     <${componentName}
                         label="${label}"

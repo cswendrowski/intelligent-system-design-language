@@ -1,27 +1,27 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { Document, DocumentChoiceExp, Entry, GlobalParam, IconParam, isActor, isGlobalParam, isIconParam, isWhereParam, WhereParam } from "../../../language/generated/ast.js";
-import { translateExpression } from '../method-generator.js';
-import { getSystemPath } from '../utils.js';
+import { Document, DocumentChoicesExp, Entry, GlobalParam, IconParam, isActor, isGlobalParam, isIconParam, isWhereParam, WhereParam } from "../../../../language/generated/ast.js";
+import { translateExpression } from '../../method-generator.js';
+import { getSystemPath } from '../../utils.js';
 
 
-export function generateDocumentChoiceComponent(entry: Entry, id: string, document: Document, documentChoice: DocumentChoiceExp, destination: string) {
+export function generateDocumentChoicesComponent(entry: Entry, id: string, document: Document, documentChoices: DocumentChoicesExp, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "document-choices");
-    const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${documentChoice.name}DocumentChoice.vue`);
+    const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${documentChoices.name}DocumentChoices.vue`);
 
-    const iconParam = documentChoice.params.find(isIconParam) as IconParam | undefined;
-    const globalParam = documentChoice.params.find(isGlobalParam) as GlobalParam | undefined;
+    const iconParam = documentChoices.params.find(isIconParam) as IconParam | undefined;
+    const globalParam = documentChoices.params.find(isGlobalParam) as GlobalParam | undefined;
     const globalAllowed = globalParam?.value ?? false;
 
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    const unlocked = documentChoice.modifier === 'unlocked';
+    const unlocked = documentChoices.modifier === 'unlocked';
 
-    console.log("Generating document choice component", documentChoice.name);
+    console.log("Generating document choices component", documentChoices.name);
 
     const fileNode = expandToNode`
     <script setup>
@@ -37,25 +37,46 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
         const document = inject('rawDocument');
         const unlocked = ${unlocked};
 
-        const value = ref(foundry.utils.getProperty(document, '${getSystemPath(documentChoice)}'));
-        const onChange = (value) => {
-            document.update({ '${getSystemPath(documentChoice)}': value });
-            const updated = fromUuidSync(value);
-            if (updated) selectedImage.value = updated.img;
-        };
+        // Raw value holds the actual UUIDs stored in the document
+        const rawValue = ref(foundry.utils.getProperty(document, '${getSystemPath(documentChoices)}') || []);
+        console.log("Raw Value:", rawValue);
+        
+        // Computed value maps UUIDs to choice objects for v-model
+        const value = computed({
+            get() {
+                return rawValue.value.map(item => {
+                    let context = {
+                        id: item.uuid,
+                        name: item.name,
+                        image: item.img,
+                        summary: truncate(item.system?.description || '', 50),
+                        description: item.system?.description || ''
+                    };
 
-        const selectedImage = ref(value.value?.img);
+                    if (item.parent) {
+                        context.source = "Self";
+                        context.color = props.primaryColor;
+                        context.icon = 'fa-solid fa-user';
+                    }
+                    else if (item.compendium) {
+                        context.source = \`\${item.compendium.metadata.packageName} - \${item.compendium.title}\`;
+                        context.color = props.secondaryColor;
+                        context.icon = 'fa-solid fa-suitcase';
+                    }
+                    else {
+                        context.source = "World";
+                        context.color = props.secondaryColor;
+                        context.icon = 'fa-solid fa-globe';
+                    }
 
-        const disabled = computed(() => {
-            let item = value.value?.length > 0 ? value.value[0] : value.value;
-            let system = props.context.system;
-            return ${false} || (!props.editMode && !unlocked);
-        });
-
-        const hidden = computed(() => {
-            let item = value.value?.length > 0 ? value.value[0] : value.value;
-            let system = props.context.system;
-            return ${false}
+                    return context;
+                }).filter(Boolean);
+            },
+            set(newValue) {
+                console.log("Updating Document choices to:", newValue);
+                rawValue.value = newValue;
+                document.update({ '${getSystemPath(documentChoices)}': newValue });
+            }
         });
 
         const choices = computed(() => {
@@ -64,7 +85,7 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
 
             ${globalAllowed ? 
             `
-            let gameItems = game.items.filter(item => item.type === '${documentChoice.document.ref?.name.toLowerCase()}');
+            let gameItems = game.items.filter(item => item.type === '${documentChoices.document.ref?.name.toLowerCase()}');
             allChoices = allChoices.concat(gameItems);
 
             let itemPacks = game.packs.filter(pack => pack.documentName === 'Item');
@@ -78,8 +99,8 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
             ` : ''}
 
             allChoices = allChoices.filter(item => {
-                if (item.type !== '${documentChoice.document.ref?.name.toLowerCase()}') return false;
-                return ${translateExpression(entry, id, (documentChoice.params.filter(x => isWhereParam(x))[0] as WhereParam)?.value) ?? true}
+                if (item.type !== '${documentChoices.document.ref?.name.toLowerCase()}') return false;
+                return ${translateExpression(entry, id, (documentChoices.params.filter((x: any) => isWhereParam(x))[0] as WhereParam)?.value) ?? true}
             });
 
             if (allChoices.length === 0) return [{
@@ -132,22 +153,21 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
         }
     </script>
     <template>
-        <v-autocomplete clearable dense 
+        <v-autocomplete 
+            clearable 
+            dense
+            multiple
+            chips
             v-model="value" 
-            @update:modelValue="onChange"
             :items="choices" 
             item-title="name" 
             item-value="id" 
             density="compact"
             variant="outlined"
-            :disabled="disabled"
             class="double-wide"
         >
             <template #label>
-                <span v-html="getLabel('${document.name}.${documentChoice.name}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
-            </template>
-            <template v-slot:prepend-inner v-if="value">
-                <v-avatar rounded="0" :image="selectedImage" size="30"</v-avatar>
+                <span v-html="getLabel('${document.name}.${documentChoices.name}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
             </template>
             <template v-slot:item="{ props, item }">
                 <v-list-item
@@ -169,6 +189,17 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
                         <div v-html="item.raw.summary"></div>
                     </template>
                 </v-list-item>
+            </template>
+            <template v-slot:chip="{ props: chipProps, item }">
+                <v-chip
+                    label
+                    v-bind="chipProps"
+                    :text="item.title"
+                >
+                    <template v-slot:prepend v-if="item.raw?.image">
+                        <v-avatar rounded="0" size="small" :image="item.raw.image"  style="padding-right: 2px;"></v-avatar>
+                    </template>
+                </v-chip>
             </template>
         </v-autocomplete>
     </template>

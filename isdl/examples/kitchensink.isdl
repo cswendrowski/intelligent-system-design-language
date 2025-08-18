@@ -111,6 +111,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             Skill SingleDocumentField
             row {
                 choice<Skill> ChoiceField
+                choices<Skill> ChoicesField
             }
             macro MacroField
             paperdoll PaperdollField {

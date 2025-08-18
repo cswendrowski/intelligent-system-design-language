@@ -61,7 +61,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField);
+    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | DocumentChoicesExp);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
 DiceFields:

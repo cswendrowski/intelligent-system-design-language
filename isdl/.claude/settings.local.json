@@ -20,6 +20,7 @@
       "Bash(rm:*)",
       "Bash(mv:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

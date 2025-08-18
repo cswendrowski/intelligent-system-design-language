@@ -15,7 +15,7 @@ import { extractDestinationAndName } from './cli-util.js';
 import { generateCustomCss, generateSystemCss } from './components/css-generator.js';
 import { generateLanguageJson } from './components/language-generator.js';
 import { generateExtendedDocumentClasses } from './components/derived-data-generator.js';
-import { generateDocumentDataModel, generateUuidDocumentField } from './components/datamodel-generator.js';
+import { generateDocumentDataModel, generateUuidDocumentField, generateUuidDocumentArrayField } from './components/datamodel-generator.js';
 import { fileURLToPath } from 'url';
 import { generateActiveEffectHandlebars, generateBaseActiveEffectBaseSheet as generateActiveEffectBaseSheet } from './components/active-effect-sheet-generator.js';
 import { generateChatCardClass, generateStandardChatCardTemplate } from './components/chat-card-generator.js';
@@ -54,6 +54,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateSystemCss(entry, id, data.destination);
     generateCustomCss(entry, id, data.destination);
     generateUuidDocumentField(data.destination);
+    generateUuidDocumentArrayField(data.destination);
 
     //generateRpgAwesomeCss(data.destination);
     generateActiveEffectBaseSheet(entry, id, data.destination);
