@@ -25,12 +25,16 @@ export default function generateNumberComponent(destination: string, entry?: Ent
             color: String,
             disabled: Boolean,
             hasValueParam: Boolean,
-            methodValue: String,
             primaryColor: String,
             secondaryColor: String
         });
 
         const document = inject("rawDocument");
+        
+        const value = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
+        });
 
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
@@ -70,7 +74,7 @@ export default function generateNumberComponent(destination: string, entry?: Ent
         <div v-if="!isHidden" class="isdl-number single-wide">
             <v-number-input
                 v-if="!isCalculated"
-                v-model="props.context[props.systemPath]"
+                v-model="value"
                 :name="props.systemPath"
                 :disabled="isDisabled"
                 :color="fieldColor"
@@ -96,7 +100,7 @@ export default function generateNumberComponent(destination: string, entry?: Ent
 
             <v-number-input
                 v-else
-                :model-value="props.context[props.systemPath]"
+                :model-value="value"
                 :name="props.systemPath"
                 :disabled="isDisabled"
                 :color="fieldColor"

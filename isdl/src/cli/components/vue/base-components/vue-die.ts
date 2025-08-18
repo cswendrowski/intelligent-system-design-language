@@ -35,8 +35,13 @@ export default function generateDieComponent(destination: string, entry?: Entry)
             return props.color || 'primary';
         });
 
+        const value = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
+        });
+
         const dieIcon = computed(() => {
-            const currentValue = props.context[props.systemPath];
+            const currentValue = value.value;
             if (currentValue && currentValue.startsWith('d')) {
                 return \`fa-solid fa-dice-\${currentValue}\`;
             }
@@ -46,8 +51,7 @@ export default function generateDieComponent(destination: string, entry?: Entry)
 
     <template>
         <v-select 
-            :model-value="props.context[props.systemPath]"
-            @update:model-value="props.context[props.systemPath] = $event"
+            v-model="value"
             :name="props.systemPath"
             :items="props.choices"
             :disabled="disabled"

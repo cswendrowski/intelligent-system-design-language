@@ -38,6 +38,11 @@ export default function generateStringChoiceComponent(destination: string, entry
 
         const document = inject("rawDocument");
 
+        const value = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
+        });
+
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
                 return true;
@@ -69,8 +74,7 @@ export default function generateStringChoiceComponent(destination: string, entry
             <!-- Simple choice field - uses v-select -->
             <v-select 
                 v-if="!props.isExtended"
-                :model-value="props.context[props.systemPath]"
-                @update:model-value="props.context[props.systemPath] = $event"
+                v-model="value"
                 :name="props.systemPath"
                 :items="props.items"
                 item-title="label"

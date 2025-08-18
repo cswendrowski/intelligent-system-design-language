@@ -686,7 +686,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         });
 
         watch(tab, () => {
-            document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+            try {
+                if (document.sheet?.element) {
+                    document.sheet.dragDrop.forEach((d) => d.bind(document.sheet.element));
+                }
+            }
+            catch {}
             updateLastState();
         });
 
@@ -787,12 +792,14 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const isDisabled = (type) => {
             // Computed fields are always disabled
             if (computedFields[type]) {
+                //console.log(type + " is computed and disabled");
                 return true;
             }
             
             const visibility = visibilityStates[type].value;
             const disabledStates = ["readonly", "locked"];
             if (disabledStates.includes(visibility)) {
+                //console.log(type + " is readonly / locked and disabled");
                 return true;
             }
             if (visibility === "gmEdit") {
@@ -802,6 +809,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             }
 
             if (visibility === "unlocked") {
+                //console.log(type + " is unlocked and enabled");
                 return false;
             }
             
@@ -1199,7 +1207,6 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                         label="${label}"
                         icon="${iconParam?.value}"
                         systemPath="${systemPath}"
-                        methodValue="${valueParam.value}"
                         ${standardParamsFragment}>
                     </i-string>
                     `;
@@ -1488,7 +1495,6 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     icon="${iconParam?.value}"
                     systemPath="${systemPath}"
                     :hasValueParam="${valueParam != undefined}"
-                    methodValue="${valueParam?.value || ''}"
                     :editMode="editMode"
                     :primaryColor="primaryColor"
                     :secondaryColor="secondaryColor"

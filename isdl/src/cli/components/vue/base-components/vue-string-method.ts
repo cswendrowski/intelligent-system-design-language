@@ -19,14 +19,17 @@ export default function generateStringMethodComponent(destination: string, entry
             label: String,
             systemPath: String,
             context: Object,
-            visibility: String,
-            editMode: Boolean,
             icon: String,
             color: String,
-            methodValue: String
+            disabled: Boolean
         });
 
         const document = inject("rawDocument");
+        
+        const value = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
+        });
 
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
@@ -38,28 +41,21 @@ export default function generateStringMethodComponent(destination: string, entry
             return false;
         });
 
-        const isDisabled = computed(() => {
-            return props.visibility === "locked" || 
-                   props.visibility === "readonly" || 
-                   (props.visibility === "gmOnly" && !game.user.isGM);
-        });
-
         const fieldColor = computed(() => {
             return props.color || 'primary';
         });
 
         const tooltipText = computed(() => {
-            return props.context[props.systemPath] || props.methodValue || '';
+            return value.value || '';
         });
     </script>
 
     <template>
         <div v-if="!isHidden" class="isdl-string-method single-wide">
             <v-text-field 
-                :model-value="props.context[props.systemPath]"
-                @update:model-value="props.context[props.systemPath] = $event"
+                v-model="value"
                 :name="props.systemPath"
-                :disabled="isDisabled"
+                :disabled="disabled"
                 :color="fieldColor"
                 variant="outlined"
                 density="compact"

@@ -213,14 +213,14 @@ section DiceRollers {
             }
             fleeting Roll = roll(1d6 + self.Weapon.Attribute + Skill + Modifier)
             if (Level == "None") {
-                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute] + Skill + Modifier)}
-                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute] + Skill + Modifier)}
-                else {Roll = roll(1d6 + self[self.Attribute] + Skill + Modifier)}
+                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute].mod + Skill + Modifier)}
+                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute].mod + Skill + Modifier)}
+                else {Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)}
             }
             else {
-                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute] + Skill + Modifier)}
-                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute] + Skill + Modifier)}
-                else {Roll = roll(1d6x + self[self.Attribute] + Skill + Modifier)}
+                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute].mod + Skill + Modifier)}
+                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute].mod + Skill + Modifier)}
+                else {Roll = roll(1d6x + self[self.Attribute].mod + Skill + Modifier)}
             }
             chat RollOutcome {
                 Roll

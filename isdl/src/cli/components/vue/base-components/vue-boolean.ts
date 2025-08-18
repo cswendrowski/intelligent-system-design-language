@@ -27,6 +27,11 @@ export default function generateBooleanComponent(destination: string, entry?: En
         });
 
         const document = inject("rawDocument");
+        
+        const value = computed({
+            get: () => foundry.utils.getProperty(props.context, props.systemPath),
+            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
+        });
 
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
@@ -52,7 +57,7 @@ export default function generateBooleanComponent(destination: string, entry?: En
     <template>
         <div v-if="!isHidden" class="isdl-boolean single-wide">
             <v-checkbox
-                v-model="props.context[props.systemPath]"
+                v-model="value"
                 :name="props.systemPath"
                 :disabled="isDisabled"
                 :color="checkboxColor"

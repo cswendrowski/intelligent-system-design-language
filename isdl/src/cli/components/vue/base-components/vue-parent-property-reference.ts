@@ -19,7 +19,7 @@ export default function generateParentPropertyReferenceComponent(destination: st
     </div>
     <v-select
       :name="props.systemPath"
-      v-model="props.context[props.systemPath]"
+      v-model="value"
       :items="refChoices"
       item-title="label"
       item-value="value"
@@ -72,6 +72,11 @@ const props = defineProps({
     type: String,
     default: 'primary'
   }
+});
+
+const value = computed({
+  get: () => foundry.utils.getProperty(props.context, props.systemPath),
+  set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
 });
 
 const isDisabled = computed(() => {
