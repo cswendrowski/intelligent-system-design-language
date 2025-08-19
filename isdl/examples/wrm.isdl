@@ -171,16 +171,16 @@ section DiceRollers {
             number AddModifier
         }
         fleeting Modifier = Prompt.AddModifier
-        fleeting Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)
+        fleeting Roll = roll(1d6 + self.AttributeToUse + Skill + Modifier)
         if (Level == "None") {
-            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute].mod + Skill + Modifier)}
-            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute].mod + Skill + Modifier)}
-            else {Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)}
+            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.AttributeToUse + Skill + Modifier)}
+            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.AttributeToUse + Skill + Modifier)}
+            else {Roll = roll(1d6 + self.AttributeToUse + Skill + Modifier)}
         }
         else {
-            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute].mod + Skill + Modifier)}
-            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute].mod + Skill + Modifier)}
-            else {Roll = roll(1d6x + self[self.Attribute].mod + Skill + Modifier)}
+            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self.AttributeToUse + Skill + Modifier)}
+            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self.AttributeToUse + Skill + Modifier)}
+            else {Roll = roll(1d6x + self.AttributeToUse + Skill + Modifier)}
         }
         chat RollResult {
             flavor("Rolling!")

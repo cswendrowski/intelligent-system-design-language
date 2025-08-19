@@ -28,12 +28,10 @@ export default function generateSelfPropertyReferenceComponent(destination: stri
 
         const document = inject("rawDocument");
 
-        // Get the property path stored in this field
-        const propertyPath = computed({
+        const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
         });
-
 
         // Filter choices based on property type if provided
         const availableChoices = computed(() => {
@@ -54,9 +52,9 @@ export default function generateSelfPropertyReferenceComponent(destination: stri
     </script>
 
     <template>
-        <div v-if="!isHidden" class="isdl-self-property-reference single-wide">
-            <v-autocomplete
-                v-model="propertyPath"
+        <div class="isdl-self-property-reference single-wide">
+            <v-select
+                v-model="value"
                 :items="availableChoices"
                 :name="props.systemPath"
                 :disabled="disabled"
@@ -71,7 +69,7 @@ export default function generateSelfPropertyReferenceComponent(destination: stri
                         {{ game.i18n.localize(props.label) }}
                     </span>
                 </template>
-            </v-autocomplete>
+            </v-select>
         </div>
     </template>
     `.appendNewLine();

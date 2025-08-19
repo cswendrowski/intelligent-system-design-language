@@ -20,10 +20,10 @@ export default function generateParentPropertyReferenceComponent(destination: st
       :items="refChoices"
       item-title="label"
       item-value="value"
-      :disabled="isDisabled"
-      v-if="!isHidden"
+      :disabled="disabled"
       :color="color"
       variant="outlined"
+      clearable
       density="compact">
       <template #label>
         <span v-html="getLabel(props.label, props.icon)" />
@@ -74,14 +74,6 @@ const props = defineProps({
 const value = computed({
   get: () => foundry.utils.getProperty(props.context, props.systemPath),
   set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
-});
-
-const isDisabled = computed(() => {
-  return props.disabled;
-});
-
-const isHidden = computed(() => {
-  return props.hidden;
 });
 
 // Expose helper function

@@ -1187,28 +1187,38 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 else if (isParentPropertyRefExp(expression.property?.ref)) {
                     path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
                     label = `${expression.property?.ref?.name}`;
+                    let subProperty = "";
 
-                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
+                    if (expression.property?.ref.propertyType == "resource" || expression.property?.ref.propertyType == "tracker" || expression.property?.ref.propertyType == "choice"
                         && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
-                        path = `${path} + ".value"`;
+                        subProperty = "?.value";
                     }
-                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
-                        path = `${path} + ".mod"`;
+                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        subProperty = "?.mod";
                     }
 
                     console.log(label, path);
                     return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path})
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, "system." + ${path}.toLowerCase())${subProperty}
                     `;
                 }
                 else if (isSelfPropertyRefExp(expression.property?.ref)) {
                     // For self property references, we dynamically resolve the property path
-                    const selfPropertyPath = `context.object.system.${expression.property?.ref?.name.toLowerCase()}`;
+                    let selfPropertyPath = `context.object.system.${expression.property?.ref?.name.toLowerCase()}`;
+                    let subProperty = "";
                     label = `${expression.property?.ref?.name}`;
+
+                    if (expression.property?.ref.propertyType == "resource" || expression.property?.ref.propertyType == "tracker" || expression.property?.ref.propertyType == "choice"
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                        subProperty = "?.value";
+                    }
+                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        subProperty = "?.mod";
+                    }
 
                     console.log(label, selfPropertyPath);
                     return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, ${selfPropertyPath})
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, "system." + ${selfPropertyPath}.toLowerCase())${subProperty}
                     `;
                 }
                 else {
