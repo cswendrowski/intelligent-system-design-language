@@ -84,6 +84,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             number NumberField
             boolean BooleanField
             html HtmlField
+            choice<string> ChoiceStringField(choices: ["Option A", "Option B", "Option C"])
+            choices<string> ChoicesStringField(choices: [
+                "Basic Option", 
+                { value: "Advanced", label: "Advanced Option", icon: "fa-solid fa-star", color: #FFD700 },
+                { value: "Expert", label: "Expert Level", icon: "fa-solid fa-crown", color: #8B4513 }
+            ], max: 3)
         }
 
         section Complex {

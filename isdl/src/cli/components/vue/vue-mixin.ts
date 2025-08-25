@@ -32,6 +32,7 @@ export function generateVueMixin(description: string) {
         "i-string": "StringMethodField",
         "i-number": "NumberField",
         "i-string-choice": "StringChoiceField",
+        "i-string-choices": "StringChoicesField",
         "i-parent-property-reference": "ParentPropertyReferenceField",
         "i-self-property-reference": "SelfPropertyReferenceField",
     };

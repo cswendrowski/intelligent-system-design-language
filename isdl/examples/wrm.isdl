@@ -142,8 +142,7 @@ section Resources {
                 if (self.RageTier == 6) {return "Warrior Cast +6, MP Cost -3, Effect +4"}
                 else {return "No rage Effect"}
             }, visibility: {
-                if (self.RageTier < 1) {return Visibility.default}
-                return Visibility.hidden
+                if (self.RageTier < 1) {return Visibility.hidden}
             })
         }
 hidden number ShieldPenalty(value: {return self.WornShield.armorrating - 1})

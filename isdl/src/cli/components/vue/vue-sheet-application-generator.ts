@@ -53,7 +53,7 @@ import {
     isSegmentsParameter,
     isSingleDocumentExp,
     isSizeParam,
-    isStatusProperty, isStringChoiceField, isDamageTypeChoiceField,
+    isStatusProperty, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField,
     isStringExp, isStringExtendedChoice,
     isStringParamChoices,
     isStringParamValue, isTableField,
@@ -73,8 +73,8 @@ import {
     ResourceExp,
     SegmentsParameter,
     SizeParam,
-    StandardFieldParams, StringChoice, StringChoiceField, DamageTypeChoiceField, StringExp,
-    StringParamChoices,
+    StandardFieldParams, StringChoice, StringChoiceField, DamageTypeChoiceField, StringChoicesField, StringExp,
+    StringParamChoices, StringChoicesParamChoices,
     StringParamValue, TableField, TimeExp, TrackerExp,
     TrackerStyleParameter,
     VisibilityParam, Expression
@@ -545,6 +545,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                             ${translateBodyExpressionToJavascript(entry, id, visibilityParam.visibility.body, false, element)}
                         };
                         const returnedVisibility = visibility(props.context.system);
+                        console.log("Returned visibility for ${element.name}: " + returnedVisibility);
                         
                         return returnedVisibility ?? "default";
                     })
@@ -1200,7 +1201,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             if (isSelfPropertyRefExp(element)) {
                 const choicesParam = element.params.find(p => p.$type === 'SelfPropertyRefChoiceParam');
                 let allChoices: Property[] = [];
-                
+
                 // Get the current document
                 const currentDocument = getDocument(element);
                 if (!currentDocument) {
@@ -1462,6 +1463,68 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     </i-string-choice>
                     `;
 
+            }
+
+            if (isStringChoicesField(element)) {
+                const choicesParam = element.params.find(p => p.$type === 'StringChoicesParamChoices') as StringChoicesParamChoices | undefined;
+                if (!choicesParam) {
+                    console.warn(`StringChoicesField ${element.name} does not have a choices parameter.`);
+                    return expandToNode``;
+                }
+                if (choicesParam?.choices?.length === 0) return expandToNode``;
+
+                function choiceValue(choice: StringChoice): string {
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return toMachineIdentifier(choice.value);
+                    }
+                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                    if (value) {
+                        return toMachineIdentifier(value.value);
+                    }
+                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                    if (label) {
+                        return toMachineIdentifier(label.value);
+                    }
+                    return "unknown";
+                }
+
+                function choiceData(choice: StringChoice): CompositeGeneratorNode {
+                    let choiceField = element as StringChoicesField;
+                    if (!isStringExtendedChoice(choice.value)) {
+                        return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '', color: '' }`;
+                    }
+                    let icon = choice.value.properties.find(isIconParam) as IconParam | undefined;
+                    let color = choice.value.properties.find(isColorParam) as ColorParam | undefined;
+
+                    if (isStringExtendedChoice(choice.value)) {
+                        let customProperties = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
+
+                        if (customProperties.length > 0) {
+                            return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}', customKeys: [${joinToNode(customProperties, custom => `{ key: '${custom.key}', label: '${humanize(custom.key)}', value: ${custom.value} }`, {separator: ','})}] }`;
+                        }
+                    }
+
+                    return expandToNode`{ label: game.i18n.localize('${document.name}.${choiceField.name}.${choiceValue(choice)}'), value: '${choiceValue(choice)}', icon: '${icon?.value ?? ""}', color: '${color?.value ?? ""}' }`;
+                }
+
+                // Get maxSelections parameter
+                const maxParam = element.params.find(p => p.$type === 'StringChoicesParamMax') as any;
+                const maxSelections = maxParam ? maxParam.value : undefined;
+
+                return expandToNode`
+                    <i-string-choices
+                        :context="context"
+                        label="${label}.label"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        :items="[${joinToNode(choicesParam.choices, choiceData, {separator: ',', appendNewLineIfNotEmpty: true})}]"
+                        :isExtended="true"
+                        ${maxSelections ? `:maxSelections="${maxSelections}"` : ''}
+                        :primaryColor="primaryColor"
+                        :secondaryColor="secondaryColor"
+                        ${standardParamsFragment}>
+                    </i-string-choices>
+                    `;
             }
 
             if (isDocumentChoiceExp(element)) {

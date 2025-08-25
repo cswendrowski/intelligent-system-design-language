@@ -55,7 +55,7 @@ import {
     isChoiceStringValue,
     ChoiceStringValue,
     isStringExtendedChoice,
-    StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty
+    StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -278,6 +278,112 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                     icon: new fields.StringField({initial: ""}),
                     color: new fields.StringField({initial: "#ffffff"})
                 }),
+            `;
+        }
+
+        if (isStringChoicesField(property)) {
+            let choices = property.params.find(p => p.$type === 'StringChoicesParamChoices') as any;
+            
+            if (!choices || !choices.choices || choices.choices.length === 0) {
+                // Fallback for simple string array if no choices defined
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.ArrayField(
+                        new fields.StringField({}),
+                        {initial: []}
+                    ),
+                `;
+            }
+
+            function choiceValue(choice: StringChoice): string {
+                if (!isStringExtendedChoice(choice.value)) {
+                    return toMachineIdentifier(choice.value);
+                }
+                let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                if (value) {
+                    return toMachineIdentifier(value.value);
+                }
+                let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                if (label) {
+                    return toMachineIdentifier(label.value);
+                }
+                return "unknown";
+            }
+
+            function getDefaultValueForType(type: string): any {
+                switch (type) {
+                    case 'string':
+                        return '';
+                    case 'number':
+                        return 0;
+                    case 'boolean':
+                        return false;
+                    default:
+                        return null;
+                }
+            }
+
+            // Check if any choices are extended (have metadata)
+            let hasExtendedChoices = choices.choices.some((choice: StringChoice) => isStringExtendedChoice(choice.value));
+            
+            if (!hasExtendedChoices) {
+                // Simple string choices - use array of strings
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.ArrayField(
+                        new fields.StringField({
+                            choices: [${choices.choices.map((x: StringChoice) => `"${choiceValue(x)}"`).join(", ")}]
+                        }),
+                        {initial: []}
+                    ),
+                `;
+            }
+
+            // Extended choices - use array of schema objects like choice<string>
+            let additionalFields = choices.choices.reduce((acc: Array<{ key: string; type: string; defaultValue: any }>, choice: StringChoice) => {
+                if (isStringExtendedChoice(choice.value)) {
+                    let customProperties = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
+
+                    customProperties.forEach(prop => {
+                        // Only add if we haven't seen this field name before
+                        if (!acc.find(field => field.key === prop.key)) {
+                            acc.push({
+                                key: prop.key,
+                                type: typeof prop.value,
+                                defaultValue: getDefaultValueForType(typeof prop.value)
+                            });
+                        }
+                    });
+                }
+                return acc;
+            }, []);
+
+            if (additionalFields.length > 0) {
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.ArrayField(
+                        new fields.SchemaField({
+                            value: new fields.StringField({
+                                choices: [${choices.choices.map((x: StringChoice) => `"${choiceValue(x)}"`).join(", ")}]
+                            }),
+                            icon: new fields.StringField({initial: ""}),
+                            color: new fields.StringField({initial: "#ffffff"}),
+                            ${joinToNode(additionalFields, (field: any) => `${field.key.toLowerCase()}: new fields.${field.type.charAt(0).toUpperCase() + field.type.slice(1)}Field({initial: ${JSON.stringify(field.defaultValue)}})`,
+                            { appendNewLineIfNotEmpty: true, separator: ',' })}
+                        }),
+                        {initial: []}
+                    ),
+                `;
+            }
+
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.ArrayField(
+                    new fields.SchemaField({
+                        value: new fields.StringField({
+                            choices: [${choices.choices.map((x: StringChoice) => `"${choiceValue(x)}"`).join(", ")}]
+                        }),
+                        icon: new fields.StringField({initial: ""}),
+                        color: new fields.StringField({initial: "#ffffff"})
+                    }),
+                    {initial: []}
+                ),
             `;
         }
 

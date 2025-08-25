@@ -5,7 +5,7 @@ import type {
     Entry,
     LabelParam,
     StandardFieldParams, StringChoice,
-    StringParamChoices,
+    StringParamChoices, StringChoicesParamChoices,
 } from '../../language/generated/ast.js';
 import {
     isSection,
@@ -17,7 +17,7 @@ import {
     isActor,
     isItem,
     isHookHandler,
-    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isDamageBonusesField, isDamageResistancesField, isDocumentChoiceExp, isDocumentChoicesExp,
+    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField, isDamageBonusesField, isDamageResistancesField, isDocumentChoiceExp, isDocumentChoicesExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -123,6 +123,19 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
                 const label = labelParam ? labelParam.value : humanize(property.name);
                 let choiceParam = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
+
+                return expandToNode`
+                "${property.name}": {
+                    "label": "${label}",
+                    ${joinToNode(choiceParam.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+                }
+            `;
+            }
+
+            if (isStringChoicesField(property)) {
+                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+                const label = labelParam ? labelParam.value : humanize(property.name);
+                let choiceParam = property.params.find(p => p.$type === 'StringChoicesParamChoices') as StringChoicesParamChoices;
 
                 return expandToNode`
                 "${property.name}": {

@@ -21,6 +21,10 @@
       "Bash(mv:*)"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "F:\\Programming\\Git\\intelligent-system-design-language\\intelligent-system-design-language-wiki",
+      "F:\\Programming\\Git\\intelligent-system-design-language.wiki"
+    ]
   }
 }

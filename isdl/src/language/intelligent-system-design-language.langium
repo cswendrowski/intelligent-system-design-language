@@ -59,7 +59,7 @@ ClassExpression:
 Property:
     (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | DeprecatedFields);
 BasicFields:
-    (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField);
+    (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
     (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | DocumentChoicesExp);
 DateTimeFields:
@@ -93,12 +93,24 @@ StringChoiceField:
 DamageTypeChoiceField:
     ExpressionModifier "choice" "<" "damageType" ">" name=ID ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
 
+StringChoicesField:
+    ExpressionModifier "choices" "<" "string" ">" name=ID ("(" params+=StringChoicesParameter* ("," params+=StringChoicesParameter)* ")")?;
+
 StringParameter:
     (StringParamChoices | StringParamValue | StandardFieldParams);
 StringParamValue:
     "value:" value=(STRING | MethodBlock);
 StringParamChoices:
     "choices:" "[" (choices+=StringChoice ("," choices+=StringChoice)*)? "]";
+
+StringChoicesParameter:
+    (StringChoicesParamChoices | StringChoicesParamMax | StringChoicesParamInitial | StandardFieldParams);
+StringChoicesParamChoices:
+    "choices:" "[" (choices+=StringChoice ("," choices+=StringChoice)*)? "]";
+StringChoicesParamMax:
+    "max:" value=INT;
+StringChoicesParamInitial:
+    "initial:" value=INT;
  
 StringChoice:
     value=(STRING | StringExtendedChoice);

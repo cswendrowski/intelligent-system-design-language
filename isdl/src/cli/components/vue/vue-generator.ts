@@ -279,6 +279,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as StringMethodField } from "./components/string-method.vue";
     export { default as NumberField } from "./components/number.vue";
     export { default as StringChoiceField } from "./components/string-choice.vue";
+    export { default as StringChoicesField } from "./components/string-choices.vue";
     export { default as ParentPropertyReferenceField } from "./components/parent-property-reference.vue";
     export { default as SelfPropertyReferenceField } from "./components/self-property-reference.vue";
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
