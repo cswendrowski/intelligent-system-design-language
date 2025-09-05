@@ -5,7 +5,7 @@ import { GitHubManager, GitHubRepository } from './githubManager.js';
 import { createIntelligentSystemDesignLanguageServices } from '../../language/intelligent-system-design-language-module.js';
 import { extractAstNode } from '../../cli/cli-util.js';
 import { NodeFileSystem } from 'langium/node';
-import { Entry } from '../../language/generated/ast.js';
+import { Entry, isConfigExpression } from '../../language/generated/ast.js';
 
 export class GitHubQuickActions {
     constructor(private githubManager: GitHubManager) {}
@@ -564,7 +564,7 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
             // Collect system files from the folder
             const services = createIntelligentSystemDesignLanguageServices(NodeFileSystem).IntelligentSystemDesignLanguage;
             const model = await extractAstNode<Entry>(selectedFile, services);
-            const id = model.config.body.find(x => x.type == "id")!.value;
+            const id = (model.config.body.find(x => isConfigExpression(x) && x.type == "id")! as any).value;
             const systemFiles = await this.collectSystemFiles(`${lastSelectedFolder}/${id}`);
             
             // Add the source ISDL file to the repository

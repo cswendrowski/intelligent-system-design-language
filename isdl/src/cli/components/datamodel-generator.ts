@@ -27,6 +27,7 @@ import {
     isNumberParamMin,
     isNumberParamMax,
     isStringParamChoices,
+    isConfigExpression,
     StatusProperty,
     isStatusProperty,
     isStatusParamWhen,
@@ -69,7 +70,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
     const dataModelPath = path.join(destination, "system", "datamodels", typePath);
     const generatedFilePath = `${path.join(dataModelPath, document.name.toLowerCase())}.mjs`;
     const config = entry.config;
-    const id = config.body.find(x => x.type == "id")!.value;
+    const id = (config.body.find(x => isConfigExpression(x) && x.type == "id")! as any).value;
 
     function generateField(property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
 

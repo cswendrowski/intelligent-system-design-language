@@ -7,6 +7,7 @@ import {
     isActor,
     isItem,
     isHtmlExp,
+    isConfigExpression,
 } from "../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -33,7 +34,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     const config = entry.config;
 
     const data = extractDestinationAndName(filePath, destination);
-    const id = config.body.find(x => x.type == "id")!.value;
+    const id = (config.body.find(x => isConfigExpression(x) && x.type == "id")! as any).value;
     data.destination = path.join(data.destination, id);
     console.log("Writing to " + data.destination);
 
@@ -173,8 +174,8 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
     const fileNode = expandToNode`
         {
             "id": "${id}",
-            "title": "${entry.config.body.find(x => x.type == "label")?.value}",
-            "description": "${entry.config.body.find(x => x.type == "description")?.value}",
+            "title": "${(entry.config.body.find(x => isConfigExpression(x) && x.type == "label") as any)?.value}",
+            "description": "${(entry.config.body.find(x => isConfigExpression(x) && x.type == "description") as any)?.value}",
             "version": "This is auto replaced",
             "compatibility": {
                 "minimum": 12,
@@ -182,7 +183,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             },
             "authors": [
                 {
-                    "name": "${entry.config.body.find(x => x.type == "author")?.value}"
+                    "name": "${(entry.config.body.find(x => isConfigExpression(x) && x.type == "author") as any)?.value}"
                 }
             ],
             "scripts": [

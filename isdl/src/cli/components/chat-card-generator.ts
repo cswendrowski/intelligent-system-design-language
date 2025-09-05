@@ -1,5 +1,5 @@
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from "langium/generate";
-import { Document, Entry, isResourceExp, ResourceExp } from "../../language/generated/ast.js";
+import { Document, Entry, isResourceExp, ResourceExp, isConfigExpression } from "../../language/generated/ast.js";
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getAllOfType, getSystemPath } from "./utils.js";
@@ -13,7 +13,7 @@ export function generateChatCardClass(entry: Entry, destination: string) {
         fs.mkdirSync(generatedFileDir, { recursive: true });
     }
 
-    const id = entry.config.body.find(x => x.type == "id")!.value;
+    const id = (entry.config.body.find(x => isConfigExpression(x) && x.type == "id")! as any).value;
 
     function generateHpElement(document: Document): CompositeGeneratorNode {
         const healthResource = getAllOfType<ResourceExp>(document.body, isResourceExp).find(x => x.tag == "health") as ResourceExp | undefined;

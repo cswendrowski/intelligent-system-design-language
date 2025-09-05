@@ -7,7 +7,7 @@ import { GitHubConfigurationManager } from './githubConfig.js';
 import { Octokit, RestEndpointMethodTypes } from '@octokit/rest';
 import { createIntelligentSystemDesignLanguageServices } from '../../language/intelligent-system-design-language-module.js';
 import { NodeFileSystem } from 'langium/node';
-import { Entry } from '../../language/generated/ast.js';
+import { Entry, isConfigExpression } from '../../language/generated/ast.js';
 import { URI, type AstNode, type LangiumCoreServices, type LangiumDocument } from 'langium';
 
 /**
@@ -987,7 +987,7 @@ export class GitHubManager {
                 vscode.window.showErrorMessage('Failed to parse the selected ISDL file.');
                 return [];
             }
-            const id = model.config.body.find(x => x.type === "id")?.value;
+            const id = (model.config.body.find(x => isConfigExpression(x) && x.type === "id") as any)?.value;
 
             if (!id) {
                 vscode.window.showErrorMessage('Could not find system ID in the selected ISDL file.');

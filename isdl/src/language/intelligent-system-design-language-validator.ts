@@ -7,6 +7,7 @@ import {
     type Entry,
     isProperty,
     Config,
+    isConfigExpression,
     TrackerExp,
     isSegmentsParameter,
     isTrackerStyleParameter,
@@ -70,7 +71,7 @@ export class IntelligentSystemDesignLanguageValidator {
     }
 
     validateConfig(config: Config, accept: ValidationAcceptor): void {
-        const id = config.body.find(x => x.type == "id");
+        const id = config.body.find(x => isConfigExpression(x) && x.type == "id");
         if (!id) {
             accept('error', 'Config requires an id.', { node: config, property: 'body' });
         }

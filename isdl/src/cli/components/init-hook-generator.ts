@@ -12,6 +12,7 @@ import path from "node:path";
 import fs from "node:fs";
 import {CompositeGeneratorNode, expandToNode, joinToNode, toString} from "langium/generate";
 import {getAllOfType} from "./utils.js";
+import {collectAllKeywords} from "./keywords-generator.js";
 
 export function generateInitHookMjs(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, "system", "hooks");
@@ -50,10 +51,32 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         `;
     }
 
+    function generateKeywordConfig(entry: Entry): CompositeGeneratorNode {
+        const keywords = collectAllKeywords(entry);
+
+        if (keywords.size === 0) {
+            return expandToNode``;
+        }
+
+        return joinToNode(Array.from(keywords.entries()), ([key, data]) =>
+            `${key}: {
+                name: "${data.name}",
+                description: "${data.description.replace(/"/g, '\\"')}",
+                color: "${data.color}",
+                icon: "${data.icon}",
+                type: "${data.type}"${data.label ? `,
+                label: "${data.label}"` : ''}
+            }`,
+            { separator: ',\n        ' }
+        ) || expandToNode``;
+    }
+
     function generateRegisterStatusEffects(): CompositeGeneratorNode {
         let statusEffects = getAllOfType<StatusProperty>(entry.documents, isStatusProperty, false);
         if (statusEffects.length === 0) return expandToNode`
-            function registerStatusEffects() { }
+            function registerStatusEffects() { 
+                game.system.statusEffects = [];
+            }
         `;
 
         let hasDead = statusEffects.find(x => x.name.toLowerCase() === "dead");
@@ -66,6 +89,9 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
                 {"id":"invisible","name":"EFFECT.StatusInvisible","img":"icons/svg/invisible.svg"},
                 ${joinToNode(statusEffects, generateStatusEffect, { appendNewLineIfNotEmpty: true, separator: ',' })}
             ];
+            
+            // Also store for journal generation
+            game.system.statusEffects = CONFIG.statusEffects;
         }
         `.appendNewLine();
     }
@@ -139,6 +165,8 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             registerHandlebarsHelpers();
             registerResourceBars();
             registerStatusEffects();
+            registerKeywords();
+            setupKeywordEnricher();
             registerUtils();
             //addVueImportMap();
 
@@ -153,6 +181,15 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         /* -------------------------------------------- */
 
         function registerSettings() {
+
+            game.settings.register('${id}', 'createSystemJournal', {
+                name: game.i18n.localize("SETTINGS.CreateSystemJournalName"),
+                hint: game.i18n.localize("SETTINGS.CreateSystemJournalHint"),
+                scope: 'world',
+                config: true,
+                default: true,
+                type: Boolean
+            });
 
             game.settings.register('${id}', 'roundUpDamageApplication', {
                 name: game.i18n.localize("SETTINGS.RoundUpDamageApplicationName"),
@@ -357,6 +394,73 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         /* -------------------------------------------- */
 
         ${generateRegisterStatusEffects()}
+
+        /* -------------------------------------------- */
+
+        function registerKeywords() {
+            game.system.keywords = {
+                ${generateKeywordConfig(entry)}
+            };
+        }
+        
+        /* -------------------------------------------- */
+
+        function setupKeywordEnricher() {
+            // Register keyword text enricher
+            CONFIG.TextEditor.enrichers.push({
+                pattern: /@([a-zA-Z][a-zA-Z0-9]*)/gi,
+                replaceParent: true,
+                enricher: async (match, options) => {
+                    const keywordName = match[1].toLowerCase();
+                    const keyword = game.system.keywords[keywordName];
+                    
+                    if (!keyword) return null;
+                    
+                    // Find the system documentation journal and determine which page the keyword is on
+                    const keywordsJournal = game.journal.find(j => j.getFlag('${id}', 'systemJournal') === true || j.getFlag('core', 'keywordsJournal') === true);
+                    const isDamageType = keyword.type === 'damage-type';
+                    const pageType = isDamageType ? 'damage-types' : 'keywords';
+                    const targetPage = keywordsJournal?.pages.find(p => p.getFlag('core', 'pageType') === pageType);
+                    
+                    const element = document.createElement('span');
+                    element.className = 'keyword-reference';
+                    element.setAttribute('data-keyword', keywordName);
+                    element.setAttribute('data-journal-uuid', keywordsJournal?.uuid || '');
+                    element.setAttribute('data-page-uuid', targetPage?.uuid || '');
+                    element.setAttribute('data-anchor', keywordName);
+                    element.title = keyword.description;
+                    
+                    if (keyword.icon) {
+                        const icon = document.createElement('i');
+                        icon.className = keyword.icon;
+                        icon.style.color = keyword.color;
+                        element.appendChild(icon);
+                    }
+                    
+                    element.appendChild(document.createTextNode(keyword.name));
+                    
+                    return element;
+                }
+            });
+            
+            // Register click handler for keyword references
+            $(document).on('click', '.keyword-reference', async function() {
+                const journalUuid = $(this).data('journal-uuid');
+                const pageUuid = $(this).data('page-uuid');
+                const anchor = $(this).data('anchor');
+                
+                if (journalUuid && pageUuid) {
+                    const journal = await fromUuid(journalUuid);
+                    const page = await fromUuid(pageUuid);
+                    if (journal && page) {
+                        journal.sheet.render(true, {pageId: page.id, anchor: anchor});
+                    }
+                } else if (journalUuid) {
+                    const journal = await fromUuid(journalUuid);
+                    journal?.sheet.render(true);
+                }
+            });
+        }
 
         /** -------------------------------------------- */
 
