@@ -202,10 +202,10 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
             if (!game.settings.get("${id}", "createSystemJournal")) return;
 
             // Create System folder if it doesn't exist
-            let keywordsFolder = game.folders.find(f => f.name === "System" && f.type === "JournalEntry");
+            let keywordsFolder = game.folders.find(f => f.name === game.i18n.localize("JOURNAL.System") && f.type === "JournalEntry");
             if (!keywordsFolder) {
                 keywordsFolder = await Folder.create({
-                    name: "System",
+                    name: game.i18n.localize("JOURNAL.System"),
                     type: "JournalEntry",
                     color: "#42a5f5",
                     parent: null,
@@ -260,7 +260,7 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
                 if (!keywordsPage) {
                     // Create new page
                     const keywordsPageData = {
-                        name: "Keywords",
+                        name: game.i18n.localize("JOURNAL.Keywords"),
                         type: "text",
                         title: {
                             show: true,
@@ -294,7 +294,7 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
                 if (!damageTypesPage) {
                     // Create new page
                     const damageTypesPageData = {
-                        name: "Damage Types",
+                        name: game.i18n.localize("JOURNAL.DamageTypes"),
                         type: "text",
                         title: {
                             show: true,
@@ -328,7 +328,7 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
                 if (!statusEffectsPage) {
                     // Create new page
                     const statusEffectsPageData = {
-                        name: "Status Effects",
+                        name: game.i18n.localize("JOURNAL.StatusEffects"),
                         type: "text",
                         title: {
                             show: true,
@@ -356,15 +356,25 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
         }
 
         function generateKeywordsPageContent(keywords) {
-            let content = '<div style="margin-bottom: 20px;"><p>Game mechanics and special conditions that affect gameplay:</p></div>';
+            let content = \`<div class="isdl-journal-section">
+                                <div class="isdl-journal-info-box">
+                                    <div class="isdl-journal-info-title">\${game.i18n.localize("JOURNAL.KeywordsUsageTitle")}</div>
+                                    <ul class="isdl-journal-info-list">
+                                        <li>\${game.i18n.localize("JOURNAL.KeywordsUsageList.GameMechanics")}</li>
+                                        <li>\${game.i18n.localize("JOURNAL.KeywordsUsageList.References")}</li>
+                                        <li>\${game.i18n.localize("JOURNAL.KeywordsUsageList.Documentation")}</li>
+                                    </ul>
+                                </div>
+                            </div>\`;
             
             for (const [keywordKey, keyword] of Object.entries(keywords)) {
-                content += \`<div class="keyword-entry" id="\${keywordKey}" style="border-left: 4px solid \${keyword.color}; padding: 12px; margin-bottom: 16px;">
-                    <header style="display: flex; align-items: center; margin-bottom: 8px;">
-                        \${keyword.icon ? \`<i class="\${keyword.icon}" style="color: \${keyword.color}; margin-right: 8px; font-size: 1.2em;"></i>\` : ''}
-                        <h3 style="margin: 0;">\${keyword.name}</h3>
-                    </header>
-                    \${keyword.description ? \`<div class="description"><p>\${keyword.description}</p></div>\` : ''}
+                content += \`<div class="isdl-keyword-entry" id="\${keywordKey}" style="border-left-color: \${keyword.color};">
+                    <div class="isdl-journal-header">
+                        \${keyword.icon ? \`<i class="\${keyword.icon} isdl-journal-icon" style="color: \${keyword.color};"></i>\` : ''}
+                        <h3 class="isdl-journal-title">\${keyword.name}</h3>
+                        <span class="isdl-journal-badge" style="background: \${keyword.color}20;">\${game.i18n.localize("JOURNAL.KeywordBadge")}</span>
+                    </div>
+                    \${keyword.description ? \`<div class="isdl-journal-description"><p>\${keyword.description}</p></div>\` : ''}
                 </div>\`;
             }
             
@@ -372,60 +382,65 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
         }
 
         function generateDamageTypesPageContent(damageTypes) {
-            let content = \`<div style="margin-bottom: 20px;"><p>Types of damage that can be dealt and their effects.</p>
-                             <div class="damage-type-info" style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 0.9em;">
-                                    <strong>Damage Type Effects:</strong>
-                                    <ul style="margin: 4px 0 0 16px;">
-                                        <li>Can be used in damage rolls and calculations</li>
-                                        <li>May have associated resistances and bonuses</li>
-                                        <li>Appears in damage type choice fields</li>
+            let content = \`<div class="isdl-journal-section">
+                                <div class="isdl-journal-info-box">
+                                    <div class="isdl-journal-info-title">\${game.i18n.localize("JOURNAL.DamageTypeEffectsTitle")}</div>
+                                    <ul class="isdl-journal-info-list">
+                                        <li>\${game.i18n.localize("JOURNAL.DamageTypeEffectsList.Usage")}</li>
+                                        <li>\${game.i18n.localize("JOURNAL.DamageTypeEffectsList.Resistances")}</li>
+                                        <li>\${game.i18n.localize("JOURNAL.DamageTypeEffectsList.ChoiceFields")}</li>
                                     </ul>
                                 </div>
                             </div>\`;
 
             for (const [keywordKey, keyword] of Object.entries(damageTypes)) {
-                content += \`<div class="damage-type-entry" id="\${keywordKey}" style="border-left: 4px solid \${keyword.color}; padding: 12px; margin-bottom: 16px;">
-                    <header style="display: flex; align-items: center; margin-bottom: 8px;">
-                        \${keyword.icon ? \`<i class="\${keyword.icon}" style="color: \${keyword.color}; margin-right: 8px; font-size: 1.2em;"></i>\` : ''}
-                        <h3 style="margin: 0; color: \${keyword.color};">\${keyword.name}</h3>
-                        <span style="margin-left: auto; font-size: 0.8em; background: \${keyword.color}20; padding: 2px 6px; border-radius: 3px;">Damage Type</span>
-                    </header>
-                    \${keyword.description ? \`<div class="description" style="margin-bottom: 12px;"><p>\${keyword.description}</p></div>\` : ''}
+                content += \`<div class="isdl-damage-type-entry" id="\${keywordKey}" style="border-left-color: \${keyword.color};">
+                    <div class="isdl-journal-header">
+                        \${keyword.icon ? \`<i class="\${keyword.icon} isdl-journal-icon" style="color: \${keyword.color};"></i>\` : ''}
+                        <h3 class="isdl-journal-title" style="color: \${keyword.color};">\${keyword.name}</h3>
+                        <span class="isdl-journal-badge" style="background: \${keyword.color}20;">\${game.i18n.localize("JOURNAL.DamageTypeBadge")}</span>
+                    </div>
+                    \${keyword.description ? \`<div class="isdl-journal-description"><p>\${keyword.description}</p></div>\` : ''}
                 </div>\`;
             }
             
             return content;
         }
 
+        function localizeConditionText(conditionText) {
+            if (!conditionText) return conditionText;
+            
+            // Replace localization key patterns {{KEY}} with actual translations
+            return conditionText.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+                return game.i18n.localize(key);
+            });
+        }
+
         function generateStatusEffectsPageContent(statusEffects) {
-            let content = \`<div style="margin-bottom: 20px;"><p>Conditions and effects that can be applied to characters.</p>
-                             <div class="status-effect-info" style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 0.9em;">
-                                    <strong>Status Effect Usage:</strong>
-                                    <ul style="margin: 4px 0 0 16px;">
-                                        <li>Can be applied to tokens on the canvas</li>
-                                        <li>Appear in the token status effects menu</li>
-                                        <li>Provide visual indicators of character state</li>
+            let content = \`<div class="isdl-journal-section">
+                                <div class="isdl-journal-info-box">
+                                    <div class="isdl-journal-info-title">\${game.i18n.localize("JOURNAL.StatusEffectUsageTitle")}</div>
+                                    <ul class="isdl-journal-info-list">
+                                        <li>\${game.i18n.localize("JOURNAL.StatusEffectUsageList.TokenApplication")}</li>
+                                        <li>\${game.i18n.localize("JOURNAL.StatusEffectUsageList.MenuAppearance")}</li>
+                                        <li>\${game.i18n.localize("JOURNAL.StatusEffectUsageList.VisualIndicators")}</li>
                                     </ul>
                                 </div>
                             </div>\`;
-            console.log(statusEffects);
             for (const [statusId, statusEffect] of Object.entries(statusEffects)) {
                 const isDeathEffect = statusEffect.isDeath || statusId.toLowerCase().includes('dead');
                 const effectColor = isDeathEffect ? '#dc2626' : '#4f46e5';
-                const effectBadge = isDeathEffect ? 'Death Effect' : 'Status Effect';
+                const effectBadge = isDeathEffect ? game.i18n.localize("JOURNAL.DeathEffectBadge") : game.i18n.localize("JOURNAL.StatusEffectBadge");
                 
-                content += \`<div class="status-effect-entry" id="\${statusId}" style="border-left: 4px solid \${effectColor}; padding: 12px; margin-bottom: 16px;">
-                    <header style="display: flex; align-items: center; margin-bottom: 8px;">
-                        \${statusEffect.img ? \`<img src="\${statusEffect.img}" alt="\${statusEffect.name}" style="width: 32px; height: 32px; margin-right: 8px; border-radius: 4px; object-fit: cover;" />\` : ''}
-                        <h3 style="margin: 0; color: \${effectColor};">\${statusEffect.name}</h3>
-                        <span style="margin-left: auto; font-size: 0.8em; background: \${effectColor}20; color: \${effectColor}; padding: 2px 6px; border-radius: 3px;">\${effectBadge}</span>
-                    </header>
-                    \${statusEffect.condition ? \`<div class="condition-info" style="margin-bottom: 12px; padding: 8px; background: #f0f9ff; border-left: 3px solid #0ea5e9; border-radius: 4px;">
-                        <p style="margin: 0;"><strong>Applied when:</strong> \${statusEffect.condition}</p>
-                    </div>\` : ''}
-                    <div class="technical-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 0.85em; color: #6b7280;">
-                        \${isDeathEffect ? '<br>• <strong style="color: #dc2626;">Death Effect</strong> - Will be applied when character reaches 0 health' : ''}
+                content += \`<div class="isdl-status-effect-entry" id="\${statusId}" style="border-left-color: \${effectColor};">
+                    <div class="isdl-journal-header">
+                        \${statusEffect.img ? \`<img src="\${statusEffect.img}" alt="\${statusEffect.name}" class="isdl-status-effect-image" />\` : ''}
+                        <h3 class="isdl-journal-title" style="color: \${effectColor};">\${statusEffect.name}</h3>
+                        <span class="isdl-journal-badge" style="background: \${effectColor}20; color: \${effectColor};">\${effectBadge}</span>
                     </div>
+                    \${statusEffect.condition ? \`<div class="isdl-journal-condition">
+                        <p><span class="isdl-journal-condition-label">\${game.i18n.localize("JOURNAL.AppliedWhen")}</span> \${localizeConditionText(statusEffect.condition)}</p>
+                    </div>\` : ''}
                 </div>\`;
             }
             

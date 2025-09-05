@@ -187,18 +187,18 @@ function convertConditionToString(condition: any): string {
         const operator = condition.operator;
         const right = convertExpressionToString(condition.right);
 
-        // Convert operators to more human readable forms
+        // Convert operators to localization keys
         const operatorMap: Record<string, string> = {
-            '<=': 'is less than or equal to',
-            '>=': 'is greater than or equal to',
-            '<': 'is less than',
-            '>': 'is greater than',
-            '==': 'equals',
-            '!=': 'does not equal'
+            '<=': 'JOURNAL.OperatorLabels.LessThanOrEqual',
+            '>=': 'JOURNAL.OperatorLabels.GreaterThanOrEqual',
+            '<': 'JOURNAL.OperatorLabels.LessThan',
+            '>': 'JOURNAL.OperatorLabels.GreaterThan',
+            '==': 'JOURNAL.OperatorLabels.Equals',
+            '!=': 'JOURNAL.OperatorLabels.NotEqual'
         };
 
         const humanOperator = operatorMap[operator] || operator;
-        return `${left} ${humanOperator} ${right}`;
+        return `${left} {{${humanOperator}}} ${right}`;
     }
 
     if (condition.$type === 'ShorthandComparisonExpression') {
@@ -208,24 +208,24 @@ function convertConditionToString(condition: any): string {
             const operator = condition.e1.op;
             const right = extractSimpleValue(condition.e1.e2);
 
-            // Convert operators to more human readable forms
+            // Convert operators to localization keys
             const operatorMap: Record<string, string> = {
-                '<=': 'is less than or equal to',
-                '>=': 'is greater than or equal to',
-                '<': 'is less than',
-                '>': 'is greater than',
-                '==': 'equals',
-                '!=': 'does not equal'
+                '<=': 'JOURNAL.OperatorLabels.LessThanOrEqual',
+                '>=': 'JOURNAL.OperatorLabels.GreaterThanOrEqual',
+                '<': 'JOURNAL.OperatorLabels.LessThan',
+                '>': 'JOURNAL.OperatorLabels.GreaterThan',
+                '==': 'JOURNAL.OperatorLabels.Equals',
+                '!=': 'JOURNAL.OperatorLabels.NotEqual'
             };
 
             const humanOperator = operatorMap[operator] || operator;
-            return `${left} ${humanOperator} ${right}`;
+            return `${left} {{${humanOperator}}} ${right}`;
         }
 
         // Handle other ShorthandComparisonExpression cases
         if (condition.term) {
             const expr = convertExpressionToString(condition.e1);
-            return condition.term === 'exists' ? `${expr} exists` : `${expr} does not exist`;
+            return condition.term === 'exists' ? `${expr} {{JOURNAL.OperatorLabels.Exists}}` : `${expr} {{JOURNAL.OperatorLabels.NotExists}}`;
         }
     }
 

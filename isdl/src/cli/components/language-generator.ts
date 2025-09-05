@@ -275,6 +275,45 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 "AddOnce": "Add Once",
                 "TabEffects": "Effects"
             },
+            "JOURNAL": {
+                "System": "System",
+                "Keywords": "Keywords",
+                "DamageTypes": "Damage Types",
+                "StatusEffects": "Status Effects",
+                "KeywordsUsageTitle": "Keyword Usage:",
+                "KeywordsUsageList": {
+                    "GameMechanics": "Defines special rules and mechanics for your game",
+                    "References": "Can be referenced in text and chat cards via @keyword",
+                    "Documentation": "Provide clear explanations for players and GMs"
+                },
+                "DamageTypeEffectsTitle": "Damage Type Effects:",
+                "DamageTypeEffectsList": {
+                    "Usage": "Can be used in damage rolls and calculations",
+                    "Resistances": "May have associated resistances and bonuses",
+                    "ChoiceFields": "Appears in damage type choice fields"
+                },
+                "StatusEffectUsageTitle": "Status Effect Usage:",
+                "StatusEffectUsageList": {
+                    "TokenApplication": "Can be applied to tokens on the canvas",
+                    "MenuAppearance": "Appear in the token status effects menu",
+                    "VisualIndicators": "Provide visual indicators of character state"
+                },
+                "KeywordBadge": "Keyword",
+                "DamageTypeBadge": "Damage Type",
+                "StatusEffectBadge": "Status Effect",
+                "DeathEffectBadge": "Death Effect",
+                "AppliedWhen": "Applied when:",
+                "OperatorLabels": {
+                    "LessThanOrEqual": "is less than or equal to",
+                    "GreaterThanOrEqual": "is greater than or equal to",
+                    "LessThan": "is less than",
+                    "GreaterThan": "is greater than",
+                    "Equals": "equals",
+                    "NotEqual": "does not equal",
+                    "Exists": "exists",
+                    "NotExists": "does not exist"
+                }
+            },
             ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
         }
     `.appendNewLineIfNotEmpty();
