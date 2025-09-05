@@ -1,16 +1,28 @@
 grammar IntelligentSystemDesignLanguage
 entry Entry:
     config=Config documents+=Document*;
-     
-// Config ------------------------------------------------------ 
+
+// Config ------------------------------------------------------
 
 Config:
-    "config" name=ID "{" body+=(ConfigExpression)* "}";
+    "config" name=ID "{" body+=(ConfigExpression | Keywords)* "}";
 
 ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
- 
-// Documents ------------------------------------------------------ 
+
+Keywords:
+    "keywords" "{" body+=Keyword* "}";
+
+Keyword:
+    name=ID ("(" params+=KeywordParam ("," params+=KeywordParam)* ")")?;
+
+KeywordParam:
+    (LabelParam | IconParam | ColorParam | SummaryParam);
+
+SummaryParam:
+    "summary:" value=STRING;
+
+// Documents ------------------------------------------------------
 
 Document:
     Actor | Item;
@@ -31,7 +43,7 @@ DocumentDefaultParam:
     "default:" value=BOOLEAN;
 
 
-// Document Body ------------------------------------------------------ 
+// Document Body ------------------------------------------------------
 
 fragment ClassBlock:
     "{" body+=(ClassExpression | Layout)* "}";
@@ -52,9 +64,9 @@ Tab:
 
 ClassExpression:
     (Property | Action | InitiativeProperty | StatusProperty | HookHandler | FunctionDefinition);
- 
- 
-// Fields ------------------------------------------------------ 
+
+
+// Fields ------------------------------------------------------
 
 Property:
     (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | DeprecatedFields);
@@ -80,9 +92,9 @@ fragment StandardFieldParamsFrag:
     ("(" params+=StandardFieldParams* ("," params+=StandardFieldParams)* ")")?;
 NumberFieldParams:
     (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax);
- 
- 
-// String ------------- 
+
+
+// String -------------
 
 StringExp:
     ExpressionModifier "string" name=ID ("(" params+=StringParameter* ("," params+=StringParameter)* ")")?;
@@ -111,16 +123,16 @@ StringChoicesParamMax:
     "max:" value=INT;
 StringChoicesParamInitial:
     "initial:" value=INT;
- 
+
 StringChoice:
     value=(STRING | StringExtendedChoice);
 
-StringExtendedChoice: 
+StringExtendedChoice:
     "{" properties+=(ChoiceStringValue | ChoiceProperty) ("," properties+=(ChoiceStringValue | ChoiceProperty))* "}";
 
 ChoiceProperty:
-    LabelParam | IconParam | 
-    ColorParam | WhenExpressions | ChoiceCustomProperty;
+    LabelParam | IconParam |
+    ColorParam | SummaryParam | WhenExpressions | ChoiceCustomProperty;
 
 ChoiceStringValue:
     "value:" value=STRING;
@@ -128,15 +140,15 @@ ChoiceStringValue:
 // Custom properties for game-specific data
 ChoiceCustomProperty:
     key=ID ":" value=(STRING | INT | BOOLEAN | Expression);
- 
+
 // Number -------------
 
 NumberExp:
     ExpressionModifier "number" name=ID ("(" params+=NumberParameter* ("," params+=NumberParameter)* ")")?;
 NumberParameter:
     (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | StandardFieldParams);
- 
- 
+
+
 // Boolean -------------
 
 BooleanExp:
@@ -147,16 +159,16 @@ BooleanParamValue:
     "value:" value=(BOOLEAN | MethodBlock);
 HtmlExp:
     ExpressionModifier "html" name=ID StandardFieldParamsFrag;
- 
- 
+
+
 // Resource -------------
 
 ResourceExp:
     ExpressionModifier (tag=("health" | "wounds"))? "resource" name=ID ("(" params+=ResourceParameter* ("," params+=ResourceParameter)* ")")?;
 ResourceParameter:
     (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter);
- 
- 
+
+
 // Measured Template -------------
 
 MeasuredTemplateField:
@@ -182,8 +194,8 @@ TrackerStyleParameter:
     "style:" style=("bar" | "dial" | "icons" | "slashes" | "segmented" | "clock" | "plain");
 SegmentsParameter:
     "segments:" segments=INT;
- 
- 
+
+
 // Attribute -------------
 
 AttributeExp:
@@ -198,8 +210,8 @@ AttributeStyleParam:
     "style:" style=("plain" | "box");
 AttributeRollParam:
     "roll:" roll=(MethodBlock | Expression);
- 
- 
+
+
 // Pips -------------
 
 PipsExp:
@@ -208,8 +220,8 @@ PipsParameter:
     (NumberParamMin | NumberParamMax | NumberParamInitial | NumberParamValue | PipsStyleParameter);
 PipsStyleParameter:
     "style:" style=("squares" | "circles");
- 
- 
+
+
 // Damage Track -------------
 
 DamageTrackExp:
@@ -218,7 +230,7 @@ DamageTrackParams:
     (StandardFieldParams | NumberFieldParams | DamageTrackTypesParam);
 DamageTrackTypesParam:
     "types:" "[" (types+=STRING ("," types+=STRING)*)? "]";
- 
+
 
 // Macro Field -------------
 
@@ -227,7 +239,7 @@ MacroField:
 
 MacroExecute:
     "self." macro=[MacroField:ID] ".execute" "(" ")";
- 
+
 // Document Links -------------
 
 DocumentArrayExp:
@@ -246,7 +258,7 @@ DocumentChoiceParms:
     (StandardFieldParams | WhereParam | GlobalParam);
 TableFieldsParam:
     "fields:" "[" fields+=ID ("," fields+=ID)* "]";
- 
+
 // Datetime -------------
 
 DateExp:
@@ -255,7 +267,7 @@ TimeExp:
     ExpressionModifier "time" name=ID StandardFieldParamsFrag;
 DateTimeExp:
     ExpressionModifier "datetime" name=ID StandardFieldParamsFrag;
- 
+
 
 // Dice -------------
 
@@ -276,7 +288,7 @@ DieInitialParam:
 
 DieChoicesParam:
     "choices:" "[" (choices+=DICE ("," choices+=DICE)*)? "]";
- 
+
 
 // Paperdoll -------------
 
@@ -288,8 +300,8 @@ PaperDollElement:
     (PaperDollDocumentReference);
 PaperDollDocumentReference:
     document=[Document:ID] name=ID "(" "left:" left=PX "," "top:" top=PX ")";
- 
- 
+
+
 // ParentPropertyRef -------------
 
 ParentPropertyRefExp:
@@ -347,7 +359,7 @@ WidthParam:
     "width:" value=(INT | "auto");
 HeightParam:
     "height:" value=(INT | "auto");
-  
+
 // Document Special ------------------------------------------------------
 
 InitiativeProperty:
@@ -361,12 +373,12 @@ StatusPropertyParameter:
 StatusParamWhen:
     "when:" when=(WhenExpressions | MethodBlock);
 HookHandler:
-    "on" name=('combatStart' | 'combatEnd' 
-        | 'turnIsNext' | 'turnStart' | 'turnEnd' 
-        | 'roundStart' | 'roundEnd' 
-        | 'death' 
-        | 'preApplyDamage' | 'preApplyTemp' | 'preApplyHealing' 
-        | 'appliedDamage' | 'appliedTemp' | 'appliedHealing' 
+    "on" name=('combatStart' | 'combatEnd'
+        | 'turnIsNext' | 'turnStart' | 'turnEnd'
+        | 'roundStart' | 'roundEnd'
+        | 'death'
+        | 'preApplyDamage' | 'preApplyTemp' | 'preApplyHealing'
+        | 'appliedDamage' | 'appliedTemp' | 'appliedHealing'
         | ID) ("(" params+=MethodParam ("," params+=MethodParam)* ")")? "{" body+=(MethodBlockExpression)* "}";
 MethodParam:
     name=ID;
@@ -380,8 +392,8 @@ FunctionDefinition:
     "function" name=ID ("(" params+=FunctionParam ("," params+=FunctionParam)* ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
 FunctionParam:
     param=(Property) ("=" defaultValue=Expression)?;
- 
- 
+
+
 // Self Access / Modification ------------------------------------------------------
 
 fragment SelfSpecialAccess:
@@ -466,7 +478,7 @@ VisibilityParam:
     "visibility:" visibility=(VisibilityValue | MethodBlock);
 VisibilityValue:
     "Visibility" "." visibility=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden");
- 
+
 
 // Methods ------------------------------------------------------
 

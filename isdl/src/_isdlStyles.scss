@@ -821,6 +821,17 @@
             }
         }
     }
+}
 
+/* Keyword References */
+.keyword-reference {
+  border: 2px outset whitesmoke;
+  border-radius: 2px;
+  cursor: pointer;
+  padding: 0 2px;
+  display: inline-block;
 
+  i {
+    margin-right: 4px;
+  }
 }

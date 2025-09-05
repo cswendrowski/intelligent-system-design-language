@@ -9,7 +9,7 @@ import {
     IconParam,
     isAction,
     isActor, isBooleanExp,
-    isColorParam,
+    isColorParam, isDamageTypeChoiceField,
     isDateExp,
     isDateTimeExp, isDiceField, isDieField, isDocument, isDocumentChoiceExp,
     isHookHandler,
@@ -90,7 +90,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 }
             }
 
-            if (isDocumentChoiceExp(property) || isStringChoiceField(property)) {
+            if (isDocumentChoiceExp(property) || isStringChoiceField(property) || isDamageTypeChoiceField(property)) {
                 localizeName += ".label";
                 minWidth = '120px'; // Document choices need extra space
             }
@@ -116,7 +116,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             }
 
             return expandToNode`
-                { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}' },
+                { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}', type: '${property.$type}' },
             `;
         }
         return undefined;

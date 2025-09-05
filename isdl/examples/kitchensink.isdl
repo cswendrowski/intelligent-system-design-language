@@ -3,6 +3,22 @@ config KitchenSink {
     id = "kitchen-sink"
     description = "An dump of all the features"
     author = "Cody Swendrowski"
+
+    keywords {
+        Advantage(summary: "Roll twice and take the higher result", color: #00FF00, icon: "fa-solid fa-dice-d20")
+        Disadvantage(summary: "Roll twice and take the lower result", color: #FF0000, icon: "fa-solid fa-dice-d20")
+        CriticalHit(summary: "A devastating attack that deals maximum damage", color: #FFD700, icon: "fa-solid fa-burst")
+
+        Stealth(summary: "Hidden from enemy detection", color: #696969)
+        Flying(summary: "Moving through the air", color: #87CEEB)
+
+        Grappled(summary: "Unable to move freely", icon: "fa-solid fa-hand-fist")
+        Cover(summary: "Partial protection from attacks", icon: "fa-solid fa-shield-halved")
+
+        Stunned(summary: "Temporarily incapacitated")
+        Flanking(summary: "Attack from an advantageous position")
+        Inspiration(summary: "Divine or heroic motivation")
+    }
 }
 
 actor BasicHero {
@@ -58,6 +74,9 @@ actor Superhero {
             boolean Slowed
             boolean Dazed
         }
+
+        status Slowed
+        status Dazed
     }
 
     // Will show up on the base page
@@ -83,10 +102,10 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             string StringField
             number NumberField
             boolean BooleanField
-            html HtmlField
+            html HtmlField(label: "Combat Notes - Use @keyword syntax like @Advantage or @CriticalHit")
             choice<string> ChoiceStringField(choices: ["Option A", "Option B", "Option C"])
             choices<string> ChoicesStringField(choices: [
-                "Basic Option", 
+                "Basic Option",
                 { value: "Advanced", label: "Advanced Option", icon: "fa-solid fa-star", color: #FFD700 },
                 { value: "Expert", label: "Expert Level", icon: "fa-solid fa-crown", color: #8B4513 }
             ], max: 3)
@@ -402,7 +421,7 @@ page Stats(icon: "fa-solid fa-chart-line", background: bricks) {
 
 section Health {
         death status Dead(when: self.HP <= 0)
-        status Staggered
+        status Staggered(when: self.HP <= 10)
     row {
 
         health resource HP(max: {
@@ -612,12 +631,13 @@ item Spell {
         { value: "Defense", icon: "fa-solid fa-shield", color: #00FF00 },
         { value: "Healing", icon: "fa-solid fa-heart", color: #0000FF }
     ])
+    // Damage types automatically become keywords! Use @Fire, @Water, @Earth, @Air in rich text
     choice<damageType> Class(choices: [
         "None",
-        { label: "🔥Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF4500, resistance: "water" },
-        { label: "💧Water", value: "Water", icon: "fa-solid fa-water", color: #1E90FF, resistance: "fire" },
-        { label: "🌍Earth", value: "Earth", icon: "fa-solid fa-earth", color: #8B4513, resistance: "air" },
-        { label: "🌬️Air", value: "Air", icon: "fa-solid fa-wind", color: #87CEEB, resistance: "earth" }
+        { label: "🔥Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF4500, resistance: "water", summary: "Burn burn burn" },
+        { label: "💧Water", value: "Water", icon: "fa-solid fa-water", color: #1E90FF, resistance: "fire", summary: "Nice and cool" },
+        { label: "🌍Earth", value: "Earth", icon: "fa-solid fa-earth", color: #8B4513, resistance: "air", summary: "Defense orientated" },
+        { label: "🌬️Air", value: "Air", icon: "fa-solid fa-wind", color: #87CEEB, resistance: "earth", summary: "Zoom Zoom Zoom" }
     ])
     choice<string> Training(choices: [
         { value: "Basic", icon: "fa-solid fa-graduation-cap", color: #FFD700, bonus: 0, checkDC: 16 },

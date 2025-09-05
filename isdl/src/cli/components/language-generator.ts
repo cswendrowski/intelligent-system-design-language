@@ -1,11 +1,11 @@
-import type {
+import {
     ChoiceStringValue,
     ClassExpression,
     Document,
     Entry,
     LabelParam,
     StandardFieldParams, StringChoice,
-    StringParamChoices, StringChoicesParamChoices,
+    StringParamChoices, StringChoicesParamChoices, isStatusProperty,
 } from '../../language/generated/ast.js';
 import {
     isSection,
@@ -68,6 +68,15 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
 
         if (isLayout(property)) {
             return joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' });
+        }
+
+        if (isStatusProperty(property)) {
+            const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+            const label = labelParam ? labelParam.value : humanize(property.name);
+
+            return expandToNode`
+                    "Status.${property.name}": "${label}"
+                `;
         }
 
         if (isProperty(property)) {
@@ -228,6 +237,8 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             "EditModeWarning": "Active Effects are not applied while in Edit mode. Base values are displayed and used for all rolls, calculations and actions.",
             "SendToChat": "Send to Chat",
             "SETTINGS": {
+                "CreateSystemJournalName": "Create System Journal",
+                "CreateSystemJournalHint": "If disabled, the System Journal will not be automatically created on load.",
                 "RoundUpDamageApplicationName": "Round Up Damage",
                 "RoundUpDamageApplicationHint": "When enabled, damage is rounded up to the nearest whole number. When disabled, damage is rounded down.",
                 "AllowTargetDamageApplicationName": "Allow Target Damage Application",
