@@ -324,3 +324,99 @@ The `bonuses` and `resistances` fields demonstrate this pattern:
 4. **Theming:** Used consistent color schemes (green for bonuses, blue for resistances)
 
 This approach ensures new field types integrate seamlessly with the existing ISDL ecosystem.
+
+## Updating the Wiki
+
+The ISDL project maintains comprehensive documentation in a GitHub wiki located at `F:\Programming\Git\intelligent-system-design-language.wiki`. When adding new features or making significant changes, the wiki should be updated to help users understand and use the new functionality.
+
+### Wiki Structure
+
+The wiki uses the following organization:
+
+```
+intelligent-system-design-language.wiki/
+├── Home.md                     # Main landing page with overview
+├── _Sidebar.md                 # Navigation sidebar
+├── Getting-Started.md          # Installation and setup
+├── Your-first-System.md       # Tutorial
+├── Config.md                   # System configuration  
+├── Document.md                 # Actors and items
+├── Fields.md                   # Field types reference
+├── Keywords-and-Journals.md    # Keywords and auto-documentation
+├── Basic-Logic.md             # Programming basics
+├── Advanced-Logic.md          # Complex programming
+├── Interactivity.md           # User interaction
+├── Recipes.md                 # Common patterns
+├── Keywords-Quick-Reference.md # Developer cheat sheet
+├── Logic-Reference.md         # Complete syntax reference
+└── GitHub-Integration.md      # Publishing and sharing
+```
+
+### Adding New Documentation
+
+When adding major features like keywords, status effects, or new field types:
+
+1. **Create comprehensive documentation** in a new `.md` file
+2. **Update the sidebar** (`_Sidebar.md`) to include the new page
+3. **Update the home page** (`Home.md`) to mention the new functionality
+4. **Create quick reference** if the feature has complex syntax
+5. **Link from related pages** to maintain cross-references
+
+### Documentation Best Practices
+
+#### Content Structure
+- Start with a clear overview and purpose
+- Include practical code examples with explanations
+- Document all parameters and options
+- Provide visual examples or generated output when possible
+- Include troubleshooting and common issues
+- End with best practices and tips
+
+#### Code Examples
+```isdl
+// Always include complete, working examples
+config MySystem {
+    keywords {
+        Advantage summary: "Roll twice, take higher" color: "#38a169"
+    }
+}
+
+actor Character {
+    status Blessed when: self.Faith > 5 img: "icons/svg/holy-symbol.svg"
+}
+```
+
+#### Cross-References
+- Link to related concepts: `[Fields](Fields)`, `[Basic Logic](Basic-Logic)`
+- Reference implementation details when helpful
+- Connect features to their practical applications
+
+### Quick Reference Pages
+
+For complex features with lots of syntax, create companion quick reference pages:
+
+- **Syntax tables** - Quick lookup of parameters and options
+- **Code snippets** - Copy-paste examples for common use cases  
+- **Visual guides** - Show generated output or UI elements
+- **Best practices** - Do's and don'ts in checklist format
+
+### Updating Existing Pages
+
+When features interact with existing functionality:
+
+1. **Update Home.md** - Add to key features list if significant
+2. **Update field documentation** - If new field types are added
+3. **Update logic references** - If new functions or operations are added
+4. **Cross-link pages** - Ensure related concepts are connected
+
+### Example: Keywords Documentation
+
+The keywords feature required:
+
+1. **New comprehensive page**: `Keywords-and-Journals.md` with full feature documentation
+2. **New quick reference**: `Keywords-Quick-Reference.md` with syntax tables and examples
+3. **Home page updates**: Added to key features and core concepts
+4. **Sidebar updates**: Added to both Core Concepts and Quick Reference sections
+5. **Cross-references**: Links from Fields.md and other related pages
+
+This ensures users can discover, learn, and effectively use the new functionality through multiple pathways in the documentation.
