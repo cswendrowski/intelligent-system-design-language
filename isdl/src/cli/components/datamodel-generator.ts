@@ -723,6 +723,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                     ${joinToNode(document.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
                     ${expandToNode`${generateDocumentPromptModels(document)}`.appendNewLineIfNotEmpty()}
                     ${isActor(document) ? expandToNode`${generateDamageTypeFields(entry)}`.appendNewLineIfNotEmpty() : ""}
+                    ${!isActor(document) ? "pinned: new fields.BooleanField({initial: false})," : ""}
                 };
             }
 

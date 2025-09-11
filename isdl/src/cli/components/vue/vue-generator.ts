@@ -8,9 +8,9 @@ import {
     isAction,
     isActor,
     isDocumentArrayExp,
-    isPage,
+    isPage, isPinnedField,
     isPrompt, isTableField,
-    isVariableExpression,
+    isVariableExpression, PinnedField,
     Prompt,
     TableField,
     VariableExpression
@@ -247,11 +247,23 @@ function generateIndexMjs(entry: Entry, destination: string) {
             `;
         }
 
+        function generatePinnedExport(datatable: PinnedField): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(datatable, isPage);
+            const pageName = page ? page.name : document.name;
+
+            return expandToNode`
+                export { default as ${type}${document.name}${pageName}${datatable.name}VuetifyDatatable } from "./${type}/${document.name.toLowerCase()}/components/datatables/${document.name.toLowerCase()}${pageName}${datatable.name}VuetifyDatatable.vue";
+            `;
+        }
+
         const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
         const tables = getAllOfType<TableField>(document.body, isTableField, false);
+        const pinned = getAllOfType<PinnedField>(document.body, isPinnedField, false);
         return expandToNode`
             ${joinToNode(datatables, generateDatatableExport, { separator: "\n" })}
             ${joinToNode(tables, generateVuetifyDatableExport, { separator: "\n" })}
+            ${joinToNode(pinned, generatePinnedExport, { separator: "\n" })}
         `;
     }
 

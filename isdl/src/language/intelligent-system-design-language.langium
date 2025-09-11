@@ -73,7 +73,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | DocumentChoicesExp);
+    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
 DiceFields:
@@ -183,6 +183,11 @@ DamageBonusesField:
 
 DamageResistancesField:
     ExpressionModifier "resistances" name=ID StandardFieldParamsFrag;
+
+// Pinned Items Display -------------
+
+PinnedField:
+    ExpressionModifier "pinned" name=ID StandardFieldParamsFrag;
 
 // Tracker -------------
 

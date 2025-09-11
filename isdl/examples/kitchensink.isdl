@@ -96,13 +96,15 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         return rollResult.total
     }
 
+    pinned Favorites
+
     page PlainFields {
 
         section Basic {
             string StringField
             number NumberField
             boolean BooleanField
-            html HtmlField(label: "Combat Notes - Use @keyword syntax like @Advantage or @CriticalHit")
+            html HtmlField
             choice<string> ChoiceStringField(choices: ["Option A", "Option B", "Option C"])
             choices<string> ChoicesStringField(choices: [
                 "Basic Option",
@@ -212,6 +214,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 Combat.nextTurn()
             }
 
+            pinned Pinned
         }
 
         section Level {

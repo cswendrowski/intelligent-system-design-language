@@ -339,6 +339,14 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const visibleHeaders = computed(() => {
             const baseHeaders = [
                 { 
+                    title: "",
+                    key: 'system.pinned', 
+                    sortable: false,
+                    width: '40px',
+                    maxWidth: '40px',
+                    align: 'center'
+                },
+                { 
                     title: game.i18n.localize("Image"), 
                     key: 'img', 
                     sortable: false,
@@ -562,6 +570,11 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             foundryItem.sheet._onAction(event);
         };
 
+        const togglePin = async (item) => {
+            const foundryItem = document.items.get(item._id);
+            await foundryItem.update({"system.pinned": !foundryItem.system.pinned});
+        };
+
         const addNewItem = async () => {
             loading.value = true;
             try {
@@ -671,6 +684,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 hide-default-footer
                 style="background: none;"
                 class="custom-datatable"
+                :sort-by="[{ key: 'system.pinned', order: 'desc' }, { key: 'name', order: 'asc' }]"
             >
                 <!-- Image slot -->
                 <template v-slot:item.img="{ item }">
@@ -683,6 +697,25 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 <template v-slot:item.name="{ item }">
                     <div class="d-flex align-center" :data-tooltip="item.system.description">
                         <div class="font-weight-medium text-truncate" style="min-width: 120px; max-width: 200px;">{{ item.name }}</div>
+                    </div>
+                </template>
+
+                <!-- Pinned slot -->
+                <template v-slot:item.system.pinned="{ item }">
+                    <div class="d-flex justify-center">
+                        <v-btn
+                            icon
+                            size="small"
+                            variant="text"
+                            @click="togglePin(item)"
+                            :data-tooltip="item.system.pinned ? 'Unpin' : 'Pin'"
+                        >
+                            <v-icon 
+                                :icon="item.system.pinned ? 'fa-solid fa-thumbtack' : 'fa-regular fa-thumbtack'"
+                                :color="item.system.pinned ? primaryColor : 'grey'"
+                                size="small"
+                            ></v-icon>
+                        </v-btn>
                     </div>
                 </template>
 

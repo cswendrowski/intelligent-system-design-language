@@ -7,8 +7,8 @@ import {
     Entry,
     isActor,
     isDocumentArrayExp,
-    isPage, isTableField,
-    TableField
+    isPage, isTableField, isPinnedField,
+    TableField, PinnedField
 } from '../../../language/generated/ast.js';
 import { getAllOfType } from '../utils.js';
 import { AstUtils } from 'langium';
@@ -43,11 +43,22 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             `;
         }
 
+        function generatePinnedImport(pinnedField: PinnedField): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(pinnedField, isPage);
+            const pageName = page ? page.name : document.name;
+            return expandToNode`
+                import { ${type}${document.name}${pageName}${pinnedField.name}VuetifyDatatable } from "./components/components.vue.es.mjs";
+            `;
+        }
+
         const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
         const tables = getAllOfType<TableField>(document.body, isTableField, false);
+        const pinnedFields = getAllOfType<PinnedField>(document.body, isPinnedField, true);
         return expandToNode`
             ${joinToNode(datatables, generateDatatableImport, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(tables, generateVuetifyImport, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(pinnedFields, generatePinnedImport, { appendNewLineIfNotEmpty: true })}
         `;
     }
 
@@ -72,11 +83,22 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             `;
         }
 
+        function generatePinnedCase(pinnedField: PinnedField): CompositeGeneratorNode {
+            const type = isActor(document) ? 'actor' : 'item';
+            const page = AstUtils.getContainerOfType(pinnedField, isPage);
+            const pageName = page ? page.name : document.name;
+            return expandToNode`
+                case "${type}${document.name}${document.name}${pinnedField.name}": return ${type}${document.name}${pageName}${pinnedField.name}VuetifyDatatable; break;
+            `;
+        }
+
         const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
         const tables = getAllOfType<TableField>(document.body, isTableField, false);
+        const pinnedFields = getAllOfType<PinnedField>(document.body, isPinnedField, true);
         return expandToNode`
             ${joinToNode(datatables, generateDatatableCase, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(tables, generateVuetifyCase, { appendNewLineIfNotEmpty: true })}
+            ${joinToNode(pinnedFields, generatePinnedCase, { appendNewLineIfNotEmpty: true })}
         `;
     }
 

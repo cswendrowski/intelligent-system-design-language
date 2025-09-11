@@ -213,6 +213,11 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             .replace(/'/g, "&#039;");
         }
 
+        const togglePin = async (rowData) => {
+            const item = document.items.get(rowData._id);
+            await item.update({"system.pinned": !item.system.pinned});
+        };
+
         const columns = [
             { 
                 data: 'img', 
@@ -234,6 +239,14 @@ export function generateDatatableComponent(id: string, document: Document, pageN
                     return data;
                 }
             },
+            { 
+                data: 'system.pinned', 
+                title: game.i18n.localize("Pinned"),
+                render: '#pinned',
+                responsivePriority: 2,
+                orderable: true,
+                width: '80px'
+            },
             ${joinToNode(table.document.ref!.body, p => generateDataTableColumn(table.document, p), { appendNewLineIfNotEmpty: true })}
             { 
                 data: null,
@@ -250,7 +263,7 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             stateSave: true,
             responsive: true,
             colReorder: false,
-            order: [[1, 'asc']],
+            order: [[2, 'desc'], [1, 'asc']],
             createdRow: (row, data) => {
                 //row.setAttribute('data-tooltip', data.description);
                 row.setAttribute("data-id", data._id);
@@ -284,6 +297,11 @@ export function generateDatatableComponent(id: string, document: Document, pageN
             <template #image="props">
                 <img :src="props.cellData" width=40 height=40 />
             </template>
+            <template #pinned="props">
+                <a class="pin-toggle" @click="togglePin(props.rowData)" :data-tooltip="props.cellData ? 'Unpin' : 'Pin'">
+                    <i :class="props.cellData ? 'fas fa-thumbtack' : 'far fa-thumbtack'" :style="{ color: props.cellData ? '#ffd700' : '#666' }"></i>
+                </a>
+            </template>
             <template #actions="props">
                 <div class="flexrow">
                     ${joinToNode(actions, generateActionRow, { appendNewLineIfNotEmpty: true })}
@@ -301,6 +319,24 @@ export function generateDatatableComponent(id: string, document: Document, pageN
         @import 'datatables.net-rowreorder-dt';
         @import 'datatables.net-colreorder-dt';
         @import 'datatables.net-buttons-dt';
+        
+        .pin-toggle {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        
+        .pin-toggle:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        .pin-toggle i {
+            font-size: 16px;
+        }
     </style>
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));

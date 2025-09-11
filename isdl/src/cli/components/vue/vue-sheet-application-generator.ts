@@ -35,7 +35,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField,
+    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -56,7 +56,7 @@ import {
     isStatusProperty, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField,
     isStringExp, isStringExtendedChoice,
     isStringParamChoices,
-    isStringParamValue, isTableField,
+    isStringParamValue, isTableField, PinnedField,
     isTimeExp,
     isTrackerExp,
     isTrackerStyleParameter,
@@ -83,6 +83,7 @@ import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineI
 import {generateDatatableComponent} from './vue-datatable-component-generator.js';
 import {AstUtils} from 'langium';
 import {generateActionComponent} from './vue-action-component-generator.js';
+import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-component-generator.js';
 // import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
 import {generateDocumentChoicesComponent} from './base-components/vue-document-choices.js';
 import {translateBodyExpressionToJavascript, translateExpression} from '../method-generator.js';
@@ -114,6 +115,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     const paperDoll = getAllOfType<PaperDollExp>(document.body, isPaperDollExp);
     const documentChoices = getAllOfType<DocumentChoiceExp>(document.body, isDocumentChoiceExp);
     const documentChoicesPlural = getAllOfType<DocumentChoicesExp>(document.body, isDocumentChoicesExp);
+    const firstPagePinned = document.body.filter(isPinnedField);
 
     function getPageFirstTab(page: Page): string {
         const firstTab = page.body.find(x => isDocumentArrayExp(x)) as DocumentArrayExp | undefined;
@@ -152,6 +154,16 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         import ${document.name}EffectsVuetifyDatatable from './components/datatables/${document.name.toLowerCase()}EffectsVuetifyDatatable.vue';
         `;
     }
+
+    function importPinnedDataTable(pinnedField: PinnedField): CompositeGeneratorNode {
+        generatePinnedVuetifyDatatableComponent(id, document, pinnedField, destination, entry);
+        const page = AstUtils.getContainerOfType<Page>(pinnedField, isPage);
+        const pageName = page ? page.name : document.name;
+        return expandToNode`
+        import ${document.name}${pageName}${pinnedField.name}VuetifyDatatable from './components/datatables/${document.name.toLowerCase()}${pageName}${pinnedField.name}VuetifyDatatable.vue';
+        `;
+    }
+
 
     function generateEffectsVuetifyDatatableComponent(id: string, document: Document, destination: string): void {
         const type = isActor(document) ? 'actor' : 'item';
@@ -432,6 +444,13 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         `;
     }
 
+    function importPageOfPinnedDataTable(page: Page): CompositeGeneratorNode {
+        const pinned = getAllOfType<PinnedField>(page.body, isPinnedField, true);
+        return expandToNode`
+        ${joinToNode(pinned, pinnedField => importPinnedDataTable(pinnedField), {appendNewLineIfNotEmpty: true})}
+        `;
+    }
+
     function importActionComponent(action: Action): CompositeGeneratorNode {
         generateActionComponent(entry, id, document, action, destination);
         const componentName = `${document.name.toLowerCase()}${action.name}Action`;
@@ -617,10 +636,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         ${joinToNode(tabs, tab => importDataTable(document.name, tab), {appendNewLineIfNotEmpty: true})}
         ${joinToNode(allTables, table => importDataTable2(table), {appendNewLineIfNotEmpty: true})}
         ${joinToNode(pages, importPageOfDataTable, {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(pages, importPageOfPinnedDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(documentChoicesPlural, importDocumentChoicesComponent, {appendNewLineIfNotEmpty: true})}
         ${importEffectsDataTable()}
+        ${joinToNode(firstPagePinned, (pinned: PinnedField) => importPinnedDataTable(pinned), {appendNewLineIfNotEmpty: true})}
         import ${entry.config.name}Roll from "../../../../rolls/roll.mjs";
 
         const document = inject('rawDocument');
@@ -839,6 +860,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     const pages = getAllOfType<Page>(document.body, isPage);
     const firstPageTabs = document.body.filter(isDocumentArrayExp);
     const firstPageTables = document.body.filter(isTableField); // We explicitly only want top-level tables
+    const firstPagePinned = document.body.filter(isPinnedField); // We explicitly only want top-level pinned fields
     return expandToNode`
     <template>
         <v-app>
@@ -945,6 +967,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                     <v-tab value="description" prepend-icon="fa-solid fa-book">Description</v-tab>
                                     ${joinToNode(firstPageTabs, generateTab, {appendNewLineIfNotEmpty: true})}
                                     ${joinToNode(firstPageTables, table => generateTab(table), {appendNewLineIfNotEmpty: true})}
+                                    ${joinToNode(firstPagePinned, (pinned: PinnedField) => generatePinnedTab(pinned), {appendNewLineIfNotEmpty: true})}
                                     <v-tab value="effects" prepend-icon="fa-solid fa-sparkles" @mousedown="spawnDatatableWindow($event, '${document.name}', 'effects')">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
@@ -953,6 +976,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                 </v-tabs-window-item>
                                 ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
                                 ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), {appendNewLineIfNotEmpty: true})}
+                                ${joinToNode(firstPagePinned, (pinned: PinnedField) => generatePinnedTabWindow(pinned), {appendNewLineIfNotEmpty: true})}
                                 <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
                                     <${document.name}EffectsVuetifyDatatable 
                                         :context="context"
@@ -997,6 +1021,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     function generatePageBody(page: Page): CompositeGeneratorNode {
         const tabs = page.body.filter(isDocumentArrayExp); // We explictly only want top-level tabs
         const tables = page.body.filter(isTableField); // We explictly only want top-level tables
+        const pinned = page.body.filter(isPinnedField); // We explictly only want top-level pinned fields
         return expandToNode`
         <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
             <v-row dense>
@@ -1006,10 +1031,12 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
             <v-tabs v-model="tab" grow always-center>
                 ${joinToNode(tabs, generateTab, {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(tables, generateTab, {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(pinned, pinnedField => generatePinnedTab(pinnedField), {appendNewLineIfNotEmpty: true})}
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
                 ${joinToNode(tables, table => generateVuetifyDatatable(page.name, table), {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(pinned, pinnedField => generatePinnedTabWindow(pinnedField), {appendNewLineIfNotEmpty: true})}
             </v-tabs-window>
         </v-tabs-window-item>
         `;
@@ -1031,6 +1058,33 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         return expandToNode`
         <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="table" class="tabs-container">
             <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+        </v-tabs-window-item>
+        `.appendNewLine();
+    }
+
+    function generatePinnedTab(element: PinnedField): CompositeGeneratorNode {
+        const iconParam = element.params.find(p => isIconParam(p)) as IconParam | undefined;
+        const labelParam = element.params.find(p => isLabelParam(p)) as LabelParam | undefined;
+        const icon = iconParam?.value ?? "fa-solid fa-thumbtack";
+        const label = labelParam?.value ?? `${document.name}.${element.name}`;
+
+        return expandToNode`
+        <v-tab value="${element.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${document.name}', '${element.name}')">{{ game.i18n.localize("${label}") }}</v-tab>
+        `.appendNewLine();
+    }
+
+    function generatePinnedTabWindow(element: PinnedField): CompositeGeneratorNode {
+        const page = AstUtils.getContainerOfType(element, isPage);
+        const pageName = page ? page.name : document.name;
+        let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
+        return expandToNode`
+        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="pinned" class="tabs-container">
+            <${componentName} 
+                :context="context"
+                :primaryColor="primaryColor"
+                :secondaryColor="secondaryColor"
+                :tertiaryColor="tertiaryColor"
+            />
         </v-tabs-window-item>
         `.appendNewLine();
     }
@@ -1618,6 +1672,23 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     systemPath="${systemPath}"
                     ${standardParamsFragment}>
                 </i-resistances>
+                `;
+            }
+
+            if (isPinnedField(element)) {
+                if (isTopLevel) return expandToNode``;
+                const page = AstUtils.getContainerOfType(element, isPage) as Page;
+                const pageName = page?.name ?? document.name;
+                const systemPath = getSystemPath(element, [], undefined, false);
+                let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
+                return expandToNode`
+                <${componentName}
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor">
+                </${componentName}>
                 `;
             }
 
