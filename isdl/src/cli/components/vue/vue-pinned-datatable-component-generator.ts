@@ -193,6 +193,7 @@ export function generatePinnedVuetifyDatatableComponent(id: string, document: Do
             hover
             density="compact"
             hide-default-footer
+            items-per-page=-1
             style="background: none;"
             class="custom-datatable"
             :sort-by="[{ key: 'system.pinned', order: 'desc' }, { key: 'name', order: 'asc' }]"
