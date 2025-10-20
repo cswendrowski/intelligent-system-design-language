@@ -3,89 +3,196 @@ config RougesInTheShell {
     id = "rogues-in-the-shell"
     description = "An experimental d100 mech combat system."
     author = "Cody Swendrowski"
+
+    keywords {
+        Piercing(summary: "X points of damage ignore Armor when dealing damage.", icon: "fas fa-bullseye")
+        
+        ElementalConversion(summary: "Converts damage to the specified element (Electric, Fire, or Plasma). Targets Electrical Defense instead of Armor.", icon: "fas fa-bolt")
+        
+        Overflow(summary: "Overflow damage from killing a foe splashes to a nearby target.", icon: "fas fa-burst")
+        
+        Tracking(summary: "Misses are now 1/4th damage instead of 0.", icon: "fas fa-radar")
+        
+        RapidFire(summary: "May attack X additional times per RP, at a cost of -10 accuracy per X.", icon: "fas fa-forward-fast")
+        
+        Reload(summary: "Requires 1 RP to reload after X rounds of firing.", icon: "fas fa-rotate-right")
+        
+        ChargeUp(summary: "Spend 1 AP to charge before firing. Grants +50% bonus damage.", icon: "fas fa-battery-full")
+        
+        Suppressive(summary: "On hit or glancing hit, the target suffers -10 accuracy on their next attack, stacking.", icon: "fas fa-shield-halved")
+        
+        Reactive(summary: "Automatically triggers the system when taking Hull damage. This consumes RP per normal, and if you can't afford the RP, does not activate.", icon: "fas fa-shield-virus")
+        
+        Regenerate(summary: "Restores X Armor or Electrical Defense at the start of your turn.", icon: "fas fa-heart-pulse")
+        
+        Deployable(summary: "Can be detached and given its own turn and health pool.", icon: "fas fa-box-open")
+        
+        Adaptive(summary: "Gain a +X accuracy bonus after each miss, stacking. Resets after a hit.", icon: "fas fa-chart-line")
+        
+        Precision(summary: "+10 Accuracy.", icon: "fas fa-crosshairs")
+        
+        MultiTarget(summary: "Target up to X targets with this system for an additional 1 RP each.", icon: "fas fa-users")
+        
+        Scoped(summary: "System can now target far-away targets.", icon: "fas fa-binoculars")
+    }
 }
 
 actor Mech {
+
+    initiative (value: self.Speed + d10)
+
     section Resources {
         health resource Hull
         resource Armor
         resource ElectricDefense
     }
-
+    
     section Stats {
-        string Size(choices: ["Small", "Medium", "Large"])
         attribute Evasion
         attribute Speed
+        resource ReactorPoints(style: slashes, max: 3)
     }
+    
+    table<Mount> Mounts
+    table<Module> Modules
+    table<Weapon> Weapons
+    table<Attachment> Attachments
 
-    Mount[] Mounts
-    Module[] Modules
+    on turnStart {
+        self.ReactorPoints = 3
+    }
+}
+
+actor Pilot {
+    table<PilotSkill> Skills
+}
+
+item PilotSkill {
+    choice<string> Type(choices: ["Combat", "Engineering", "Science", "Social"])
+    number Level
 }
 
 item Mount {
-    string Type(choices: ["Weapon", "Attachment"])
-    string Size(choices: ["Small", "Medium", "Large"])
-    Weapon Weapon
-    Attachment Attachment
+    choice<string> Type(choices: ["Weapon", "Attachment", "Support"])
+    choice<string> Size(choices: ["Small", "Medium", "Large"])
+    Weapon Weapon(visibility: {
+        if (self.Type !equals "Weapon") {
+            return Visibility.hidden
+        }
+    })
+    Attachment Attachment(visibility: {
+        if (self.Type !equals "Attachment") {
+            return Visibility.hidden
+        }
+    })
+    boolean Disabled
 }
 
 item Module {
-    string Size(choices: ["Small", "Medium", "Large"])
+    choice<string> Size(choices: ["Small", "Medium", "Large"])
+    boolean Inherent
 }
 
 item Weapon {
-    string Size(choices: ["Small", "Medium", "Large"])
-    string Type(choices: ["Melee", "Ranged"])
+    choice<string> Size(choices: ["Small", "Medium", "Large"])
+    choice<string> Type(choices: ["Melee", "Ranged"])
     string Targets
-    string DamageType(choices: ["Physical", "Electric"])
+    choice<damageType> DamageType(choices: ["Physical", "Electric"])
     string Damage
     number Accuracy
+    number CritChance
     html Tags
     number ModuleSlots
-
-    Module[] Modules
-    Ammo Ammo
-
+    boolean Inherent
+    number RPCost
+    
+    table<Module> Modules
+    
     action Attack {
+
+        if (parent is Mech) {
+            parent.ReactorPoints -= self.RPCost
+        }
+
         fleeting attackRoll = roll(d100)
         fleeting damageRoll = roll(self.Damage)
-        fleeting target = @js{game.actors.get(game.user.targets.first().document.actorId)}
-        fleeting evasion = target.system.evasion.value
-        fleeting targetName = target.name
-        fleeting targetAmount = 100 - @js{context.object.system.accuracy}
-
-        fleeting hit = false
-        fleeting resultStatus = 0
-        if (attackRoll.total >= targetAmount) {
-            hit = true
+        fleeting targetActor = @js{game.actors.get(game.user.targets.first().document.actorId)}
+        fleeting evasion = targetActor.system.evasion.value
+        fleeting targetName = targetActor.Name
+        fleeting accuracy = @js{context.object.system.accuracy}
+        fleeting critChance = @js{context.object.system.critChance || 10}
+        fleeting targetAmount = 100 - accuracy
+        
+        fleeting hit = attackRoll.total >= targetAmount
+        fleeting evaded = attackRoll.total <= evasion
+        fleeting critZone = attackRoll.total >= 100 - critChance
+        
+        fleeting message = ""
+        if (hit) {
+            if (critZone) {
+                message = "💥 CRITICAL HIT! Full Damage + Impairment"
+                } else if (evaded) {
+                message = "⚡ Partially Evaded, Half Damage"
+                } else {
+                message = "🎯 Direct Hit, Full Damage"
+            }
+            } else {
+            if (evaded) {
+                message = "❌ Evaded, No Damage"
+                } else if (critZone) {
+                message = "⚙️ Glancing Blow + Impairment"
+                } else {
+                message = "💢 Glancing Blow, Half Damage"
+            }
         }
         
-        fleeting evaded = false
-        if (attackRoll.total <= evasion) {
-            evaded = true
-        }
-
-        fleeting message = ""
-        if ( hit ) {
-            if ( evaded ) {
-                message = "Partially Evaded, half damage"
-            } else {
-                message = "Direct Hit, full damage"
+        // === Build 50-char range bar ===
+        fleeting hitbar = ""
+        fleeting barLength = 25
+        fleeting rollPos = Math.floor((attackRoll.total / 100) * barLength)
+        
+        // Define the thresholds
+        fleeting accuracyThreshold = 100 - accuracy
+        fleeting critThreshold = 100 - critChance
+        fleeting evasionThreshold = evasion
+        
+        // Calculate zone boundaries
+        fleeting evadeEnd = Math.min(accuracyThreshold, evasionThreshold)
+        fleeting directStart = Math.max(accuracyThreshold, evasionThreshold)
+        fleeting critStart = Math.max(directStart, critThreshold)
+        
+        // Convert to bar positions
+        fleeting evadePos = Math.floor((evadeEnd / 100) * barLength)
+        fleeting directPos = Math.floor((directStart / 100) * barLength)
+        fleeting critPos = Math.floor((critStart / 100) * barLength)
+        
+        log(evadePos, directPos, critPos, rollPos)
+        
+        each i in [1 to barLength] {
+            if (i == rollPos) {
+                hitbar += "🎯"
+            }
+            else if (i <= evadePos) {
+                hitbar += "░"  // Evade zone
+            }
+            else if (i < directPos) {
+                hitbar += "▒"  // Glancing zone
+            }
+            else if (i < critPos) {
+                hitbar += "▓"  // Direct Hit zone
+            }
+            else {
+                hitbar += "█"  // Crit zone
             }
         }
-        else {
-            if ( evaded ) {
-                message = "Evaded, no damage"
-            } else {
-                message = "Glancing blow, half damage"
-            }
-        }
-
+        
         chat AttackRoll {
-            flavor "vs " + targetName
+            flavor "Attack Roll vs " + targetName
             attackRoll
-            "vs " + targetName + "'s Evasion: " + evasion
-            message
+            "Evasion ≤ " + evasion + " | Accuracy ≥ " + (100 - accuracy) + " | Crit ≥ " + (100 - critChance)
+            wide hitbar
+            wide "░ Evade | ▒ Glancing | ▓ Direct Hit | █ Crit"
+            wide message
             damageRoll
             self.Tags
             tag self.Targets
@@ -96,37 +203,139 @@ item Weapon {
     }
 }
 
-item Ammo {
-    string Size(choices: ["Small", "Medium", "Large"])
-    string Type(choices: ["Physical", "Electric"])
-}
-
 item Attachment {
-    string Type(choices: ["Armor", "Shield", "Engine"])
+    choice<string> Type(choices: ["Armor", "Shield", "Engine"])
     number Armor
     number Shield
     number Speed
     number ModuleSlots
-
-    Module[] Modules
+    boolean Inherent
+    
+    table<Module> Modules
 }
 
 actor Monster {
-    string Size(choices: ["Small", "Medium", "Large"])
-
+    choice<string> Size(choices: ["Small", "Medium", "Large"])
+    initiative (value: self.Speed + d10)
     section Stats {
         health resource Hull
         resource Armor
         resource ElectricDefense
-        attribute Evasion
-        attribute Speed
+        row {
+            attribute Evasion
+            attribute Speed
+            resource ReactorPoints(style: slashes, max: 3)
+        }
     }
+
+    on turnStart {
+        self.ReactorPoints = 3
+    }
+
+    table<MonsterAttack> Attacks
 }
 
 item MonsterAttack {
-    string Range(choices: ["Melee", "Ranged"])
+    choice<string> Range(choices: ["Melee", "Ranged"])
+    string Targets
     number Accuracy
     number Damage
-    string DamageType(choices: ["Physical", "Electric"])
+    number CritChance
+    choice<damageType> DamageType(choices: ["Physical", "Electric"])
     html Tags
+    number RPCost
+
+    action Attack {
+
+        if (parent is Monster) {
+            parent.ReactorPoints -= self.RPCost
+        }
+
+        fleeting attackRoll = roll(d100)
+        fleeting damageRoll = roll(self.Damage)
+        fleeting targetActor = @js{game.actors.get(game.user.targets.first().document.actorId)}
+        fleeting evasion = targetActor.system.evasion.value
+        fleeting targetName = targetActor.Name
+        fleeting accuracy = @js{context.object.system.accuracy}
+        fleeting critChance = @js{context.object.system.critChance || 10}
+        fleeting targetAmount = 100 - accuracy
+        
+        fleeting hit = attackRoll.total >= targetAmount
+        fleeting evaded = attackRoll.total <= evasion
+        fleeting critZone = attackRoll.total >= 100 - critChance
+        
+        fleeting message = ""
+        if (hit) {
+            if (critZone) {
+                message = "💥 CRITICAL HIT! Full Damage + Impairment"
+                } else if (evaded) {
+                message = "⚡ Partially Evaded, Half Damage"
+                } else {
+                message = "🎯 Direct Hit, Full Damage"
+            }
+            } else {
+            if (evaded) {
+                message = "❌ Evaded, No Damage"
+                } else if (critZone) {
+                message = "⚙️ Glancing Blow + Impairment"
+                } else {
+                message = "💢 Glancing Blow, Half Damage"
+            }
+        }
+        
+        // === Build 50-char range bar ===
+        fleeting hitbar = ""
+        fleeting barLength = 25
+        fleeting rollPos = Math.floor((attackRoll.total / 100) * barLength)
+        
+        // Define the thresholds
+        fleeting accuracyThreshold = 100 - accuracy
+        fleeting critThreshold = 100 - critChance
+        fleeting evasionThreshold = evasion
+        
+        // Calculate zone boundaries
+        fleeting evadeEnd = Math.min(accuracyThreshold, evasionThreshold)
+        fleeting directStart = Math.max(accuracyThreshold, evasionThreshold)
+        fleeting critStart = Math.max(directStart, critThreshold)
+        
+        // Convert to bar positions
+        fleeting evadePos = Math.floor((evadeEnd / 100) * barLength)
+        fleeting directPos = Math.floor((directStart / 100) * barLength)
+        fleeting critPos = Math.floor((critStart / 100) * barLength)
+        
+        log(evadePos, directPos, critPos, rollPos)
+        
+        each i in [1 to barLength] {
+            if (i == rollPos) {
+                hitbar += "🎯"
+            }
+            else if (i <= evadePos) {
+                hitbar += "░"  // Evade zone
+            }
+            else if (i < directPos) {
+                hitbar += "▒"  // Glancing zone
+            }
+            else if (i < critPos) {
+                hitbar += "▓"  // Direct Hit zone
+            }
+            else {
+                hitbar += "█"  // Crit zone
+            }
+        }
+        
+        chat AttackRoll {
+            flavor "Attack Roll vs " + targetName
+            attackRoll
+            "Evasion ≤ " + evasion + " | Accuracy ≥ " + (100 - accuracy) + " | Crit ≥ " + (100 - critChance)
+            wide hitbar
+            wide "░ Evade | ▒ Glancing | ▓ Direct Hit | █ Crit"
+            wide message
+            damageRoll
+            self.Tags
+            tag self.Targets
+            tag self.Range
+            tag self.Accuracy
+            tag self.DamageType
+        }
+    }
 }

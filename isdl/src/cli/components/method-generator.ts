@@ -800,7 +800,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
             if (isAccess(expression)) {
                 let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref);
-                const wide = isHtmlExp(expression.property?.ref) ? true : false;
+                const wide = (isHtmlExp(expression.property?.ref) || expression.type == "wide") ? true : false;
 
                 if (expression.access != undefined) {
                     switch (expression.access) {
@@ -851,7 +851,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 }
 
                 let roll = false;
-                let wide = false;
+                let wide = expression.type == "wide" ? true : false;
                 //console.log(expression.variable.ref?.value);
 
                 // Check if this is a damage roll first (before regular roll check)
@@ -885,6 +885,20 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
                 return expandToNode`
                     { isRoll: ${roll}, label: "${humanize(expression.variable.ref?.name ?? "")}", value: ${accessPath}, wide: ${wide}, hasValue: ${accessPath} != "" },
+                `;
+            }
+            if ( isParentAccess(expression) ) {
+                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
+                const wide = expression.type == "wide" ? true : false;
+                return expandToNode`
+                    { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.object.parent?.${systemPath}, wide: ${wide}, hasValue: context.object.parent?.${systemPath} != "" },
+                `;
+            }
+            if ( isTargetAccess(expression) ) {
+                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
+                const wide = expression.type == "wide" ? true : false;
+                return expandToNode`
+                    { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.target?.${systemPath}, wide: ${wide}, hasValue: context.target?.${systemPath} != "" },
                 `;
             }
             if ( isExpression(expression) ) {

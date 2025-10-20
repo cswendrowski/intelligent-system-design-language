@@ -568,7 +568,7 @@ ChatCard:
 ChatBlock:
     "{" chatExp+=(ChatBlockExpression)* "}";
 ChatBlockExpression:
-    type=("tag" | "flavor")? (Access | FleetingAccess | ParentAccess | TargetAccess | Expression);
+    type=("tag" | "flavor" | "wide")? (Access | FleetingAccess | ParentAccess | TargetAccess | Expression);
 
 
 // Prompt -----------
