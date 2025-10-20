@@ -660,6 +660,14 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     <v-icon>fa-solid fa-columns</v-icon>
                     <v-tooltip activator="parent" location="top">Configure Columns</v-tooltip>
                 </v-btn>
+                <i-ai-text-parser
+                    :targetType="${table.document.ref?.name || ''}"
+                    :primaryColor="primaryColor"
+                    :secondaryColor="secondaryColor"
+                    :context="context"
+                    :disabled="loading"
+                    :onItemsCreated="() => {}"
+                ></i-ai-text-parser>
                 <v-btn
                     :color="primaryColor || 'primary'"
                     prepend-icon="fa-solid fa-plus"

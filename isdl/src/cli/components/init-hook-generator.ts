@@ -149,6 +149,8 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         import ${entry.config.name}DamageRoll from "../rolls/damage-roll.mjs";
         import DocumentCreationVueDialog from "../sheets/vue/document-creation-dialog.mjs";
         import MeasuredTemplatePreview from "../placeables/measured-template-preview.mjs";
+        import { aiTextParser } from "../services/ai-parser.mjs";
+        import { registerAIParserSettings } from "../settings/ai-parser-settings.mjs";
 
         export function init() {
             console.log('${id} | Initializing System');
@@ -156,6 +158,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             CONFIG.ActiveEffect.legacyTransferral = false;
 
             registerSettings();
+            registerAIParserSettings();
             registerDataModels();
             registerDocumentSheets();
             registerDocumentClasses();
@@ -174,6 +177,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             game.system.datatableApp = DataTableApp;
             game.system.rollClass = ${entry.config.name}Roll;
             game.system.damageRollClass = ${entry.config.name}DamageRoll;
+            game.system.aiTextParser = aiTextParser;
             CONFIG.Dice.rolls.push(${entry.config.name}Roll);
             CONFIG.Dice.rolls.push(${entry.config.name}DamageRoll);
         }

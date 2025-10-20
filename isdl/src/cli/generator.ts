@@ -29,6 +29,8 @@ import {generateInitHookMjs} from "./components/init-hook-generator.js";
 import {generateReadyHookMjs} from "./components/ready-hook-generator.js";
 import {generateMeasuredTemplatePreview} from "./components/measured-template-preview.js";
 import {generateDamageRoll} from "./components/damage-roll-generator.js";
+import {generateAIParserService, generateAIParserSettings} from "./components/ai-parser-generator.js";
+import {generateAIParserLocalization} from "./components/ai-parser-localization-generator.js";
 
 export async function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): Promise<string> {
     const config = entry.config;
@@ -79,6 +81,11 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateDamageRoll(entry, id, data.destination);
     generateContextMenu2(entry, id, data.destination);
     generateDocumentCreateHbs(entry, id, data.destination);
+    
+    // AI Parser components
+    generateAIParserService(entry, data.destination);
+    generateAIParserSettings(entry, data.destination);
+    generateAIParserLocalization(entry, data.destination);
     generateCombatant(entry, id, data.destination);
     generateCanvasToken(entry, id, data.destination);
     generateTokenDocument(entry, id, data.destination);
