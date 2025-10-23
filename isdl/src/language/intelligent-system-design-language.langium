@@ -91,7 +91,7 @@ StandardFieldParams:
 fragment StandardFieldParamsFrag:
     ("(" params+=StandardFieldParams* ("," params+=StandardFieldParams)* ")")?;
 NumberFieldParams:
-    (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax);
+    (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | NumberParamCalculator);
 
 
 // String -------------
@@ -344,6 +344,8 @@ NumberParamValue:
     "value:" value=(MethodBlock | INT);
 NumberParamMax:
     "max:" value=(MethodBlock | INT);
+NumberParamCalculator:
+    "calculator:" value=BOOLEAN;
 ColorParam:
     "color:" value=HEX_COLOR;
 BackgroundParam:

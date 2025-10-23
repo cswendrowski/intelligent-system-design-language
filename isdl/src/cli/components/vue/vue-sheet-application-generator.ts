@@ -41,6 +41,7 @@ import {
     isNumberParamMax,
     isNumberParamMin,
     isNumberParamValue,
+    isNumberParamCalculator,
     isPage,
     isPaperDollExp,
     isParentPropertyRefChoiceParam,
@@ -66,6 +67,7 @@ import {
     NumberParamMax,
     NumberParamMin,
     NumberParamValue,
+    NumberParamCalculator,
     Page,
     PaperDollExp,
     ParentPropertyRefChoiceParam,
@@ -1706,6 +1708,14 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
 
             if (isNumberExp(element)) {
                 const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+                const maxParam = element.params.find(x => isNumberParamMax(x)) as NumberParamMax | undefined;
+                const calculatorParam = element.params.find(x => isNumberParamCalculator(x)) as NumberParamCalculator | undefined;
+
+                // Determine if max value is a number (not a MethodBlock)
+                let maxValue = undefined;
+                if (maxParam && typeof maxParam.value === 'number') {
+                    maxValue = maxParam.value;
+                }
 
                 return expandToNode`
                 <i-number
@@ -1714,9 +1724,11 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     icon="${iconParam?.value}"
                     systemPath="${systemPath}"
                     :hasValueParam="${valueParam != undefined}"
-                    :editMode="editMode"
+                    :editMode="editModeRef"
                     :primaryColor="primaryColor"
                     :secondaryColor="secondaryColor"
+                    ${maxValue !== undefined ? `:max="${maxValue}"` : ''}
+                    ${calculatorParam !== undefined ? `:calculator="${calculatorParam.value}"` : ''}
                     ${standardParamsFragment}>
                 </i-number>
                 `;

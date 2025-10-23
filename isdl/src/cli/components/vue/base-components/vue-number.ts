@@ -26,11 +26,16 @@ export default function generateNumberComponent(destination: string, entry?: Ent
             disabled: Boolean,
             hasValueParam: Boolean,
             primaryColor: String,
-            secondaryColor: String
+            secondaryColor: String,
+            max: Number,
+            calculator: {
+                type: Boolean,
+                default: undefined
+            }
         });
 
         const document = inject("rawDocument");
-        
+
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
@@ -68,6 +73,42 @@ export default function generateNumberComponent(destination: string, entry?: Ent
         const classes = computed(() => {
             return isCalculated.value ? 'calculated-number' : '';
         });
+
+        const showCalculator = computed(() => {
+            // Check if calculator was explicitly passed as a prop
+            const hasCalculatorProp = props.calculator !== undefined && props.calculator !== false;
+            const calculatorExplicitlyFalse = props.calculator === false;
+
+            // If calculator param is explicitly set to true, use it
+            if (hasCalculatorProp) {
+                return true;
+            }
+
+            // If calculator param is explicitly set to false, never show
+            if (calculatorExplicitlyFalse) {
+                return false;
+            }
+
+            // Don't show on calculated fields
+            if (isCalculated.value) {
+                return false;
+            }
+
+            // Show if max > 10
+            if (props.max && props.max > 10) {
+                return true;
+            }
+
+            // When max is undefined, show if current value >= 10 or <= -10
+            if (props.max === undefined) {
+                const currentValue = value.value;
+                if (typeof currentValue === 'number' && (currentValue >= 10 || currentValue <= -10)) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
     </script>
 
     <template>
@@ -88,11 +129,11 @@ export default function generateNumberComponent(destination: string, entry?: Ent
                         {{ game.i18n.localize(props.label) }}
                     </span>
                 </template>
-                <template #append-inner v-if="props.editMode">
-                    <i-calculator 
-                        :context="props.context" 
-                        :systemPath="props.systemPath" 
-                        :primaryColor="props.primaryColor" 
+                <template #append-inner v-if="props.editMode && showCalculator">
+                    <i-calculator
+                        :context="props.context"
+                        :systemPath="props.systemPath"
+                        :primaryColor="props.primaryColor"
                         :secondaryColor="props.secondaryColor">
                     </i-calculator>
                 </template>
