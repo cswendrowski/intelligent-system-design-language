@@ -35,6 +35,7 @@ export function generateVueMixin(description: string) {
         "i-string-choices": "StringChoicesField",
         "i-parent-property-reference": "ParentPropertyReferenceField",
         "i-self-property-reference": "SelfPropertyReferenceField",
+        "i-money": "MoneyField",
     };
 
     const fileNode = expandToNode`

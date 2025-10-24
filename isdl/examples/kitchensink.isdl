@@ -121,6 +121,31 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             //damageTrack DamageTrackField
         }
 
+        section Money {
+            // Simple money - single currency
+            money Credits(icon: "fa-solid fa-coins", format: compact, precision: 1)
+
+            // Fantasy multi-denomination money
+            money Wealth(icon: "fa-solid fa-sack-dollar", display: breakdown) {
+                Gold   (value: 10000, icon: "fa-solid fa-coins", color: #FFD700)
+                Silver (value: 100,   icon: "fa-solid fa-coins", color: #C0C0C0)
+                Bronze (value: 1,     icon: "fa-solid fa-coins", color: #CD7F32)
+            }
+
+            // Sci-fi currency with auto formatting
+            money Zenits(icon: "fa-solid fa-z", format: auto, initial: 5000)
+
+            action AddMoney(icon: "fa-solid fa-money-bill-wave", color: #FFD700) {
+                self.Zenits += 1
+                self.Wealth.Gold += 1
+                self.Wealth.Silver += 1
+                self.Wealth.Bronze += 1
+                chat MoneyAdded {
+                    flavor "Added money to all fields!"
+                }
+            }
+        }
+
         section DateTime {
             date DateField
             time TimeField

@@ -294,6 +294,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as StringChoicesField } from "./components/string-choices.vue";
     export { default as ParentPropertyReferenceField } from "./components/parent-property-reference.vue";
     export { default as SelfPropertyReferenceField } from "./components/self-property-reference.vue";
+    export { default as MoneyField } from "./components/money.vue";
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}

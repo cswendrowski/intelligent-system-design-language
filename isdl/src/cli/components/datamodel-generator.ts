@@ -56,7 +56,7 @@ import {
     isChoiceStringValue,
     ChoiceStringValue,
     isStringExtendedChoice,
-    StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField
+    StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField, isMoneyField
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -97,6 +97,31 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 ${property.name.toLowerCase()}: new fields.NumberField({${options}}),
             `;
         }
+
+        if (isMoneyField(property)) {
+            // Check if this money field has denominations
+            if (property.denominations && property.denominations.length > 0) {
+                // Multi-denomination money - store as SchemaField with individual denomination fields
+                const denominationFields = property.denominations.map(denom => {
+                    return `${denom.name.toLowerCase()}: new fields.NumberField({integer: true, initial: 0})`;
+                }).join(',\n                    ');
+
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.SchemaField({
+                        ${denominationFields}
+                    }),
+                `;
+            } else {
+                // Single currency money - store as simple NumberField
+                const initialParam = property.params.find(p => p.$type === 'NumberParamInitial') as any;
+                const initial = initialParam?.value || 0;
+
+                return expandToNode`
+                    ${property.name.toLowerCase()}: new fields.NumberField({integer: true, initial: ${initial}}),
+                `;
+            }
+        }
+
         if (isStringExp(property)) {
             let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
             if (choices != undefined && choices.choices.length > 0) {

@@ -73,7 +73,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp);
+    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
 DiceFields:
@@ -183,6 +183,32 @@ DamageBonusesField:
 
 DamageResistancesField:
     ExpressionModifier "resistances" name=ID StandardFieldParamsFrag;
+
+// Money -------------
+
+MoneyField:
+    ExpressionModifier "money" name=ID ("(" params+=MoneyParameter ("," params+=MoneyParameter)* ")")? ("{" denominations+=MoneyDenomination* "}")?;
+
+MoneyParameter:
+    (StandardFieldParams | MoneyFormatParam | MoneyPrecisionParam | MoneyDisplayParam | NumberParamInitial);
+
+MoneyFormatParam:
+    "format:" value=("compact" | "full" | "auto");
+
+MoneyPrecisionParam:
+    "precision:" value=INT;
+
+MoneyDisplayParam:
+    "display:" value=("breakdown" | "consolidated" | "primary");
+
+MoneyDenomination:
+    name=ID ("(" params+=MoneyDenominationParam ("," params+=MoneyDenominationParam)* ")")?;
+
+MoneyDenominationParam:
+    (MoneyDenominationValueParam | IconParam | ColorParam);
+
+MoneyDenominationValueParam:
+    "value:" value=INT;
 
 // Pinned Items Display -------------
 

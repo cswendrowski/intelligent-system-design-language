@@ -35,7 +35,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField,
+    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -1731,6 +1731,46 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     ${calculatorParam !== undefined ? `:calculator="${calculatorParam.value}"` : ''}
                     ${standardParamsFragment}>
                 </i-number>
+                `;
+            }
+
+            if (isMoneyField(element)) {
+                const formatParam = element.params.find(p => p.$type === 'MoneyFormatParam') as any;
+                const precisionParam = element.params.find(p => p.$type === 'MoneyPrecisionParam') as any;
+                const displayParam = element.params.find(p => p.$type === 'MoneyDisplayParam') as any;
+
+                const format = formatParam?.value || 'auto';
+                const precision = precisionParam?.value || 1;
+                const display = displayParam?.value || 'breakdown';
+
+                // Generate denominations array from AST
+                let denominationsArray = '[]';
+                if (element.denominations && element.denominations.length > 0) {
+                    const denominations = element.denominations.map(denom => {
+                        const valueParam = denom.params.find((p: any) => p.$type === 'MoneyDenominationValueParam') as any;
+                        const denomIconParam = denom.params.find((p: any) => p.$type === 'IconParam') as any;
+                        const denomColorParam = denom.params.find((p: any) => p.$type === 'ColorParam') as any;
+
+                        return `{ name: '${denom.name}', value: ${valueParam?.value || 1}, icon: '${denomIconParam?.value || ''}', color: '${denomColorParam?.value || ''}' }`;
+                    }).join(', ');
+                    denominationsArray = `[${denominations}]`;
+                }
+
+                return expandToNode`
+                <i-money
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${systemPath}"
+                    format="${format}"
+                    :precision="${precision}"
+                    display="${display}"
+                    :denominations="${denominationsArray}"
+                    :editMode="editModeRef"
+                    :primaryColor="primaryColor"
+                    :secondaryColor="secondaryColor"
+                    ${standardParamsFragment}>
+                </i-money>
                 `;
             }
 

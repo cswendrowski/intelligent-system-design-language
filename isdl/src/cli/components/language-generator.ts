@@ -17,7 +17,7 @@ import {
     isActor,
     isItem,
     isHookHandler,
-    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField, isDamageBonusesField, isDamageResistancesField, isDocumentChoiceExp, isDocumentChoicesExp,
+    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField, isDamageBonusesField, isDamageResistancesField, isDocumentChoiceExp, isDocumentChoicesExp, isMoneyField,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -195,6 +195,15 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             }
 
             if (isDocumentChoicesExp(property)) {
+                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+                const label = labelParam ? labelParam.value : humanize(property.name);
+
+                return expandToNode`
+                    "${property.name}": "${label}"
+                `;
+            }
+
+            if (isMoneyField(property)) {
                 const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
                 const label = labelParam ? labelParam.value : humanize(property.name);
 
