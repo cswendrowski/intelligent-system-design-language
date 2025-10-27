@@ -37,20 +37,9 @@ This is a VS Code extension and CLI tool for the Intelligent System Design Langu
 ```bash
 # Build the project
 npm run build
-
-# Development with auto-rebuild
-npm run watch
-
-# Generate Langium artifacts from grammar
-npm run langium:generate
-
-# Generate system from ISDL file (CLI)
-npm run fsdl:generate
-# or
-node ./bin/cli.js generate <file.isdl> --destination <output-dir>
 ```
 
-You can generate test output into the /test-output/ folder.
+Only build the project, do not attempt to do test generations as this consumes too many tokens.
 
 ## File Extensions
 

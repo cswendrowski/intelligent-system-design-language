@@ -135,6 +135,10 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             // Sci-fi currency with auto formatting
             money Zenits(icon: "fa-solid fa-z", format: auto, initial: 5000)
 
+            // Calculated money field based on another field
+            number BonusMultiplier(initial: 2)
+            money TotalWealth(icon: "fa-solid fa-piggy-bank", value: { return self.Zenits * self.BonusMultiplier })
+
             action AddMoney(icon: "fa-solid fa-money-bill-wave", color: #FFD700) {
                 self.Zenits += 1
                 self.Wealth.Gold += 1

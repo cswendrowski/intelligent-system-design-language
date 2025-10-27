@@ -513,7 +513,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         if (isBooleanExp(element)) {
             return element.params.find(isBooleanParamValue) !== undefined;
         }
-        if (isNumberExp(element) || isAttributeExp(element) || isResourceExp(element) || isTrackerExp(element)) {
+        if (isNumberExp(element) || isAttributeExp(element) || isResourceExp(element) || isTrackerExp(element) || isMoneyField(element)) {
             const numberParams = element.params as NumberFieldParams[];
             return numberParams.find(isNumberParamValue) !== undefined;
         }
@@ -1738,6 +1738,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 const formatParam = element.params.find(p => p.$type === 'MoneyFormatParam') as any;
                 const precisionParam = element.params.find(p => p.$type === 'MoneyPrecisionParam') as any;
                 const displayParam = element.params.find(p => p.$type === 'MoneyDisplayParam') as any;
+                const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue | undefined;
 
                 const format = formatParam?.value || 'auto';
                 const precision = precisionParam?.value || 1;
@@ -1766,6 +1767,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                     :precision="${precision}"
                     display="${display}"
                     :denominations="${denominationsArray}"
+                    :hasValueParam="${valueParam != undefined}"
                     :editMode="editModeRef"
                     :primaryColor="primaryColor"
                     :secondaryColor="secondaryColor"

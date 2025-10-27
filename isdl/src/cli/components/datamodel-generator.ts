@@ -103,7 +103,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             if (property.denominations && property.denominations.length > 0) {
                 // Multi-denomination money - store as SchemaField with individual denomination fields
                 const denominationFields = property.denominations.map(denom => {
-                    return `${denom.name.toLowerCase()}: new fields.NumberField({integer: true, initial: 0})`;
+                    return `${denom.name.toLowerCase()}: new fields.NumberField({initial: 0, nullable: false})`;
                 }).join(',\n                    ');
 
                 return expandToNode`
@@ -117,7 +117,7 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 const initial = initialParam?.value || 0;
 
                 return expandToNode`
-                    ${property.name.toLowerCase()}: new fields.NumberField({integer: true, initial: ${initial}}),
+                    ${property.name.toLowerCase()}: new fields.NumberField({initial: ${initial}, nullable: false}),
                 `;
             }
         }

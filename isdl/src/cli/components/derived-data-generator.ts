@@ -21,7 +21,7 @@ import {
     isTrackerExp,
     NumberParamInitial,
     WhereParam, Layout, isLayout, isMeasuredTemplateField, isTableField,
-    isAccess, isDiceField
+    isAccess, isDiceField, isMoneyField
 } from '../../language/generated/ast.js';
 import {
     isActor,
@@ -206,6 +206,36 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     }
                     `.appendNewLine() : ""}
                 `.appendNewLineIfNotEmpty();
+            }
+
+            if (isMoneyField(property)) {
+                const valueParam = property.params.find(p => isNumberParamValue(p)) as NumberParamValue | undefined;
+
+                if (valueParam) {
+                    // Check if this money field has denominations
+                    if (property.denominations && property.denominations.length > 0) {
+                        // Cannot use value param with multi-denomination money
+                        console.warn(`Money field ${property.name} has both denominations and value parameter. Value parameter will be ignored for multi-denomination money.`);
+                        return;
+                    }
+
+                    return expandToNode`
+                    // ${property.name} Money Calculated Data
+                    const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        const context = {
+                            object: this
+                        };
+                        ${translateMethodOrValueOrStored(property, valueParam)}
+                    };
+                    Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
+                        get: () => {
+                            return ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                        },
+                        configurable: true
+                    });
+
+                    `.appendNewLineIfNotEmpty();
+                }
             }
 
             if ( isAttributeExp(property) ) {
@@ -510,6 +540,11 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                        !!(maxParam && isMethodBlock(maxParam.value));
             }
 
+            if (isMoneyField(property)) {
+                const valueParam = property.params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+                return !!(valueParam && isMethodBlock(valueParam.value));
+            }
+
             return false;
         }
 
@@ -574,6 +609,12 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         }
                         if (maxParam && isMethodBlock(maxParam.value)) {
                             extractPropertyDependencies(maxParam.value).forEach(dep => deps.add(dep));
+                        }
+                    } else if (isMoneyField(property)) {
+                        const valueParam = property.params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
+
+                        if (valueParam && isMethodBlock(valueParam.value)) {
+                            extractPropertyDependencies(valueParam.value).forEach(dep => deps.add(dep));
                         }
                     }
 

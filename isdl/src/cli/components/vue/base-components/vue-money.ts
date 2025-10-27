@@ -24,6 +24,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
             icon: String,
             color: String,
             disabled: Boolean,
+            hasValueParam: Boolean,
             primaryColor: String,
             secondaryColor: String,
             format: {
@@ -58,6 +59,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
 
         const isDisabled = computed(() => {
             return props.disabled ||
+                   props.hasValueParam ||
                    props.visibility === "locked" ||
                    props.visibility === "readonly" ||
                    (props.visibility === "gmOnly" && !game.user.isGM);
@@ -77,7 +79,15 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
         // For multi-denomination, value is an object: { gold: 1, silver: 25, bronze: 32 }
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
-            set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
+            set: (newValue) => {
+                // Ensure we always store a valid number for single currency, default to 0 for invalid values
+                if (!hasDenominations.value) {
+                    const validValue = (typeof newValue === 'number' && isFinite(newValue)) ? newValue : 0;
+                    foundry.utils.setProperty(props.context, props.systemPath, validValue);
+                } else {
+                    foundry.utils.setProperty(props.context, props.systemPath, newValue);
+                }
+            }
         });
 
         const hasDenominations = computed(() => {
@@ -161,6 +171,12 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
             return formattedDenominationDisplay.value;
         });
 
+        // Formatted display for single currency (used in non-edit mode)
+        const formattedSingleDisplay = computed(() => {
+            if (hasDenominations.value) return '';
+            return formatNumber(value.value || 0);
+        });
+
         // Single currency edit
         const onSingleCurrencyChange = (newValue) => {
             value.value = newValue;
@@ -169,7 +185,9 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
         // Multi-denomination edit
         const onDenominationChange = (denomName, newValue) => {
             const current = value.value || {};
-            const updated = { ...current, [denomName]: newValue };
+            // Ensure we always store a valid number, default to 0 for invalid values
+            const validValue = (typeof newValue === 'number' && isFinite(newValue)) ? newValue : 0;
+            const updated = { ...current, [denomName]: validValue };
             value.value = updated;
         };
 
@@ -238,9 +256,9 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
 
     <template>
         <div v-if="!isHidden" class="isdl-money single-wide">
-            <!-- Single Currency Money -->
+            <!-- Single Currency Money (Edit Mode) -->
             <v-number-input
-                v-if="!hasDenominations"
+                v-if="!hasDenominations && props.editMode"
                 v-model="value"
                 :name="props.systemPath"
                 :disabled="isDisabled"
@@ -255,7 +273,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                         {{ game.i18n.localize(props.label) }}
                     </span>
                 </template>
-                <template #append-inner v-if="props.editMode">
+                <template #append-inner>
                     <i-calculator
                         :context="props.context"
                         :systemPath="props.systemPath"
@@ -263,14 +281,29 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                         :secondaryColor="props.secondaryColor">
                     </i-calculator>
                 </template>
-                <template #prepend-inner v-if="!props.editMode">
+            </v-number-input>
+
+            <!-- Single Currency Money (Display Mode) -->
+            <v-text-field
+                v-else-if="!hasDenominations && !props.editMode"
+                :model-value="formattedSingleDisplay"
+                readonly
+                :color="fieldColor"
+                density="compact"
+                variant="outlined"
+                :data-tooltip="exactAmountTooltip"
+            >
+                <template #label>
                     <v-tooltip :text="exactAmountTooltip">
                         <template v-slot:activator="{ props: tooltipProps }">
-                            <v-icon v-bind="tooltipProps" icon="fa-solid fa-info-circle" size="x-small"></v-icon>
+                            <span class="field-label" v-bind="tooltipProps">
+                                <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
+                                {{ game.i18n.localize(props.label) }}
+                            </span>
                         </template>
                     </v-tooltip>
                 </template>
-            </v-number-input>
+            </v-text-field>
 
             <!-- Multi-Denomination Money -->
             <v-input v-else class="isdl-money-denominations">
@@ -306,7 +339,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                                             :name="\`\${props.systemPath}.\${denom.name.toLowerCase()}\`"
                                             :disabled="isDisabled"
                                             :color="denom.color || fieldColor"
-                                            controlVariant="stacked"
+                                            :controlVariant="isDisabled ? 'hidden' : 'stacked'"
                                             density="compact"
                                             variant="outlined"
                                             hide-details
@@ -320,17 +353,17 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                                             </template>
                                             <template #append-inner>
                                                 <i-calculator
-                                                    v-if="props.editMode"
+                                                    v-if="props.editMode && !isDisabled"
                                                     :context="props.context"
                                                     :systemPath="\`\${props.systemPath}.\${denom.name.toLowerCase()}\`"
                                                     :primaryColor="props.primaryColor"
                                                     :secondaryColor="props.secondaryColor">
                                                 </i-calculator>
                                                 <v-btn
+                                                    v-if="!isDisabled"
                                                     icon="fa-solid fa-right-left"
                                                     size="x-small"
                                                     variant="text"
-                                                    :disabled="isDisabled"
                                                     @click.stop="openConversionDialog(denom)"
                                                     style="opacity: 0.7;"
                                                 >

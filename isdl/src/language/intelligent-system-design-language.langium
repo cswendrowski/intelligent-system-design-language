@@ -190,7 +190,7 @@ MoneyField:
     ExpressionModifier "money" name=ID ("(" params+=MoneyParameter ("," params+=MoneyParameter)* ")")? ("{" denominations+=MoneyDenomination* "}")?;
 
 MoneyParameter:
-    (StandardFieldParams | MoneyFormatParam | MoneyPrecisionParam | MoneyDisplayParam | NumberParamInitial);
+    (StandardFieldParams | MoneyFormatParam | MoneyPrecisionParam | MoneyDisplayParam | NumberParamInitial | NumberParamValue);
 
 MoneyFormatParam:
     "format:" value=("compact" | "full" | "auto");
