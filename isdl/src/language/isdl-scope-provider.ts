@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Document, FunctionDefinition, IfStatement, isAccess, isAssignment, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
+import { Document, FunctionDefinition, IfStatement, isAccess, isAssignment, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -27,6 +27,18 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
 
         if (isVariableAccess(context.container) || isRef(context.container) || isVariableAssignment(context.container)) {
             return this.getVariableAccessScope(context);
+        }
+
+        // Inventory parameter scopes - look in the referenced document type
+        if (isInventoryQuantityParam(context.container) ||
+            isInventorySortParam(context.container) ||
+            isInventorySumProperties(context.container)) {
+            return this.getInventoryPropertyScope(context);
+        }
+
+        // Inventory money parameter - look for money fields in the current document
+        if (isInventoryMoneyParam(context.container)) {
+            return this.getInventoryMoneyScope(context);
         }
 
         // if (isFleetingAccess(context.container) || isRef(context.container)) {
@@ -123,7 +135,7 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
 
         let scope = super.getScope(context);
         const additionalDescriptions: AstNodeDescription[] = [];
-        
+
         // If we are in a method block belonging to a hook, add the variables of the hook to the scope
         const hook = AstUtils.getContainerOfType(context.container, isHookHandler);
 
@@ -140,5 +152,33 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         additionalDescriptions.push(...scope.getAllElements().toArray());
 
         return new MapScope(additionalDescriptions);
+    }
+
+    private getInventoryPropertyScope(context: ReferenceInfo): Scope {
+        // Get the inventory field that contains this parameter
+        const inventoryField = AstUtils.getContainerOfType(context.container, isInventoryField);
+        if (!inventoryField || !inventoryField.document.ref) {
+            return new MapScope([]);
+        }
+
+        // Get properties from the document type that the inventory references
+        const descriptions = this.getScopesForDocument(inventoryField.document.ref);
+        return new MapScope(descriptions);
+    }
+
+    private getInventoryMoneyScope(context: ReferenceInfo): Scope {
+        // Get the current document (actor) that contains the inventory field
+        const document = AstUtils.getContainerOfType(context.container, isDocument);
+        if (!document) {
+            return new MapScope([]);
+        }
+
+        // Get all money fields from the current document
+        const moneyFields = getAllOfType<MoneyField>(document.body, isMoneyField, false);
+        const descriptions = moneyFields.map(field =>
+            this.astNodeDescriptionProvider.createDescription(field, field.name)
+        );
+
+        return new MapScope(descriptions);
     }
 }

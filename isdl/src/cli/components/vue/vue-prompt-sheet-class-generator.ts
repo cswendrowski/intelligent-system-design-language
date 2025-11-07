@@ -205,6 +205,9 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 const item = await fromUuid(data.uuid);
                 if ( !item ) return;
 
+                // Prevent duplicates when dropping an item that's already owned by this document
+                if ( item.parent?.uuid === this.document.uuid ) return;
+
                 if ( data.type === "ActiveEffect" ) {
                     ActiveEffect.createDocuments([item], {parent: this.document})
                     return;

@@ -412,6 +412,9 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                 const item = await fromUuid(data.uuid);
                 if ( !item ) return;
 
+                // Prevent duplicates when dropping an item that's already owned by this document
+                if ( item.parent?.uuid === this.object.uuid ) return;
+
                 if ( data.type === "ActiveEffect" ) {
                     ActiveEffect.createDocuments([item], {parent: this.object})
                     return;

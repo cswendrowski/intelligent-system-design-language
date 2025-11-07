@@ -1390,8 +1390,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
 
                 static getDefaultArtwork(itemData = {}) {
                     const { type } = itemData;
-                    const { img } = super.getDefaultArtwork(itemData);
-                    return { img: CONFIG[this.documentName]?.typeArtworks?.[type] ?? img };
+                    const { img, texture } = super.getDefaultArtwork(itemData);
+                    return { img: CONFIG[this.documentName]?.typeArtworks?.[type] ?? img, texture: texture };
                 }
 
                 /* -------------------------------------------- */

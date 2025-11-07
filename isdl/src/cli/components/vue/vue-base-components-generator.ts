@@ -24,6 +24,7 @@ import generateParentPropertyReferenceComponent from "./base-components/vue-pare
 import generateSelfPropertyReferenceComponent from "./base-components/vue-self-property-reference.js";
 import generateStringChoicesComponent from "./base-components/vue-string-choices.js";
 import generateMoneyComponent from "./base-components/vue-money.js";
+import generateInventoryComponent from "./base-components/vue-inventory.js";
 import {Entry} from "../../../language/generated/ast.js";
 
 export function generateBaseVueComponents(destination: string, entry?: Entry) {
@@ -53,4 +54,5 @@ export function generateBaseVueComponents(destination: string, entry?: Entry) {
     generateParentPropertyReferenceComponent(destination, entry);
     generateSelfPropertyReferenceComponent(destination, entry);
     generateMoneyComponent(destination, entry);
+    generateInventoryComponent(destination, entry);
 }

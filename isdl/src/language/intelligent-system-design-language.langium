@@ -79,7 +79,7 @@ DateTimeFields:
 DiceFields:
     (DieField | DiceField);
 DocumentFields:
-    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField | TableField);
+    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField | TableField | InventoryField);
 ReferenceFields:
     (ParentPropertyRefExp | SelfPropertyRefExp);
 DeprecatedFields:
@@ -289,6 +289,57 @@ DocumentChoiceParms:
     (StandardFieldParams | WhereParam | GlobalParam);
 TableFieldsParam:
     "fields:" "[" fields+=ID ("," fields+=ID)* "]";
+
+// Inventory -------------
+
+InventoryField:
+    ExpressionModifier "inventory" "<" document=[Document:ID] ">" name=ID ("(" params+=InventoryParams ("," params+=InventoryParams)* ")")?;
+
+InventoryParams:
+    (StandardFieldParams | WhereParam | GlobalParam |
+     InventorySlotsParam | InventoryRowsParam | InventoryColumnsParam | InventorySlotSizeParam |
+     InventoryQuantityParam | InventoryMoneyParam |
+     InventorySumParam | InventorySumMaxParam | InventorySortParam |
+     InventoryEmptySlotsParam | InventorySummaryParam);
+
+InventorySlotsParam:
+    "slots:" value=INT;
+
+InventoryRowsParam:
+    "rows:" value=INT;
+
+InventoryColumnsParam:
+    "columns:" value=INT;
+
+InventorySlotSizeParam:
+    "slotSize:" value=PX;
+
+InventoryQuantityParam:
+    "quantity:" field=[Property:ID];
+
+InventoryMoneyParam:
+    "money:" field=[MoneyField:ID];
+
+InventorySumParam:
+    "sum:" properties=InventorySumProperties;
+
+InventorySumProperties:
+    property=[Property:ID] | "[" properties+=[Property:ID] ("," properties+=[Property:ID])* "]";
+
+InventorySumMaxParam:
+    "sumMax:" (value=INT | expression=Expression | values=InventorySumMaxValues);
+
+InventorySumMaxValues:
+    "[" values+=(INT | Expression) ("," values+=(INT | Expression))* "]";
+
+InventorySortParam:
+    "sort:" property=[Property:ID] order=("asc" | "desc")?;
+
+InventoryEmptySlotsParam:
+    "emptySlots:" value=("show" | "hide" | "collapse");
+
+InventorySummaryParam:
+    "summary:" value=("full" | "compact" | "minimal");
 
 // Datetime -------------
 

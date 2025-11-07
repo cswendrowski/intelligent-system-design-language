@@ -53,6 +53,18 @@
       background: transparent;
     }
 
+    .custom-datatable :deep(tr[draggable="true"]) {
+      cursor: grab;
+
+      &:active {
+        cursor: grabbing;
+      }
+
+      &.dragging {
+        opacity: 0.5;
+      }
+    }
+
     /* Allow text columns to grow naturally but with reasonable limits */
     .custom-datatable :deep(td .text-caption.text-truncate) {
       white-space: nowrap;
@@ -432,7 +444,7 @@
   .isdl-single-document {
     margin-top: 0.75rem;
     margin-bottom: 1rem;
-    max-width: 50%;
+    max-width: 300px;
   }
 
   .v-card {
@@ -992,5 +1004,296 @@
 
   .isdl-journal-title {
     color: inherit; // Will use the border color
+  }
+}
+
+// Inventory Component Styles
+.isdl-inventory {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .inventory-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .inventory-label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .inventory-count {
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.6);
+      font-weight: 500;
+    }
+  }
+
+  .inventory-grid-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+
+    .inventory-grid {
+      display: grid;
+      gap: 8px;
+      width: 100%;
+      margin: 0 auto;
+    }
+  }
+
+  .inventory-slot {
+    position: relative;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+
+    &.empty {
+      background: rgba(0, 0, 0, 0.05);
+      border-style: dashed;
+      cursor: default;
+    }
+
+    &.create-slot {
+      background: rgba(76, 175, 80, 0.1);
+      border-color: rgba(76, 175, 80, 0.4);
+      border-style: dashed;
+      cursor: pointer;
+
+      .create-icon {
+        color: rgba(76, 175, 80, 0.7);
+        transition: all 0.2s ease;
+      }
+
+      &:hover {
+        background: rgba(76, 175, 80, 0.2);
+        border-color: rgba(76, 175, 80, 0.6);
+        transform: scale(1.05);
+
+        .create-icon {
+          color: rgba(76, 175, 80, 1);
+        }
+      }
+    }
+
+    &.filled {
+      cursor: grab;
+
+      &:active {
+        cursor: grabbing;
+      }
+
+      &:hover {
+        border-color: rgba(0, 0, 0, 0.5);
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+      }
+    }
+
+    &.dragging {
+      opacity: 0.5;
+      transform: scale(0.95);
+    }
+
+    .slot-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .delete-button {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(244, 67, 54, 0.9);
+      color: white;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s ease;
+      z-index: 5;
+
+      &:hover {
+        background: rgba(211, 47, 47, 1);
+        transform: scale(1.1);
+      }
+    }
+
+    &.filled:hover .delete-button {
+      opacity: 1;
+    }
+
+    .quantity-badge {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1;
+      min-width: 16px;
+      text-align: center;
+    }
+  }
+
+  .inventory-footer {
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .footer-divider {
+      margin-bottom: 4px;
+    }
+
+    .inventory-stat {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+
+      .stat-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+
+        .stat-label {
+          font-weight: 600;
+          font-size: 13px;
+          white-space: nowrap;
+        }
+      }
+
+      .stat-value-container {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+
+        .capacity-progress {
+          width: 100%;
+          max-width: 200px;
+        }
+      }
+
+      .stat-value {
+        font-weight: 700;
+        font-size: 14px;
+        white-space: nowrap;
+        text-align: right;
+
+        .stat-max {
+          font-weight: 400;
+          color: rgba(0, 0, 0, 0.6);
+        }
+      }
+    }
+
+    .money-display {
+      .stat-value {
+        color: #d4af37; // Gold color
+      }
+    }
+  }
+
+  // Inventory tooltip styles
+  .inventory-tooltip {
+    max-width: 400px;
+    padding: 4px;
+
+    .tooltip-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding-bottom: 4px;
+    }
+
+    .tooltip-description {
+      font-size: 12px;
+      line-height: 1.4;
+      opacity: 0.9;
+      margin-bottom: 6px;
+
+      // Style rich text content
+      p {
+        margin: 0;
+        margin-bottom: 4px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      strong {
+        font-weight: 600;
+      }
+
+      em {
+        font-style: italic;
+      }
+    }
+
+    .tooltip-properties {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 11px;
+
+      .tooltip-property {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 2px 0;
+
+        .property-label {
+          opacity: 0.8;
+          margin-right: 8px;
+        }
+
+        .property-value {
+          font-weight: 600;
+          opacity: 1;
+        }
+      }
+    }
   }
 }

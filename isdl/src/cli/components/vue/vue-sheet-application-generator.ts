@@ -62,6 +62,10 @@ import {
     isTrackerExp,
     isTrackerStyleParameter,
     isVisibilityParam, LabelParam, Layout,
+    InventoryField, isInventoryField, isInventorySlotsParam, isInventoryRowsParam, isInventoryColumnsParam,
+    isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
+    isInventorySumParam, isInventorySumMaxParam, isInventorySortParam,
+    isInventoryEmptySlotsParam, isInventorySummaryParam, isWhereParam, isGlobalParam,
     NumberExp,
     NumberFieldParams,
     NumberParamMax,
@@ -104,7 +108,7 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
 
     const fileNode = expandToNode`
     ${generateVueComponentScript(entry, id, document, destination)}
-    ${generateVueComponentTemplate(id, document)}
+    ${generateVueComponentTemplate(entry, id, document)}
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
@@ -858,11 +862,12 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     `;
 }
 
-function generateVueComponentTemplate(id: string, document: Document): CompositeGeneratorNode {
+function generateVueComponentTemplate(entry: Entry, id: string, document: Document): CompositeGeneratorNode {
     const pages = getAllOfType<Page>(document.body, isPage);
     const firstPageTabs = document.body.filter(isDocumentArrayExp);
     const firstPageTables = document.body.filter(isTableField); // We explicitly only want top-level tables
     const firstPagePinned = document.body.filter(isPinnedField); // We explicitly only want top-level pinned fields
+    const firstPageInventories = document.body.filter(isInventoryField); // We explicitly only want top-level inventories
     return expandToNode`
     <template>
         <v-app>
@@ -970,6 +975,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                     ${joinToNode(firstPageTabs, generateTab, {appendNewLineIfNotEmpty: true})}
                                     ${joinToNode(firstPageTables, table => generateTab(table), {appendNewLineIfNotEmpty: true})}
                                     ${joinToNode(firstPagePinned, (pinned: PinnedField) => generatePinnedTab(pinned), {appendNewLineIfNotEmpty: true})}
+                                    ${joinToNode(firstPageInventories, inventory => generateTab(inventory), {appendNewLineIfNotEmpty: true})}
                                     <v-tab value="effects" prepend-icon="fa-solid fa-sparkles" @mousedown="spawnDatatableWindow($event, '${document.name}', 'effects')">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
@@ -979,6 +985,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                                 ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
                                 ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), {appendNewLineIfNotEmpty: true})}
                                 ${joinToNode(firstPagePinned, (pinned: PinnedField) => generatePinnedTabWindow(pinned), {appendNewLineIfNotEmpty: true})}
+                                ${joinToNode(firstPageInventories, inventory => generateInventoryTabWindow(document.name, inventory), {appendNewLineIfNotEmpty: true})}
                                 <v-tabs-window-item value="effects" data-tab="effects" class="tabs-container">
                                     <${document.name}EffectsVuetifyDatatable 
                                         :context="context"
@@ -997,14 +1004,16 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
     </template>
     `;
 
-    function generateTab(tab: DocumentArrayExp | TableField): CompositeGeneratorNode {
-        const iconParam = tab.params.find(p => isIconParam(p)) as IconParam | undefined;
+    function generateTab(tab: DocumentArrayExp | TableField | InventoryField): CompositeGeneratorNode {
+        // Get params with proper type handling
+        const params = tab.params as StandardFieldParams[];
+        const iconParam = params.find((p: any) => isIconParam(p)) as IconParam | undefined;
         const icon = iconParam?.value ?? "fa-solid fa-table";
         const page = AstUtils.getContainerOfType(tab, isPage) as Page;
         const pageName = page ? page.name : document.name;
 
         // Check for label parameter
-        const labelParam = tab.params.find(p => isLabelParam(p)) as LabelParam | undefined;
+        const labelParam = params.find((p: any) => isLabelParam(p)) as LabelParam | undefined;
         const label = labelParam?.value ?? `${document.name}.${tab.name}`;
 
         return expandToNode`
@@ -1024,6 +1033,7 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         const tabs = page.body.filter(isDocumentArrayExp); // We explictly only want top-level tabs
         const tables = page.body.filter(isTableField); // We explictly only want top-level tables
         const pinned = page.body.filter(isPinnedField); // We explictly only want top-level pinned fields
+        const inventories = page.body.filter(isInventoryField); // We explictly only want top-level inventories
         return expandToNode`
         <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
             <v-row dense>
@@ -1034,11 +1044,13 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 ${joinToNode(tabs, generateTab, {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(tables, generateTab, {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(pinned, pinnedField => generatePinnedTab(pinnedField), {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(inventories, inventory => generateTab(inventory), {appendNewLineIfNotEmpty: true})}
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
                 ${joinToNode(tables, table => generateVuetifyDatatable(page.name, table), {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(pinned, pinnedField => generatePinnedTabWindow(pinnedField), {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(inventories, inventory => generateInventoryTabWindow(page.name, inventory), {appendNewLineIfNotEmpty: true})}
             </v-tabs-window>
         </v-tabs-window-item>
         `;
@@ -1060,6 +1072,121 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
         return expandToNode`
         <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="table" class="tabs-container">
             <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+        </v-tabs-window-item>
+        `.appendNewLine();
+    }
+
+    function generateInventoryTabWindow(pageName: string, element: InventoryField): CompositeGeneratorNode {
+        const systemPath = getSystemPath(element, [], undefined, false);
+        const iconParam = element.params.find(p => isIconParam(p)) as IconParam | undefined;
+        const labelParam = element.params.find(p => isLabelParam(p)) as LabelParam | undefined;
+        const slotsParam = element.params.find(isInventorySlotsParam);
+        const rowsParam = element.params.find(isInventoryRowsParam);
+        const slotSizeParam = element.params.find(isInventorySlotSizeParam);
+        const quantityParam = element.params.find(isInventoryQuantityParam);
+        const moneyParam = element.params.find(isInventoryMoneyParam);
+        const sumParam = element.params.find(isInventorySumParam);
+        const sumMaxParam = element.params.find(isInventorySumMaxParam);
+        const sortParam = element.params.find(isInventorySortParam);
+        const whereParam = element.params.find(isWhereParam);
+        const globalParam = element.params.find(isGlobalParam);
+        const emptySlotsParam = element.params.find(isInventoryEmptySlotsParam);
+        const summaryParam = element.params.find(isInventorySummaryParam);
+
+        const label = labelParam ? labelParam.value : `${document.name}.${element.name}`;
+        const icon = iconParam?.value;
+        const slots = slotsParam?.value ?? 20;
+        const rows = rowsParam?.value;
+        const slotSize = slotSizeParam ? parseInt(slotSizeParam.value.replace('px', '')) : 60;
+        const documentType = element.document.ref?.name.toLowerCase();
+        const quantityField = quantityParam?.field.ref?.name.toLowerCase();
+        const moneyField = moneyParam?.field.ref?.name.toLowerCase();
+        const moneyFieldLabel = moneyField ? `${document.name}.${moneyParam?.field?.ref?.name}` : undefined;
+        const moneyFieldIcon = moneyField ? moneyParam?.field?.ref?.params.find(isIconParam)?.value : undefined;
+        const sortProperty = sortParam?.property.ref?.name;
+        const sortOrder = sortParam?.order ?? 'asc';
+        const globalAllowed = globalParam?.value ?? false;
+        const emptySlots = emptySlotsParam?.value ?? 'show';
+        const summary = summaryParam?.value ?? 'full';
+
+        // Handle sum properties (can be single or array)
+        let sumProperties: string[] = [];
+        if (sumParam) {
+            if (sumParam.properties.property) {
+                sumProperties = [sumParam.properties.property.ref?.name || ''];
+            } else if (sumParam.properties.properties) {
+                sumProperties = sumParam.properties.properties
+                    .map(p => p.ref?.name || '')
+                    .filter(n => n !== '');
+            }
+        }
+
+        // Handle sumMax (can be int, expression, or array of ints/expressions)
+        let sumMax: string | undefined = undefined;
+        if (sumMaxParam) {
+            if (sumMaxParam.value !== undefined) {
+                // It's a single INT
+                sumMax = String(sumMaxParam.value);
+            } else if (sumMaxParam.expression) {
+                // It's a single expression (like self.CarryCapacity), translate it
+                const sumMaxNode = translateExpression(entry, id, sumMaxParam.expression);
+                if (sumMaxNode) {
+                    // Prefix with context. so it evaluates correctly in Vue template
+                    sumMax = `context.${toString(sumMaxNode)}`;
+                }
+            } else if (sumMaxParam.values?.values) {
+                // It's an array of ints/expressions
+                const maxValues = sumMaxParam.values.values.map((val: any) => {
+                    if (typeof val === 'number') {
+                        return String(val);
+                    } else {
+                        // It's an expression, translate it
+                        const valNode = translateExpression(entry, id, val);
+                        if (valNode) {
+                            return `context.${toString(valNode)}`;
+                        }
+                        return '0';
+                    }
+                });
+                sumMax = `[${maxValues.join(', ')}]`;
+            }
+        }
+
+        // Handle where expression
+        let whereExpression: string | undefined = undefined;
+        if (whereParam) {
+            const whereNode = translateExpression(entry, id, whereParam.value);
+            whereExpression = whereNode ? toString(whereNode) : undefined;
+        }
+
+        return expandToNode`
+        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="inventory" class="tabs-container">
+            <i-inventory
+                label="${label}"
+                systemPath="${systemPath}"
+                :context="context"
+                :editMode="editModeRef"
+                ${icon ? `icon="${icon}"` : ''}
+                ${slots ? `:maxSlots="${slots}"` : ''}
+                ${rows ? `:rows="${rows}"` : ''}
+                :slotSize="${slotSize}"
+                documentType="${documentType}"
+                ${whereExpression ? `whereExpression="${whereExpression}"` : ''}
+                ${globalAllowed ? ':globalAllowed="true"' : ''}
+                ${quantityField ? `quantityField="${quantityField}"` : ''}
+                ${moneyField ? `moneyField="${moneyField}"` : ''}
+                ${moneyFieldLabel ? `moneyFieldLabel="${moneyFieldLabel}"` : ''}
+                ${moneyFieldIcon ? `moneyFieldIcon="${moneyFieldIcon}"` : ''}
+                ${sumProperties.length > 0 ? `:sumProperties='${JSON.stringify(sumProperties)}'` : ''}
+                ${sumMax ? `:sumMax="${sumMax}"` : ''}
+                ${sortProperty ? `sortProperty="${sortProperty}"` : ''}
+                sortOrder="${sortOrder}"
+                emptySlots="${emptySlots}"
+                summary="${summary}"
+                :primaryColor="primaryColor"
+                :secondaryColor="secondaryColor"
+                :teritaryColor="teritaryColor"
+            />
         </v-tabs-window-item>
         `.appendNewLine();
     }
@@ -1994,6 +2121,123 @@ function generateVueComponentTemplate(id: string, document: Document): Composite
                 let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
                 return expandToNode`
                     <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+                `.appendNewLine();
+            }
+
+            if (isInventoryField(element)) {
+                if (isTopLevel) return expandToNode``;
+                const systemPath = getSystemPath(element, [], undefined, false);
+                const iconParam = element.params.find(p => isIconParam(p)) as IconParam | undefined;
+                const labelParam = element.params.find(p => isLabelParam(p)) as LabelParam | undefined;
+                const slotsParam = element.params.find(isInventorySlotsParam);
+                const rowsParam = element.params.find(isInventoryRowsParam);
+                const columnsParam = element.params.find(isInventoryColumnsParam);
+                const slotSizeParam = element.params.find(isInventorySlotSizeParam);
+                const quantityParam = element.params.find(isInventoryQuantityParam);
+                const moneyParam = element.params.find(isInventoryMoneyParam);
+                const sumParam = element.params.find(isInventorySumParam);
+                const sumMaxParam = element.params.find(isInventorySumMaxParam);
+                const sortParam = element.params.find(isInventorySortParam);
+                const whereParam = element.params.find(isWhereParam);
+                const globalParam = element.params.find(isGlobalParam);
+                const emptySlotsParam = element.params.find(isInventoryEmptySlotsParam);
+                const summaryParam = element.params.find(isInventorySummaryParam);
+
+                const label = labelParam ? labelParam.value : `${document.name}.${element.name}`;
+                const icon = iconParam?.value;
+                const slots = slotsParam?.value ?? 20;
+                const rows = rowsParam?.value;
+                const columns = columnsParam?.value;
+                const slotSize = slotSizeParam ? parseInt(slotSizeParam.value.replace('px', '')) : 60;
+                const documentType = element.document.ref?.name.toLowerCase();
+                const quantityField = quantityParam?.field.ref?.name.toLowerCase();
+                const moneyField = moneyParam?.field.ref?.name.toLowerCase();
+                const moneyFieldLabel = moneyField ? `${document.name}.${moneyParam?.field?.ref?.name}` : undefined;
+                const moneyFieldIcon = moneyField ? moneyParam?.field?.ref?.params.find(isIconParam)?.value : undefined;
+                const sortProperty = sortParam?.property.ref?.name;
+                const sortOrder = sortParam?.order ?? 'asc';
+                const globalAllowed = globalParam?.value ?? false;
+                const emptySlots = emptySlotsParam?.value ?? 'show';
+                const summary = summaryParam?.value ?? 'full';
+
+                // Handle sum properties (can be single or array)
+                let sumProperties: string[] = [];
+                if (sumParam) {
+                    if (sumParam.properties.property) {
+                        sumProperties = [sumParam.properties.property.ref?.name || ''];
+                    } else if (sumParam.properties.properties) {
+                        sumProperties = sumParam.properties.properties
+                            .map(p => p.ref?.name || '')
+                            .filter(n => n !== '');
+                    }
+                }
+
+                // Handle sumMax (can be int, expression, or array of ints/expressions)
+                let sumMax: string | undefined = undefined;
+                if (sumMaxParam) {
+                    if (sumMaxParam.value !== undefined) {
+                        // It's a single INT
+                        sumMax = String(sumMaxParam.value);
+                    } else if (sumMaxParam.expression) {
+                        // It's a single expression (like self.CarryCapacity), translate it
+                        const sumMaxNode = translateExpression(entry, id, sumMaxParam.expression);
+                        if (sumMaxNode) {
+                            // Prefix with context. so it evaluates correctly in Vue template
+                            sumMax = `context.${toString(sumMaxNode)}`;
+                        }
+                    } else if (sumMaxParam.values?.values) {
+                        // It's an array of ints/expressions
+                        const maxValues = sumMaxParam.values.values.map((val: any) => {
+                            if (typeof val === 'number') {
+                                return String(val);
+                            } else {
+                                // It's an expression, translate it
+                                const valNode = translateExpression(entry, id, val);
+                                if (valNode) {
+                                    return `context.${toString(valNode)}`;
+                                }
+                                return '0';
+                            }
+                        });
+                        sumMax = `[${maxValues.join(', ')}]`;
+                    }
+                }
+
+                // Handle where expression
+                let whereExpression: string | undefined = undefined;
+                if (whereParam) {
+                    const whereNode = translateExpression(entry, id, whereParam.value);
+                    whereExpression = whereNode ? toString(whereNode) : undefined;
+                }
+
+                return expandToNode`
+                    <i-inventory
+                        label="${label}"
+                        systemPath="${systemPath}"
+                        :context="context"
+                        :editMode="editModeRef"
+                        ${icon ? `icon="${icon}"` : ''}
+                        ${slots ? `:maxSlots="${slots}"` : ''}
+                        ${rows ? `:rows="${rows}"` : ''}
+                        ${columns ? `:columns="${columns}"` : ''}
+                        :slotSize="${slotSize}"
+                        documentType="${documentType}"
+                        ${whereExpression ? `whereExpression="${whereExpression}"` : ''}
+                        ${globalAllowed ? ':globalAllowed="true"' : ''}
+                        ${quantityField ? `quantityField="${quantityField}"` : ''}
+                        ${moneyField ? `moneyField="${moneyField}"` : ''}
+                        ${moneyFieldLabel ? `moneyFieldLabel="${moneyFieldLabel}"` : ''}
+                        ${moneyFieldIcon ? `moneyFieldIcon="${moneyFieldIcon}"` : ''}
+                        ${sumProperties.length > 0 ? `:sumProperties='${JSON.stringify(sumProperties)}'` : ''}
+                        ${sumMax ? `:sumMax="${sumMax}"` : ''}
+                        ${sortProperty ? `sortProperty="${sortProperty}"` : ''}
+                        sortOrder="${sortOrder}"
+                        emptySlots="${emptySlots}"
+                        summary="${summary}"
+                        :primaryColor="primaryColor"
+                        :secondaryColor="secondaryColor"
+                        :teritaryColor="teritaryColor"
+                    />
                 `.appendNewLine();
             }
 

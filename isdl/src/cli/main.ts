@@ -15,10 +15,22 @@ const packagePath = path.resolve(__dirname, '..', '..', 'package.json');
 const packageContent = await fs.readFile(packagePath, 'utf-8');
 
 export const generateAction = async (fileName: string, opts: GenerateOptions): Promise<void> => {
-    const services = createIntelligentSystemDesignLanguageServices(NodeFileSystem).IntelligentSystemDesignLanguage;
-    const model = await extractAstNode<Entry>(fileName, services);
-    const generatedFilePath = await generateJavaScript(model, fileName, opts.destination);
-    console.log(chalk.green(`Intelligent System generated successfully: ${generatedFilePath}`));
+    try {
+        const services = createIntelligentSystemDesignLanguageServices(NodeFileSystem).IntelligentSystemDesignLanguage;
+        const model = await extractAstNode<Entry>(fileName, services);
+
+        if (!model) {
+            console.error(chalk.red('Failed to parse the ISDL file. The model is undefined.'));
+            process.exit(1);
+        }
+
+        const generatedFilePath = await generateJavaScript(model, fileName, opts.destination);
+        console.log(chalk.green(`Intelligent System generated successfully: ${generatedFilePath}`));
+    } catch (error) {
+        console.error(chalk.red('Error during generation:'));
+        console.error(error);
+        process.exit(1);
+    }
 };
 
 export type GenerateOptions = {

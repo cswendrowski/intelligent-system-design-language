@@ -101,9 +101,10 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
             }
 
             const absNum = Math.abs(num);
+            const sign = num < 0 ? '-' : '';
 
-            if (props.format === "compact" || (props.format === "auto" && absNum >= 1000)) {
-                const sign = num < 0 ? '-' : '';
+            // Compact mode: always use fixed precision
+            if (props.format === "compact" && absNum >= 1000) {
                 if (absNum >= 1000000000) {
                     return sign + (absNum / 1000000000).toFixed(props.precision) + 'B';
                 }
@@ -113,6 +114,34 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                 if (absNum >= 1000) {
                     return sign + (absNum / 1000).toFixed(props.precision) + 'k';
                 }
+            }
+
+            // Auto mode: dynamically adjust precision to fill field width
+            if (props.format === "auto" && absNum >= 1000) {
+                const maxChars = 12; // Target character width for the number portion
+                let divisor, suffix;
+
+                if (absNum >= 1000000000) {
+                    divisor = 1000000000;
+                    suffix = 'B';
+                } else if (absNum >= 1000000) {
+                    divisor = 1000000;
+                    suffix = 'M';
+                } else {
+                    divisor = 1000;
+                    suffix = 'k';
+                }
+
+                const scaledNum = absNum / divisor;
+                const integerDigits = Math.floor(scaledNum).toString().length;
+
+                // Calculate available space: maxChars - sign - integerDigits - decimal point - suffix
+                const availableForDecimals = maxChars - sign.length - integerDigits - 1 - suffix.length;
+
+                // Clamp precision between 0 and available space (max 6 for readability)
+                const dynamicPrecision = Math.max(0, Math.min(availableForDecimals, 6));
+
+                return sign + scaledNum.toFixed(dynamicPrecision) + suffix;
             }
 
             return num.toLocaleString();

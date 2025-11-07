@@ -31,7 +31,10 @@ import {
     Document, ClassExpression, Layout, isLayout, isNumberExp, isStringExp,
     isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue,
     StringParamValue, isAttributeParamMod, AttributeParamMod, isPipsExp,
-    MethodBlock, isMethodBlock, isAccess
+    MethodBlock, isMethodBlock, isAccess,
+    InventoryField, isInventorySlotsParam, isInventoryRowsParam,
+    isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
+    isInventorySumParam, isItem, isMoneyField, isActor
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
@@ -54,7 +57,8 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         StringChoiceField: validator.validateStringChoiceField,
         StringExp: validator.validateStringExp,
         DocumentArrayExp: validator.validateDocumentArrayExp,
-        Document: validator.validateDependencyCycles
+        Document: validator.validateDependencyCycles,
+        InventoryField: validator.validateInventoryField
     };
     registry.register(checks, validator);
 }
@@ -243,6 +247,91 @@ export class IntelligentSystemDesignLanguageValidator {
                 type: type
             }
         })
+    }
+
+    validateInventoryField(field: InventoryField, accept: ValidationAcceptor): void {
+        // Validate that inventory only references item documents
+        if (field.document.ref && isActor(field.document.ref)) {
+            accept('error', 'Inventory fields can only reference item documents, not actors.',
+                { node: field, property: 'document' });
+        }
+
+        const slotsParam = field.params.find(isInventorySlotsParam);
+        const rowsParam = field.params.find(isInventoryRowsParam);
+        const slotSizeParam = field.params.find(isInventorySlotSizeParam);
+        const quantityParam = field.params.find(isInventoryQuantityParam);
+        const moneyParam = field.params.find(isInventoryMoneyParam);
+        const sumParam = field.params.find(isInventorySumParam);
+
+        // Validate slots and rows are positive
+        if (slotsParam && slotsParam.value <= 0) {
+            accept('error', 'Slots parameter must be greater than 0.',
+                { node: slotsParam, property: 'value' });
+        }
+
+        if (rowsParam && rowsParam.value <= 0) {
+            accept('error', 'Rows parameter must be greater than 0.',
+                { node: rowsParam, property: 'value' });
+        }
+
+        // Validate slotSize range (20-150px)
+        if (slotSizeParam) {
+            const sizeValue = parseInt(slotSizeParam.value.replace('px', ''));
+            if (sizeValue < 20 || sizeValue > 150) {
+                accept('warning', 'SlotSize should be between 20px and 150px for optimal display.',
+                    { node: slotSizeParam, property: 'value' });
+            }
+        }
+
+        // Validate quantity field exists on item
+        if (quantityParam && quantityParam.field.ref) {
+            const itemDocument = field.document.ref;
+            if (itemDocument && isItem(itemDocument)) {
+                const itemProperties = getAllOfType<Property>(itemDocument.body, isProperty, false);
+                const quantityField = itemProperties.find(p => p.name === quantityParam.field.ref?.name);
+                if (!quantityField) {
+                    accept('error', `Quantity field '${quantityParam.field.ref.name}' does not exist on item '${itemDocument.name}'.`,
+                        { node: quantityParam, property: 'field' });
+                } else if (!isNumberExp(quantityField) && !isResourceExp(quantityField) &&
+                           !isAttributeExp(quantityField) && !isTrackerExp(quantityField)) {
+                    accept('error', 'Quantity field must be a numeric type (number, resource, attribute, or tracker).',
+                        { node: quantityParam, property: 'field' });
+                }
+            }
+        }
+
+        // Validate money field exists and is MoneyField type
+        if (moneyParam && moneyParam.field.ref && !isMoneyField(moneyParam.field.ref)) {
+            accept('error', 'Money parameter must reference a money field.',
+                { node: moneyParam, property: 'field' });
+        }
+
+        // Validate sum properties exist on item and are numeric
+        if (sumParam) {
+            const itemDocument = field.document.ref;
+            if (itemDocument && isItem(itemDocument)) {
+                const itemProperties = getAllOfType<Property>(itemDocument.body, isProperty, false);
+
+                // Handle single property or array of properties
+                const properties = sumParam.properties.property
+                    ? [sumParam.properties.property]
+                    : sumParam.properties.properties || [];
+
+                for (const prop of properties) {
+                    if (prop.ref) {
+                        const sumField = itemProperties.find(p => p.name === prop.ref?.name);
+                        if (!sumField) {
+                            accept('error', `Sum property '${prop.ref.name}' does not exist on item '${itemDocument.name}'.`,
+                                { node: sumParam, property: 'properties' });
+                        } else if (!isNumberExp(sumField) && !isResourceExp(sumField) &&
+                                   !isAttributeExp(sumField) && !isTrackerExp(sumField) && !isMoneyField(sumField)) {
+                            accept('error', 'Sum property must be a numeric type (number, resource, attribute, tracker, or money).',
+                                { node: sumParam, property: 'properties' });
+                        }
+                    }
+                }
+            }
+        }
     }
 
     validateDependencyCycles(document: Document, accept: ValidationAcceptor): void {

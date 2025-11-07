@@ -280,7 +280,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed, inject, onMounted, watch } from "vue";
+        import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from "vue";
 
         const props = defineProps({
             systemPath: String,
@@ -294,7 +294,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const search = ref('');
         const loading = ref(false);
         const showColumnDialog = ref(false);
-        
+
         const columnVisibility = ref({});
         const columnOrder = ref([]);
 
@@ -303,6 +303,19 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             const systemData = foundry.utils.getProperty(props.context, systemPath) || [];
             return systemData;
         });
+
+        // Create a map of item _id to item for drag operations
+        const itemMap = computed(() => {
+            const map = new Map();
+            data.value.forEach(item => {
+                map.set(item._id, item);
+            });
+            return map;
+        });
+
+        // Expose itemMap globally for drag handlers to access
+        if (!window.isdlItemMaps) window.isdlItemMaps = new Map();
+        window.isdlItemMaps.set(document._id, itemMap);
         
         const customHeaders = [
             ${joinToNode(table.document.ref!.body, p => generateDataTableHeader(table.document, p), { appendNewLineIfNotEmpty: true })}
@@ -483,17 +496,17 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             await saveColumnSettings();
         };
 
-        const onDragStart = (event, index) => {
+        const onColumnDragStart = (event, index) => {
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/plain', index.toString());
         };
 
-        const onDragOver = (event) => {
+        const onColumnDragOver = (event) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = 'move';
         };
 
-        const onDrop = async (event, toIndex) => {
+        const onColumnDrop = async (event, toIndex) => {
             event.preventDefault();
             const fromIndex = parseInt(event.dataTransfer.getData('text/plain'));
             if (fromIndex !== toIndex) {
@@ -628,8 +641,53 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             return tooltipParts.join('<br>');
         };
 
-        // Bind drag drop after component mount
-        setTimeout(() => bindDragDrop(), 100);
+        // Get item props for row attributes (for drag-drop)
+        const getItemProps = (item) => {
+            return {
+                'data-item-id': item._id,
+                'data-document-id': document._id
+            };
+        };
+
+        // Function to add data attributes to table rows
+        const updateTableRowAttributes = () => {
+            const tableEl = window.document.querySelector('.custom-datatable table');
+            if (!tableEl) {
+                console.warn('Table not found for attribute update');
+                return;
+            }
+
+            const rows = tableEl.querySelectorAll('tbody tr');
+            const items = data.value;
+
+            rows.forEach((row, index) => {
+                if (index < items.length) {
+                    const item = items[index];
+                    row.setAttribute('data-item-id', item._id);
+                    row.setAttribute('data-document-id', document._id);
+                }
+            });
+        };
+
+        // Watch for data changes and update attributes
+        watch(data, () => {
+            nextTick(updateTableRowAttributes);
+        }, { immediate: false });
+
+        // Bind drag drop and update attributes after component mount
+        onMounted(() => {
+            setTimeout(() => {
+                updateTableRowAttributes();
+                bindDragDrop();
+            }, 200);
+        });
+
+        // Clean up item map on unmount
+        onUnmounted(() => {
+            if (window.isdlItemMaps) {
+                window.isdlItemMaps.delete(document._id);
+            }
+        });
     </script>
 
     <template>
@@ -686,6 +744,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 style="background: none;"
                 class="custom-datatable"
                 :sort-by="[{ key: 'system.pinned', order: 'desc' }, { key: 'name', order: 'asc' }]"
+                :item-props="getItemProps"
             >
                 <!-- Image slot -->
                 <template v-slot:item.img="{ item }">
@@ -795,9 +854,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                             :key="columnKey"
                             class="column-config-item"
                             draggable="true"
-                            @dragstart="onDragStart($event, index)"
-                            @dragover="onDragOver"
-                            @drop="onDrop($event, index)"
+                            @dragstart="onColumnDragStart($event, index)"
+                            @dragover="onColumnDragOver"
+                            @drop="onColumnDrop($event, index)"
                         >
                             <v-list-item class="px-2">
                                 <template v-slot:prepend>

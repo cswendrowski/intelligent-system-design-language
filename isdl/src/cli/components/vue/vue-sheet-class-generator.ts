@@ -111,7 +111,8 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 dragDrop: [
                     {dragSelector: "tr", dropSelector: ".tabs-container"},
                     {dropSelector: ".single-document"},
-                    {dragSelector: ".paper-doll-slot", dropSelector: ".paper-doll-slot"}
+                    {dragSelector: ".paper-doll-slot", dropSelector: ".paper-doll-slot"},
+                    {dragSelector: ".inventory-slot.filled", dropSelector: ".inventory-grid-container"}
                 ],
                 form: {
                     submitOnChange: true,
@@ -279,8 +280,6 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
              * @protected
              */
             _onDragStart(event) {
-                console.log("Drag Start");
-
                 if (event.currentTarget.classList.contains("paper-doll-slot")) {
                     // Remove the item from the slot
                     const name = event.currentTarget.dataset.name;
@@ -288,14 +287,43 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                     update[name] = null;
                     this.document.update(update);
                 }
+                else if (event.currentTarget.classList.contains("inventory-slot")) {
+                    // Inventory slots - data is set by Vue component's @dragstart handler
+                    // Nothing to do here, the Vue component handles it
+                    return;
+                }
                 else {
-                    const tr = event.currentTarget.closest("tr");
-                    const data = {
-                        type: tr.dataset.type == "ActiveEffect" ? "ActiveEffect" : "Item",
-                        uuid: tr.dataset.uuid
-                    };
+                    // For table rows, currentTarget should already be the tr element
+                    const tr = event.currentTarget.tagName === "TR" ? event.currentTarget : event.currentTarget.closest("tr");
+                    if (tr) {
+                        // Try to get UUID from data attributes
+                        let uuid = tr.dataset.uuid;
+                        let type = tr.dataset.type;
 
-                    event.dataTransfer.setData("text/plain", JSON.stringify(data));
+                        // If not found, try to get from item map (for Vuetify tables)
+                        if (!uuid && tr.dataset.itemId && tr.dataset.documentId) {
+                            const itemMap = window.isdlItemMaps?.get(tr.dataset.documentId);
+                            if (itemMap) {
+                                const item = itemMap.value.get(tr.dataset.itemId);
+                                if (item) {
+                                    uuid = item.uuid;
+                                    type = item.type || 'Item';
+                                }
+                            }
+                        }
+
+                        if (!uuid) {
+                            console.error("No UUID found on tr element", tr);
+                            return;
+                        }
+
+                        const data = {
+                            type: type == "ActiveEffect" ? "ActiveEffect" : "Item",
+                            uuid: uuid
+                        };
+
+                        event.dataTransfer.setData("text/plain", JSON.stringify(data));
+                    }
                 }
             }
 
@@ -332,6 +360,9 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 if ( !dropTypes.includes(data.type) ) return;
                 const item = await fromUuid(data.uuid);
                 if ( !item ) return;
+
+                // Prevent duplicates when dropping an item that's already owned by this document
+                if ( item.parent?.uuid === this.document.uuid ) return;
 
                 if ( data.type === "ActiveEffect" ) {
                     ActiveEffect.createDocuments([item], {parent: this.document})

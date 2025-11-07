@@ -19,7 +19,8 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(rm:*)",
       "Bash(mv:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
