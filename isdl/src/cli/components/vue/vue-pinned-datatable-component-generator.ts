@@ -210,7 +210,7 @@ export function generatePinnedVuetifyDatatableComponent(id: string, document: Do
 
             <!-- Pin toggle slot -->
             <template v-slot:item="{ item }">
-                <tr>
+                <tr :data-item-id="item._id" :data-document-id="document._id" :data-uuid="item.uuid">
                     <td class="text-center" style="width: 40px;">
                         <v-btn
                             icon

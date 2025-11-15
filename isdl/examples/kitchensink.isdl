@@ -556,7 +556,39 @@ page Equipment(icon: "fa-solid fa-backpack", background: food) {
     table<Equipment> Armors(where: item.Type equals "Armor")
     Equipment[] Weapons(where: item.Type equals "Weapon")
     Potion[] Potion
+
+    // Inventory with money tracking
+    section Backpack {
+        number CarryCapacity(initial: 100, icon: "fa-solid fa-weight-hanging")
+        number MaxValue(initial: 500, icon: "fa-solid fa-coins")
+
+        // Section-level inventory showing encumbrance system
+        inventory<Equipment> BackpackInventory(
+            rows: 4,
+            columns: 5,
+            slotSize: 50px,
+            quantity: Quantity,
+            sum: [Weight, Value],
+            sumMax: [self.CarryCapacity, self.MaxValue],
+            sort: Weight asc,
+            label: "Backpack",
+            icon: "fa-solid fa-bag-shopping"
+        )
+    }
 }
+
+// Top-level inventory - shows as a tab
+inventory<Potion> Potions(
+    slots: 10,
+    rows: 2,
+    slotSize: 60px,
+    quantity: Quantity,
+    money: Wealth,
+    sum: Value,
+    label: "Potions & Supplies",
+    icon: "fa-solid fa-flask-round-potion"
+)
+
 Spell[] Spells(fields: [Type, Class])
 table<Skill> Skills(fields: [Ability, Trained, SkillMod])
 table<Spell> VuetifySpells
@@ -638,6 +670,9 @@ item Skill {
 item Equipment {
     string Type(choices: ["Armor", "Weapon"])
     number Bonus
+    number Quantity(initial: 1, min: 1, icon: "fa-solid fa-hashtag")
+    number Weight(initial: 1, min: 0, icon: "fa-solid fa-weight-hanging")
+    number Value(initial: 10, min: 0, icon: "fa-solid fa-coins")
 
     page ParentRefs {
         parent<attribute> ParentAttribute
@@ -806,7 +841,8 @@ item Spell {
 }
 
 item Potion {
-    number Quantity
+    number Quantity(initial: 1, min: 1)
+    number Value(initial: 5, min: 0, icon: "fa-solid fa-coins")
     action Use(icon: "fa-solid fa-flask-round-potion") {
         self.Quantity--
         chat PotionUsed {}

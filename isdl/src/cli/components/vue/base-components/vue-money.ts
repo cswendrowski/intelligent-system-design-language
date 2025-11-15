@@ -138,8 +138,8 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                 // Calculate available space: maxChars - sign - integerDigits - decimal point - suffix
                 const availableForDecimals = maxChars - sign.length - integerDigits - 1 - suffix.length;
 
-                // Clamp precision between 0 and available space (max 6 for readability)
-                const dynamicPrecision = Math.max(0, Math.min(availableForDecimals, 6));
+                // Clamp precision between 0 and available space (max 2 for readability)
+                const dynamicPrecision = Math.max(0, Math.min(availableForDecimals, 2));
 
                 return sign + scaledNum.toFixed(dynamicPrecision) + suffix;
             }

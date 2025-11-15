@@ -1,0 +1,15 @@
+config InventoryTest {
+    label = "Inventory Test"
+    id = "inventory-test"
+}
+
+actor Hero {
+    number CarryCapacity(initial: 100)
+
+    inventory<Item> Backpack
+}
+
+item Item {
+    number Quantity(initial: 1)
+    number Weight(initial: 1)
+}

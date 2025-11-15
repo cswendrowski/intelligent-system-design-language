@@ -645,7 +645,8 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const getItemProps = (item) => {
             return {
                 'data-item-id': item._id,
-                'data-document-id': document._id
+                'data-document-id': document._id,
+                'data-uuid': item.uuid
             };
         };
 
@@ -665,6 +666,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     const item = items[index];
                     row.setAttribute('data-item-id', item._id);
                     row.setAttribute('data-document-id', document._id);
+                    row.setAttribute('data-uuid', item.uuid);
                 }
             });
         };

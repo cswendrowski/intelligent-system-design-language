@@ -9,30 +9,45 @@ actor Character {
     // PAGE 1 - CHARACTER DEFAULT
     section Attributes {
             //WARRIOR
-            edit attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
+            attribute Warrior(icon: "fa-solid fa-helmet-battle", min: 0, max: 100)
             // ROGUE
-            edit attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
+            attribute Rogue(icon: "fa-solid fa-hood-cloak", min: 0, max: 100)
             // MAGE
-            edit attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
+            attribute Mage(icon: "fa-solid fa-hat-wizard", min: 0, max: 100)
         hidden number DefenseMod(initial: 0)
         hidden number CastPenaltyMod(initial: 0)
         hidden number ManaMult(initial: 2)
     }
+    section ResourceTrackers {
+        boolean HasCombo(icon: "fa-solid fa-hand-back-fist")
+        boolean HasElixirs(icon: "fa-solid fa-flask-vial")
+        boolean HasForage(icon: "fa-solid fa-leaf")
+        boolean HasManaUse(icon: "fa-solid fa-sparkles")
+        number ConduitTier(icon: "fa-solid fa-eye-evil", min: 0, max: 6)
+        number RageTier(icon: "fa-solid fa-face-angry", min: 0, max: 6)
+        boolean HasStormsong(icon: "fa-solid fa-cloud-bolt")
+        }
+    section Progression {
+        number Advances(min: 0)
+        number BonusAdv(min: 0)
+        }
+// Hidden Numbers and Shit
+        hidden number ShieldBonus(value: {
+            if (self.WornShield exists) {
+                return self.WornShield.ArmorRating
+            }
+            return 0
+        })
 table<Advancement> Advancements
-table<Skill> Skills
-table<Talent> Talents(fields: [PreReq, Kind, Trigger, Requirement, Activation, UseLimit])
+table<Skill> AllSkills
+table<Talent> AllTalents(fields: [PreReq, Kind, Trigger, Requirement, Activation, UseLimit])
 table<Language> Languages
 table<Project> Projects(fields:[TaskDL, Completion])
 // Page 2 -- Belongings
 page Belongings(icon: "fa-solid fa-backpack") {
-    section Armor {
-        //Equipment WornHelmet
-        unlocked choice<string> Cleanliness(choices: ["Pristine","Clean","Grubby","Dirty","Grimy","Filthy"])
-
-    }
     section Finance {
-        unlocked number Silver
-        unlocked number BankedSilver
+        money Silver(icon: "fa-solid fa-coins", format: auto)
+        money BankedSilver(icon: "fa-solid fa-building-columns", format: auto)
         number Investments
         readonly number MonthlyIncome(value: {return 300 * self.Investments})
     }
@@ -80,11 +95,11 @@ page Belongings(icon: "fa-solid fa-backpack") {
             }
         }
     }
-    table<Armor> Armors
-    table<Consumable> Consumables
-    table<Equipment> Wearables
-    table<Item> Items
-    table<Weapon> Weapons
+    table<Armor> AllArmors
+    table<Consumable> AllConsumables
+    table<Equipment> AllWearables
+    table<Item> AllItems
+    table<Weapon> AllWeapons(fields:[Skill, TwoHanded, Melee, Ranged, Thrown, DamageType, DamString])
 }
 // PAGE 3 -- COMBAT
 page Combat(icon: "fa-solid fa-swords") {
@@ -99,8 +114,43 @@ page Combat(icon: "fa-solid fa-swords") {
             number DamageAbsorb (icon: "fa-solid fa-helmet-battle", value: {return self.WornArmor.armorrating - self.WornArmor.armorreduction})
             number ArmorPenalty(icon: "fa-solid fa-angles-down", value: {return self.WornArmor.armorrating - 1})
         }
-            edit choice<Armor> WornArmor
-            edit choice<Armor> WornShield
+        edit choice<Armor> WornArmor
+        edit choice<Armor> WornShield
+        play action Talents(icon: "fa-solid fa-arrows-rotate-reverse"){
+        each talent in self.Talents {
+            if (talent.UsesLeft < talent.MaxUses) {
+                talent.usesleft = talent.MaxUses
+            }
+        }
+        chat TalentReset {"I've reset all my talent uses to full."}
+        }
+        play action YesOrNo(icon: "fa-solid fa-circle-question"){
+            fleeting flip = roll(1d6)
+            fleeting Answer = "??"
+            if (flip.Total > 3) {Answer = "Yes"}
+            else {Answer = "No"}
+            chat Output {
+                flavor ("The real question is: Yes or No?")
+                Answer
+            }
+        }
+        play action Coin(icon: "fa-solid fa-coin"){
+            fleeting flip = roll(1d2)
+            fleeting Result = "??"
+            if (flip.Total == 2) {Result = "Heads"}
+            else {Result = "Tails"}
+            chat Output {
+                flavor ("The coin's up!")
+                Result
+            }
+        }
+        play action Rating(icon: "fa-solid fa-star"){
+            fleeting Score = roll(d10)
+            chat Output {
+                flavor ("On a scale from 1 to 10 you give this a...")
+                Score
+            }
+        }
     }
 section Resources {
         row {
@@ -154,10 +204,9 @@ hidden number ShieldPenalty(value: {return self.WornShield.armorrating - 1})
 section DiceRollers {
     string Attributes(icon: "fa-solid fa-chart-bar", value: {return "WARRIOR: " + self.Warrior + " ROGUE: " + self.Rogue + " MAGE: " + self.Mage})
     row {
-        unlocked self<attribute> AttributeToUse(icon: "fa-solid fa-dice-d20")
-        unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
+    unlocked choice<string> Attribute(choices: ["Warrior","Rogue","Mage"])
     //        unlocked choice<Spell> Spell
-        unlocked choice<Skill> Skill
+    unlocked choice<Skill> Skill
     }
     action RollAttribute(icon: "fa-solid fa-dice"){
         fleeting Level = "None"
@@ -170,16 +219,16 @@ section DiceRollers {
             number AddModifier
         }
         fleeting Modifier = Prompt.AddModifier
-        fleeting Roll = roll(1d6 + self.AttributeToUse + Skill + Modifier)
+        fleeting Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)
         if (Level == "None") {
-            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.AttributeToUse + Skill + Modifier)}
-            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.AttributeToUse + Skill + Modifier)}
-            else {Roll = roll(1d6 + self.AttributeToUse + Skill + Modifier)}
+            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute].mod + Skill + Modifier)}
+            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute].mod + Skill + Modifier)}
+            else {Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)}
         }
         else {
-            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self.AttributeToUse + Skill + Modifier)}
-            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self.AttributeToUse + Skill + Modifier)}
-            else {Roll = roll(1d6x + self.AttributeToUse + Skill + Modifier)}
+            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute].mod + Skill + Modifier)}
+            else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute].mod + Skill + Modifier)}
+            else {Roll = roll(1d6x + self[self.Attribute].mod + Skill + Modifier)}
         }
         chat RollResult {
             flavor("Rolling!")
@@ -189,183 +238,14 @@ section DiceRollers {
             tag Skill
         }
     }
-    unlocked choice<Weapon> Weapon
-        action RollAttack(icon: "fa-solid fa-dice") {
-            fleeting Prompt = prompt(label: "Roll Modifiers") {
-                choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
-                number AddModifier
-            }
-            fleeting Modifier = Prompt.AddModifier + self.Weapon.AttackMod
-            fleeting range = "Melee"
-            if (self.Weapon.RangedWeapon == true) {
-                range = self.Weapon.IdealRange + " Yds"
-            }
-            // See if the character has the needed Skill.
-            fleeting Level = "None"
-            fleeting Skill = 0
-            if (parent is Character) {
-                each skill in parent.Skills {
-                    if (skill.Name equals self.Skill.Name) {
-                        Level = skill.SkillLevel
-                        Skill = skill.SkillTotal
-                    }
-                }
-            }
-            fleeting Roll = roll(1d6 + self.Weapon.Attribute + Skill + Modifier)
-            if (Level == "None") {
-                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self[self.Attribute].mod + Skill + Modifier)}
-                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self[self.Attribute].mod + Skill + Modifier)}
-                else {Roll = roll(1d6 + self[self.Attribute].mod + Skill + Modifier)}
-            }
-            else {
-                if (Prompt.Advantage == "Advantage") {Roll = roll(2d6xkh + self[self.Attribute].mod + Skill + Modifier)}
-                else if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6xkl + self[self.Attribute].mod + Skill + Modifier)}
-                else {Roll = roll(1d6x + self[self.Attribute].mod + Skill + Modifier)}
-            }
-            chat RollOutcome {
-                Roll
-                tag self.Weapon.Attribute
-                tag self.Weapon.Skill
-                tag range
-            }
-        }
-    unlocked choice<Spell> Spell
-}
-section QuickActions {
-    //        action WARRIOR(icon: "fa-solid fa-helmet-battle"){
-        //            fleeting Prompt = prompt(label: "WARRIOR Roll Modifiers") {
-            //                string Advantage(choices: ["None","Advantage","Disadvantage"])
-            //                number AddModifier
-        //            }
-        //            fleeting Modifier = Prompt.AddModifier
-        //            fleeting Roll = roll(1d6 + self.Warrior + Modifier)
-        //            //if (Prompt.Advantage == "None") {Roll = roll(1d6 + self.Warrior)}
-        //            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Warrior + Modifier)}
-        //            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Warrior + Modifier)}
-        //            chat RollResult {
-            //                flavor("Rolling a basic WARRIOR check.")
-            //                Roll
-        //            }
-    //        }
-    //        action ROGUE(icon: "fa-solid fa-hood-cloak"){
-        //            fleeting Prompt = prompt(label: "ROGUE Roll Modifiers") {
-            //                string Advantage(choices: ["None","Advantage","Disadvantage"])
-            //                number AddModifier
-        //            }
-        //            fleeting Modifier = Prompt.AddModifier
-        //            fleeting Roll = roll(1d6 + self.Rogue + Modifier)
-        //            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Rogue + Modifier)}
-        //            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Rogue + Modifier)}
-        //            chat RollResult {
-            //                flavor("Rolling a basic ROGUE check.")
-            //                Roll
-        //            }
-    //        }
-    //        action MAGE(icon: "fa-solid fa-hat-wizard"){
-        //            fleeting Prompt = prompt(label: "MAGE Roll Modifiers") {
-            //                string Advantage(choices: ["None","Advantage","Disadvantage"])
-            //                number AddModifier
-        //            }
-        //            fleeting Modifier = Prompt.AddModifier
-        //            fleeting Roll = roll(1d6 + self.Mage + Modifier)
-        //            if (Prompt.Advantage == "Advantage") {Roll = roll(2d6kh + self.Mage + Modifier)}
-        //            if (Prompt.Advantage == "Disadvantage") {Roll = roll(2d6kl + self.Mage + Modifier)}
-        //            chat RollResult {
-            //                flavor("Rolling a basic MAGE check.")
-            //                Roll
-        //            }
-    //        }
-    //action Recover(icon: "fa-regular fa-bars-progress"){
-        //    fleeting Prompt = prompt(label: "Recover Resources") {
-            //        choice<string> RecoverResource(choices: ["All","Fate","Health","Mana"])
-        //    }
-        //    if (Prompt.RecoverResource == "All") {
-            //        self.Health = self.Health.Max
-            //        self.Fate = self.Fate.Max
-            //        self.Mana = self.Mana.Max
-            //        chat AllReset {"I've reset my Fate, Health and Mana points to full."}
-        //    }
-        //    if (Prompt.RecoverResource == "Fate") {
-            //        self.Fate = self.Fate.Max
-            //        chat FateReset {"I've reset my Fate points to full."}
-        //    }
-        //    if (Prompt.RecoverResource == "Health") {
-            //        self.Health = self.Health.Max
-            //        chat HealthReset {"I've reset my Health points to full."}
-        //    }
-        //    if (Prompt.RecoverResource == "Mana") {
-            //        self.Mana = self.Mana.Max
-            //        chat ManaReset {"I've reset my Mana points to full."}
-        //    }
-    //}
-    action Talents(icon: "fa-solid fa-arrows-rotate-reverse"){
-        each talent in self.Talents {
-            if (talent.UsesLeft < talent.MaxUses) {
-                talent.usesleft = talent.MaxUses
-            }
-        }
-        chat TalentReset {"I've reset all my talent uses to full."}
-    }
-    action YesOrNo(icon: "fa-solid fa-circle-question"){
-        fleeting flip = roll(1d6)
-        fleeting Answer = "??"
-        if (flip.Total > 3) {Answer = "Yes"}
-        else {Answer = "No"}
-        chat Output {
-            flavor ("The real question is: Yes or No?")
-            Answer
-        }
-    }
-    action Coin(icon: "fa-solid fa-coin"){
-        fleeting flip = roll(1d2)
-        fleeting Result = "??"
-        if (flip.Total == 2) {Result = "Heads"}
-        else {Result = "Tails"}
-        chat Output {
-            flavor ("The coin's up!")
-            Result
-        }
-    }
-    action Rating(icon: "fa-solid fa-star"){
-        fleeting Score = roll(d10)
-        chat Output {
-            flavor ("On a scale from 1 to 10 you give this a...")
-            Score
-        }
-    }
-
 }
 
-table<Armor> YourArmors(fields:[ArmorRating, ArmorCondition, Brittle, Heavy, Noisy, Repair, Shape])
-table<Consumable> YourConsumables(fields:[Kind, UseLimit, Uses, Refillable])
-table<Skill> YourSkills
-table<Spell> YourSpells(fields:[Circle, Difficulty, Mana])
-table<Talent> YourTalents(fields: [PreReq, Kind, Trigger, Requirement, Activation, UseLimit])
-table<Weapon> YourWeapons(fields:[Skill, AttackMod, DamageType, DamString, TwoHanded, MeleeWeapon, RangedWeapon, ThrownWeapon, RangeComp])
-}
-page Settings(icon: "fa-solid fa-gears") {
-    section ResourceTrackers {
-        boolean HasCombo(icon: "fa-solid fa-hand-back-fist")
-        boolean HasElixirs(icon: "fa-solid fa-flask-vial")
-        boolean HasForage(icon: "fa-solid fa-leaf")
-        boolean HasManaUse(icon: "fa-solid fa-sparkles")
-        }
-    section SpecialResources {
-        number ConduitTier(icon: "fa-solid fa-eye-evil", min: 0, max: 6)
-        number RageTier(icon: "fa-solid fa-face-angry", min: 0, max: 6)
-        boolean HasStormsong(icon: "fa-solid fa-cloud-bolt")
-        }
-    section Progression {
-        number Advances(min: 0)
-        number BonusAdv(min: 0)
-        }
-// Hidden Numbers and Shit
-        hidden number ShieldBonus(value: {
-            if (self.WornShield exists) {
-                return self.WornShield.ArmorRating
-            }
-            return 0
-        })
+table<Armor> Armors(fields:[ArmorRating, ArmorCondition, Brittle, Heavy, Noisy, Repair, Shape])
+table<Consumable> Consumables(fields:[Kind, UseLimit, Uses, Refillable])
+table<Skill> Skills
+table<Spell> Spells(fields:[Circle, Difficulty, Mana])
+table<Talent> Talents(fields: [PreReq, Kind, Trigger, Requirement, Activation, UseLimit])
+table<Weapon> Weapons(fields:[Skill, TwoHanded, Melee, Ranged, Thrown, DamageType, DamString])
 }
 }
 
@@ -484,13 +364,20 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         boolean ThrownWeapon(label: "Thrown")
         edit number IdealRange(min: 0)
         edit number MaxRange(min: 0)
-        string RangeComp(label: "Range", value: {return self.IdealRange + " / " + self.MaxRange})
+        //play string Notes(value: {
+        //    if (self.TwoHanded == true) {return "2H" + ""} 
+        //    if (self.MeleeWeapon == true and self.RangedWeapon == true) {return "Melee (Thrown: " + self.RangeComp + " yds)" }
+        //    if (self.RangedWeapon == true) {return "Ranged ( " + self.RangeComp + " yds)" }
+        //    if (self.MeleeWeapon == true) {return "Melee"}
+        //    else {return "Weapoon not configured."}
+        //})
+        play string RangeComp(label: "Range", value: {return self.IdealRange + " / " + self.MaxRange})
     }
     section Use {
         parent<attribute> Attribute(choices: [Character.Warrior, Character.Rogue, Character.Mage])
         string Skill
         number AttackMod
-
+        
         // ROLLERS
         action Attack(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
@@ -507,7 +394,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
             fleeting Skill = 0
             if (parent is Character) {
                 each skill in parent.Skills {
-                    if (skill.Name equals self.Skill.Name) {
+                    if (skill.Name equals self.Skill) {
                         Level = skill.SkillLevel
                         Skill = skill.SkillTotal
                     }
@@ -572,7 +459,7 @@ item Item(svg: "icons/svg/open-treasure-chest.svg", description: "A random item 
 }
 
 // SPELL
-// Circle, Difficulty, Mana,
+// Circle, Difficulty, Mana, 
 item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you can cast.") {
     section Basics {
         number Circle(initial: 1, min: 0, max: 7)
@@ -623,7 +510,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             string MPBreakdown(value: {return "MP: " + self.FinalMana + " (Base: " + self.Mana + " Enh: +" + self.EnhanceCost + " Pen: +" + self.CastPenalty + " Mod: +" + self.CostMod + ")"})
         }
     }
-
+    
     // ADVANCEMENT
     item Advancement(svg: "icons/svg/progression.svg", description: "A record of a character's growth.") {
         section Details {
@@ -636,7 +523,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             string IngameDate
         }
     }
-
+    
     // ARMOR
     // ArmorRating, ArmorCondition, Brittle, Heavy, Noisy, Repair, Shape
     item Armor(svg: "icons/svg/mail-shirt.svg", description: "A piece of protective gear") {
@@ -694,7 +581,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
         }
     }
-
+    
     // PROJECTS
     // TaskDL, Completion
     item Project(svg: "icons/svg/scroll-quill.svg", description: "A task that takes time to complete.") {
@@ -714,7 +601,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             readonly string Completion(value: {return self.Done + "%"})
         }
     }
-
+    
     // EQUIPMENT
     item Equipment(svg: "icons/svg/pirate-coat.svg", description: "A wearable piece of equipment.") {
         section Qualities {
@@ -736,7 +623,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             //string Appearance(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
         //}
     }
-
+    
     // Follower
     item Follower {
         section Abilities {
@@ -745,21 +632,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             number Mage
         }
     }
-
-
-    //item Potion {
-        //    number Quantity
-        //    action Use(icon: "fa-solid fa-flask-round-potion") {
-            //        self.Quantity--
-            //        chat PotionUsed {}
-            //        self.update()
-            //
-            //        if (self.Quantity == 0) {
-                //            self.delete()
-            //        }
-        //    }
-    //}
-
+    
     actor Army {
         section Attributes {
             choice<string> Experience(choices: ["Untrained","Trained","Veteran","Elite"])

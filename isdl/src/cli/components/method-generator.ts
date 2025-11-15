@@ -1213,7 +1213,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
                     console.log(label, path);
                     return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, "system." + ${path}.toLowerCase())${subProperty}
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path}.toLowerCase())${subProperty}
                     `;
                 }
                 else if (isSelfPropertyRefExp(expression.property?.ref)) {
