@@ -36,7 +36,8 @@ import {
     isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
     isInventorySumParam, isItem, isMoneyField, isActor,
     isBinaryExpression, isLiteral, NumberExp,
-    MethodBlockExpression, isReturnExpression, ResourceExp, AttributeExp
+    MethodBlockExpression, isReturnExpression, ResourceExp, AttributeExp,
+    Action, isAction
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
@@ -101,6 +102,15 @@ export class IntelligentSystemDesignLanguageValidator {
             if (isDocumentArrayExp(property)) continue; // We allow multiple copies of the same document array exp in an actor
             validateUniqueName(property, property.name);
         }
+
+        // Validate only one macro action per document
+        const actions = getAllOfType<Action>(actor.body, isAction, false);
+        const macroActions = actions.filter(a => a.isMacro);
+        if (macroActions.length > 1) {
+            for (const action of macroActions) {
+                accept('error', 'Only one action per document can be tagged as macro.', { node: action, property: 'isMacro' });
+            }
+        }
     }
 
     validateProperty(property: Property, accept: ValidationAcceptor): void {
@@ -137,6 +147,15 @@ export class IntelligentSystemDesignLanguageValidator {
         const properties = getAllOfType<Property>(item.body, isProperty, false);
         for (const property of properties) {
             validateUniqueName(property, property.name);
+        }
+
+        // Validate only one macro action per document
+        const actions = getAllOfType<Action>(item.body, isAction, false);
+        const macroActions = actions.filter(a => a.isMacro);
+        if (macroActions.length > 1) {
+            for (const action of macroActions) {
+                accept('error', 'Only one action per document can be tagged as macro.', { node: action, property: 'isMacro' });
+            }
         }
     }
 

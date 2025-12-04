@@ -379,7 +379,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         number AttackMod
 
         // ROLLERS
-        action Attack(icon: "fa-solid fa-dice-five") {
+        macro action Attack(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
                 choice<string> Advantage(choices: ["None","Advantage","Disadvantage"])
                 number AddModifier

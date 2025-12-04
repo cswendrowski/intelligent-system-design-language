@@ -673,10 +673,12 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
         // Get item props for row attributes (for drag-drop)
         const getItemProps = (item) => {
+            // Construct UUID for embedded items: parent.uuid + Item.itemId
+            const itemUuid = item.uuid || \`\${document.uuid}.Item.\${item._id}\`;
             return {
                 'data-item-id': item._id,
                 'data-document-id': document._id,
-                'data-uuid': item.uuid
+                'data-uuid': itemUuid
             };
         };
 
@@ -694,9 +696,10 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             rows.forEach((row, index) => {
                 if (index < items.length) {
                     const item = items[index];
+                    const itemUuid = item.uuid || \`\${document.uuid}.Item.\${item._id}\`;
                     row.setAttribute('data-item-id', item._id);
                     row.setAttribute('data-document-id', document._id);
-                    row.setAttribute('data-uuid', item.uuid);
+                    row.setAttribute('data-uuid', itemUuid);
                 }
             });
         };

@@ -27,6 +27,7 @@ import { generateCanvasToken, generateTokenDocument } from './components/token-g
 import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
 import {generateInitHookMjs} from "./components/init-hook-generator.js";
 import {generateReadyHookMjs} from "./components/ready-hook-generator.js";
+import {generateHotbarDropHookMjs} from "./components/hotbar-drop-hook-generator.js";
 import {generateMeasuredTemplatePreview} from "./components/measured-template-preview.js";
 import {generateDamageRoll} from "./components/damage-roll-generator.js";
 
@@ -71,6 +72,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateCustomEntryMjs(entry, id, data.destination);
     generateInitHookMjs(entry, id, data.destination);
     generateReadyHookMjs(entry, id, data.destination);
+    generateHotbarDropHookMjs(entry, id, data.destination);
     generateHotReloadHookMjs(entry, id, data.destination);
     generateChatCardClass(entry, data.destination);
     generateStandardChatCardTemplate(data.destination);
@@ -282,12 +284,14 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
         import {ready} from "./hooks/ready.mjs";
         import {renderChatLog} from "./hooks/render-chat-log.mjs";
         import {hotReload} from "./hooks/hot-reload.mjs";
+        import {hotbarDrop} from "./hooks/hotbar-drop.mjs";
 
         Hooks.once("init", init);
         Hooks.once("ready", ready);
         Hooks.on("devModeReady", ({registerPackageDebugFlag}) => registerPackageDebugFlag("${id}"));
         Hooks.on("renderChatMessage", renderChatLog);
         Hooks.on("hotReload", hotReload);
+        Hooks.on("hotbarDrop", hotbarDrop);
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

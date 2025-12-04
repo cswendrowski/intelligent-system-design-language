@@ -3,8 +3,8 @@ import {
     Actor,
     Document, DocumentCreatableParam, DocumentDescriptionParam, DocumentSvgParam,
     Entry, isAction, isActor, isDocumentCreatableParam, isDocumentDefaultParam, isDocumentDescriptionParam,
-    isDocumentSvgParam, isItem, isPrompt,
-    isResourceExp, isStatusParamWhen, isStatusProperty, isVariableExpression, Item, Prompt,
+    isDocumentSvgParam, isIconParam, isItem, isPrompt,
+    isResourceExp, isStatusParamWhen, isStatusProperty, isVariableExpression, IconParam, Item, Prompt,
     ResourceExp,
     StatusProperty, VariableExpression
 } from "../../language/generated/ast.js";
@@ -69,6 +69,26 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             }`,
             { separator: ',\n        ' }
         ) || expandToNode``;
+    }
+
+    function generateMacroActionConfig(entry: Entry): CompositeGeneratorNode {
+        const macroEntries: string[] = [];
+
+        for (const document of entry.documents) {
+            const actions = getAllOfType<Action>(document.body, isAction, false);
+            const macroAction = actions.find(a => a.isMacro);
+
+            if (macroAction) {
+                const icon = (macroAction.params.find(p => isIconParam(p)) as IconParam)?.value ?? "fa-solid fa-bolt";
+                macroEntries.push(`"${document.name.toLowerCase()}": { action: "${macroAction.name.toLowerCase()}", name: "${macroAction.name}", icon: "${icon}" }`);
+            }
+        }
+
+        if (macroEntries.length === 0) {
+            return expandToNode``;
+        }
+
+        return expandToNode`${macroEntries.join(',\n                ')}`;
     }
 
     function generateRegisterStatusEffects(): CompositeGeneratorNode {
@@ -165,6 +185,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             registerHandlebarsHelpers();
             registerResourceBars();
             registerStatusEffects();
+            registerMacroActions();
             registerKeywords();
             setupKeywordEnricher();
             registerUtils();
@@ -394,6 +415,14 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         /* -------------------------------------------- */
 
         ${generateRegisterStatusEffects()}
+
+        /* -------------------------------------------- */
+
+        function registerMacroActions() {
+            game.system.macroActions = {
+                ${generateMacroActionConfig(entry)}
+            };
+        }
 
         /* -------------------------------------------- */
 
