@@ -525,20 +525,21 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     }
 
     function generateVisibilityState(element: Property | Action): CompositeGeneratorNode {
-        if (element.modifier != undefined) {
-            return expandToNode`
-            '${element.name.toLowerCase()}': computed(() => {
-                return '${element.modifier}';
-            })
-            `;
-        }
-
         if (isProperty(element) || isAction(element)) {
             const standardParams = element.params as StandardFieldParams[];
 
             const visibilityParam = standardParams.find(function (p: any) {
                 return isVisibilityParam(p);
             }) as VisibilityParam | undefined;
+
+            // If there's only a modifier and no visibility param, return the modifier
+            if (element.modifier != undefined && !visibilityParam) {
+                return expandToNode`
+                '${element.name.toLowerCase()}': computed(() => {
+                    return '${element.modifier}';
+                })
+                `;
+            }
             if (visibilityParam) {
 
                 if (isMethodBlock(visibilityParam.visibility)) {
@@ -571,8 +572,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                         };
                         const returnedVisibility = visibility(props.context.system);
                         console.log("Returned visibility for ${element.name}: " + returnedVisibility);
-                        
-                        return returnedVisibility ?? "default";
+
+                        return returnedVisibility ?? "${element.modifier ?? 'default'}";
                     })
                     `;
                 }

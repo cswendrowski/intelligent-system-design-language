@@ -44,8 +44,9 @@ export default function generateBooleanComponent(destination: string, entry?: En
         });
 
         const isDisabled = computed(() => {
-            return props.visibility === "locked" || 
-                   props.visibility === "readonly" || 
+            return props.disabled ||
+                   props.visibility === "locked" ||
+                   props.visibility === "readonly" ||
                    (props.visibility === "gmOnly" && !game.user.isGM);
         });
 

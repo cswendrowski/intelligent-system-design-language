@@ -407,6 +407,7 @@
     }
 
     .chat-info {
+      color: black;
       .wide {
         flex-basis: 100%;
 
@@ -419,10 +420,14 @@
         display: flex;
         flex-wrap: wrap;
         margin: 0.5em 0;
+        color: black;
+        text-shadow: none;
       }
 
       dt {
         flex-basis: 25%;
+        color: black;
+        text-shadow: none;
       }
 
       dd {

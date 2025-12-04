@@ -129,9 +129,12 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             };
                             ${translateMethodOrValueOrStored(property, minParam)}
                         };
-                        const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
+                        let ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
+                        if (isNaN(${property.name.toLowerCase()}Min) || ${property.name.toLowerCase()}Min === undefined || ${property.name.toLowerCase()}Min === null) {
+                            ${property.name.toLowerCase()}Min = 0;
+                        }
                         `.appendNewLine() : ""}
-    
+
                     ${maxParam != undefined ? expandToNode`
                         const ${property.name.toLowerCase()}MaxFunc = (system) => {
                             const context = {
@@ -139,7 +142,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                             };
                             ${translateMethodOrValueOrStored(property, maxParam)}
                         };
-                        const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
+                        let ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
+                        if (isNaN(${property.name.toLowerCase()}Max) || ${property.name.toLowerCase()}Max === undefined || ${property.name.toLowerCase()}Max === null) {
+                            ${property.name.toLowerCase()}Max = 0;
+                        }
                         `.appendNewLine() : ""}
 
                     // ${property.name} Number Derived Data
@@ -152,6 +158,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
                         get: () => {
                             let current = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                            // Protect against NaN from invalid operations (e.g., "A" + 2)
+                            if (isNaN(current) || current === undefined || current === null) {
+                                current = 0;
+                            }
                             ${minParam != undefined ? expandToNode`
                                 if ( current < ${property.name.toLowerCase()}Min ) {
                                     current = ${property.name.toLowerCase()}Min;
@@ -252,10 +262,15 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         };
                         ${modParam ? translateExpression(entry, id, modParam.method, true, property) : `return ${property.name.toLowerCase()}CurrentValue`}
                     };
+                    let ${property.name.toLowerCase()}Mod = ${property.name.toLowerCase()}ModFunc(this.system);
+                    // Protect against NaN from invalid operations
+                    if (isNaN(${property.name.toLowerCase()}Mod) || ${property.name.toLowerCase()}Mod === undefined || ${property.name.toLowerCase()}Mod === null) {
+                        ${property.name.toLowerCase()}Mod = 0;
+                    }
                     this.system.${property.name.toLowerCase()} = {
                         value: ${property.name.toLowerCase()}CurrentValue,
                         max: ${property.name.toLowerCase()}CurrentMax,
-                        mod: ${property.name.toLowerCase()}ModFunc(this.system)
+                        mod: ${property.name.toLowerCase()}Mod
                     };
                     if ( this.system.${property.name.toLowerCase()}.value > this.system.${property.name.toLowerCase()}.max ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.max;
@@ -299,11 +314,24 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const ${property.name.toLowerCase()}CurrentMax = (system) => {
                         ${maxParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.max ?? 0;` : generateValueOrMethod(maxParam.value)};
                     }
+                    let ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}CurrentMin(this.system);
+                    let ${property.name.toLowerCase()}Value = ${property.name.toLowerCase()}CurrentValue(this.system);
+                    let ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}CurrentMax(this.system);
+                    // Protect against NaN from invalid operations
+                    if (isNaN(${property.name.toLowerCase()}Min) || ${property.name.toLowerCase()}Min === undefined || ${property.name.toLowerCase()}Min === null) {
+                        ${property.name.toLowerCase()}Min = 0;
+                    }
+                    if (isNaN(${property.name.toLowerCase()}Value) || ${property.name.toLowerCase()}Value === undefined || ${property.name.toLowerCase()}Value === null) {
+                        ${property.name.toLowerCase()}Value = 0;
+                    }
+                    if (isNaN(${property.name.toLowerCase()}Max) || ${property.name.toLowerCase()}Max === undefined || ${property.name.toLowerCase()}Max === null) {
+                        ${property.name.toLowerCase()}Max = 0;
+                    }
                     this.system.${property.name.toLowerCase()} = {
-                        min: ${property.name.toLowerCase()}CurrentMin(this.system),
-                        value: ${property.name.toLowerCase()}CurrentValue(this.system),
+                        min: ${property.name.toLowerCase()}Min,
+                        value: ${property.name.toLowerCase()}Value,
                         temp: ${property.name.toLowerCase()}TempValue,
-                        max: ${property.name.toLowerCase()}CurrentMax(this.system),
+                        max: ${property.name.toLowerCase()}Max,
                     };
                     if ( !editMode && this.system.${property.name.toLowerCase()}.value < this.system.${property.name.toLowerCase()}.min ) {
                         this.system.${property.name.toLowerCase()}.value = this.system.${property.name.toLowerCase()}.min;
@@ -336,10 +364,19 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const ${property.name.toLowerCase()}CurrentMax = (system) => {
                         ${maxParam == undefined ? expandToNode`return this.system.${property.name.toLowerCase()}?.max ?? 0;` : generateValueOrMethod(maxParam.value)};
                     }
+                    let ${property.name.toLowerCase()}Value = ${property.name.toLowerCase()}CurrentValue(this.system);
+                    let ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}CurrentMax(this.system);
+                    // Protect against NaN from invalid operations
+                    if (isNaN(${property.name.toLowerCase()}Value) || ${property.name.toLowerCase()}Value === undefined || ${property.name.toLowerCase()}Value === null) {
+                        ${property.name.toLowerCase()}Value = 0;
+                    }
+                    if (isNaN(${property.name.toLowerCase()}Max) || ${property.name.toLowerCase()}Max === undefined || ${property.name.toLowerCase()}Max === null) {
+                        ${property.name.toLowerCase()}Max = 0;
+                    }
                     this.system.${property.name.toLowerCase()} = {
-                        value: ${property.name.toLowerCase()}CurrentValue(this.system),
+                        value: ${property.name.toLowerCase()}Value,
                         temp: ${property.name.toLowerCase()}TempValue,
-                        max: ${property.name.toLowerCase()}CurrentMax(this.system)
+                        max: ${property.name.toLowerCase()}Max
                     };
                     this.reapplyActiveEffectsForName("system.${property.name.toLowerCase()}.max");
                     if ( !editMode && this.system.${property.name.toLowerCase()}.value < ${property.name.toLowerCase()}CurrentMin(this.system) ) {

@@ -123,7 +123,8 @@ import {
     isStringChoiceField,
     isDiceField,
     isDieChoicesParam,
-    isDocumentChoicesExp
+    isDocumentChoicesExp,
+    isDocumentChoiceExp
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -568,6 +569,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
             `;
         }
 
+        // If accessing a property on a document choice, wrap with ?? 0 to handle missing documents
+        const needsNullCoalescing = isDocumentChoiceExp(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0;
+
+        if (needsNullCoalescing) {
+            return expandToNode`
+                (${systemPath} ?? 0)
+            `;
+        }
+
         return expandToNode`
             ${systemPath}
         `;
@@ -736,7 +746,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
         console.log("Translating Parent Access Expression: ", path);
 
         return expandToNode`
-            ${path}
+            ${path} ?? 0
         `;
     }
     if (isTargetAccess(expression)) {

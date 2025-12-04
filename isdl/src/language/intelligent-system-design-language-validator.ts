@@ -29,12 +29,14 @@ import {
     isChoiceStringValue,
     ChoiceStringValue, StringChoiceField, StringExp, DocumentArrayExp,
     Document, ClassExpression, Layout, isLayout, isNumberExp, isStringExp,
-    isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue,
+    isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue, isStringChoiceField,
     StringParamValue, isAttributeParamMod, AttributeParamMod, isPipsExp,
     MethodBlock, isMethodBlock, isAccess,
     InventoryField, isInventorySlotsParam, isInventoryRowsParam,
     isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
-    isInventorySumParam, isItem, isMoneyField, isActor
+    isInventorySumParam, isItem, isMoneyField, isActor,
+    isBinaryExpression, isLiteral, NumberExp,
+    MethodBlockExpression, isReturnExpression, ResourceExp, AttributeExp
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
@@ -52,13 +54,16 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         Actor: validator.validateActor,
         Item: validator.validateItem,
         Property: validator.validateProperty,
-        TrackerExp: validator.validateTracker,
+        TrackerExp: validator.validateTrackerExpressions,
         PipsExp: validator.validatePips,
         StringChoiceField: validator.validateStringChoiceField,
         StringExp: validator.validateStringExp,
         DocumentArrayExp: validator.validateDocumentArrayExp,
         Document: validator.validateDependencyCycles,
-        InventoryField: validator.validateInventoryField
+        InventoryField: validator.validateInventoryField,
+        NumberExp: validator.validateNumberExp,
+        ResourceExp: validator.validateResourceExp,
+        AttributeExp: validator.validateAttributeExp
     };
     registry.register(checks, validator);
 }
@@ -135,7 +140,7 @@ export class IntelligentSystemDesignLanguageValidator {
         }
     }
 
-    validateTracker(tracker: TrackerExp, accept: ValidationAcceptor): void {
+    validateTrackerExpressions(tracker: TrackerExp, accept: ValidationAcceptor): void {
         const segmentsParam = tracker.params.find(isSegmentsParameter);
         const styleParam = tracker.params.find(isTrackerStyleParameter);
 
@@ -146,6 +151,23 @@ export class IntelligentSystemDesignLanguageValidator {
                     code: 'tracker-segments-unnecessary',
                     tags: [DiagnosticTag.Unnecessary],
                 });
+        }
+
+        // Check for NaN-producing expressions in value, min, and max
+        const valueParam = tracker.params.find(isNumberParamValue) as NumberParamValue | undefined;
+        const minParam = tracker.params.find(isNumberParamMin) as NumberParamMin | undefined;
+        const maxParam = tracker.params.find(isNumberParamMax) as NumberParamMax | undefined;
+
+        if (valueParam && isMethodBlock(valueParam.value)) {
+            this.validateNumericExpression(valueParam.value.body, accept);
+        }
+
+        if (minParam && isMethodBlock(minParam.value)) {
+            this.validateNumericExpression(minParam.value.body, accept);
+        }
+
+        if (maxParam && isMethodBlock(maxParam.value)) {
+            this.validateNumericExpression(maxParam.value.body, accept);
         }
     }
 
@@ -332,6 +354,129 @@ export class IntelligentSystemDesignLanguageValidator {
                 }
             }
         }
+    }
+
+    validateNumberExp(field: NumberExp, accept: ValidationAcceptor): void {
+        const valueParam = field.params.find(isNumberParamValue) as NumberParamValue | undefined;
+        const minParam = field.params.find(isNumberParamMin) as NumberParamMin | undefined;
+        const maxParam = field.params.find(isNumberParamMax) as NumberParamMax | undefined;
+
+        // Check value parameter for type mismatches
+        if (valueParam && isMethodBlock(valueParam.value)) {
+            this.validateNumericExpression(valueParam.value.body, accept);
+        }
+
+        // Check min parameter for type mismatches
+        if (minParam && isMethodBlock(minParam.value)) {
+            this.validateNumericExpression(minParam.value.body, accept);
+        }
+
+        // Check max parameter for type mismatches
+        if (maxParam && isMethodBlock(maxParam.value)) {
+            this.validateNumericExpression(maxParam.value.body, accept);
+        }
+    }
+
+    validateResourceExp(field: ResourceExp, accept: ValidationAcceptor): void {
+        const valueParam = field.params.find(isNumberParamValue) as NumberParamValue | undefined;
+        const minParam = field.params.find(isNumberParamMin) as NumberParamMin | undefined;
+        const maxParam = field.params.find(isNumberParamMax) as NumberParamMax | undefined;
+
+        // Check value parameter for type mismatches
+        if (valueParam && isMethodBlock(valueParam.value)) {
+            this.validateNumericExpression(valueParam.value.body, accept);
+        }
+
+        // Check min parameter for type mismatches
+        if (minParam && isMethodBlock(minParam.value)) {
+            this.validateNumericExpression(minParam.value.body, accept);
+        }
+
+        // Check max parameter for type mismatches
+        if (maxParam && isMethodBlock(maxParam.value)) {
+            this.validateNumericExpression(maxParam.value.body, accept);
+        }
+    }
+
+    validateAttributeExp(field: AttributeExp, accept: ValidationAcceptor): void {
+        const modParam = field.params.find(isAttributeParamMod) as AttributeParamMod | undefined;
+
+        // Check mod parameter for type mismatches
+        if (modParam && isMethodBlock(modParam.method)) {
+            this.validateNumericExpression(modParam.method.body, accept);
+        }
+    }
+
+    private validateNumericExpression(body: MethodBlockExpression[], accept: ValidationAcceptor): void {
+        for (const expr of body) {
+            if (isReturnExpression(expr) && expr.value) {
+                this.checkExpressionTypes(expr.value, accept);
+            }
+        }
+    }
+
+    private checkExpressionTypes(expr: any, accept: ValidationAcceptor): void {
+        if (isBinaryExpression(expr)) {
+            const op = expr.op;
+
+            // Check for string + number operations (or other arithmetic with strings)
+            if (op === '+' || op === '-' || op === '*' || op === '/') {
+                const leftIsString = this.isStringExpression(expr.e1);
+                const rightIsString = this.isStringExpression(expr.e2);
+                const leftIsNumber = this.isNumericExpression(expr.e1);
+                const rightIsNumber = this.isNumericExpression(expr.e2);
+
+                // Error if mixing strings and numbers in arithmetic
+                if ((leftIsString && rightIsNumber) || (rightIsString && leftIsNumber)) {
+                    accept('error',
+                        `Type mismatch: cannot perform arithmetic operation '${op}' between string and number. This will result in NaN (Not a Number).`,
+                        { node: expr, property: 'op' });
+                }
+                // Error if both are clearly strings and using non-addition operators
+                else if (leftIsString && rightIsString && op !== '+') {
+                    accept('error',
+                        `Type mismatch: cannot perform operation '${op}' on strings. This will result in NaN (Not a Number).`,
+                        { node: expr, property: 'op' });
+                }
+            }
+
+            // Recursively check sub-expressions
+            this.checkExpressionTypes(expr.e1, accept);
+            this.checkExpressionTypes(expr.e2, accept);
+        }
+    }
+
+    private isStringExpression(expr: any): boolean {
+        // Check if expression is a string literal
+        if (isLiteral(expr) && typeof expr.val === 'string') {
+            return true;
+        }
+
+        // Check if expression is accessing a string property
+        if (isAccess(expr) && expr.property?.ref) {
+            const referencedProperty = expr.property.ref;
+            return isStringExp(referencedProperty) || isStringChoiceField(referencedProperty);
+        }
+
+        return false;
+    }
+
+    private isNumericExpression(expr: any): boolean {
+        // Check if expression is a numeric literal
+        if (isLiteral(expr) && typeof expr.val === 'number') {
+            return true;
+        }
+
+        // Check if expression is accessing a numeric property
+        if (isAccess(expr) && expr.property?.ref) {
+            const referencedProperty = expr.property.ref;
+            return isNumberExp(referencedProperty) ||
+                   isResourceExp(referencedProperty) ||
+                   isAttributeExp(referencedProperty) ||
+                   isTrackerExp(referencedProperty);
+        }
+
+        return false;
     }
 
     validateDependencyCycles(document: Document, accept: ValidationAcceptor): void {

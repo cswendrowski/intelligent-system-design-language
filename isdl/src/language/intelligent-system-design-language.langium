@@ -551,7 +551,7 @@ ItemAccess:
 // Actions ------------------------------------------------------
 
 Action:
-    (isQuick?="quick")? (isMacro?="macro")? ExpressionModifier "action" name=ID ("(" params+=ActionParam ("," params+=ActionParam)* ")")? method=MethodBlock;
+    (isQuick?="quick")? (isMacro?="macro")? (isSecondary?="secondary")? ExpressionModifier "action" name=ID ("(" params+=ActionParam ("," params+=ActionParam)* ")")? method=MethodBlock;
 ActionParam:
     (StandardFieldParams);
 

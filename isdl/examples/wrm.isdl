@@ -365,7 +365,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         edit number IdealRange(min: 0)
         edit number MaxRange(min: 0)
         //play string Notes(value: {
-        //    if (self.TwoHanded == true) {return "2H" + ""} 
+        //    if (self.TwoHanded == true) {return "2H" + ""}
         //    if (self.MeleeWeapon == true and self.RangedWeapon == true) {return "Melee (Thrown: " + self.RangeComp + " yds)" }
         //    if (self.RangedWeapon == true) {return "Ranged ( " + self.RangeComp + " yds)" }
         //    if (self.MeleeWeapon == true) {return "Melee"}
@@ -377,7 +377,7 @@ item Weapon(svg: "icons/svg/saber-and-pistol.svg", description: "A piece of offe
         parent<attribute> Attribute(choices: [Character.Warrior, Character.Rogue, Character.Mage])
         string Skill
         number AttackMod
-        
+
         // ROLLERS
         action Attack(icon: "fa-solid fa-dice-five") {
             fleeting Prompt = prompt(label: "Roll Modifiers") {
@@ -459,8 +459,19 @@ item Item(svg: "icons/svg/open-treasure-chest.svg", description: "A random item 
 }
 
 // SPELL
-// Circle, Difficulty, Mana, 
+// Circle, Difficulty, Mana,
 item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you can cast.") {
+
+    secondary action Info(icon: "fa-solid fa-info-circle") {
+        chat SpellInfo {
+            "Circle: " + self.Circle
+            "Source: " + self.Source
+            "Range: " + self.Range
+            "DL Breakdown: " + self.DLBreakdown
+            "MP Breakdown: " + self.MPBreakdown
+        }
+    }
+
     section Basics {
         number Circle(initial: 1, min: 0, max: 7)
         number Difficulty(label: "DL", value: {
@@ -479,6 +490,9 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
         //  string DamageClass(choices: ["Physical","Magical"])
         boolean Intangible
         boolean DealsDamage
+        edit choice<string> DamageForm(choices:["Dice","Flat"], visibility: {
+            if (self.DealsDamage == false) {return Visibility.hidden}
+        })
         choice<string> DamageType(choices: ["Cutting", "Piercing", "Bludgeoning", "Ballistic", "Explosive", "Magic", "Psychic", "Solar", "Fire", "Ice", "Corrosive", "Poison", "Spirit"], visibility: {
             if (self.DealsDamage == false) {return Visibility.hidden}
         })
@@ -510,7 +524,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             string MPBreakdown(value: {return "MP: " + self.FinalMana + " (Base: " + self.Mana + " Enh: +" + self.EnhanceCost + " Pen: +" + self.CastPenalty + " Mod: +" + self.CostMod + ")"})
         }
     }
-    
+
     // ADVANCEMENT
     item Advancement(svg: "icons/svg/progression.svg", description: "A record of a character's growth.") {
         section Details {
@@ -523,7 +537,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             string IngameDate
         }
     }
-    
+
     // ARMOR
     // ArmorRating, ArmorCondition, Brittle, Heavy, Noisy, Repair, Shape
     item Armor(svg: "icons/svg/mail-shirt.svg", description: "A piece of protective gear") {
@@ -581,7 +595,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             choice<string> Shape(choices: ["Humanoid","Odakan","Cagran","Savran","Kurook","Other","Any"])
         }
     }
-    
+
     // PROJECTS
     // TaskDL, Completion
     item Project(svg: "icons/svg/scroll-quill.svg", description: "A task that takes time to complete.") {
@@ -601,7 +615,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             readonly string Completion(value: {return self.Done + "%"})
         }
     }
-    
+
     // EQUIPMENT
     item Equipment(svg: "icons/svg/pirate-coat.svg", description: "A wearable piece of equipment.") {
         section Qualities {
@@ -623,7 +637,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             //string Appearance(choices: ["Pristine", "Clean", "Stained", "Dirty", "Filthy"])
         //}
     }
-    
+
     // Follower
     item Follower {
         section Abilities {
@@ -632,7 +646,7 @@ item Spell(svg: "icons/svg/magic-swirl.svg", description: "A magical ability you
             number Mage
         }
     }
-    
+
     actor Army {
         section Attributes {
             choice<string> Experience(choices: ["Untrained","Trained","Veteran","Elite"])

@@ -9,6 +9,7 @@ import {
     IconParam,
     isAction,
     isActor, isBooleanExp,
+    isChatCard,
     isColorParam, isDamageTypeChoiceField,
     isDateExp,
     isDateTimeExp, isDiceField, isDieField, isDocument, isDocumentChoiceExp,
@@ -277,6 +278,15 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
     let tableDocBody = table.document.ref?.body ?? [];
     const actions = getAllOfType<Action>(tableDocBody, isAction, false);
+
+    // Split actions into primary and secondary
+    const primaryActions = actions.filter(action => !action.isSecondary);
+    const secondaryActions = actions.filter(action => action.isSecondary);
+
+    // Check if any PRIMARY actions have chat cards (exclude secondary actions)
+    const hasActionWithChat = primaryActions.some(action =>
+        action.method.body.some(expr => isChatCard(expr))
+    );
 
     const fileNode = expandToNode`
     <script setup>
@@ -577,6 +587,26 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             if (shouldDelete) foundryItem.delete();
         };
 
+        const duplicateItem = async (item) => {
+            loading.value = true;
+            try {
+                const foundryItem = document.items.get(item._id);
+                const itemData = foundryItem.toObject();
+                itemData.name = "Copy of " + itemData.name;
+                delete itemData._id;
+
+                const duplicatedItems = await Item.createDocuments([itemData], {parent: document});
+                if (duplicatedItems && duplicatedItems[0]) {
+                    ui.notifications.info(\`Duplicated "\${foundryItem.name}"\`);
+                }
+            } catch (error) {
+                console.error("Error duplicating item:", error);
+                ui.notifications.error("Failed to duplicate item");
+            } finally {
+                loading.value = false;
+            }
+        };
+
         const customItemAction = async (item, actionName) => {
             const foundryItem = document.items.get(item._id);
             const event = { currentTarget: { dataset: { action: actionName } } };
@@ -787,7 +817,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                 <!-- Actions slot -->
                 <template v-slot:item.actions="{ item }">
                     <div class="d-flex align-center justify-center ga-1">
-                        ${joinToNode(actions, generateActionButton, { appendNewLineIfNotEmpty: true })}
+                        ${joinToNode(primaryActions, generateActionButton, { appendNewLineIfNotEmpty: true })}
                         <v-tooltip text="Edit">
                             <template v-slot:activator="{ props }">
                                 <v-btn
@@ -799,6 +829,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                                 ></v-btn>
                             </template>
                         </v-tooltip>
+                        ${!hasActionWithChat ? expandToNode`
                         <v-tooltip text="Send to Chat">
                             <template v-slot:activator="{ props }">
                                 <v-btn
@@ -810,18 +841,50 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                                 ></v-btn>
                             </template>
                         </v-tooltip>
-                        <v-tooltip text="Delete">
+                        ` : ''}
+                        <v-menu>
                             <template v-slot:activator="{ props }">
                                 <v-btn
                                     v-bind="props"
-                                    icon="fa-solid fa-trash"
+                                    icon="fa-solid fa-ellipsis-vertical"
                                     size="x-small"
                                     variant="text"
-                                    color="error"
-                                    @click="deleteItem(item)"
                                 ></v-btn>
                             </template>
-                        </v-tooltip>
+                            <v-list density="compact" class="pa-0" min-width="120">
+                                ${hasActionWithChat ? expandToNode`
+                                <v-list-item
+                                    @click="sendItemToChat(item)"
+                                    title="Send to Chat"
+                                    min-height="32"
+                                >
+                                    <template v-slot:prepend>
+                                        <v-icon icon="fa-solid fa-message" size="15"></v-icon>
+                                    </template>
+                                </v-list-item>
+                                ` : ''}
+                                ${joinToNode(secondaryActions, generateSecondaryActionMenuItem, { appendNewLineIfNotEmpty: true })}
+                                <v-list-item
+                                    @click="duplicateItem(item)"
+                                    title="Duplicate"
+                                    min-height="32"
+                                >
+                                    <template v-slot:prepend>
+                                        <v-icon icon="fa-solid fa-copy" size="15"></v-icon>
+                                    </template>
+                                </v-list-item>
+                                <v-list-item
+                                    @click="deleteItem(item)"
+                                    title="Delete"
+                                    class="text-error"
+                                    min-height="32"
+                                >
+                                    <template v-slot:prepend>
+                                        <v-icon icon="fa-solid fa-trash" size="15"></v-icon>
+                                    </template>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
                     </div>
                 </template>
 
@@ -923,6 +986,24 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     ></v-btn>
                 </template>
             </v-tooltip>
+        `;
+    }
+
+    function generateSecondaryActionMenuItem(action: Action): CompositeGeneratorNode {
+        const standardParams = action.params as StandardFieldParams[];
+        const icon = (standardParams.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
+        const parentDocument = AstUtils.getContainerOfType(action, isDocument);
+
+        return expandToNode`
+            <v-list-item
+                @click="customItemAction(item, '${action.name.toLowerCase()}')"
+                :title="game.i18n.localize('${parentDocument?.name}.${action.name}')"
+                min-height="32"
+            >
+                <template v-slot:prepend>
+                    <v-icon icon="${icon}" size="15"></v-icon>
+                </template>
+            </v-list-item>
         `;
     }
 }
