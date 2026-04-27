@@ -1257,17 +1257,18 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     const edit = systemFlags["edit-mode"] ?? true;
 
                     function getTypedEffect(type, edit, effect, source) {
-                        const typedEffect = new ActiveEffect(foundry.utils.duplicate(effect), {parent: effect.parent});
-                        typedEffect.changes = typedEffect.changes.filter(c => c.key.startsWith(type));
-                        for ( const change of typedEffect.changes ) {
+                        // Pre-build data to avoid mutating ActiveEffect getters (changes is getter-only in v14).
+                        const data = foundry.utils.duplicate(effect);
+                        data.changes = (data.changes ?? []).filter(c => c.key.startsWith(type));
+                        for ( const change of data.changes ) {
                             if (change.mode == 0) continue;
                             change.key = change.key.replace(type + ".", "");
                         }
-                        if ( edit ) typedEffect.disabled = true;
-                        if (!typedEffect.flags) typedEffect.flags = {};
-                        if (!typedEffect.flags["${id}"]) typedEffect.flags["${id}"] = {};
-                        typedEffect.flags["${id}"].source = source;
-                        return typedEffect;
+                        if ( edit ) data.disabled = true;
+                        data.flags ??= {};
+                        data.flags["${id}"] ??= {};
+                        data.flags["${id}"].source = source;
+                        return new ActiveEffect(data, {parent: effect.parent});
                     }
 
                     for ( const effect of this.effects ) {

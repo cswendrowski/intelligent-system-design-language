@@ -12,6 +12,10 @@ export function generateMeasuredTemplatePreview(destination: string) {
 
     const fileNode = expandToNode`
     // Based on https://github.com/foundryvtt/dnd5e/blob/559cecf26ddbe6fa3e464c4ae0e04c7466c00163/module/canvas/ability-template.mjs
+    // MeasuredTemplate is deprecated in Foundry v14 in favor of Scene Regions.
+    // This implementation works on v12-v14 by extending MeasuredTemplate where it
+    // exists (and the v14 deprecation shim where it does not).
+    // A Region-based rewrite will be needed when the shim is fully removed.
     export default class MeasuredTemplatePreview extends (foundry.canvas?.placeables?.MeasuredTemplate ?? MeasuredTemplate) {
       /**
        * Track the timestamp when the last mouse move event was captured.
@@ -42,6 +46,14 @@ export function generateMeasuredTemplatePreview(destination: string) {
        * @type {object}
        */
       #events;
+
+      /* -------------------------------------------- */
+
+      /**
+       * Whether the actor sheet was minimized when template placement began.
+       * @type {boolean}
+       */
+      #sheetMinimized = false;
       
       /* -------------------------------------------- */
       
@@ -83,8 +95,13 @@ export function generateMeasuredTemplatePreview(destination: string) {
         this.layer.activate();
         this.layer.preview.addChild(this);
     
-        // Hide the sheet that originated the preview
-        this.actorSheet?.minimize();
+        // Hide the sheet that originated the preview.
+        // ApplicationV2 sheets in v14 expose a different window structure; only
+        // minimize when there's a windowId (or we're pre-v14) and not already minimized.
+        const sheet = this.actorSheet;
+        const { windowId } = (sheet?.parent ?? sheet)?.window ?? {};
+        this.#sheetMinimized = (game.release.generation < 14 || !windowId) && !sheet?._minimized;
+        if ( this.#sheetMinimized ) sheet?.minimize();
     
         // Activate interactivity
         return this.activatePreviewListeners(initialLayer);
@@ -124,7 +141,8 @@ export function generateMeasuredTemplatePreview(destination: string) {
        * @param {Event} event  Triggering event that ended the placement.
        */
       async _finishPlacement(event) {
-        this.layer._onDragLeftCancel(event);
+        if ( game.release.generation < 14 ) this.layer._onDragLeftCancel(event);
+        else this.layer.clearPreviewContainer();
         canvas.stage.off("mousemove", this.#events.move);
         canvas.stage.off("mouseup", this.#events.confirm);
         canvas.app.view.oncontextmenu = null;
@@ -134,7 +152,7 @@ export function generateMeasuredTemplatePreview(destination: string) {
           this.#hoveredToken = null;
         }
         this.#initialLayer.activate();
-        await this.actorSheet?.maximize();
+        if ( this.#sheetMinimized ) await this.actorSheet?.maximize();
       }
     
       /* -------------------------------------------- */
