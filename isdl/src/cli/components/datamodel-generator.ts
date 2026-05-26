@@ -55,7 +55,8 @@ import {
     isChoiceStringValue,
     ChoiceStringValue,
     isStringExtendedChoice,
-    StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField, isMoneyField
+    StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField, isMoneyField,
+    isDamageTrackTypesParam, DamageTrackTypesParam
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -469,21 +470,16 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
 
 
         if ( isDamageTrackExp(property) ) {
-            return undefined;
-            // if ( Number.isInteger(property.max) ) {
-            //     return expandToNode`
-            //         ${property.name.toLowerCase()}: new fields.SchemaField({
-            //             empty: new fields.NumberField({initial: ${property.max}, min: 0, max: ${property.max}, integer: true}),
-            //             ${joinToNode(property.types, type => `${type}: new fields.NumberField({initial: 0, min: 0, max: ${property.max}, integer: true}),`, { appendNewLineIfNotEmpty: true })}
-            //         }),
-            //     `;
-            // }
-            // return expandToNode`
-            //     ${property.name.toLowerCase()}: new fields.SchemaField({
-            //         "empty": new fields.NumberField({initial: 0, min: 0, integer: true}),
-            //         ${joinToNode(property.types, type => `${type}: new fields.NumberField({initial: 0, min: 0, integer: true}),`, { appendNewLineIfNotEmpty: true })}
-            //     }),
-            // `;
+            const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+            const max = maxParam?.value ?? 5;
+            const typesParam = property.params.find(x => isDamageTrackTypesParam(x)) as DamageTrackTypesParam | undefined;
+            const types = typesParam?.types ?? [];
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.SchemaField({
+                    empty: new fields.NumberField({initial: ${max}, min: 0, max: ${max}, integer: true}),
+                    ${joinToNode(types, type => `${type}: new fields.NumberField({initial: 0, min: 0, max: ${max}, integer: true}),`, { appendNewLineIfNotEmpty: true })}
+                }),
+            `;
         }
 
         if (isSingleDocumentExp(property) || isMacroField(property)) {

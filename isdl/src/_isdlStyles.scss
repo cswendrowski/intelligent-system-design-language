@@ -752,6 +752,62 @@
     }
   }
 
+  .isdl-damage-track {
+    padding: 4px 0;
+
+    .damage-track-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .damage-track-boxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-bottom: 4px;
+    }
+
+    .damage-box {
+      width: 24px;
+      height: 24px;
+      border: 2px solid;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.8rem;
+      font-weight: bold;
+      line-height: 1;
+      transition: background-color 0.15s, border-color 0.15s;
+
+      &:hover {
+        opacity: 0.8;
+      }
+
+      .damage-symbol {
+        pointer-events: none;
+      }
+    }
+
+    .damage-track-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+
+    .damage-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+  }
+
   .isdl-money-denominations {
 
     > .v-input__control {

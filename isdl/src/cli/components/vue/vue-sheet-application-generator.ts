@@ -33,7 +33,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField,
+    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField, isDamageTrackExp, isDamageTrackTypesParam, DamageTrackTypesParam,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -1873,6 +1873,27 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             //     `;
             // }
 
+            if (isDamageTrackExp(element)) {
+                const typesParam = element.params.find(x => isDamageTrackTypesParam(x)) as DamageTrackTypesParam | undefined;
+                const types = typesParam?.types ?? [];
+                const maxParam = element.params.find(x => isNumberParamMax(x)) as NumberParamMax;
+                const max = maxParam?.value ?? 5;
+                const colorParam = element.params.find(x => isColorParam(x)) as ColorParam | undefined;
+                const primaryColor = colorParam ? `'${colorParam.value}'` : "primaryColor";
+                return expandToNode`
+                <i-damage-track
+                    label="${label}"
+                    systemPath="system.${element.name.toLowerCase()}"
+                    :context="context"
+                    :editMode="editModeRef"
+                    :primaryColor="${primaryColor}"
+                    :secondaryColor="secondaryColor"
+                    :types="[${types.map(t => `'${t}'`).join(', ')}]"
+                    :max="${max}"
+                ></i-damage-track>
+                `;
+            }
+
             if (isTrackerExp(element) || isResourceExp(element)) {
                 const styleParam = element.params.find(x => isTrackerStyleParameter(x)) as TrackerStyleParameter;
                 const style = styleParam?.style ?? "bar";
@@ -2165,7 +2186,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             }
 
             return expandToNode`
-            <v-alert text="Unknown Property ${element.name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
+            <v-alert text="Unknown Property ${(element as any).name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
             `;
         }
 

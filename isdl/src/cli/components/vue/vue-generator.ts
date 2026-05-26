@@ -282,6 +282,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as SelfPropertyReferenceField } from "./components/self-property-reference.vue";
     export { default as MoneyField } from "./components/money.vue";
     export { default as Inventory } from "./components/inventory.vue";
+    export { default as DamageTrack } from "./components/damage-track.vue";
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
