@@ -1179,6 +1179,41 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return;
         }
 
+        function translateDisplayFormula(expression: Expression): string | undefined {
+            if (isLiteral(expression)) {
+                return `${expression.val}`;
+            }
+            if (isGroup(expression)) {
+                const inner = translateDisplayFormula(expression.ge);
+                return inner != null ? `(${inner})` : undefined;
+            }
+            if (isBinaryExpression(expression)) {
+                const left = translateDisplayFormula(expression.e1);
+                const right = translateDisplayFormula(expression.e2);
+                return left != null && right != null ? `${left} ${expression.op} ${right}` : undefined;
+            }
+            if (isAccess(expression)) {
+                if (isParentPropertyRefExp(expression.property?.ref) || isSelfPropertyRefExp(expression.property?.ref)) {
+                    return undefined;
+                }
+                let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
+                for (const sub of expression.subProperties ?? []) {
+                    label += ` ${humanize(sub)}`;
+                }
+                return label.trim();
+            }
+            if (isParentAccess(expression)) {
+                return humanize(expression.property?.ref?.name ?? "");
+            }
+            if (isTargetAccess(expression)) {
+                return humanize(expression.property?.ref?.name ?? "");
+            }
+            if (isFleetingAccess(expression)) {
+                return humanize(expression.variable.ref?.name ?? "");
+            }
+            return undefined;
+        }
+
         function translateDiceData(expression: Expression | VariableAccess): CompositeGeneratorNode | undefined {
             console.log("Translating Dice Data: ", expression.$type);
             if (isParentAccess(expression)) {
@@ -1452,12 +1487,16 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
         const rollParts = expression.parts;
+        const displayFormulaParts = rollParts.map(e => translateDisplayFormula(e));
+        const displayFormula = displayFormulaParts.every(p => p != null)
+            ? displayFormulaParts.join("")
+            : undefined;
         return expandToNode`
-            await new ${entry.config.name}Roll(${joinToNode(rollParts, (e, idx) => {
+            Object.assign(await new ${entry.config.name}Roll(${joinToNode(rollParts, (e, idx) => {
                 const nextPart = rollParts[idx + 1];
                 const nextIsDice = nextPart != null && isLiteral(nextPart) && typeof nextPart.val === 'string' && IntelligentSystemDesignLanguageTerminals.DICE.test(nextPart.val);
                 return translateDiceParts(e, nextIsDice);
-            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e), {separator: ", "})}}).roll()
+            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e), {separator: ", "})}}).roll(), ${displayFormula != null ? `{_displayFormula: "${displayFormula}"}` : '{}'})
         `;
     }
 

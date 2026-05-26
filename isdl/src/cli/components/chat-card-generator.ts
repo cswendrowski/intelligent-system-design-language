@@ -620,10 +620,10 @@ export function generateStandardChatCardTemplate(destination: string) {
                                         <h4 class="dice-total">
                                             {{#if this.damageIcon}}<i class="{{this.damageIcon}}" style="color: {{this.damageColor}};"></i>{{else}}<i class="fa-solid fa-dice-d20"></i>{{/if}}
                                             <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}">
-                                                <span class="label">{{this.label}}:</span> 
-                                                <span class="formula">{{this.value.cleanFormula}}</span>
+                                                <span class="label">{{this.label}}:</span>
+                                                <span class="formula">{{#if this.value._displayFormula}}{{this.value._displayFormula}}{{else}}{{this.value.cleanFormula}}{{/if}}</span>
                                                 {{#if this.damageType}}<span class="damage-type" style="color: {{this.damageColor}};">[{{this.damageType}}]</span>{{/if}}
-                                            </span> 
+                                            </span>
                                             <span class="result">{{this.value._total}}</span>
                                         </h4>
                                         {{{this.tooltip}}}
@@ -632,7 +632,7 @@ export function generateStandardChatCardTemplate(destination: string) {
                             {{else}}
                                 <div class="dice-roll wide">
                                     <div class="dice-result">
-                                        <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{this.value.cleanFormula}}</span></span> <span class="result">{{this.value._total}}</span></h4>
+                                        <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{#if this.value._displayFormula}}{{this.value._displayFormula}}{{else}}{{this.value.cleanFormula}}{{/if}}</span></span> <span class="result">{{this.value._total}}</span></h4>
                                         {{{this.tooltip}}}
                                     </div>
                                 </div>
