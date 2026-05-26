@@ -1,0 +1,123 @@
+// Spark - a tiny 2d6 PbtA-flavored RPG.
+// Roll 2d6 + Stat vs target numbers:
+//   10+ : full success
+//   7-9 : partial success
+//   6-  : miss (mark XP)
+
+config Spark {
+    label = "Spark"
+    id = "spark"
+    description = "A one-page 2d6 PbtA-inspired RPG generated with ISDL."
+    author = "Reviewer"
+}
+
+actor Hero {
+
+    section Identity {
+        string Concept(label: "Concept")
+        string Drive(choices: ["Glory", "Coin", "Truth", "Vengeance"])
+    }
+
+    section Vitals {
+        // Health bar; mod isn't really meaningful here but resource handles
+        // bars / damage application out of the box.
+        health resource HP(max: {
+            return 6 + self.Grit
+        })
+
+        // Experience clock - filled by misses, spent to advance.
+        tracker XP(max: 5, style: segments, segments: 5)
+    }
+
+    section Stats {
+        // 2d6 + Stat. Range -1..+3 is the typical PbtA spread.
+        attribute Bold(min: -1, max: 3, mod: {
+            return self.Bold
+        }, roll: roll(2d6 + self.Bold))
+        attribute Cunning(min: -1, max: 3, mod: {
+            return self.Cunning
+        }, roll: roll(2d6 + self.Cunning))
+        attribute Wise(min: -1, max: 3, mod: {
+            return self.Wise
+        }, roll: roll(2d6 + self.Wise))
+        attribute Grit(min: -1, max: 3, mod: {
+            return self.Grit
+        }, roll: roll(2d6 + self.Grit))
+    }
+
+    section Moves {
+        // Generic move roller. Pick a stat then click Roll.
+        choice<attribute> UsingStat
+        action MakeMove {
+            fleeting result = roll(2d6 + self.UsingStat)
+
+            if (result >= 10) {
+                chat MoveSuccess {
+                    flavor "Full success!"
+                    result
+                }
+            }
+            else if (result >= 7) {
+                chat MovePartial {
+                    flavor "Partial success - GM offers a hard bargain or ugly choice."
+                    result
+                }
+            }
+            else {
+                // Miss: gain XP, per PbtA tradition.
+                self.XP += 1
+                chat MoveMiss {
+                    flavor "Miss - mark XP."
+                    result
+                    tag self.XP
+                }
+            }
+        }
+    }
+
+    // Owned weapons and gear.
+    Weapon[] Weapons
+    Gear[] Inventory
+}
+
+item Weapon {
+    parent<attribute> UsingStat(choices: [Hero.Bold, Hero.Cunning])
+    die DamageDie(initial: "d6", choices: ["d4", "d6", "d8", "d10"])
+    number DamageBonus(min: 0)
+    string DamageType(choices: ["Physical", "Magical"])
+
+    action Attack {
+        fleeting attackRoll = roll(2d6 + self.UsingStat)
+        fleeting damageRoll = roll(self.DamageDie + self.DamageBonus)
+
+        if (attackRoll >= 10) {
+            chat WeaponHit {
+                flavor "Clean hit!"
+                attackRoll
+                damageRoll
+                tag self.DamageType
+            }
+        }
+        else if (attackRoll >= 7) {
+            // Partial - hit but cost. Damage still applies.
+            chat WeaponPartial {
+                flavor "You hit, but expose yourself - GM makes a move."
+                attackRoll
+                damageRoll
+                tag self.DamageType
+            }
+        }
+        else {
+            chat WeaponMiss {
+                flavor "Whiff - mark XP."
+                attackRoll
+            }
+            parent.XP += 1
+        }
+    }
+}
+
+item Gear {
+    number Weight(min: 0, initial: 1)
+    html Notes
+}

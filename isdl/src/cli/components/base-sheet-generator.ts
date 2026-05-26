@@ -65,7 +65,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
 
                 this._swapBackground(this.defaultBackground);
 
-                html.find(".pips-container").mousedown(this._onPipsClick.bind(this));
+
                 html.find(".row-action").click(this._onTableRowAction.bind(this));
                 html.find(".single-document-remove").click(this._onSingleDocumentRemove.bind(this));
 
@@ -426,26 +426,6 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
             /* -------------------------------------------- */
 
             async handleItemDrop(item) { }
-
-            /* -------------------------------------------- */
-
-            async _onPipsClick(event) {
-                event.preventDefault();
-
-                const name = event.currentTarget.dataset.name;
-                const update = {};
-
-                // If this is a right click, decrement the value
-                if ( event.button === 2 ) {
-                    update["system." + name] = Math.max(0, this.object.system[name] - 1);
-                }
-                // Else, increment
-                else {
-                    const max = parseInt(event.currentTarget.dataset.max);
-                    update["system." + name] = Math.min(max, this.object.system[name] + 1);
-                }
-                this.object.update(update);
-            }
 
             /* -------------------------------------------- */
 

@@ -452,7 +452,7 @@ This system was created using the ISDL VS Code extension. To modify or contribut
 
 ### Prerequisites
 - [VS Code](https://code.visualstudio.com/)
-- [ISDL Extension](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.fsdl)
+- [ISDL Extension](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.isdl)
 - [Node.js](https://nodejs.org/) (v18+)
 - [Foundry VTT](https://foundryvtt.com/) (v12-v13)
 
@@ -522,7 +522,7 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
 
 ---
 
-**Built with ❤️ using [ISDL](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.fsdl)**
+**Built with ❤️ using [ISDL](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.isdl)**
 
 *Ready to create your own ISDL system? [Get started here!](https://github.com/IronMooseDevelopment/isdl-docs)*
 `;
@@ -533,7 +533,7 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
      */
     private async initializeWithSystemFiles(repository: GitHubRepository): Promise<void> {
         // Check if we have generated system files
-        const config = vscode.workspace.getConfiguration('fsdl');
+        const config = vscode.workspace.getConfiguration('isdl');
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
         
         if (!lastSelectedFolder) {
@@ -542,7 +542,7 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
                 'Generate System'
             ).then(action => {
                 if (action === 'Generate System') {
-                    vscode.commands.executeCommand('fsdl.generate');
+                    vscode.commands.executeCommand('isdl.generate');
                 }
             });
             return;

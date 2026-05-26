@@ -6,7 +6,6 @@ import {
     ClassExpression,
     ColorParam,
     Document,
-    DocumentArrayExp,
     IconParam,
     isAction,
     isActor,
@@ -22,17 +21,16 @@ import {
     isParentPropertyRefExp,
     isProperty,
     isResourceExp,
-    isStringExp,
-    isStringParamChoices, isTableFieldsParam,
+    isTableFieldsParam,
     isTimeExp,
     isTrackerExp, Layout,
     StandardFieldParams,
-    StringParamChoices, TableFieldsParam
+    TableField, TableFieldsParam
 } from "../../../language/generated/ast.js";
 import { getAllOfType, getSystemPath } from '../utils.js';
 import { Reference } from 'langium';
 
-export function generateDatatableComponent(id: string, document: Document, pageName: string, table: DocumentArrayExp, destination: string) {
+export function generateDatatableComponent(id: string, document: Document, pageName: string, table: TableField, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "datatables");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${pageName}${table.name}Datatable.vue`);
@@ -64,15 +62,6 @@ export function generateDatatableComponent(id: string, document: Document, pageN
 
             if (isNumberExp(property)) type = "num";
             else if (isTimeExp(property) || isDateExp(property) || isDateTimeExp(property)) type = "time";
-
-            if (isStringExp(property)) {
-                let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
-                if (choices != undefined && choices.choices.length > 0 ) {
-                    return expandToNode`
-                        { data: '${systemPath}', title: game.i18n.localize("${refDoc?.ref?.name}.${property.name}.label") },
-                    `;
-                }
-            }
 
             if (isParentPropertyRefExp(property)) {
                 return expandToNode`

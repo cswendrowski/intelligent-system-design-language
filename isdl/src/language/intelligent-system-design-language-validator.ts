@@ -11,26 +11,20 @@ import {
     TrackerExp,
     isSegmentsParameter,
     isTrackerStyleParameter,
-    PipsExp,
     isNumberParamMin,
     isNumberParamValue,
     isNumberParamMax,
-    isNumberParamInitial,
-    PipsStyleParameter,
     NumberParamMin,
     NumberParamValue,
-    NumberParamInitial,
     NumberParamMax,
-    isPipsStyleParameter,
-    isDocumentArrayExp,
     isStringParamChoices,
     StringParamChoices,
     isStringExtendedChoice,
     isChoiceStringValue,
-    ChoiceStringValue, StringChoiceField, StringExp, DocumentArrayExp,
+    ChoiceStringValue, StringChoiceField,
     Document, ClassExpression, Layout, isLayout, isNumberExp, isStringExp,
     isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue, isStringChoiceField,
-    StringParamValue, isAttributeParamMod, AttributeParamMod, isPipsExp,
+    StringParamValue, isAttributeParamMod, AttributeParamMod,
     MethodBlock, isMethodBlock, isAccess,
     InventoryField, isInventorySlotsParam, isInventoryRowsParam,
     isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
@@ -56,10 +50,7 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         Item: validator.validateItem,
         Property: validator.validateProperty,
         TrackerExp: validator.validateTrackerExpressions,
-        PipsExp: validator.validatePips,
         StringChoiceField: validator.validateStringChoiceField,
-        StringExp: validator.validateStringExp,
-        DocumentArrayExp: validator.validateDocumentArrayExp,
         Document: validator.validateDependencyCycles,
         InventoryField: validator.validateInventoryField,
         NumberExp: validator.validateNumberExp,
@@ -99,7 +90,6 @@ export class IntelligentSystemDesignLanguageValidator {
 
         const properties = getAllOfType<Property>(actor.body, isProperty, false);
         for (const property of properties) {
-            if (isDocumentArrayExp(property)) continue; // We allow multiple copies of the same document array exp in an actor
             validateUniqueName(property, property.name);
         }
 
@@ -121,14 +111,6 @@ export class IntelligentSystemDesignLanguageValidator {
             }
         }
 
-        // if (isDeprecatedFields(property)) {
-        //     accept('warning', 'This field is deprecated and will be removed in a future version.',
-        //     {
-        //         node: property,
-        //         code: 'deprecated',
-        //         tags: [DiagnosticTag.Deprecated]
-        //     });
-        // }
     }
 
     validateItem(item: Item, accept: ValidationAcceptor): void {
@@ -190,36 +172,6 @@ export class IntelligentSystemDesignLanguageValidator {
         }
     }
 
-    validatePips(pips: PipsExp, accept: ValidationAcceptor): void {
-        const styleParam = pips.params.find(isPipsStyleParameter) as PipsStyleParameter | undefined;
-        const minParam = pips.params.find(isNumberParamMin) as NumberParamMin | undefined;
-        const valueParam = pips.params.find(isNumberParamValue) as NumberParamValue | undefined;
-        const initialParam = pips.params.find(isNumberParamInitial) as NumberParamInitial | undefined;
-        const maxParam = pips.params.find(isNumberParamMax) as NumberParamMax | undefined;
-
-        function numberOrMethodBlockToString(param: NumberParamMin | NumberParamValue | NumberParamInitial | NumberParamMax | undefined): string | undefined {
-            if (param && param.value) {
-                return param.$cstNode?.text
-            }
-            return undefined;
-        }
-
-        accept('warning', 'Pips are deprecated in favor of Trackers and will be removed in a future version.',
-            {
-                node: pips,
-                code: 'pips-deprecated',
-                tags: [DiagnosticTag.Deprecated],
-                data: {
-                    name: pips.name,
-                    style: styleParam ? styleParam.style : undefined,
-                    min: numberOrMethodBlockToString(minParam),
-                    value: numberOrMethodBlockToString(valueParam),
-                    initial: initialParam ? initialParam.value.toString() : undefined,
-                    max: numberOrMethodBlockToString(maxParam)
-                }
-            });
-    }
-
     validateStringChoiceField(field: StringChoiceField, accept: ValidationAcceptor): void {
         const choices = field.params.find(isStringParamChoices) as StringParamChoices | undefined;
 
@@ -241,53 +193,6 @@ export class IntelligentSystemDesignLanguageValidator {
                 }
             }
         }
-    }
-
-    validateStringExp(field: StringExp, accept: ValidationAcceptor): void {
-        const choices = field.params.find(isStringParamChoices) as StringParamChoices | undefined;
-
-        if (choices) {
-            accept('warning', 'String choices are deprecated and will be removed in a future version. Use choice<string> instead.', {
-                node: field,
-                code: 'string-choices-deprecated',
-                tags: [DiagnosticTag.Deprecated],
-                data: {
-                    name: field.name
-                }
-            })
-            if (!choices.choices || choices.choices.length === 0) {
-                accept('error', 'String choices must have at least one choice defined.', { node: field, property: 'params' });
-                return;
-            }
-            for (const choice of choices.choices) {
-                if (isStringExtendedChoice(choice.value)) {
-                    const valueProperty = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (!valueProperty || !valueProperty.value || valueProperty.value.trim() === '') {
-                        accept('error', 'String choices must have a non-empty value.', {
-                            node: choice,
-                            property: 'value'
-                        });
-                    }
-                } else {
-                    if (choice.value.trim() === '') {
-                        accept('error', 'String choices must not be empty.', {node: choice, property: 'value'});
-                    }
-                }
-            }
-        }
-    }
-
-    validateDocumentArrayExp(field: DocumentArrayExp, accept: ValidationAcceptor): void {
-        const type = field.document.ref?.name;
-        accept('warning', 'Document Arrays are deprecated and will be removed in a future version. Use table<DOCUMENT> instead.', {
-            node: field,
-            code: 'document-array-deprecated',
-            tags: [DiagnosticTag.Deprecated],
-            data: {
-                name: field.name,
-                type: type
-            }
-        })
     }
 
     validateInventoryField(field: InventoryField, accept: ValidationAcceptor): void {
@@ -581,7 +486,7 @@ export class IntelligentSystemDesignLanguageValidator {
             return !!(modParam && isMethodBlock(modParam.method));
         }
 
-        if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+        if (isTrackerExp(property) || isResourceExp(property)) {
             const numberParams = property.params as (NumberParamValue | NumberParamMin | NumberParamMax)[];
             const valueParam = numberParams.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
             const minParam = numberParams.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
@@ -627,7 +532,7 @@ export class IntelligentSystemDesignLanguageValidator {
             if (modParam && isMethodBlock(modParam.method)) {
                 this.extractMethodBlockDependencies(modParam.method).forEach(dep => dependencies.add(dep));
             }
-        } else if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+        } else if (isTrackerExp(property) || isResourceExp(property)) {
             const numberParams = property.params as (NumberParamValue | NumberParamMin | NumberParamMax)[];
             const valueParam = numberParams.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
             const minParam = numberParams.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;

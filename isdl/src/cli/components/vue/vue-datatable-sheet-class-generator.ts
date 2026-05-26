@@ -3,10 +3,8 @@ import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import {
     Document,
-    DocumentArrayExp,
     Entry,
     isActor,
-    isDocumentArrayExp,
     isPage, isTableField, isPinnedField,
     TableField, PinnedField
 } from '../../../language/generated/ast.js';
@@ -22,16 +20,6 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
     }
 
     function generateImportForDocument(document: Document): CompositeGeneratorNode {
-
-        function generateDatatableImport(datatable: DocumentArrayExp): CompositeGeneratorNode {
-            const type = isActor(document) ? 'actor' : 'item';
-            const page = AstUtils.getContainerOfType(datatable, isPage);
-            const pageName = page ? page.name : document.name;
-
-            return expandToNode`
-                import { ${type}${document.name}${pageName}${datatable.name}Datatable } from "./components/components.vue.es.mjs";
-            `;
-        }
 
         function generateVuetifyImport(datatable: TableField): CompositeGeneratorNode {
             const type = isActor(document) ? 'actor' : 'item';
@@ -52,27 +40,15 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             `;
         }
 
-        const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
         const tables = getAllOfType<TableField>(document.body, isTableField, false);
         const pinnedFields = getAllOfType<PinnedField>(document.body, isPinnedField, true);
         return expandToNode`
-            ${joinToNode(datatables, generateDatatableImport, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(tables, generateVuetifyImport, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(pinnedFields, generatePinnedImport, { appendNewLineIfNotEmpty: true })}
         `;
     }
 
     function generateDatatableSwitch(document: Document): CompositeGeneratorNode {
-        function generateDatatableCase(datatable: DocumentArrayExp): CompositeGeneratorNode {
-            const type = isActor(document) ? 'actor' : 'item';
-            const page = AstUtils.getContainerOfType(datatable, isPage);
-            const pageName = page ? page.name : document.name;
-
-            return expandToNode`
-                case "${type}${document.name}${pageName}${datatable.name}": return ${type}${document.name}${pageName}${datatable.name}Datatable; break;
-            `;
-        }
-
         function generateVuetifyCase(datatable: TableField): CompositeGeneratorNode {
             const type = isActor(document) ? 'actor' : 'item';
             const page = AstUtils.getContainerOfType(datatable, isPage);
@@ -92,11 +68,9 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
             `;
         }
 
-        const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
         const tables = getAllOfType<TableField>(document.body, isTableField, false);
         const pinnedFields = getAllOfType<PinnedField>(document.body, isPinnedField, true);
         return expandToNode`
-            ${joinToNode(datatables, generateDatatableCase, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(tables, generateVuetifyCase, { appendNewLineIfNotEmpty: true })}
             ${joinToNode(pinnedFields, generatePinnedCase, { appendNewLineIfNotEmpty: true })}
         `;

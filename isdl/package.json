@@ -1,14 +1,21 @@
 {
-  "name": "fsdl",
+  "name": "isdl",
   "displayName": "Intelligent System Design Language",
   "description": "Intelligent System Design Language support for Visual Studio Code",
   "publisher": "IronMooseDevelopment",
-  "version": "0.2.11",
+  "version": "0.2.12",
+  "author": "Iron Moose Development",
   "repository": {
-    "url": ""
+    "type": "git",
+    "url": "https://github.com/cswendrowski/intelligent-system-design-language"
   },
+  "homepage": "https://github.com/cswendrowski/intelligent-system-design-language#readme",
+  "bugs": {
+    "url": "https://github.com/cswendrowski/intelligent-system-design-language/issues"
+  },
+  "keywords": ["isdl", "foundry-vtt", "tabletop-rpg", "dsl", "game-system", "character-sheet"],
   "preview": true,
-  "license": "LICENSE",
+  "license": "GPL-3.0",
   "type": "module",
   "icon": "out/isdl.png",
   "scripts": {
@@ -19,7 +26,7 @@
     "langium:watch": "langium generate --watch",
     "vscode:prepublish": "",
     "test": "vitest run",
-    "fsdl:generate": "node ./bin/cli.js"
+    "isdl:generate": "node ./bin/cli.js"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -76,14 +83,13 @@
           "intelligent-system-design-language"
         ],
         "extensions": [
-          ".fsdl",
           ".isdl"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "configurationDefaults": {
-      "[foundry-system-design-language]": {
+      "[intelligent-system-design-language]": {
         "editor.formatOnSave": true
       }
     },
@@ -96,12 +102,12 @@
     ],
     "commands": [
       {
-        "command": "fsdl.generate",
+        "command": "isdl.generate",
         "title": "Generate",
         "category": "ISDL"
       },
       {
-        "command": "fsdl.regenerate",
+        "command": "isdl.regenerate",
         "title": "Regenerate",
         "category": "ISDL"
       },
@@ -181,7 +187,7 @@
     "views": {
       "isdl-explorer": [
         {
-          "id": "fsdl.github",
+          "id": "isdl.github",
           "name": "GitHub Publishing",
           "icon": "$(github)",
           "visibility": "collapsed"
@@ -201,101 +207,101 @@
       "view/title": [
         {
           "command": "isdl.github.refresh",
-          "when": "view == fsdl.github",
+          "when": "view == isdl.github",
           "group": "navigation@1"
         },
         {
           "command": "isdl.github.authenticate",
-          "when": "view == fsdl.github && !fsdl.github.authenticated",
+          "when": "view == isdl.github && !isdl.github.authenticated",
           "group": "navigation@2"
         }
       ],
       "view/item/context": [
         {
           "command": "isdl.github.signOut",
-          "when": "view == fsdl.github && viewItem == authenticated",
+          "when": "view == isdl.github && viewItem == authenticated",
           "group": "inline@1"
         }
       ],
       "commandPalette": [
         {
           "command": "isdl.github.authenticate",
-          "when": "fsdl.workspaceHasIsdlFiles"
+          "when": "isdl.workspaceHasIsdlFiles"
         },
         {
           "command": "isdl.github.publish",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.update",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.createRepository",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.selectRepository",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.selectGist",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.createGist",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.syncToGist",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         },
         {
           "command": "isdl.github.downloadFromGist",
-          "when": "fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated"
+          "when": "isdl.workspaceHasIsdlFiles && isdl.github.authenticated"
         }
       ],
       "editor/title": [
         {
           "command": "isdl.github.publish",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "navigation@1"
         },
         {
           "command": "isdl.github.update",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "navigation@2"
         },
         {
           "command": "isdl.github.syncToGist",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "navigation@3"
         }
       ],
       "explorer/context": [
         {
           "command": "isdl.github.publish",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "isdl@1"
         },
         {
           "command": "isdl.github.update",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "isdl@2"
         },
         {
           "command": "isdl.github.syncToGist",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "isdl@3"
         },
         {
           "command": "isdl.github.createGist",
-          "when": "resourceExtname == .isdl && fsdl.github.authenticated",
+          "when": "resourceExtname == .isdl && isdl.github.authenticated",
           "group": "isdl@4"
         },
         {
           "command": "isdl.github.createRepository",
-          "when": "explorerResourceIsFolder && fsdl.workspaceHasIsdlFiles && fsdl.github.authenticated",
+          "when": "explorerResourceIsFolder && isdl.workspaceHasIsdlFiles && isdl.github.authenticated",
           "group": "isdl@5"
         }
       ]
@@ -305,17 +311,17 @@
     "type": "object",
     "title": "Intelligent System Design Language Configuration",
     "properties": {
-      "fsdl.lastSelectedFolder": {
+      "isdl.lastSelectedFolder": {
         "type": "string",
         "default": "",
         "description": "The last selected folder path"
       },
-      "fsdl.lastSelectedFile": {
+      "isdl.lastSelectedFile": {
         "type": "string",
         "default": "",
         "description": "The last selected file"
       },
-      "fsdl.github.defaultBranch": {
+      "isdl.github.defaultBranch": {
         "type": "string",
         "default": "main",
         "description": "Default branch name for new repositories",
@@ -330,42 +336,42 @@
           "Use 'develop' as the default branch"
         ]
       },
-      "fsdl.github.includeDocumentation": {
+      "isdl.github.includeDocumentation": {
         "type": "boolean",
         "default": true,
         "description": "Automatically generate README and documentation files when publishing"
       },
-      "fsdl.github.includeBuildScripts": {
+      "isdl.github.includeBuildScripts": {
         "type": "boolean",
         "default": true,
         "description": "Include GitHub Actions workflows and build configuration"
       },
-      "fsdl.github.templateRepository": {
+      "isdl.github.templateRepository": {
         "type": "string",
         "description": "GitHub repository to use as a template (format: owner/repo)",
         "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$"
       },
-      "fsdl.github.commitMessage": {
+      "isdl.github.commitMessage": {
         "type": "string",
         "default": "Update system files",
         "description": "Default commit message for automated updates"
       },
-      "fsdl.github.tagReleases": {
+      "isdl.github.tagReleases": {
         "type": "boolean",
         "default": true,
         "description": "Automatically create Git tags when publishing releases"
       },
-      "fsdl.github.generateChangelog": {
+      "isdl.github.generateChangelog": {
         "type": "boolean",
         "default": true,
         "description": "Generate CHANGELOG.md from commit history"
       },
-      "fsdl.github.autoPublish": {
+      "isdl.github.autoPublish": {
         "type": "boolean",
         "default": false,
         "description": "Automatically publish to GitHub when system files are generated"
       },
-      "fsdl.github.repositoryVisibility": {
+      "isdl.github.repositoryVisibility": {
         "type": "string",
         "default": "public",
         "enum": [
@@ -378,7 +384,7 @@
         ],
         "description": "Default visibility for new repositories"
       },
-      "fsdl.github.licenseTemplate": {
+      "isdl.github.licenseTemplate": {
         "type": "string",
         "description": "License template to include in new repositories. See https://choosealicense.com/licenses/ for more details",
         "enum": [
@@ -396,7 +402,7 @@
   },
   "activationEvents": [
     "onLanguage:intelligent-system-design-language",
-    "onView:fsdl.github"
+    "onView:isdl.github"
   ],
   "main": "./out/extension/main.cjs",
   "bin": {

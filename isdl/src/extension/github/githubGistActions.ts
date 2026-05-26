@@ -41,7 +41,7 @@ export class GitHubGistActions {
         // Add existing gists
         gists.forEach(gist => {
             const isdlFiles = Object.keys(gist.files).filter(name => 
-                name.endsWith('.isdl') || name.endsWith('.fsdl')
+                name.endsWith('.isdl')
             );
             
             items.push({
@@ -227,7 +227,7 @@ export class GitHubGistActions {
                 fileData.filename
             )),
             filters: {
-                'ISDL Files': ['isdl', 'fsdl']
+                'ISDL Files': ['isdl']
             }
         });
 
@@ -275,7 +275,7 @@ export class GitHubGistActions {
      */
     private async selectIsdlFile(): Promise<string | undefined> {
         // Find all ISDL files in the workspace
-        const isdlFiles = await vscode.workspace.findFiles('**/*.{isdl,fsdl}');
+        const isdlFiles = await vscode.workspace.findFiles('**/*.isdl');
         
         if (isdlFiles.length === 0) {
             vscode.window.showErrorMessage('No ISDL files found in the workspace.');

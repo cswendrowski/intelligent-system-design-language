@@ -2,3 +2,15 @@
 .vscode-test/**
 .gitignore
 langium-quickstart.md
+*.vsix
+screenshot-*.png
+docs/**
+.claude/**
+test/**
+vitest.config.ts
+.eslintrc.json
+tsconfig.*.json
+esbuild.mjs
+src/**
+CLAUDE.md
+RELEASE_NOTES.md

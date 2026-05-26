@@ -68,7 +68,7 @@ export class GitHubGistManager {
             // Filter for gists that contain .isdl files
             const isdlGists = response.data.filter(gist => {
                 return Object.keys(gist.files || {}).some(filename => 
-                    filename.endsWith('.isdl') || filename.endsWith('.fsdl')
+                    filename.endsWith('.isdl')
                 );
             });
 
@@ -161,7 +161,7 @@ export class GitHubGistManager {
             // Find existing ISDL file or use the new filename
             let targetFilename = filename;
             const existingIsdlFile = Object.keys(currentGist.data.files || {})
-                .find(name => name.endsWith('.isdl') || name.endsWith('.fsdl'));
+                .find(name => name.endsWith('.isdl'));
             
             if (existingIsdlFile) {
                 targetFilename = existingIsdlFile;
@@ -196,7 +196,7 @@ export class GitHubGistManager {
             
             // Find the ISDL file
             const isdlFile = Object.entries(response.data.files || {})
-                .find(([filename]) => filename.endsWith('.isdl') || filename.endsWith('.fsdl'));
+                .find(([filename]) => filename.endsWith('.isdl'));
 
             if (!isdlFile) {
                 vscode.window.showErrorMessage('No ISDL file found in this gist.');

@@ -11,7 +11,6 @@ import {
     isInitiativeProperty,
     isAttributeParamMod,
     AttributeParamMod,
-    isPipsExp,
     Property,
     NumberParamMax,
     NumberParamMin,
@@ -29,7 +28,6 @@ import {
     isResourceExp,
     isAttributeExp,
     isMethodBlock,
-    isDocumentArrayExp,
     isNumberExp,
     isNumberParamMax,
     isNumberParamValue,
@@ -388,45 +386,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 `.appendNewLineIfNotEmpty();
             }
 
-            if (isPipsExp(property)) {
-                const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
-                const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
-                const valueParam = property.params.find(x => isNumberParamValue(x)) as NumberParamValue;
-
-                if (maxParam == undefined && minParam == undefined && valueParam == undefined) return;
-
-                return expandToNode`
-                    ${valueParam != undefined ? expandToNode`
-                    // ${property.name} Pips Derived Data
-                    const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
-                        ${translateMethodOrValueOrStored(property, valueParam)}
-                    };
-                    this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
-                    `.appendNewLine() : ""}
-
-                    ${minParam != undefined ? expandToNode`
-                    const ${property.name.toLowerCase()}MinFunc = (system) => {
-                        ${translateMethodOrValueOrStored(property, minParam)}
-                    };
-                    const ${property.name.toLowerCase()}Min = ${property.name.toLowerCase()}MinFunc(this.system);
-                    if ( this.system.${property.name.toLowerCase()} < ${property.name.toLowerCase()}Min ) {
-                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}Min;
-                    }
-                    `.appendNewLine() : ""}
-
-                    ${maxParam != undefined ? expandToNode`
-                    const ${property.name.toLowerCase()}MaxFunc = (system) => {
-                        ${translateMethodOrValueOrStored(property, maxParam)}
-                    };
-                    const ${property.name.toLowerCase()}Max = ${property.name.toLowerCase()}MaxFunc(this.system);
-                    if ( this.system.${property.name.toLowerCase()} > ${property.name.toLowerCase()}Max ) {
-                        this.system.${property.name.toLowerCase()} = ${property.name.toLowerCase()}Max;
-                    }
-                    `.appendNewLine() : ""}
-                `.appendNewLineIfNotEmpty();
-            }
-
-            if ( isDocumentArrayExp(property) || isTableField(property) ) {
+            if ( isTableField(property) ) {
                 console.log("Processing Derived Document Array: " + property.name);
 
                 const whereParam = property.params.find(p => isWhereParam(p)) as WhereParam | undefined;
@@ -566,7 +526,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 return !!(modParam && isMethodBlock(modParam.method));
             }
 
-            if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+            if (isTrackerExp(property) || isResourceExp(property)) {
                 const params = property.params as any[];
                 const valueParam = params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
                 const minParam = params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;
@@ -632,7 +592,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         if (modParam && isMethodBlock(modParam.method)) {
                             extractPropertyDependencies(modParam.method).forEach(dep => deps.add(dep));
                         }
-                    } else if (isTrackerExp(property) || isResourceExp(property) || isPipsExp(property)) {
+                    } else if (isTrackerExp(property) || isResourceExp(property)) {
                         const params = property.params as any[];
                         const valueParam = params.find((p: any) => isNumberParamValue(p)) as NumberParamValue | undefined;
                         const minParam = params.find((p: any) => isNumberParamMin(p)) as NumberParamMin | undefined;

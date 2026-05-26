@@ -3,7 +3,7 @@
     "languages": [{
         "id": "intelligent-system-design-language",
         "grammar": "src/language/intelligent-system-design-language.langium",
-        "fileExtensions": [".fsdl", ".isdl"],
+        "fileExtensions": [".isdl"],
         "textMate": {
             "out": "syntaxes/intelligent-system-design-language.tmLanguage.json"
         }

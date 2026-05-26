@@ -10,7 +10,6 @@ import {
     ClassExpression,
     ColorParam, DateExp, DateTimeExp, DiceField, DieChoicesParam, DieField,
     Document,
-    DocumentArrayExp,
     DocumentChoiceExp,
     DocumentChoicesExp,
     Entry, HtmlExp,
@@ -29,7 +28,6 @@ import {
     isDateExp,
     isDateTimeExp, isDiceField, isDiceFields, isDieChoicesParam,
     isDieField,
-    isDocumentArrayExp,
     isDocumentChoiceExp,
     isDocumentChoicesExp,
     isEntry,
@@ -47,7 +45,6 @@ import {
     isParentPropertyRefChoiceParam,
     isParentPropertyRefExp,
     isSelfPropertyRefExp,
-    isPipsExp,
     isProperty,
     isResourceExp, isRow,
     isSection,
@@ -86,7 +83,6 @@ import {
     VisibilityParam, Expression
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
-import {generateDatatableComponent} from './vue-datatable-component-generator.js';
 import {AstUtils} from 'langium';
 import {generateActionComponent} from './vue-action-component-generator.js';
 import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-component-generator.js';
@@ -115,7 +111,6 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
 }
 
 function generateVueComponentScript(entry: Entry, id: string, document: Document, destination: string): CompositeGeneratorNode {
-    const tabs = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, true);
     const pages = getAllOfType<Page>(document.body, isPage);
     const actions = getAllOfType<Action>(document.body, isAction, false);
     const paperDoll = getAllOfType<PaperDollExp>(document.body, isPaperDollExp);
@@ -123,23 +118,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     const documentChoicesPlural = getAllOfType<DocumentChoicesExp>(document.body, isDocumentChoicesExp);
     const firstPagePinned = document.body.filter(isPinnedField);
 
-    function getPageFirstTab(page: Page): string {
-        const firstTab = page.body.find(x => isDocumentArrayExp(x)) as DocumentArrayExp | undefined;
-        const tab = firstTab?.name.toLowerCase() ?? 'description';
-
-        return `'${page.name.toLowerCase()}': '${tab}'`;
-    }
-
     function getPageBackground(page: Page): string {
         const background = (page.params?.find(x => isBackgroundParam(x)) as BackgroundParam)?.background ?? 'topography';
         return `'${page.name.toLowerCase()}': '${background}'`;
-    }
-
-    function importDataTable(pageName: string, tab: DocumentArrayExp): CompositeGeneratorNode {
-        generateDatatableComponent(id, document, pageName, tab, destination);
-        return expandToNode`
-        import ${document.name}${pageName}${tab.name}Datatable from './components/datatables/${document.name.toLowerCase()}${pageName}${tab.name}Datatable.vue';
-        `;
     }
 
     //let tables = getAllOfType<TableField>(document.body, isTableField, true);
@@ -443,13 +424,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         fs.writeFileSync(generatedFilePath, toString(fileNode));
     }
 
-    function importPageOfDataTable(page: Page): CompositeGeneratorNode {
-        const tabs = getAllOfType<DocumentArrayExp>(page.body, isDocumentArrayExp, true);
-        return expandToNode`
-        ${joinToNode(tabs, tab => importDataTable(page.name.toLowerCase(), tab), {appendNewLineIfNotEmpty: true})}
-        `;
-    }
-
     function importPageOfPinnedDataTable(page: Page): CompositeGeneratorNode {
         const pinned = getAllOfType<PinnedField>(page.body, isPinnedField, true);
         return expandToNode`
@@ -640,9 +614,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
-        ${joinToNode(tabs, tab => importDataTable(document.name, tab), {appendNewLineIfNotEmpty: true})}
         ${joinToNode(allTables, table => importDataTable2(table), {appendNewLineIfNotEmpty: true})}
-        ${joinToNode(pages, importPageOfDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(pages, importPageOfPinnedDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(documentChoices, importDocumentChoiceComponent, {appendNewLineIfNotEmpty: true})}
@@ -696,8 +668,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const page = ref(lastState.page);
         const tab = ref(lastState.tab);
         const pageDefaultTabs = {
-            '${document.name.toLowerCase()}': 'description',
-            ${joinToNode(pages, getPageFirstTab, {separator: ',', appendNewLineIfNotEmpty: true})}
+            '${document.name.toLowerCase()}': 'description'
         };
 
         const updateLastState = () => {
@@ -865,7 +836,6 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
 
 function generateVueComponentTemplate(entry: Entry, id: string, document: Document): CompositeGeneratorNode {
     const pages = getAllOfType<Page>(document.body, isPage);
-    const firstPageTabs = document.body.filter(isDocumentArrayExp);
     const firstPageTables = document.body.filter(isTableField); // We explicitly only want top-level tables
     const firstPagePinned = document.body.filter(isPinnedField); // We explicitly only want top-level pinned fields
     const firstPageInventories = document.body.filter(isInventoryField); // We explicitly only want top-level inventories
@@ -983,7 +953,6 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                                 <v-tabs-window-item value="description" data-tab="description" class="tabs-container">
                                     <i-prosemirror :field="context.editors['system.description']" :disabled="!editModeRef"></i-prosemirror>
                                 </v-tabs-window-item>
-                                ${joinToNode(firstPageTabs, tab => generateDataTable(document.name, tab))}
                                 ${joinToNode(firstPageTables, table => generateVuetifyDatatable(document.name, table), {appendNewLineIfNotEmpty: true})}
                                 ${joinToNode(firstPagePinned, (pinned: PinnedField) => generatePinnedTabWindow(pinned), {appendNewLineIfNotEmpty: true})}
                                 ${joinToNode(firstPageInventories, inventory => generateInventoryTabWindow(document.name, inventory), {appendNewLineIfNotEmpty: true})}
@@ -1005,8 +974,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     </template>
     `;
 
-    function generateTab(tab: DocumentArrayExp | TableField | InventoryField): CompositeGeneratorNode {
-        // Get params with proper type handling
+    function generateSubTab(tab: TableField | InventoryField): CompositeGeneratorNode {
         const params = tab.params as StandardFieldParams[];
         const iconParam = params.find((p: any) => isIconParam(p)) as IconParam | undefined;
         const icon = iconParam?.value ?? "fa-solid fa-table";
@@ -1031,7 +999,6 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     }
 
     function generatePageBody(page: Page): CompositeGeneratorNode {
-        const tabs = page.body.filter(isDocumentArrayExp); // We explictly only want top-level tabs
         const tables = page.body.filter(isTableField); // We explictly only want top-level tables
         const pinned = page.body.filter(isPinnedField); // We explictly only want top-level pinned fields
         const inventories = page.body.filter(isInventoryField); // We explictly only want top-level inventories
@@ -1048,23 +1015,12 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 ${joinToNode(inventories, inventory => generateTab(inventory), {appendNewLineIfNotEmpty: true})}
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
-                ${joinToNode(tabs, tab => generateDataTable(page.name.toLowerCase(), tab))}
                 ${joinToNode(tables, table => generateVuetifyDatatable(page.name, table), {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(pinned, pinnedField => generatePinnedTabWindow(pinnedField), {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(inventories, inventory => generateInventoryTabWindow(page.name, inventory), {appendNewLineIfNotEmpty: true})}
             </v-tabs-window>
         </v-tabs-window-item>
         `;
-    }
-
-    function generateDataTable(pageName: string, element: DocumentArrayExp): CompositeGeneratorNode {
-        const systemPath = getSystemPath(element, [], undefined, false);
-
-        return expandToNode`
-        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="${element.document.ref?.name.toLowerCase()}" class="tabs-container">
-            <${document.name}${pageName}${element.name}Datatable systemPath="${systemPath}" :context="context"></${document.name}${pageName}${element.name}Datatable>
-        </v-tabs-window-item>
-        `.appendNewLine();
     }
 
     function generateVuetifyDatatable(pageName: string, element: TableField): CompositeGeneratorNode {
@@ -1254,7 +1210,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         }
 
         // We don't render these elements as part of this function
-        if (isPage(element) || isAccess(element) || isStatusProperty(element) || isPipsExp(element)) {
+        if (isPage(element) || isAccess(element) || isStatusProperty(element)) {
             return expandToNode``;
         }
 
@@ -1467,7 +1423,6 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             }
 
             if (isStringExp(element)) {
-                const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
                 const valueParam = element.params.find(p => isStringParamValue(p)) as StringParamValue | undefined;
 
                 if (valueParam !== undefined) {
@@ -1482,46 +1437,15 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     `;
                 }
 
-                if (choicesParam !== undefined) {
-
-                    function choiceValue(choice: StringChoice): string {
-                        if (!isStringExtendedChoice(choice.value)) {
-                            return toMachineIdentifier(choice.value);
-                        }
-                        let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                        if (value) {
-                            return toMachineIdentifier(value.value);
-                        }
-                        let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                        if (label) {
-                            return toMachineIdentifier(label.value);
-                        }
-                        return "unknown";
-                    }
-
-                    // Map the choices to a string array
-                    const choices = choicesParam.choices.map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${choiceValue(c)}'), value: '${choiceValue(c)}' }`).join(", ");
-                    return expandToNode`
-                    <i-string-choice
-                        :context="context"
-                        label="${label}.label"
-                        icon="${iconParam?.value}"
-                        systemPath="${systemPath}"
-                        :items="[${choices}]"
-                        :isExtended="false"
-                        ${standardParamsFragment}>
-                    </i-string-choice>
-                    `;
-                }
                 return expandToNode`
-                    <i-text-field 
+                    <i-text-field
                         label="${label}"
                         icon="${iconParam?.value}"
                         systemPath="${systemPath}"
                         ${standardParamsFragment}
                         :context="context"
-                        :editMode="editModeRef" 
-                        :primaryColor="primaryColor" 
+                        :editMode="editModeRef"
+                        :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor">
                     </i-text-field>
                 `;
@@ -2239,16 +2163,6 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         :secondaryColor="secondaryColor"
                         :teritaryColor="teritaryColor"
                     />
-                `.appendNewLine();
-            }
-
-            if (isDocumentArrayExp(element)) {
-                if (isTopLevel) return expandToNode``;
-                const page = AstUtils.getContainerOfType(element, isPage) as Page;
-                const pageName = page?.name ?? document.name;
-                const systemPath = getSystemPath(element, [], undefined, false);
-                return expandToNode`
-                    <${document.name}${pageName}${element.name}Datatable systemPath="${systemPath}" :context="context"></${document.name}${pageName}${element.name}Datatable>
                 `.appendNewLine();
             }
 

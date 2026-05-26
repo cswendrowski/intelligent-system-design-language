@@ -3,11 +3,9 @@ import * as fs from 'node:fs';
 import {
     Action,
     Document,
-    DocumentArrayExp,
     Entry,
     isAction,
     isActor,
-    isDocumentArrayExp,
     isPage, isPinnedField,
     isPrompt, isTableField,
     isVariableExpression, PinnedField,
@@ -227,16 +225,6 @@ function generateIndexMjs(entry: Entry, destination: string) {
 
     function generateDatatableExportForDocument(document: Document): CompositeGeneratorNode {
 
-        function generateDatatableExport(datatable: DocumentArrayExp): CompositeGeneratorNode {
-            const type = isActor(document) ? 'actor' : 'item';
-            const page = AstUtils.getContainerOfType(datatable, isPage);
-            const pageName = page ? page.name : document.name;
-
-            return expandToNode`
-                export { default as ${type}${document.name}${pageName}${datatable.name}Datatable } from "./${type}/${document.name.toLowerCase()}/components/datatables/${document.name.toLowerCase()}${pageName.toLowerCase()}${datatable.name}Datatable.vue";
-            `;
-        }
-
         function generateVuetifyDatableExport(datatable: TableField): CompositeGeneratorNode {
             const type = isActor(document) ? 'actor' : 'item';
             const page = AstUtils.getContainerOfType(datatable, isPage);
@@ -257,11 +245,9 @@ function generateIndexMjs(entry: Entry, destination: string) {
             `;
         }
 
-        const datatables = getAllOfType<DocumentArrayExp>(document.body, isDocumentArrayExp, false);
         const tables = getAllOfType<TableField>(document.body, isTableField, false);
         const pinned = getAllOfType<PinnedField>(document.body, isPinnedField, false);
         return expandToNode`
-            ${joinToNode(datatables, generateDatatableExport, { separator: "\n" })}
             ${joinToNode(tables, generateVuetifyDatableExport, { separator: "\n" })}
             ${joinToNode(pinned, generatePinnedExport, { separator: "\n" })}
         `;

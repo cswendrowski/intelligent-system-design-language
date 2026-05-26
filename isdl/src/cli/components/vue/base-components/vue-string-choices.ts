@@ -44,11 +44,11 @@ export default function generateStringChoicesComponent(destination: string, entr
                 if (!Array.isArray(values)) return [];
                 
                 if (props.isExtended) {
-                    // For extended choices, extract the 'value' property from each object
-                    return values.map(item => typeof item === 'object' && item.value ? item.value : item);
+                    return values
+                        .map(item => typeof item === 'object' && item !== null ? item.value : item)
+                        .filter(v => v !== undefined && v !== null);
                 } else {
-                    // For simple choices, use the array as-is
-                    return values;
+                    return values.filter(v => typeof v === 'string');
                 }
             },
             set: (newValues) => {

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { CodeAction } from 'vscode';
-import { ExpectDiagnosticData } from 'langium/test';
 
 export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeActionProvider {
 
@@ -12,15 +11,6 @@ export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeAct
                 switch (diagnostic.code) {
                     case 'tracker-segments-unnecessary':
                         this.trackerSegmentsUnnecessary(document, diagnostic, actions);
-                        break;
-                    case 'pips-deprecated':
-                        this.pipsDeprecated(document, diagnostic, actions);
-                        break;
-                    case 'string-choices-deprecated':
-                        this.stringChoicesDeprecated(document, diagnostic, actions);
-                        break;
-                    case 'document-array-deprecated':
-                        this.documentArrayDeprecated(document, diagnostic, actions);
                         break;
                     default:
                         // Handle other diagnostics if needed
@@ -56,116 +46,4 @@ export class IntelligentSystemDesignLanguageQuickfixes implements vscode.CodeAct
         actions.push(fix);
     }
 
-    private pipsDeprecated(document: vscode.TextDocument, diagnostic: vscode.Diagnostic, actions: vscode.CodeAction[]) {
-
-        const fix = new vscode.CodeAction(
-            "Replace with Tracker",
-            vscode.CodeActionKind.QuickFix
-        );
-        fix.diagnostics = [diagnostic];
-        fix.isPreferred = true;
-        fix.edit = new vscode.WorkspaceEdit();
-
-        const diagnosticData = diagnostic as ExpectDiagnosticData;
-        const data = diagnosticData.data as { name: string, style: string, min: string, value: string, initial: string, max: string };
-        let tracker = `tracker ${data.name}`;
-
-        const hasParams = data.min || data.value || data.initial || data.max || data.style;
-
-        let hasPreviousParam = false;
-        if (hasParams) {
-            tracker += `(`;
-            if (data.style) {
-                if (hasPreviousParam) {
-                    tracker += `, `;
-                }
-                tracker += `style: icons, `;
-
-                if (data.style === 'squares') {
-                    tracker += `icon: 'fa-square'`;
-                }
-                else if (data.style === 'circles') {
-                    tracker += `icon: 'fa-circle'`;
-                }
-                hasPreviousParam = true;
-            }
-
-            if (data.min) {
-                if (hasPreviousParam) {
-                    tracker += `, `;
-                }
-                tracker += `${data.min}`;
-                hasPreviousParam = true;
-            }
-
-            if (data.value) {
-                if (hasPreviousParam) {
-                    tracker += `, `;
-                }
-                tracker += `${data.value}`;
-                hasPreviousParam = true;
-            }
-
-            if (data.initial) {
-                if (hasPreviousParam) {
-                    tracker += `,`;
-                }
-                tracker += `initial: ${data.initial}`;
-                hasPreviousParam = true;
-            }
-
-            if (data.max) {
-                if (hasPreviousParam) {
-                    tracker += `, `;
-                }
-                tracker += `${data.max}`;
-                hasPreviousParam = true;
-            }
-
-            tracker += `)`;
-        }
-
-        fix.edit.replace(document.uri, diagnostic.range, tracker);
-        actions.push(fix);
-    }
-
-    resolveCodeAction?(codeAction: vscode.CodeAction, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeAction> {
-        return codeAction;
-    }
-
-    private stringChoicesDeprecated(document: vscode.TextDocument, diagnostic: vscode.Diagnostic, actions: vscode.CodeAction[]) {
-        const fix = new vscode.CodeAction(
-            "Replace with choice<string>",
-            vscode.CodeActionKind.QuickFix
-        );
-        fix.diagnostics = [diagnostic];
-        fix.isPreferred = true;
-        fix.edit = new vscode.WorkspaceEdit();
-
-        //const diagnosticData = diagnostic as ExpectDiagnosticData;
-
-        const currentText = document.getText(diagnostic.range);
-        const replacement = currentText.replace('string', `choice<string>`);
-
-        fix.edit.replace(document.uri, diagnostic.range, replacement);
-        actions.push(fix);
-    }
-
-    private documentArrayDeprecated(document: vscode.TextDocument, diagnostic: vscode.Diagnostic, actions: vscode.CodeAction[]) {
-        const diagnosticData = diagnostic as ExpectDiagnosticData;
-        const data = diagnosticData.data as { name: string, type: string };
-        const fix = new vscode.CodeAction(
-            `Replace with table<${data.type}>`,
-            vscode.CodeActionKind.QuickFix
-        );
-        fix.diagnostics = [diagnostic];
-        fix.isPreferred = true;
-        fix.edit = new vscode.WorkspaceEdit();
-
-        const currentText = document.getText(diagnostic.range);
-        const replacement = currentText.replace(`${data.type}[]`, `table<${data.type}>`);
-
-        fix.edit.replace(document.uri, diagnostic.range, replacement);
-        actions.push(fix);
-    }
 }

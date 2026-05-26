@@ -9,7 +9,6 @@ import {
 } from '../../language/generated/ast.js';
 import {
     isSection,
-    isStringExp,
     isAction,
     isProperty,
     isPage,
@@ -112,20 +111,6 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                     return toMachineIdentifier(label.value);
                 }
                 return "unknown";
-            }
-
-            // If the property is a string with choices, we need to expand it into a list of localized strings
-            if (isStringExp(property)) {
-                let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
-
-                if (choices != undefined && choices.choices.length > 0) {
-                    return expandToNode`
-                    "${property.name}": {
-                        "label": "${label}",
-                        ${joinToNode(choices.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-                    }
-                `;
-                }
             }
 
             if (isStringChoiceField(property)) {

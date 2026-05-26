@@ -1,0 +1,180 @@
+<h2>Design Section 1: Layout Architecture</h2>
+<p class="subtitle">How the sheet is structured from the outside in</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Current Layout</div>
+    <div class="mockup-body" style="font-size:12px;background:#2a2a2a;color:#ddd;min-height:400px;display:flex;flex-direction:column">
+      <!-- Header -->
+      <div style="background:rgba(0,0,0,0.5);padding:6px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #555">
+        <div style="width:28px;height:28px;background:#666;border-radius:4px"></div>
+        <span style="flex:1;font-size:14px">Character Name</span>
+        <span style="font-size:10px;opacity:0.6">controls</span>
+      </div>
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;background:rgba(0,0,0,0.3);border-bottom:1px solid #555">
+        <div style="padding:6px 14px;border-bottom:2px solid #7986cb;color:#7986cb;font-size:11px">Base</div>
+        <div style="padding:6px 14px;font-size:11px;opacity:0.6">Stats</div>
+        <div style="padding:6px 14px;font-size:11px;opacity:0.6">Equipment</div>
+        <div style="padding:6px 14px;font-size:11px;opacity:0.6">Skills</div>
+      </div>
+      <!-- Content area -->
+      <div style="flex:1;padding:12px;overflow:auto">
+        <!-- Cards with lots of padding -->
+        <div style="border:1px solid #666;border-radius:6px;padding:12px;margin-bottom:12px;background:rgba(255,255,255,0.05)">
+          <div style="font-size:13px;font-weight:bold;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #555">Health</div>
+          <div style="background:#e9e9e9;color:#333;border-radius:4px;padding:10px;margin-bottom:8px;font-size:11px">
+            <div style="opacity:0.6;font-size:10px;margin-bottom:2px">HP</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="flex:1;height:18px;background:#92aed9;border-radius:9px;position:relative">
+                <div style="width:70%;height:100%;background:#5c6bc0;border-radius:9px"></div>
+              </div>
+            </div>
+            <div style="height:6px"></div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;background:white;padding:6px;border-radius:3px;text-align:center">32</div>
+              <div style="flex:1;background:white;padding:6px;border-radius:3px;text-align:center">45</div>
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid #666;border-radius:6px;padding:12px;margin-bottom:12px;background:rgba(255,255,255,0.05)">
+          <div style="font-size:13px;font-weight:bold;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #555">Attributes</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="border:3px solid #333;border-radius:4px;text-align:center;padding:4px 8px;min-width:70px;background:rgba(255,255,255,0.05)">
+              <div style="font-size:10px;font-weight:bold">Fight</div>
+              <div style="font-size:16px">14</div>
+              <div style="font-size:20px;font-weight:bold;border-top:1px solid #555;margin-top:2px">+2</div>
+            </div>
+            <div style="border:3px solid #333;border-radius:4px;text-align:center;padding:4px 8px;min-width:70px;background:rgba(255,255,255,0.05)">
+              <div style="font-size:10px;font-weight:bold">Flight</div>
+              <div style="font-size:16px">12</div>
+              <div style="font-size:20px;font-weight:bold;border-top:1px solid #555;margin-top:2px">+1</div>
+            </div>
+            <div style="border:3px solid #333;border-radius:4px;text-align:center;padding:4px 8px;min-width:70px;background:rgba(255,255,255,0.05)">
+              <div style="font-size:10px;font-weight:bold">Endure</div>
+              <div style="font-size:16px">16</div>
+              <div style="font-size:20px;font-weight:bold;border-top:1px solid #555;margin-top:2px">+3</div>
+            </div>
+          </div>
+        </div>
+        <div style="opacity:0.3;text-align:center;padding:20px;font-size:11px">... more cards below fold ...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Proposed Layout</div>
+    <div class="mockup-body" style="font-size:12px;background:#1e1e22;color:#ddd;min-height:400px;display:flex;flex-direction:column">
+      <!-- Header - more compact -->
+      <div style="background:rgba(0,0,0,0.6);padding:4px 8px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(255,255,255,0.1)">
+        <div style="width:24px;height:24px;background:#666;border-radius:3px"></div>
+        <span style="flex:1;font-size:13px;font-weight:600">Character Name</span>
+        <span style="font-size:10px;opacity:0.5">controls</span>
+      </div>
+      <!-- Quick stats bar -->
+      <div style="background:rgba(0,0,0,0.4);padding:4px 8px;display:flex;gap:12px;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);font-size:11px">
+        <span style="display:flex;align-items:center;gap:4px"><span style="color:#ef5350">&#9829;</span> <strong>32</strong><span style="opacity:0.5">/45</span></span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="color:#42a5f5">&#9733;</span> <strong>8</strong><span style="opacity:0.5">/10</span></span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="opacity:0.6">AC</span> <strong>16</strong></span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="opacity:0.6">Lv</span> <strong>5</strong></span>
+        <span style="flex:1"></span>
+        <span style="padding:1px 6px;background:rgba(239,83,80,0.3);border:1px solid rgba(239,83,80,0.5);border-radius:3px;font-size:10px;color:#ef9a9a">Staggered</span>
+      </div>
+      <!-- Tabs - compact pill style -->
+      <div style="padding:4px 8px;display:flex;gap:4px;background:rgba(0,0,0,0.2)">
+        <div style="padding:3px 10px;background:rgba(255,255,255,0.12);border-radius:12px;font-size:11px;font-weight:500">Base</div>
+        <div style="padding:3px 10px;border-radius:12px;font-size:11px;opacity:0.5">Stats</div>
+        <div style="padding:3px 10px;border-radius:12px;font-size:11px;opacity:0.5">Equipment</div>
+        <div style="padding:3px 10px;border-radius:12px;font-size:11px;opacity:0.5">Skills</div>
+      </div>
+      <!-- Content - grid layout, no cards -->
+      <div style="flex:1;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;overflow:auto">
+        <!-- Section: just a header line, no card wrapper -->
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.6;padding-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:6px">Health</div>
+        </div>
+        <!-- Compact resource -->
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:4px 6px;background:rgba(255,255,255,0.04);border-radius:4px;border-left:3px solid #ef5350">
+          <span style="font-size:11px;font-weight:600;min-width:24px">HP</span>
+          <div style="flex:1;height:14px;background:rgba(255,255,255,0.08);border-radius:7px;position:relative;overflow:hidden">
+            <div style="width:71%;height:100%;background:linear-gradient(90deg,#ef5350,#e57373);border-radius:7px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:600;min-width:50px;text-align:right">32 / 45</span>
+        </div>
+        <!-- Compact resource 2 -->
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:4px 6px;background:rgba(255,255,255,0.04);border-radius:4px;border-left:3px solid #42a5f5">
+          <span style="font-size:11px;font-weight:600;min-width:24px">MP</span>
+          <div style="flex:1;height:14px;background:rgba(255,255,255,0.08);border-radius:7px;position:relative;overflow:hidden">
+            <div style="width:80%;height:100%;background:linear-gradient(90deg,#42a5f5,#64b5f6);border-radius:7px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:600;min-width:50px;text-align:right">8 / 10</span>
+        </div>
+        <!-- Section header -->
+        <div style="grid-column:1/-1;margin-top:4px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.6;padding-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:6px">Attributes</div>
+        </div>
+        <!-- Compact attributes - inline -->
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,0.04);border-radius:4px;border-left:3px solid #a586c0">
+          <span style="font-size:11px;font-weight:600;min-width:40px">Fight</span>
+          <span style="font-size:14px;font-weight:700;flex:1;text-align:center">14</span>
+          <span style="font-size:16px;font-weight:800;color:#a586c0;min-width:30px;text-align:right">+2</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,0.04);border-radius:4px;border-left:3px solid #a586c0">
+          <span style="font-size:11px;font-weight:600;min-width:40px">Flight</span>
+          <span style="font-size:14px;font-weight:700;flex:1;text-align:center">12</span>
+          <span style="font-size:16px;font-weight:800;color:#a586c0;min-width:30px;text-align:right">+1</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,0.04);border-radius:4px;border-left:3px solid #a586c0">
+          <span style="font-size:11px;font-weight:600;min-width:40px">Endure</span>
+          <span style="font-size:14px;font-weight:700;flex:1;text-align:center">16</span>
+          <span style="font-size:16px;font-weight:800;color:#a586c0;min-width:30px;text-align:right">+3</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,0.04);border-radius:4px;border-left:3px solid #a586c0">
+          <span style="font-size:11px;font-weight:600;min-width:40px">Persuade</span>
+          <span style="font-size:14px;font-weight:700;flex:1;text-align:center">18</span>
+          <span style="font-size:16px;font-weight:800;color:#a586c0;min-width:30px;text-align:right">+4</span>
+        </div>
+        <!-- Section header -->
+        <div style="grid-column:1/-1;margin-top:4px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.6;padding-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:6px">Fields</div>
+        </div>
+        <!-- Compact fields -->
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 8px;background:rgba(255,255,255,0.04);border-radius:4px">
+          <span style="font-size:11px;opacity:0.6;min-width:50px">Level</span>
+          <span style="font-size:13px;font-weight:600;flex:1;text-align:right">5</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 8px;background:rgba(255,255,255,0.04);border-radius:4px">
+          <span style="font-size:11px;opacity:0.6;min-width:50px">Defense</span>
+          <span style="font-size:13px;font-weight:600;flex:1;text-align:right">16</span>
+        </div>
+        <!-- Compact action button -->
+        <div style="grid-column:1/-1;display:flex;gap:6px;margin-top:2px">
+          <div style="flex:1;padding:5px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:4px;font-size:11px;text-align:center;cursor:pointer">&#9876; Level Up</div>
+          <div style="flex:1;padding:5px 10px;background:rgba(239,83,80,0.15);border:1px solid rgba(239,83,80,0.3);border-radius:4px;font-size:11px;text-align:center;cursor:pointer;color:#ef9a9a">&#10084; Heal</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:24px">Key Layout Changes</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#42a5f5">Quick Stats Bar</strong>
+    <p style="font-size:13px;margin-top:4px">Pinned resource/status summary between header and tabs. Always visible. HP, key resources, active statuses at a glance.</p>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#42a5f5">No More Cards</strong>
+    <p style="font-size:13px;margin-top:4px">Sections use subtle header lines + left-border accents instead of heavy card wrappers. Background shows through. Content breathes.</p>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#42a5f5">CSS Grid Sections</strong>
+    <p style="font-size:13px;margin-top:4px">Fields flow into a 2-column grid that collapses to 1 on small sheets. Tighter than flexbox rows with min-width constraints.</p>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#42a5f5">Pill Tabs</strong>
+    <p style="font-size:13px;margin-top:4px">Compact pill-style tab navigation instead of full-width Vuetify tabs. Saves vertical space, feels more game-UI.</p>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">Does this layout direction feel right? Respond in terminal.</p>

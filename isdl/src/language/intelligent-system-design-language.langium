@@ -69,7 +69,7 @@ ClassExpression:
 // Fields ------------------------------------------------------
 
 Property:
-    (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | DeprecatedFields);
+    (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields);
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
@@ -79,11 +79,9 @@ DateTimeFields:
 DiceFields:
     (DieField | DiceField);
 DocumentFields:
-    (DocumentArrayExp | SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField | TableField | InventoryField);
+    (SingleDocumentExp | DocumentChoiceExp | DocumentChoicesExp | PaperDollExp | MacroField | TableField | InventoryField);
 ReferenceFields:
     (ParentPropertyRefExp | SelfPropertyRefExp);
-DeprecatedFields:
-    (PipsExp | DocumentArrayExp);
 fragment ExpressionModifier:
     (modifier=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 StandardFieldParams:
@@ -243,15 +241,6 @@ AttributeRollParam:
     "roll:" roll=(MethodBlock | Expression);
 
 
-// Pips -------------
-
-PipsExp:
-    ExpressionModifier "pips" name=ID ("(" params+=PipsParameter ("," params+=PipsParameter)* ")")?;
-PipsParameter:
-    (NumberParamMin | NumberParamMax | NumberParamInitial | NumberParamValue | PipsStyleParameter);
-PipsStyleParameter:
-    "style:" style=("squares" | "circles");
-
 
 // Damage Track -------------
 
@@ -273,8 +262,6 @@ MacroExecute:
 
 // Document Links -------------
 
-DocumentArrayExp:
-    ExpressionModifier document=[Document:ID] "[]" name=ID ("(" params+=(StandardFieldParams|WhereParam|TableFieldsParam) ")")?;
 TableField:
     ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
 TableParams:
@@ -683,9 +670,9 @@ Comparison infers Expr:
 PrimitiveExpression:
     Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
 ComparisonExpression:
-    e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=") e2=Expression;
+    e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=" | "has" | "excludes" | "startsWith" | "endsWith") e2=Expression;
 ShorthandComparisonExpression:
-    e1=Expression term=("exists" | "!exists")?;
+    e1=Expression term=("exists" | "!exists" | "isEmpty" | "isNotEmpty")?;
 ParentTypeCheckExpression:
     "parent" "is" document=[Document:ID];
 TargetTypeCheckExpression:

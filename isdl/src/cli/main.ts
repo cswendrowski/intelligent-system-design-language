@@ -47,7 +47,7 @@ export default function(): void {
         .command('generate')
         .argument('<file>', `source file (possible file extensions: ${fileExtensions})`)
         .option('-d, --destination <dir>', 'destination directory of generating')
-        .description('generates JavaScript code that prints "Hello, {name}!" for each greeting in a source file')
+        .description('generates a Foundry VTT system from an ISDL source file')
         .action(generateAction);
 
     program.parse(process.argv);

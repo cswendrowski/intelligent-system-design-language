@@ -64,14 +64,10 @@ function registerCommands(context: vscode.ExtensionContext) {
     }
 
     // Register a command that can be invoked with a keybinding, a menu item, or by running a command.
-    context.subscriptions.push(vscode.commands.registerCommand('fsdl.generate', async () => {
+    context.subscriptions.push(vscode.commands.registerCommand('isdl.generate', async () => {
 
         // Get list of files in the current workspace
-        const files = await vscode.workspace.findFiles('**/*.fsdl');
-
-        // Add .isdl files
-        const isdlFiles = await vscode.workspace.findFiles('**/*.isdl');
-        files.push(...isdlFiles);
+        const files = await vscode.workspace.findFiles('**/*.isdl');
 
         if (!files || files.length === 0) {
             vscode.window.showErrorMessage('No files found in the workspace');
@@ -79,7 +75,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
 
         // Get the configuration
-        const config = vscode.workspace.getConfiguration('fsdl');
+        const config = vscode.workspace.getConfiguration('isdl');
         const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
 
         // Create a quick pick for selecting a file
@@ -126,8 +122,8 @@ function registerCommands(context: vscode.ExtensionContext) {
         generate(sourceFilePath, destinationPath);
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('fsdl.regenerate', async () => {
-        const config = vscode.workspace.getConfiguration('fsdl');
+    context.subscriptions.push(vscode.commands.registerCommand('isdl.regenerate', async () => {
+        const config = vscode.workspace.getConfiguration('isdl');
         const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
@@ -255,7 +251,7 @@ function registerGithub(context: vscode.ExtensionContext) {
     const gistActions = new GitHubGistActions(gistManager);
 
     // Register tree view
-    const treeView = vscode.window.createTreeView('fsdl.github', {
+    const treeView = vscode.window.createTreeView('isdl.github', {
         treeDataProvider: treeProvider,
         showCollapseAll: false
     });
@@ -326,7 +322,7 @@ function registerGithub(context: vscode.ExtensionContext) {
 async function updateWorkspaceContext() {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
-        await vscode.commands.executeCommand('setContext', 'fsdl.workspaceHasIsdlFiles', false);
+        await vscode.commands.executeCommand('setContext', 'isdl.workspaceHasIsdlFiles', false);
         return;
     }
 
@@ -334,6 +330,6 @@ async function updateWorkspaceContext() {
     const isdlFiles = await vscode.workspace.findFiles('**/*.isdl', null, 1);
     const hasIsdlFiles = isdlFiles.length > 0;
 
-    await vscode.commands.executeCommand('setContext', 'fsdl.workspaceHasIsdlFiles', hasIsdlFiles);
+    await vscode.commands.executeCommand('setContext', 'isdl.workspaceHasIsdlFiles', hasIsdlFiles);
 }
 

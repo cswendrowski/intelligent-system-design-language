@@ -796,7 +796,7 @@ export class GitHubManager {
                     );
 
                     if (action === 'Regenerate System') {
-                        await vscode.commands.executeCommand('fsdl.generate');
+                        await vscode.commands.executeCommand('isdl.generate');
                     } else if (action === 'Open Repository') {
                         vscode.env.openExternal(vscode.Uri.parse(this.currentRepository!.html_url));
                     }
@@ -885,7 +885,7 @@ export class GitHubManager {
                     );
 
                     if (action === 'Regenerate System') {
-                        await vscode.commands.executeCommand('fsdl.generate');
+                        await vscode.commands.executeCommand('isdl.generate');
                     } else if (action === 'Open Repository') {
                         vscode.env.openExternal(vscode.Uri.parse(this.currentRepository!.html_url));
                     }
@@ -972,7 +972,7 @@ export class GitHubManager {
     private async collectSystemFilesForPublish(isdlFilePath: string): Promise<{ path: string; content: string }[]> {
         try {
             // Get the configuration to find the last selected folder
-            const config = vscode.workspace.getConfiguration('fsdl');
+            const config = vscode.workspace.getConfiguration('isdl');
             const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
             if (!lastSelectedFolder || !fs.existsSync(lastSelectedFolder)) {
@@ -1454,7 +1454,7 @@ For installation instructions, usage guides, and troubleshooting:
 
 ---
 
-*Built with ❤️ using [ISDL](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.fsdl)*`;
+*Built with ❤️ using [ISDL](https://marketplace.visualstudio.com/items?itemName=IronMooseDevelopment.isdl)*`;
     }
 
     /**
@@ -1902,7 +1902,7 @@ For installation instructions, usage guides, and troubleshooting:
             'ResourceExp', 'TrackerExp', 'AttributeExp', 'DamageTrackExp',
             'DateExp', 'TimeExp', 'DateTimeExp',
             'DieField', 'DiceField',
-            'DocumentArrayExp', 'SingleDocumentExp', 'DocumentChoiceExp',
+            'SingleDocumentExp', 'DocumentChoiceExp',
             'ParentPropertyRefExp', 'StringChoiceField', 'MeasuredTemplateField',
             'PaperDollExp', 'MacroField', 'TableField'
         ];

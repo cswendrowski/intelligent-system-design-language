@@ -20,7 +20,6 @@ import {
     isBooleanExp,
     isResourceExp,
     isAttributeExp,
-    isPipsExp,
     isDamageTrackExp,
     isSingleDocumentExp,
     isNumberParamInitial,
@@ -123,31 +122,6 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         }
 
         if (isStringExp(property)) {
-            let choices = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
-            if (choices != undefined && choices.choices.length > 0) {
-
-                function choiceValue(choice: StringChoice): string {
-                    if (!isStringExtendedChoice(choice.value)) {
-                        return toMachineIdentifier(choice.value);
-                    }
-                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (value) {
-                        return toMachineIdentifier(value.value);
-                    }
-                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                    if (label) {
-                        return toMachineIdentifier(label.value);
-                    }
-                    return "unknown";
-                }
-
-                return expandToNode`
-                    ${property.name.toLowerCase()}: new fields.StringField({
-                        choices: [${choices.choices.map(x => `"${choiceValue(x)}"`).join(", ")}],
-                        initial: "${choiceValue(choices.choices[0])}"
-                    }),
-                `;
-            }
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
             `;
@@ -493,29 +467,6 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             `;
         }
 
-        if ( isPipsExp(property) ) {
-            const maxParam = property.params.find(x => isNumberParamMax(x)) as NumberParamMax;
-            const minParam = property.params.find(x => isNumberParamMin(x)) as NumberParamMin;
-            const initialParam = property.params.find(x => isNumberParamInitial(x)) as NumberParamInitial;
-
-            let options = "integer: true";
-
-            if (maxParam && typeof(maxParam.value) === 'number') {
-                options += `, max: ${maxParam.value}`;
-            }
-
-            if (minParam && typeof(minParam.value) === 'number') {
-                options += `, min: ${minParam.value}`;
-            }
-
-            if (initialParam && typeof(initialParam.value) === 'number') {
-                options += `, initial: ${initialParam.value}`;
-            }
-
-            return expandToNode`
-                ${property.name.toLowerCase()}: new fields.NumberField({${options}}),
-            `;
-        }
 
         if ( isDamageTrackExp(property) ) {
             return undefined;
@@ -624,12 +575,6 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
                 }),
             `;
         }
-
-        // if ( isDocumentArrayExp(property) ) {
-        //     return expandToNode`
-        //         ${property.name.toLowerCase()}: new fields.EmbeddedCollectionField(new fields.ForeignDocumentField(, {required: true, type: "${property.document.ref?.name.toLowerCase()}"})),
-        //     `;
-        // }
 
         if (isLayout(property)) {
             return joinToNode(property.body, property => generateField(property), { appendNewLineIfNotEmpty: true });

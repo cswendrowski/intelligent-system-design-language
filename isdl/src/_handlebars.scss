@@ -311,34 +311,6 @@
         }
     }
 
-    .pips {
-        .pips-container {
-            margin-left: 5px;
-            display: flex;
-            gap: 5px;
-
-            &.circles {
-                .pip {
-                    border-radius: 50%;
-                }
-            }
-        }
-
-        .pip {
-            width: 20px;
-            height: 20px;
-            background-color: white;
-            border: 1px solid black;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .pip.filled {
-            background-color: black;
-        }
-    }
-
     .paper-doll {
         .paper-doll-container {
             position: relative;

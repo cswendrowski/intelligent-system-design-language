@@ -58,7 +58,6 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateUuidDocumentField(data.destination);
     generateUuidDocumentArrayField(data.destination);
 
-    //generateRpgAwesomeCss(data.destination);
     generateActiveEffectBaseSheet(entry, id, data.destination);
     generateActiveEffectHandlebars(id, entry, data.destination);
     generateSystemJson(entry, id, data.destination);

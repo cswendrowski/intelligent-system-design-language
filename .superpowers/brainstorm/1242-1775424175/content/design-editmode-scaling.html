@@ -1,0 +1,161 @@
+<h2>Design Section 3: Edit Mode & Responsive Scaling</h2>
+<p class="subtitle">How the sheet adapts to editing and resizing</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Play Mode vs Edit Mode</div>
+    <div class="mockup-body" style="background:#1e1e22;color:#ddd;padding:12px;display:flex;flex-direction:column;gap:16px;font-size:12px">
+
+      <!-- Play mode -->
+      <div>
+        <div style="font-size:10px;opacity:0.5;margin-bottom:6px;font-style:italic">Play Mode &mdash; display-focused, minimal chrome</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+          <div style="display:flex;align-items:center;padding:4px 8px;background:rgba(255,255,255,0.04);border-radius:3px">
+            <span style="font-size:11px;opacity:0.6;min-width:50px">Name</span>
+            <span style="font-size:12px;flex:1;text-align:right">Aldric</span>
+          </div>
+          <div style="display:flex;align-items:center;padding:4px 8px;background:rgba(255,255,255,0.04);border-radius:3px">
+            <span style="font-size:11px;opacity:0.6;min-width:50px">Level</span>
+            <span style="font-size:13px;font-weight:600;flex:1;text-align:right">5</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(255,255,255,0.04);border-radius:3px;border-left:3px solid #ef5350;grid-column:1/-1">
+            <span style="font-size:11px;font-weight:600;min-width:28px">HP</span>
+            <div style="flex:1;height:14px;background:rgba(255,255,255,0.06);border-radius:7px;overflow:hidden">
+              <div style="width:71%;height:100%;background:linear-gradient(90deg,#ef5350,#e57373);border-radius:7px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:600">32/45</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit mode -->
+      <div>
+        <div style="font-size:10px;opacity:0.5;margin-bottom:6px;font-style:italic">Edit Mode &mdash; fields become inputs, subtle border change</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+          <div style="display:flex;align-items:center;padding:4px 8px;background:rgba(255,255,255,0.04);border-radius:3px;border:1px solid rgba(255,193,7,0.2)">
+            <span style="font-size:11px;opacity:0.6;min-width:50px">Name</span>
+            <div style="flex:1;text-align:right;padding:1px 4px;background:rgba(255,255,255,0.08);border-radius:2px;border:1px solid rgba(255,255,255,0.12);font-size:12px">Aldric</div>
+          </div>
+          <div style="display:flex;align-items:center;padding:4px 8px;background:rgba(255,255,255,0.04);border-radius:3px;border:1px solid rgba(255,193,7,0.2)">
+            <span style="font-size:11px;opacity:0.6;min-width:50px">Level</span>
+            <div style="flex:1;text-align:right;padding:1px 4px;background:rgba(255,255,255,0.08);border-radius:2px;border:1px solid rgba(255,255,255,0.12);font-size:13px;font-weight:600">5</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(255,255,255,0.04);border-radius:3px;border-left:3px solid #ef5350;border:1px solid rgba(255,193,7,0.2);border-left:3px solid #ef5350;grid-column:1/-1">
+            <span style="font-size:11px;font-weight:600;min-width:28px">HP</span>
+            <div style="flex:1;height:14px;background:rgba(255,255,255,0.06);border-radius:7px;overflow:hidden">
+              <div style="width:71%;height:100%;background:linear-gradient(90deg,#ef5350,#e57373);border-radius:7px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:600">32/45</span>
+            <span style="font-size:10px;opacity:0.3">&#9660;</span>
+          </div>
+        </div>
+        <div style="margin-top:6px;padding:4px 8px;background:rgba(255,193,7,0.08);border:1px dashed rgba(255,193,7,0.3);border-radius:3px;font-size:10px;color:#ffd740;display:flex;align-items:center;gap:4px">
+          <span>&#9888;</span> Edit Mode &mdash; changes affect the sheet template
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Responsive Scaling</div>
+    <div class="mockup-body" style="background:#1e1e22;color:#ddd;padding:12px;display:flex;flex-direction:column;gap:12px;font-size:12px">
+
+      <!-- Wide view -->
+      <div>
+        <div style="font-size:10px;opacity:0.5;margin-bottom:4px;font-style:italic">Wide (&gt;600px) &mdash; 2-column grid</div>
+        <div style="border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <div style="padding:3px 6px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:10px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Fight</span><strong>+2</strong>
+            </div>
+            <div style="padding:3px 6px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:10px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Flight</span><strong>+1</strong>
+            </div>
+            <div style="padding:3px 6px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:10px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Endure</span><strong>+3</strong>
+            </div>
+            <div style="padding:3px 6px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:10px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Persuade</span><strong>+4</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Medium view -->
+      <div>
+        <div style="font-size:10px;opacity:0.5;margin-bottom:4px;font-style:italic">Medium (400-600px) &mdash; 2-col, denser</div>
+        <div style="border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:6px;max-width:300px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Fight</span><strong>+2</strong>
+            </div>
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Flight</span><strong>+1</strong>
+            </div>
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Endure</span><strong>+3</strong>
+            </div>
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Persuade</span><strong>+4</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Narrow view -->
+      <div>
+        <div style="font-size:10px;opacity:0.5;margin-bottom:4px;font-style:italic">Narrow (&lt;400px) &mdash; single column</div>
+        <div style="border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:6px;max-width:200px">
+          <div style="display:grid;grid-template-columns:1fr;gap:3px">
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Fight</span><strong>+2</strong>
+            </div>
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Flight</span><strong>+1</strong>
+            </div>
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Endure</span><strong>+3</strong>
+            </div>
+            <div style="padding:2px 5px;background:rgba(255,255,255,0.04);border-radius:2px;font-size:9px;display:flex;justify-content:space-between">
+              <span style="opacity:0.5">Persuade</span><strong>+4</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakpoints summary -->
+      <div style="padding:8px;background:rgba(255,255,255,0.03);border-radius:4px;border:1px solid rgba(255,255,255,0.06);margin-top:4px">
+        <div style="font-size:10px;font-weight:600;margin-bottom:4px">Breakpoints</div>
+        <div style="font-size:11px;display:flex;flex-direction:column;gap:3px">
+          <div style="display:flex;justify-content:space-between"><span style="opacity:0.6">&gt;600px</span><span>2-col grid, full labels, all features</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="opacity:0.6">400-600px</span><span>2-col grid, tighter gaps, smaller text</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="opacity:0.6">&lt;400px</span><span>1-col stack, abbreviated labels</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:16px">Key Decisions</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#ffd740">Edit Mode Signal</strong>
+    <p style="font-size:13px;margin-top:4px">Subtle amber dashed border on editable fields + a small warning banner. Fields switch from display text to input boxes. Background changes to the existing <code>cogs</code> pattern. No heavy color shift &mdash; just enough to say "you're editing."</p>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#ffd740">Container Query Scaling</strong>
+    <p style="font-size:13px;margin-top:4px">Use CSS container queries (not viewport media queries) so the sheet responds to its own window size within Foundry, not the browser viewport. Grid columns, font sizes, and gaps all scale with the sheet container width.</p>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#ffd740">Row Layout Preserved</strong>
+    <p style="font-size:13px;margin-top:4px">The ISDL <code>row { }</code> construct still works &mdash; items inside a row share a horizontal line within the grid. <code>column { }</code> stacks items vertically within a grid cell. These map naturally to CSS grid areas.</p>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.08)">
+    <strong style="color:#ffd740">Dark-First, Light Compatible</strong>
+    <p style="font-size:13px;margin-top:4px">The design targets dark backgrounds (which Foundry defaults to), using light text and translucent field backgrounds. The <code>rgba()</code> approach means it still works on lighter backgrounds &mdash; the translucency adapts.</p>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:14px">Does this section look good? Respond in terminal.</p>

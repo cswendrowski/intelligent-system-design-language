@@ -342,7 +342,7 @@ export class GitHubStatusProvider implements vscode.TreeDataProvider<GitHubStatu
                         'Click to connect to GitHub',
                         vscode.TreeItemCollapsibleState.None,
                         {
-                            command: 'fsdl.github.setup',
+                            command: 'isdl.github.setup',
                             title: 'Connect to GitHub'
                         },
                         'warning'
@@ -365,7 +365,7 @@ export class GitHubStatusProvider implements vscode.TreeDataProvider<GitHubStatu
                     'Publish your ISDL system to GitHub',
                     vscode.TreeItemCollapsibleState.None,
                     {
-                        command: 'fsdl.github.publish',
+                        command: 'isdl.github.publish',
                         title: 'Publish System'
                     },
                     'repo-push'
@@ -406,28 +406,28 @@ export function registerGitHubCommands(context: vscode.ExtensionContext) {
     const statusProvider = new GitHubStatusProvider(authProvider);
 
     // Register tree view
-    const treeView = vscode.window.createTreeView('fsdl.github', {
+    const treeView = vscode.window.createTreeView('isdl.github', {
         treeDataProvider: statusProvider,
         showCollapseAll: false
     });
 
     // Register commands
-    const setupCommand = vscode.commands.registerCommand('fsdl.github.setup', async () => {
+    const setupCommand = vscode.commands.registerCommand('isdl.github.setup', async () => {
         await setupWizard.runSetupWizard();
         statusProvider.refresh();
     });
 
-    const signOutCommand = vscode.commands.registerCommand('fsdl.github.signout', async () => {
+    const signOutCommand = vscode.commands.registerCommand('isdl.github.signout', async () => {
         await authProvider.signOut();
         statusProvider.refresh();
     });
 
-    const refreshCommand = vscode.commands.registerCommand('fsdl.github.refresh', () => {
+    const refreshCommand = vscode.commands.registerCommand('isdl.github.refresh', () => {
         statusProvider.refresh();
     });
 
     // Placeholder for future publish command
-    const publishCommand = vscode.commands.registerCommand('fsdl.github.publish', () => {
+    const publishCommand = vscode.commands.registerCommand('isdl.github.publish', () => {
         vscode.window.showInformationMessage('Publishing feature coming soon!');
     });
 

@@ -44,32 +44,6 @@ export function compileSCSS(dynamicId: string) {
     return result.css.toString();
 }
 
-export function generateRpgAwesomeCss(destination: string) {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
-    // Path to the SCSS file
-    const scssFilePath = path.join(__dirname, '../../../node_modules/rpg-awesome/scss/rpg-awesome.scss');
-
-    // Compile SCSS to CSS
-    const result = sass.compile(scssFilePath);
-
-    var css = result.css.toString();
-
-    const generatedFileDir = path.join(destination, "css");
-    const generatedFilePath = path.join(generatedFileDir, `rpg-awesome.css`);
-
-    if (!fs.existsSync(generatedFileDir)) {
-        fs.mkdirSync(generatedFileDir, { recursive: true });
-    }
-
-    const fileNode = expandToNode`
-        ${css}
-    `.appendNewLineIfNotEmpty();
-
-    fs.writeFileSync(generatedFilePath, toString(fileNode));
-}
-
 export function generateSystemCss(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, "css");
     const generatedFilePath = path.join(generatedFileDir, `${id}.css`);

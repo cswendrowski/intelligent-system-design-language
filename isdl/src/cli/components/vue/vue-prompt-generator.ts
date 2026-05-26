@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import {
-    AttributeExp, ChoiceStringValue,
+    AttributeExp,
     ClassExpression,
     Document,
     Entry,
@@ -11,13 +11,13 @@ import {
     isActor,
     isAttributeExp,
     isAttributeParamMod,
-    isBooleanExp, isChoiceStringValue,
+    isBooleanExp,
     isDateExp,
     isDateTimeExp,
     isDocumentChoiceExp,
     isHookHandler,
     isHtmlExp,
-    isImageParam, isLabelParam,
+    isImageParam,
     isNumberExp,
     isNumberParamMin,
     isNumberParamValue,
@@ -28,11 +28,10 @@ import {
     isResourceExp,
     isSingleDocumentExp,
     isSizeParam,
-    isStringExp, isStringExtendedChoice,
-    isStringParamChoices,
+    isStringExp,
     isStringParamValue,
     isTimeExp,
-    isVariableExpression, LabelParam,
+    isVariableExpression,
     NumberExp,
     NumberParamMin,
     NumberParamValue,
@@ -40,11 +39,10 @@ import {
     Prompt,
     Property,
     ResourceExp,
-    SizeParam, StringChoice,
-    StringParamChoices,
+    SizeParam,
     StringParamValue
 } from "../../../language/generated/ast.js";
-import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
+import { getDocument, getSystemPath, globalGetAllOfType } from '../utils.js';
 import { AstUtils } from 'langium';
 
 
@@ -148,37 +146,11 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
         }
 
         if (isStringExp(element)) {
-            const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
             const valueParam = element.params.find(p => isStringParamValue(p)) as StringParamValue | undefined;
 
             if (valueParam !== undefined) {
                 return expandToNode`
                 <v-text-field name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="true" variant="outlined" density="compact" append-inner-icon="fa-solid fa-function" :data-tooltip="context.${systemPath}"></v-text-field>
-                `;
-            }
-
-            if (choicesParam !== undefined) {
-
-                function choiceValue(choice: StringChoice): string {
-                    if (!isStringExtendedChoice(choice.value)) {
-                        return toMachineIdentifier(choice.value);
-                    }
-                    let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (value) {
-                        return toMachineIdentifier(value.value);
-                    }
-                    let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                    if (label) {
-                        return toMachineIdentifier(label.value);
-                    }
-                    return "unknown";
-                }
-
-                // Map the choices to a string array
-                const choices = choicesParam.choices
-                    .map(c => `{ label: game.i18n.localize('${document.name}.${element.name}.${c}'), value: '${choiceValue(c)}' }`).join(", ");
-                return expandToNode`
-                <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" :label="game.i18n.localize('${label}.label')" :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
                 `;
             }
             return expandToNode`

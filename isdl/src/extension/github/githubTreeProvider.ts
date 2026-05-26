@@ -164,7 +164,7 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
         ];
 
         // Add publish and update actions based on whether system files are available
-        const config = vscode.workspace.getConfiguration('fsdl');
+        const config = vscode.workspace.getConfiguration('isdl');
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
         if (lastSelectedFolder) {
@@ -200,7 +200,7 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
                     vscode.TreeItemCollapsibleState.None,
                     'generate-first',
                     {
-                        command: 'fsdl.generate',
+                        command: 'isdl.generate',
                         title: 'Generate System'
                     },
                     '$(warning)'
@@ -283,7 +283,7 @@ export class GitHubTreeProvider implements vscode.TreeDataProvider<GitHubTreeIte
 
         // Show ISDL files in the gist
         const isdlFiles = Object.keys(currentGist.files).filter(name => 
-            name.endsWith('.isdl') || name.endsWith('.fsdl')
+            name.endsWith('.isdl')
         );
 
         if (isdlFiles.length > 0) {

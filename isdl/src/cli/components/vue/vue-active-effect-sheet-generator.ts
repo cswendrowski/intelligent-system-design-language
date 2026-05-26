@@ -6,7 +6,7 @@ import {
     isDateExp,
     isDateTimeExp,
     isDiceField,
-    isDieField, isDocumentArrayExp, isDocumentFields,
+    isDieField, isDocumentFields,
     isHookHandler,
     isHtmlExp,
     isInitiativeProperty,
@@ -119,12 +119,11 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     !isStatusProperty(property) &&
                     !isHookHandler(property) &&
                     !isTableField(property) &&
-                    !isDocumentArrayExp(property) &&
                     !isDocumentFields(property) &&
                     !isHtmlExp(property) &&
                     property.modifier !== "locked"
                 );
-                
+
                 return expandToNode`
                     mapping['${document.name}'] = {
                         ${joinToNode(fields, field => `'${field.name.toLowerCase()}': '${field.name}'`, { separator: ',\n                        ' })}${fields.length > 0 ? ',' : ''}
@@ -362,7 +361,6 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
             !isStatusProperty(property) &&
             !isHookHandler(property) &&
             !isTableField(property) &&
-            !isDocumentArrayExp(property) &&
             !isDocumentFields(property) &&
             !isHtmlExp(property) &&
             property.modifier !== "locked"
@@ -562,7 +560,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
     }
 
     function generateField(document: Document, property: Property): CompositeGeneratorNode | undefined {
-        if ( isInitiativeProperty(property) || isStatusProperty(property) || isHookHandler(property) || !isProperty(property) || isTableField(property) || isDocumentArrayExp(property) || isDocumentFields(property) || isHtmlExp(property)) return;
+        if ( isInitiativeProperty(property) || isStatusProperty(property) || isHookHandler(property) || !isProperty(property) || isTableField(property) || isDocumentFields(property) || isHtmlExp(property)) return;
         if ( property.modifier == "locked" ) return;
 
         if (isNumberExp(property)) {

@@ -25,7 +25,6 @@ import {
     ClassExpression,
     VariableAccess,
     MathExpression,
-    StringParamChoices,
     InitiativeProperty,
     ParentAccess,
     TargetParam,
@@ -80,7 +79,6 @@ import {
     isMathEmptyExpression,
     isMathSingleExpression,
     isMathParamExpression,
-    isStringParamChoices,
     isInitiativeProperty,
     isStatusProperty,
     isUpdate,
@@ -334,8 +332,6 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
     function translateParentAssignmentExpression(expression: ParentAssignment): CompositeGeneratorNode | undefined {
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
-
-        // TODO: Not all references are to a system property - some will be to fleeting variables
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
 
@@ -646,8 +642,6 @@ export function translateExpression(entry: Entry, id: string, expression: string
             term = "===";
         }
 
-        // TODO: has, excludes, exists, startsWith, endsWith, isEmpty, isNotEmpty
-
         if (isShorthandComparisonExpression(expression)) {
             console.log("Shorthand Comparison Expression: ", term);
             if (term == "exists") {
@@ -660,12 +654,43 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} == undefined
                 `;
             }
+            else if (term == "isEmpty") {
+                return expandToNode`
+                    (${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)})?.length === 0
+                `;
+            }
+            else if (term == "isNotEmpty") {
+                return expandToNode`
+                    (${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)})?.length > 0
+                `;
+            }
             return expandToNode`
                 ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${term}
             `;
         }
 
         console.log("Comparison Expression: ", expression.e1.$type, term, expression.e2.$type);
+
+        if (term == "has") {
+            return expandToNode`
+                (${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)})?.includes(${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)})
+            `;
+        }
+        if (term == "excludes") {
+            return expandToNode`
+                !(${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)})?.includes(${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)})
+            `;
+        }
+        if (term == "startsWith") {
+            return expandToNode`
+                (${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)})?.startsWith(${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)})
+            `;
+        }
+        if (term == "endsWith") {
+            return expandToNode`
+                (${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)})?.endsWith(${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)})
+            `;
+        }
 
         return expandToNode`
             ${translateExpression(entry, id, expression.e1, preDerived, generatingProperty)} ${term} ${translateExpression(entry, id, expression.e2, preDerived, generatingProperty)}
@@ -1532,19 +1557,6 @@ export function translateExpression(entry: Entry, id: string, expression: string
             }
 
             if (isStringExp(expression)) {
-                let choices = expression.params.find(x => isStringParamChoices(x)) as StringParamChoices;
-                if (choices != undefined && choices.choices.length > 0) {
-                    return expandToNode`
-                        <div class="form-group">
-                            <label>${humanize(expression.name)}</label>
-                            <select name="${expression.name.toLowerCase()}">
-                                ${joinToNode(choices.choices, (choice) => expandToNode`
-                                    <option value="${choice}">${choice}</option>
-                                `)}
-                            </select>
-                        </div>
-                    `;
-                }
                 return expandToNode`
                     <div class="form-group">
                         <label>${humanize(expression.name)}</label>
@@ -1785,24 +1797,16 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isUpdate(expression)) {
         console.log("Translating Update Expression:");
 
-        let path = "";
-        if (isUpdateSelf(expression)) {
-            path = `${expression.property?.ref?.name.toLowerCase()}`;
-        }
-        // TODO: Parent lookup
-        for (const subProperty of expression.subProperties ?? []) {
-            path = `${path}.${subProperty}`;
-        }
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
 
         if (isUpdateParent(expression)) {
-            // TODO: I think this is wrong
             return expandToNode`
-                parentUpdate["${path}"] = foundry.utils.getProperty(context.object.parent, "system.${path}");
+                parentUpdate["${systemPath}"] = foundry.utils.getProperty(context.object.parent, "system.${systemPath}");
             `;
         }
         else if (isUpdateSelf(expression)) {
             return expandToNode`
-                update["system.${path}"] = system.${path});
+                update["system.${systemPath}"] = system.${systemPath};
             `;
         }
     }

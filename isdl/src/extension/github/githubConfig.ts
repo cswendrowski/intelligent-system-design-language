@@ -16,7 +16,7 @@ export interface GitHubPublishingConfig {
  * Simple configuration manager for GitHub settings
  */
 export class GitHubConfigurationManager {
-    private static readonly CONFIG_KEY = 'fsdl.github';
+    private static readonly CONFIG_KEY = 'isdl.github';
 
     /**
      * Get current publishing configuration
@@ -144,7 +144,7 @@ export class GitHubValidation {
         }
 
         // Check if system has been generated
-        const config = vscode.workspace.getConfiguration('fsdl');
+        const config = vscode.workspace.getConfiguration('isdl');
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
         if (!lastSelectedFolder) {
             errors.push('No generated system files found. Please generate your system first.');

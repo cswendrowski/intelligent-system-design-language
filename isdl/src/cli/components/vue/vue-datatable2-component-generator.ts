@@ -22,11 +22,11 @@ import {
     isProperty,
     isResourceExp, isStringChoiceField,
     isStringExp,
-    isStringParamChoices, isTableFieldsParam,
+    isTableFieldsParam,
     isTimeExp,
     isTrackerExp, Layout, Property,
     StandardFieldParams,
-    StringParamChoices, TableField, TableFieldsParam
+    TableField, TableFieldsParam
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getSystemPath} from '../utils.js';
 import {AstUtils, Reference} from 'langium';
@@ -80,15 +80,10 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
 
             // Set appropriate minimum widths based on field type
             if (isStringExp(property)) {
-                if (property.params.some(p => isStringParamChoices(p))) {
-                    localizeName += ".label";
-                    minWidth = '110px'; // Choice fields need a bit more space
-                } else {
-                    minWidth = '140px'; // Text fields need more space for content
-                    return expandToNode`
-                        { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}' },
-                    `;
-                }
+                minWidth = '140px'; // Text fields need more space for content
+                return expandToNode`
+                    { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}' },
+                `;
             }
 
             if (isDocumentChoiceExp(property) || isStringChoiceField(property) || isDamageTypeChoiceField(property)) {
@@ -156,25 +151,13 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             }
 
             if (isStringExp(property)) {
-                let choices = property.params.find(x => isStringParamChoices(x)) as StringParamChoices;
-                if (choices != undefined && choices.choices.length > 0 ) {
-                    return expandToNode`
-                        <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
-                            <v-chip label size="x-small" variant="elevated" class="text-caption">
-                                {{ getNestedValue(item, '${systemPath}') }}
-                            </v-chip>
-                        </template>
-                    `;
-                }
-                else {
-                    return expandToNode`
-                        <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
-                            <div class="text-caption text-truncate" :data-tooltip="getNestedValue(item, '${systemPath}')" style="max-width: 300px;">
-                                {{ getNestedValue(item, '${systemPath}') }}
-                            </div>
-                        </template>
-                    `;
-                }
+                return expandToNode`
+                    <template v-if="isColumnVisible('${systemPath}')" v-slot:item.${slotName}="{ item }">
+                        <div class="text-caption text-truncate" :data-tooltip="getNestedValue(item, '${systemPath}')" style="max-width: 300px;">
+                            {{ getNestedValue(item, '${systemPath}') }}
+                        </div>
+                    </template>
+                `;
             }
 
             if (isStringChoiceField(property)) {

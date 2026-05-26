@@ -1,0 +1,42 @@
+<h2>What's your reference for "good density"?</h2>
+<p class="subtitle">How tightly packed should fields be on a character sheet?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Paper Sheet Dense</h3>
+      <p>Like a printed D&D character sheet &mdash; every square inch used, labels are tiny, fields are cramped but you can see <em>everything</em> at once. Minimal padding/margins.</p>
+      <div style="margin-top:8px;padding:6px;background:rgba(0,0,0,0.06);border-radius:4px;font-size:12px;font-family:monospace;line-height:1.6">
+        STR [__14__] (+2) &nbsp; DEX [__12__] (+1) &nbsp; CON [__16__] (+3)<br>
+        INT [__10__] (+0) &nbsp; WIS [__08__] (-1) &nbsp; CHA [__18__] (+4)<br>
+        HP: [_32_/_45_] &nbsp; AC: [_16_] &nbsp; Init: [_+1_] &nbsp; Speed: [_30_]
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Video Game HUD</h3>
+      <p>Compact but readable. Clear visual hierarchy, small but not tiny. Think Baldur's Gate 3 character panel or Path of Exile &mdash; dense data, clear at a glance.</p>
+      <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.06);border-radius:4px;font-size:13px;line-height:1.8">
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <span><strong>STR</strong> 14 <span style="opacity:0.6">(+2)</span></span>
+          <span><strong>DEX</strong> 12 <span style="opacity:0.6">(+1)</span></span>
+          <span><strong>CON</strong> 16 <span style="opacity:0.6">(+3)</span></span>
+        </div>
+        <div style="margin-top:4px">HP <span style="color:#c44;">32</span>/45 &bull; AC 16 &bull; Init +1</div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Current But Tighter</h3>
+      <p>Keep the general Vuetify card/section structure but reduce padding, margins, and whitespace by ~30-40%. Make fields smaller without losing the labeled-input pattern.</p>
+      <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.06);border-radius:4px;font-size:13px;">
+        <em>Basically: the current layout, but squished down so more fits on screen at once.</em>
+      </div>
+    </div>
+  </div>
+</div>
