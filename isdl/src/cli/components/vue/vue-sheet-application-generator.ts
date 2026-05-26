@@ -943,10 +943,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                             <v-divider class="mt-4 mb-2"></v-divider>
                             <v-tabs v-model="tab" grow always-center>
                                     <v-tab value="description" prepend-icon="fa-solid fa-book">Description</v-tab>
-                                    ${joinToNode(firstPageTabs, generateTab, {appendNewLineIfNotEmpty: true})}
-                                    ${joinToNode(firstPageTables, table => generateTab(table), {appendNewLineIfNotEmpty: true})}
+                                    ${joinToNode(firstPageTables, table => generateSubTab(table), {appendNewLineIfNotEmpty: true})}
                                     ${joinToNode(firstPagePinned, (pinned: PinnedField) => generatePinnedTab(pinned), {appendNewLineIfNotEmpty: true})}
-                                    ${joinToNode(firstPageInventories, inventory => generateTab(inventory), {appendNewLineIfNotEmpty: true})}
+                                    ${joinToNode(firstPageInventories, inventory => generateSubTab(inventory), {appendNewLineIfNotEmpty: true})}
                                     <v-tab value="effects" prepend-icon="fa-solid fa-sparkles" @mousedown="spawnDatatableWindow($event, '${document.name}', 'effects')">Effects</v-tab>
                             </v-tabs>
                             <v-tabs-window v-model="tab" class="tabs-window">
@@ -1009,10 +1008,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             </v-row>
             <v-divider class="mt-4 mb-2"></v-divider>
             <v-tabs v-model="tab" grow always-center>
-                ${joinToNode(tabs, generateTab, {appendNewLineIfNotEmpty: true})}
-                ${joinToNode(tables, generateTab, {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(tables, table => generateSubTab(table), {appendNewLineIfNotEmpty: true})}
                 ${joinToNode(pinned, pinnedField => generatePinnedTab(pinnedField), {appendNewLineIfNotEmpty: true})}
-                ${joinToNode(inventories, inventory => generateTab(inventory), {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(inventories, inventory => generateSubTab(inventory), {appendNewLineIfNotEmpty: true})}
             </v-tabs>
             <v-tabs-window v-model="tab" class="tabs-window">
                 ${joinToNode(tables, table => generateVuetifyDatatable(page.name, table), {appendNewLineIfNotEmpty: true})}
