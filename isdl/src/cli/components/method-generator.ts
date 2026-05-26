@@ -1005,7 +1005,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isRoll(expression) || isDamageRoll(expression)) {
         console.log("Translating Roll Expression");
 
-        function translateDiceParts(expression: Expression): CompositeGeneratorNode | undefined {
+        function translateDiceParts(expression: Expression, noLabels: boolean = false): CompositeGeneratorNode | undefined {
 
             console.log("Translating Dice Part: ", expression.$type);
 
@@ -1031,8 +1031,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     return;
                 }
                 if (expression.subProperties != undefined  && expression.subProperties.length > 0) {
+                    const subLabel = noLabels ? "" : `[${humanize(expression.subProperties[0])}]`;
                     return expandToNode`
-                        "@${expression.val.ref?.name}${expression.subProperties[0].toLowerCase()}[${humanize(expression.subProperties[0])}]"
+                        "@${expression.val.ref?.name}${expression.subProperties[0].toLowerCase()}${subLabel}"
                     `;
                 }
 
@@ -1043,8 +1044,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     `;
                 }
 
+                const refLabel = noLabels ? "" : `[${humanize(expression.val.ref?.name ?? expression.val.$refText)}]`;
                 return expandToNode`
-                    "@${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}[${humanize(expression.val.ref?.name ?? expression.val.$refText)}]"
+                    "@${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}${refLabel}"
                 `;
             }
             if (isParentAccess(expression)) {
@@ -1068,8 +1070,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     label = `${label} ${humanize(subProperty)}`;
                 }
                 label = label.trim();
+                const parentLabelSuffix = noLabels ? "" : `[${label}]`;
                 return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${parentLabelSuffix}\`
                 `;
             }
             if (isTargetAccess(expression)) {
@@ -1093,8 +1096,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     label = `${label} ${humanize(subProperty)}`;
                 }
                 label = label.trim();
+                const targetLabelSuffix = noLabels ? "" : `[${label}]`;
                 return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${targetLabelSuffix}\`
                 `;
             }
             if (isAccess(expression)) {
@@ -1135,8 +1139,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     }
                 }
                 console.log("Access:", path, label);
+                const accessLabelSuffix = noLabels ? "" : `[${label}]`;
                 return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${accessLabelSuffix}\`
                 `;
             }
             if (isFleetingAccess(expression)) {
@@ -1154,19 +1159,20 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     path = `${path}.${expression.subProperty}`;
                     label = `${label} ${humanize(expression.subProperty)}`;
                 }
+                const fleetingLabelSuffix = noLabels ? "" : `[${label}]`;
                 return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}[${label}]\`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${fleetingLabelSuffix}\`
                 `;
             }
             if (isBinaryExpression(expression)) {
                 return expandToNode`
-                    ${translateDiceParts(expression.e1)} + "${expression.op}" + ${translateDiceParts(expression.e2)}
+                    ${translateDiceParts(expression.e1, noLabels)} + "${expression.op}" + ${translateDiceParts(expression.e2, noLabels)}
                 `;
             }
 
             if (isGroup(expression)) {
                 return expandToNode`
-                    "(" + ${translateDiceParts(expression.ge)} + ")"
+                    "(" + ${translateDiceParts(expression.ge, noLabels)} + ")"
                 `;
             }
 
@@ -1445,8 +1451,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
             `;
         }
 
+        const rollParts = expression.parts;
         return expandToNode`
-            await new ${entry.config.name}Roll(${joinToNode(expression.parts, e => translateDiceParts(e), {separator: " + "})}, {${joinToNode(expression.parts, e => translateDiceData(e), {separator: ", "})}}).roll()
+            await new ${entry.config.name}Roll(${joinToNode(rollParts, (e, idx) => {
+                const nextPart = rollParts[idx + 1];
+                const nextIsDice = nextPart != null && isLiteral(nextPart) && typeof nextPart.val === 'string' && IntelligentSystemDesignLanguageTerminals.DICE.test(nextPart.val);
+                return translateDiceParts(e, nextIsDice);
+            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e), {separator: ", "})}}).roll()
         `;
     }
 
