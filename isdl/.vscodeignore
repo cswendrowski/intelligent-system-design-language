@@ -14,3 +14,5 @@ esbuild.mjs
 src/**
 CLAUDE.md
 RELEASE_NOTES.md
+test-output/**
+test-output-*/**
