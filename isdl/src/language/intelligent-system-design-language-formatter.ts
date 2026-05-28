@@ -18,7 +18,7 @@ export class IsdlFormatter extends AbstractFormatter {
         } else if (isItem(node)) {
             this.formatDocumentNode(node, 'item');
         } else if (isSection(node)) {
-            this.formatNamedBlock(node, 'section');
+            this.formatSection(node);
         } else if (isRow(node)) {
             this.formatAnonymousBlock(node, 'row');
         } else if (isColumn(node)) {
@@ -47,7 +47,14 @@ export class IsdlFormatter extends AbstractFormatter {
         this.applyBraceFormatting(node);
     }
 
-    /** Named block like config, section, page, tab: space before `{`, indent interior */
+    /** Section: blank line before, then standard brace formatting */
+    private formatSection(node: AstNode): void {
+        const formatter = this.getNodeFormatter(node);
+        formatter.keyword('section').prepend(Formatting.newLines(2, { allowMore: true }));
+        this.applyBraceFormatting(node);
+    }
+
+    /** Named block like config, page, tab: space before `{`, indent interior */
     private formatNamedBlock(node: AstNode, _keyword: string): void {
         this.applyBraceFormatting(node);
     }
