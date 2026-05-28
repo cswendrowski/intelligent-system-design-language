@@ -11,9 +11,12 @@ import { GitHubGistManager } from "./github/githubGistManager.js";
 import { GitHubGistActions } from "./github/githubGistActions.js";
 
 let client: LanguageClient;
+let outputChannel: vscode.OutputChannel;
 
 // This function is called when the extension is activated.
 export function activate(context: vscode.ExtensionContext): void {
+    outputChannel = vscode.window.createOutputChannel('ISDL');
+    context.subscriptions.push(outputChannel);
     registerCommands(context);
     registerFormatter(context);
     registerCodeActions(context);
@@ -33,10 +36,15 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     function generate(sourceFilePath: string, destinationPath: string) {
         const cliPath = path.resolve(context.extensionPath, 'bin', 'cli.js');
+        const fileName = path.basename(sourceFilePath);
+
+        outputChannel.clear();
+        outputChannel.appendLine(`Generating ${fileName} → ${destinationPath}`);
+        outputChannel.appendLine('');
 
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: 'Generating ISDL system...',
+            title: `Generating ${fileName}...`,
             cancellable: false
         }, () => new Promise<void>((resolve, reject) => {
             const cliProcess = spawn('node', [cliPath, 'generate', `"${sourceFilePath}"`, '--destination', `"${destinationPath}"`], {
@@ -44,14 +52,33 @@ function registerCommands(context: vscode.ExtensionContext) {
                 shell: true
             });
 
+            let outputPath: string | undefined;
             const errors: string[] = [];
-            cliProcess.stderr.on('data', (data) => errors.push(data.toString().trim()));
+
+            cliProcess.stdout.on('data', (data) => {
+                const text = data.toString();
+                outputChannel.append(text);
+                const match = text.match(/generated successfully:\s*(.+)/i);
+                if (match) {
+                    outputPath = match[1].trim();
+                }
+            });
+
+            cliProcess.stderr.on('data', (data) => {
+                const text = data.toString().trim();
+                outputChannel.appendLine(`[error] ${text}`);
+                errors.push(text);
+            });
 
             cliProcess.on('close', (code) => {
                 if (code === 0) {
-                    vscode.window.showInformationMessage('System generated successfully!');
+                    const msg = outputPath
+                        ? `System generated successfully!\n${outputPath}`
+                        : 'System generated successfully!';
+                    vscode.window.showInformationMessage(msg);
                     resolve();
                 } else {
+                    outputChannel.show();
                     const detail = errors.length > 0 ? errors.join('\n') : `Exit code ${code}`;
                     vscode.window.showErrorMessage(`Generation failed: ${detail}`);
                     reject();
@@ -60,57 +87,52 @@ function registerCommands(context: vscode.ExtensionContext) {
         }));
     }
 
-    // Register a command that can be invoked with a keybinding, a menu item, or by running a command.
     context.subscriptions.push(vscode.commands.registerCommand('isdl.generate', async () => {
-
-        // Get list of files in the current workspace
         const files = await vscode.workspace.findFiles('**/*.isdl');
 
         if (!files || files.length === 0) {
-            vscode.window.showErrorMessage('No files found in the workspace');
+            vscode.window.showErrorMessage('No .isdl files found in the workspace.');
             return;
         }
 
-        // Get the configuration
         const config = vscode.workspace.getConfiguration('isdl');
         const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
 
-        // Create a quick pick for selecting a file
-        const fileItems = files.map(file => {
-            return {
-                label: path.basename(file.fsPath),
-                description: file.fsPath,
-                picked: file.fsPath === lastSelectedFile
-            };
-        });
+        // Pre-select the currently open .isdl file, or fall back to last used
+        const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
+        const preferredFile = (activeFile?.endsWith('.isdl') ? activeFile : undefined) ?? lastSelectedFile;
+
+        const fileItems = files.map(file => ({
+            label: path.basename(file.fsPath),
+            description: file.fsPath,
+            picked: file.fsPath === preferredFile
+        }));
 
         const selectedFile = await vscode.window.showQuickPick(fileItems, {
-            placeHolder: 'Select a file to process',
+            placeHolder: 'Select an .isdl file to generate',
             canPickMany: false,
         });
 
         if (!selectedFile) {
-            vscode.window.showErrorMessage('File selection is required');
-            return;
+            return; // user cancelled — not an error
         }
-        config.update('lastSelectedFile', selectedFile.description, vscode.ConfigurationTarget.Global);
+
+        config.update('lastSelectedFile', selectedFile.description, vscode.ConfigurationTarget.Workspace);
 
         const sourceFilePath = selectedFile.description;
-
-        // Prompt the user to select the destination folder
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
         const destinationFolderUri = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select Destination Folder',
+            openLabel: 'Select Foundry Data/systems Folder',
+            title: 'Select your Foundry VTT Data/systems folder',
             defaultUri: lastSelectedFolder ? vscode.Uri.file(lastSelectedFolder) : undefined
         });
 
         if (!destinationFolderUri || destinationFolderUri.length === 0) {
-            vscode.window.showErrorMessage('Destination folder selection is required');
-            return;
+            return; // user cancelled — not an error
         }
 
         const destinationPath = destinationFolderUri[0].fsPath;
@@ -125,7 +147,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
 
         if (!lastSelectedFile || !lastSelectedFolder) {
-            vscode.window.showErrorMessage('No file selected for regeneration. Run the "Generate" command first.');
+            vscode.window.showErrorMessage('No previous generation found. Run Generate first.');
             return;
         }
 
