@@ -1,9 +1,9 @@
 import type { AstNode } from 'langium';
 import { AbstractFormatter, Formatting } from 'langium/lsp';
 import {
-    isAction, isActor, isColumn, isFunctionDefinition, isHookHandler,
-    isItem, isKeywords, isMethodBlock, isMoneyField, isPage, isRow, isSection,
-    isTab, isConfig, isChatBlock, isPrompt
+    isAction, isActor, isFunctionDefinition, isHookHandler,
+    isItem, isKeywords, isLayout, isMethodBlock, isMoneyField,
+    isConfig, isChatBlock, isPrompt
 } from './generated/ast.js';
 
 export class IsdlFormatter extends AbstractFormatter {
@@ -17,16 +17,8 @@ export class IsdlFormatter extends AbstractFormatter {
             this.formatWithBlankLine(node, 'actor');
         } else if (isItem(node)) {
             this.formatWithBlankLine(node, 'item');
-        } else if (isSection(node)) {
-            this.formatWithBlankLine(node, 'section');
-        } else if (isRow(node)) {
-            this.formatWithBlankLine(node, 'row');
-        } else if (isColumn(node)) {
-            this.formatWithBlankLine(node, 'column');
-        } else if (isPage(node)) {
-            this.formatWithBlankLine(node, 'page');
-        } else if (isTab(node)) {
-            this.formatWithBlankLine(node, 'tab');
+        } else if (isLayout(node)) {
+            this.formatWithBlankLine(node, node.$type.toLowerCase());
         } else if (isAction(node)) {
             this.formatWithBlankLine(node, 'action');
         } else if (isFunctionDefinition(node)) {
