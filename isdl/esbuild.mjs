@@ -30,16 +30,31 @@ function copyAssets(outDir) {
     // Copy GitHub workflow file
     const workflowSrc = path.resolve('src/extension/github/system-workflow.yml');
     const workflowDest = path.join(outDir, 'extension/github/system-workflow.yml');
-    
-    // Ensure the directory exists
     const workflowDir = path.dirname(workflowDest);
     if (!fs.existsSync(workflowDir)) {
         fs.mkdirSync(workflowDir, { recursive: true });
     }
-    
     if (fs.existsSync(workflowSrc)) {
         fs.copyFileSync(workflowSrc, workflowDest);
         console.log(getTime() + 'Copied workflow file to output directory ' + workflowDest);
+    }
+
+    // Copy vendored static assets used by the generator at runtime
+    const libs = [
+        'datatables.min.css',
+        'datatables.min.js',
+        'progressbar.min.js',
+        'isdl.png',
+        'paperdoll_default.png',
+        'missing-character.png',
+    ];
+    for (const file of libs) {
+        const src = path.resolve(`src/libs/${file}`);
+        const dest = path.join(outDir, file);
+        if (fs.existsSync(src)) {
+            fs.copyFileSync(src, dest);
+            console.log(getTime() + `Copied ${file} to output directory ${dest}`);
+        }
     }
 }
 
