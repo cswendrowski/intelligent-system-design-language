@@ -69,11 +69,13 @@ ClassExpression:
 // Fields ------------------------------------------------------
 
 Property:
-    (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields);
+    (BasicFields | ComplexFields | DateTimeFields | DiceFields | DocumentFields | ReferenceFields | WipFields);
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | DamageTrackExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField);
+    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField);
+WipFields:
+    (DamageTrackExp);
 DateTimeFields:
     (DateExp | TimeExp | DateTimeExp);
 DiceFields:

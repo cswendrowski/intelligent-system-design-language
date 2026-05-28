@@ -31,7 +31,8 @@ import {
     isInventorySumParam, isItem, isMoneyField, isActor,
     isBinaryExpression, isLiteral, NumberExp,
     MethodBlockExpression, isReturnExpression, ResourceExp, AttributeExp,
-    Action, isAction
+    Action, isAction,
+    DamageTrackExp
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
@@ -55,7 +56,8 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         InventoryField: validator.validateInventoryField,
         NumberExp: validator.validateNumberExp,
         ResourceExp: validator.validateResourceExp,
-        AttributeExp: validator.validateAttributeExp
+        AttributeExp: validator.validateAttributeExp,
+        DamageTrackExp: validator.validateWipField
     };
     registry.register(checks, validator);
 }
@@ -636,5 +638,12 @@ export class IntelligentSystemDesignLanguageValidator {
         }
 
         return cycles;
+    }
+
+    validateWipField(field: DamageTrackExp, accept: ValidationAcceptor): void {
+        accept('warning', 'This field is a WIP and may not be fully implemented or may change in a future version.', {
+            node: field,
+            property: 'name'
+        });
     }
 }
