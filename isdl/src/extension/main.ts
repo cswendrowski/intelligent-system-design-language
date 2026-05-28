@@ -18,7 +18,6 @@ export function activate(context: vscode.ExtensionContext): void {
     outputChannel = vscode.window.createOutputChannel('ISDL');
     context.subscriptions.push(outputChannel);
     registerCommands(context);
-    registerFormatter(context);
     registerCodeActions(context);
     registerGithub(context);
     client = startLanguageClient(context);
@@ -185,74 +184,6 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
     // Start the client. This will also launch the server
     client.start();
     return client;
-}
-
-function registerFormatter(context: vscode.ExtensionContext) {
-    let disposable = vscode.languages.registerDocumentFormattingEditProvider('intelligent-system-design-language', {
-        provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
-            const textEdits: vscode.TextEdit[] = [];
-            const indentation = '    '; // Four spaces for indentation
-            let indentLevel = 0;
-
-            for (let i = 0; i < document.lineCount; i++) {
-                try {
-                    const line = document.lineAt(i);
-                    const trimmedLine = line.text.trim();
-                    // console.log(`Line ${i}: ${trimmedLine}`);
-
-                    if (trimmedLine.includes('{') && trimmedLine.includes('}')) {
-                        // Split the line into 3 parts: before {, between { and }, and after }
-                        // const parts = trimmedLine.split('{');
-                        // const before = parts[0];
-                        // const between = parts[1].split('}')[0];
-                        // const after = parts[1].split('}')[1];
-
-                        // // Write the before part
-                        // const beforeText = indentation.repeat(indentLevel) + before;
-                        // textEdits.push(vscode.TextEdit.replace(line.range, beforeText));
-
-                        // // Indent and write the between part
-                        // indentLevel++;
-                        // const betweenText = indentation.repeat(indentLevel) + between;
-                        // textEdits.push(vscode.TextEdit.insert(new vscode.Position(i + 1, 0), betweenText));
-
-                        // // Decrease indent and write the after part
-                        // indentLevel--;
-                        // const afterText = indentation.repeat(indentLevel) + after;
-                        // textEdits.push(vscode.TextEdit.insert(new vscode.Position(i + 2, 0), afterText));
-
-                        const newText = indentation.repeat(indentLevel) + trimmedLine;
-                        if (newText !== line.text) {
-                            textEdits.push(vscode.TextEdit.replace(line.range, newText));
-                        }
-                        continue;
-                    }
-
-                    if (trimmedLine.endsWith('}') ||trimmedLine.startsWith('}')) {
-                        if (indentLevel > 0) indentLevel--;
-                        // console.log(`Decreasing indent level. ${indentLevel}`);
-                    }
-
-
-                    const newText = indentation.repeat(indentLevel) + trimmedLine;
-                    if (newText !== line.text) {
-                        textEdits.push(vscode.TextEdit.replace(line.range, newText));
-                    }
-
-                    if (trimmedLine.endsWith('{') || trimmedLine.startsWith('{')) {
-                        indentLevel++;
-                        // console.log(`Increasing indent level. ${indentLevel}`);
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-
-            return textEdits;
-        }
-    });
-
-    context.subscriptions.push(disposable);
 }
 
 function registerCodeActions(context: vscode.ExtensionContext) {

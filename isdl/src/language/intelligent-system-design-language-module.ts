@@ -3,6 +3,7 @@ import { createDefaultModule, createDefaultSharedModule, type DefaultSharedModul
 import { IntelligentSystemDesignLanguageGeneratedModule, IntelligentSystemDesignLanguageGeneratedSharedModule } from './generated/module.js';
 import { IntelligentSystemDesignLanguageValidator, registerValidationChecks } from './intelligent-system-design-language-validator.js';
 import { IsdlScopeProvider } from './isdl-scope-provider.js';
+import { IsdlFormatter } from './intelligent-system-design-language-formatter.js';
 
 /**
  * Declaration of custom services - add your own service classes here.
@@ -30,6 +31,9 @@ export const IntelligentSystemDesignLanguageModule: Module<IntelligentSystemDesi
     },
     references: {
         ScopeProvider: (services) => new IsdlScopeProvider(services)
+    },
+    lsp: {
+        Formatter: (_services) => new IsdlFormatter()
     }
 };
 
