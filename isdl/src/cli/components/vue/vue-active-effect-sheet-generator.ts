@@ -156,10 +156,10 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
             return isNaN(num) ? 0 : num;
         };
         
-        // Helper method to get change mode from the changes array
+        // Helper method to get change type from the changes array
         const getChangeMode = (key) => {
             const change = props.context?.document?.changes?.find(x => x.key === key);
-            return change?.mode || 0;
+            return change?.type || 'add';
         };
         
         // Initialize selectedFields from existing changes
@@ -236,11 +236,11 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     const humanFieldName = step3;
                     
                     // Format the mode symbol
-                    const modeSymbol = change.mode === 1 ? ' × ' : 
-                                     change.mode === 2 ? ' + ' :
-                                     change.mode === 3 ? ' ↓ ' :
-                                     change.mode === 4 ? ' ↑ ' :
-                                     change.mode === 0 ? ' (Once) + ' : ' ';
+                    const modeSymbol = change.type === 'multiply' ? ' × ' :
+                                     change.type === 'add' ? ' + ' :
+                                     change.type === 'downgrade' ? ' ↓ ' :
+                                     change.type === 'upgrade' ? ' ↑ ' :
+                                     change.type === 'custom' ? ' (Once) + ' : ' ';
                     
                     //console.log("Human Field Name:", humanFieldName, "Mode Symbol:", modeSymbol);
                     groupedChanges[documentName].push(humanFieldName + modeSymbol + change.value);
@@ -441,7 +441,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                         <v-card-text>
                             <v-row>
                                 <v-select
-                                    name="${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage-mode"
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage-type"
                                     :model-value="getChangeMode('${document.name.toLowerCase()}.system.${safeTypeName}bonusdamage')"
                                     label="Mode"
                                     :color="primaryColor"
@@ -480,7 +480,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                         <v-card-text>
                             <v-row>
                                 <v-select
-                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat-mode"
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat-type"
                                     :model-value="getChangeMode('${document.name.toLowerCase()}.system.${safeTypeName}damageresistanceflat')"
                                     label="Mode"
                                     :color="primaryColor"
@@ -519,7 +519,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                         <v-card-text>
                             <v-row>
                                 <v-select
-                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent-mode"
+                                    name="${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent-type"
                                     :model-value="getChangeMode('${document.name.toLowerCase()}.system.${safeTypeName}damageresistancepercent')"
                                     label="Mode"
                                     :color="primaryColor"
@@ -573,7 +573,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :color="primaryColor"
@@ -699,7 +699,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.stringModes"
@@ -733,7 +733,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.booleanModes"
@@ -767,7 +767,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.choiceModes"
                                 item-title="label"
@@ -801,7 +801,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                         <v-label class="">Tracker Value</v-label>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.numberModes"
                                 item-title="label"
@@ -856,7 +856,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.dateModes"
                                 item-title="label"
@@ -889,7 +889,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.timeModes"
                                 item-title="label"
@@ -922,7 +922,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.dateTimeModes"
                                 item-title="label"
@@ -955,7 +955,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.dieModes"
                                 item-title="label"
@@ -990,7 +990,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 :model-value="getChangeMode('${document.name.toLowerCase()}.system.${property.name.toLowerCase()}')"
                                 label="Mode"
                                 :items="context.diceModes"
@@ -1035,7 +1035,7 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                     <v-card-text>
                         <v-row>
                             <v-select
-                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-mode"
+                                name="${document.name.toLowerCase()}.system.${property.name.toLowerCase()}-type"
                                 label="Mode"
                                 :items="context.templateModes"
                                 item-title="label"

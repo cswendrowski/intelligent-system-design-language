@@ -292,9 +292,10 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const columnOrder = ref([]);
 
         const data = computed(() => {
-            const systemPath = props.systemPath ?? inject('systemPath');
-            const systemData = foundry.utils.getProperty(props.context, systemPath) || [];
-            return systemData;
+            // Table fields represent embedded items. Use context.object.items (plain objects
+            // from toObject()) to avoid Vue's reactive proxy traversing Foundry's EmbeddedCollection.
+            const allItems = props.context?.object?.items ?? [];
+            return allItems.filter(i => i.type === '${table.document.ref?.name.toLowerCase() ?? ''}');
         });
 
         // Create a map of item _id to item for drag operations

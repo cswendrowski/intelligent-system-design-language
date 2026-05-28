@@ -749,6 +749,17 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     ${isActor(document) ? expandToNode`
                         // Reapply Active Effects for calculated values
                         ${joinToNode(toBeReapplied, name => expandToNode`this.reapplyActiveEffectsForName("${name}");`, { appendNewLineIfNotEmpty: true})}
+
+                        // Bridge fighter.system.* active effect overrides into system.* for flat (non-nested) fields.
+                        // allApplicableEffects cannot strip the type prefix in V14 (changes is getter-only),
+                        // so Foundry applies flat fields (e.g. bonusdamage, resistanceflat) to actor.fighter.system.*
+                        // Nested fields (e.g. fight.value) are handled by reapplyActiveEffectsForName above.
+                        const _typeOverrides = this.overrides?.${document.name.toLowerCase()}?.system ?? {};
+                        for (const [_k, _v] of Object.entries(_typeOverrides)) {
+                            if (typeof _v !== 'object' && _k in this.system) {
+                                this.system[_k] = _v;
+                            }
+                        }
                     ` : ""}
                 }
             `.appendNewLineIfNotEmpty().appendNewLine();

@@ -328,7 +328,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                     <!-- Image slot -->
                     <template v-slot:item.img="{ item }">
                         <v-avatar size="40" rounded="0">
-                            <v-img :src="item.icon" :alt="item.name" cover></v-img>
+                            <v-img :src="item.img ?? item.icon" :alt="item.name" cover></v-img>
                         </v-avatar>
                     </template>
 
@@ -850,7 +850,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 <v-alert :text="game.i18n.localize('EditModeWarning')" type="warning" density="compact" class="ga-2 ma-1" color="amber-accent-3" v-if="editModeRef"></v-alert>
                 <template v-slot:append>
                     <v-btn
-                        :icon="hovered ? (editModeRef ? 'fa-solid fa-dice-d20' : 'fa-solid fa-pen-to-square') : (editMode ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20')"
+                        :icon="hovered ? (editModeRef ? 'fa-solid fa-dice-d20' : 'fa-solid fa-pen-to-square') : (editModeRef ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-dice-d20')"
                         @click="toggleEditMode"
                         @mouseover="hovered = true"
                         @mouseleave="hovered = false"
@@ -934,7 +934,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
             <!-- Main Content -->
             <v-main class="d-flex">
-                <v-container :key="editMode" :class="pageBackground" fluid>
+                <v-container :key="editModeRef" :class="pageBackground" fluid>
                     <v-tabs-window v-model="page">
                         <v-tabs-window-item value="${document.name.toLowerCase()}" data-tab="${document.name.toLowerCase()}">
                             <v-row dense>

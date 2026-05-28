@@ -1,0 +1,47 @@
+config LightweightSystem {
+    label = "Lightweight System"
+    id = "lightweight"
+    description = "A quick example of ISDL's capabilities"
+    author = "Cody Swendrowski"
+}
+
+actor Fighter {
+    health resource HP(max: {
+        return self.Fight + 6
+    })
+    attribute Fight(min: 1, max: 30,
+        mod: {
+            return (self.Fight - 10) / 2
+        },
+        roll: roll(d20 + self.Fight))
+    attribute Flight(min: 1, max: 30,
+        mod: {
+            return (self.Flight - 10) / 2
+        },
+        roll: roll(d20 + self.Flight))
+    status Bloodied(when: self.HP <= self.HP.Max / 2)
+
+    row {
+        bonuses Bonuses
+        resistances Resistances
+    }
+    table<Weapon> Weapons
+}
+
+item Weapon {
+    parent<attribute> Attribute
+    choice<damageType> Type(choices: [
+          { label: "⚔️ Slashing",    value: "slashing",    icon: "fa-solid fa-sword",  color: #CC3333 },
+          { label: "🔨 Bludgeoning", value: "bludgeoning", icon: "fa-solid fa-hammer", color: #8B4513 }
+      ])
+    number Bonus(initial: 0)
+
+    action Strike {
+        fleeting attack = roll(d20 + self.Attribute + self.Bonus)
+        fleeting dmg = damage(roll: roll(1d6 + self.Bonus), type: self.Type)
+        chat WeaponStrike {
+            attack
+            dmg
+        }
+    }
+}

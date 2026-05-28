@@ -177,84 +177,57 @@ export function collectAllStatusEffects(entry: Entry): Map<string, StatusEffectD
     return statusEffects;
 }
 
+const OPERATOR_MAP: Record<string, string> = {
+    '<=': 'JOURNAL.OperatorLabels.LessThanOrEqual',
+    '>=': 'JOURNAL.OperatorLabels.GreaterThanOrEqual',
+    '<': 'JOURNAL.OperatorLabels.LessThan',
+    '>': 'JOURNAL.OperatorLabels.GreaterThan',
+    '==': 'JOURNAL.OperatorLabels.Equals',
+    '!=': 'JOURNAL.OperatorLabels.NotEqual',
+    'equals': 'JOURNAL.OperatorLabels.Equals',
+    '!equals': 'JOURNAL.OperatorLabels.NotEqual',
+};
+
 // Helper function to convert AST condition to human readable string
 function convertConditionToString(condition: any): string {
     if (!condition) return '';
 
-    // Handle different types of expressions
     if (condition.$type === 'ComparisonExpression') {
-        const left = convertExpressionToString(condition.left);
-        const operator = condition.operator;
-        const right = convertExpressionToString(condition.right);
-
-        // Convert operators to localization keys
-        const operatorMap: Record<string, string> = {
-            '<=': 'JOURNAL.OperatorLabels.LessThanOrEqual',
-            '>=': 'JOURNAL.OperatorLabels.GreaterThanOrEqual',
-            '<': 'JOURNAL.OperatorLabels.LessThan',
-            '>': 'JOURNAL.OperatorLabels.GreaterThan',
-            '==': 'JOURNAL.OperatorLabels.Equals',
-            '!=': 'JOURNAL.OperatorLabels.NotEqual'
-        };
-
-        const humanOperator = operatorMap[operator] || operator;
+        const left = convertExpressionToString(condition.e1);
+        const right = convertExpressionToString(condition.e2);
+        const humanOperator = OPERATOR_MAP[condition.term] || condition.term;
         return `${left} {{${humanOperator}}} ${right}`;
     }
 
     if (condition.$type === 'ShorthandComparisonExpression') {
-        // ShorthandComparisonExpression often contains a nested BinaryExpression in e1
+        // Due to grammar operator precedence, comparison+arithmetic expressions like
+        // "self.HP <= self.HP.Max / 2" parse as BinaryExpression(BinaryExpression(HP <= HP.Max), /, 2).
+        // Walk into nested BinaryExpressions until we find a comparison operator.
         if (condition.e1 && condition.e1.$type === 'BinaryExpression') {
-            const left = extractSimplePropertyName(condition.e1.e1);
-            const operator = condition.e1.op;
-            const right = extractSimpleValue(condition.e1.e2);
-
-            // Convert operators to localization keys
-            const operatorMap: Record<string, string> = {
-                '<=': 'JOURNAL.OperatorLabels.LessThanOrEqual',
-                '>=': 'JOURNAL.OperatorLabels.GreaterThanOrEqual',
-                '<': 'JOURNAL.OperatorLabels.LessThan',
-                '>': 'JOURNAL.OperatorLabels.GreaterThan',
-                '==': 'JOURNAL.OperatorLabels.Equals',
-                '!=': 'JOURNAL.OperatorLabels.NotEqual'
-            };
-
-            const humanOperator = operatorMap[operator] || operator;
-            return `${left} {{${humanOperator}}} ${right}`;
+            const binExpr = findComparisonBinaryExpression(condition.e1);
+            if (binExpr) {
+                const left = convertExpressionToString(binExpr.e1);
+                const right = convertExpressionToString(binExpr.e2);
+                const humanOperator = OPERATOR_MAP[binExpr.op] || binExpr.op;
+                return `${left} {{${humanOperator}}} ${right}`;
+            }
         }
 
-        // Handle other ShorthandComparisonExpression cases
         if (condition.term) {
             const expr = convertExpressionToString(condition.e1);
             return condition.term === 'exists' ? `${expr} {{JOURNAL.OperatorLabels.Exists}}` : `${expr} {{JOURNAL.OperatorLabels.NotExists}}`;
         }
     }
 
-    // Handle other expression types as needed
     return convertExpressionToString(condition);
 }
 
-// Helper functions for simple property and value extraction
-function extractSimplePropertyName(expr: any): string {
-    if (!expr) return '';
-
-    // For Access expressions, look for property names
-    if (expr.$type === 'Access') {
-        // Handle direct property references like self.HP -> HP
-        return expr.property.$refText;
-    }
-
-    return expr.property.$refText;
-}
-
-function extractSimpleValue(expr: any): string {
-    if (!expr) return '';
-
-    // For Literal expressions, return the value
-    if (expr.$type === 'Literal') {
-        return String(expr.val);
-    }
-
-    return String(expr.val || expr.name || '');
+// Walk a BinaryExpression tree to find the node whose op is a comparison operator.
+// Needed because arithmetic operators wrap comparison BinaryExpressions due to grammar precedence.
+function findComparisonBinaryExpression(expr: any): any {
+    if (!expr || expr.$type !== 'BinaryExpression') return null;
+    if (OPERATOR_MAP[expr.op]) return expr;
+    return findComparisonBinaryExpression(expr.e1);
 }
 
 // Helper function to convert expressions to human readable strings

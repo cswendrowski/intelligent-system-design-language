@@ -202,14 +202,30 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 ],
                 form: {
                     handler: ${entry.config.name}EffectVueSheet._onSubmitForm,
-                    submitOnChange: true,
+                    submitOnChange: false,
                     submitOnClose: true,
                     closeOnSubmit: false
                 }
             };
 
             /* -------------------------------------------- */
-            
+
+            static async _onEditImage(event, target) {
+                const current = foundry.utils.getProperty(this.document, target.dataset.edit);
+                const fp = new FilePicker({
+                    current,
+                    type: "image",
+                    callback: (path) => {
+                        this.document.update({ [target.dataset.edit]: path });
+                    },
+                    top: this.position.top + 40,
+                    left: this.position.left + 10
+                });
+                return fp.browse();
+            }
+
+            /* -------------------------------------------- */
+
             async _prepareContext(options) {
                 const context = await super._prepareContext(options);
                 this.object = this.document.toObject();
@@ -228,10 +244,6 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 if ( context.effect.origin ) {
                     context.originLink = await TextEditor.enrichHTML("@UUID[" + context.effect.origin + "]");
                 }
-                context.modes = Object.entries(CONST.ACTIVE_EFFECT_MODES).reduce((obj, e) => {
-                    obj[e[1]] = game.i18n.localize(\`EFFECT.MODE_\${e[0]}\`);
-                    return obj;
-                });
                 
                 function setValue(obj, access, value, mode) {
                     if ( typeof(access)=='string' ) {
@@ -282,43 +294,41 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                 
                 await this._enrichEditor(vueContext, "description");
                 
-                const modes = CONST.ACTIVE_EFFECT_MODES;
-                const numberModes = [modes.MULTIPLY, modes.ADD, modes.DOWNGRADE, modes.UPGRADE, modes.OVERRIDE];
-                const stringModes = [modes.OVERRIDE];
-                const booleanModes = [modes.OVERRIDE];
+                const numberTypes = ['multiply', 'add', 'downgrade', 'upgrade', 'override'];
+                const stringTypes = ['override'];
+                const booleanTypes = ['override'];
 
-                vueContext.numberModes = numberModes.reduce((obj, mode) => {
-                    obj.push({
-                        value: mode,
-                        label: context.modes[mode]
-                    });
-                    return obj;
-                }, []);
-                vueContext.basicNumberModes = numberModes.reduce((obj, mode) => {
-                    obj.push({
-                        value: mode,
-                        label: context.modes[mode]
-                    });
-                    return obj;
-                }, []);
+                vueContext.numberModes = numberTypes.map(type => ({
+                    value: type,
+                    label: game.i18n.localize(\`EFFECT.CHANGES.TYPES.\${type}\`)
+                }));
                 vueContext.numberModes.push({
-                    value: 0,
+                    value: 'custom',
                     label: game.i18n.localize("EFFECTS.AddOnce")
                 });
-                vueContext.stringModes = stringModes.map((mode) => ({
-                    value: mode,
-                    label: context.modes[mode]
+                vueContext.basicNumberModes = numberTypes.map(type => ({
+                    value: type,
+                    label: game.i18n.localize(\`EFFECT.CHANGES.TYPES.\${type}\`)
                 }));
-                vueContext.booleanModes = booleanModes.map((mode) => ({
-                    value: mode,
-                    label: context.modes[mode]
+                vueContext.stringModes = stringTypes.map(type => ({
+                    value: type,
+                    label: game.i18n.localize(\`EFFECT.CHANGES.TYPES.\${type}\`)
+                }));
+                vueContext.booleanModes = booleanTypes.map(type => ({
+                    value: type,
+                    label: game.i18n.localize(\`EFFECT.CHANGES.TYPES.\${type}\`)
                 }));
                 vueContext.resourceModes = [
-                    { value: 0, label: "Add Once" }
+                    { value: 'custom', label: game.i18n.localize("EFFECTS.AddOnce") }
                 ];
                 vueContext.trackerModes = [
-                    { value: 0, label: "Add Once" }
+                    { value: 'custom', label: game.i18n.localize("EFFECTS.AddOnce") }
                 ];
+
+                // Copy current change values into vueContext so the Vue component can read them
+                for ( const change of context.effect.changes ) {
+                    setValue(vueContext, change.key, change.value, change.mode);
+                }
 
                 console.dir("Vue Active Effect Context", vueContext);
                 return vueContext;
@@ -372,16 +382,10 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
              * @returns {Promise<void>}
              */
             static async _onSubmitForm(event, form, formData) {
-                let ae = foundry.utils.duplicate(this.document);
-                console.log("Updating Active Effect", ae, formData);
-                ae.name = formData.object.name;
-                ae.description = formData.object.description;
-                ae.origin = formData.object.origin;
-                ae.disabled = formData.object.disabled;
-                ae.transfer = formData.object.transfer;
-
-                if ( !ae.flags["${id}"] ) {
-                    ae.flags["${id}"] = {};
+                console.log("Updating Active Effect", formData);
+                const flags = foundry.utils.duplicate(this.document.flags);
+                if ( !flags["${id}"] ) {
+                    flags["${id}"] = {};
                 }
 
                 // Retrieve the existing effects.
@@ -392,18 +396,22 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
 
                 function addChange(documentName, key, customMode) {
                     const value = foundry.utils.getProperty(formData.object, key);
+                    if ( value === undefined ) {
+                        // Field not rendered in the form - preserve any existing change.
+                        return;
+                    }
                     if ( !value ) {
-                        // If there is a current change for this key, remove it.
+                        // Field explicitly cleared (empty string / zero) - remove the change.
                         changes = changes.filter(c => c.key !== key);
                         return;
                     }
-                    const mode = foundry.utils.getProperty(formData.object, key + "-mode");
+                    const type = foundry.utils.getProperty(formData.object, key + "-type") ?? 'add';
                     newChanges.push({
                         key: key,
                         value: value,
-                        mode: mode
+                        type: type
                     });
-                    if ( customMode ) ae.flags["${id}"][key + "-custommode"] = customMode;
+                    if ( customMode ) flags["${id}"][key + "-custommode"] = customMode;
                 }
 
                 ${joinToNode(entry.documents.filter(d => isActor(d)), document => joinToNode(document.body, property => generateAddValue(document, property), { appendNewLineIfNotEmpty: true }))}
@@ -421,13 +429,17 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
                     }
                 }
 
-                // Apply the combined effect changes.
-                ae.changes = changes.concat(newChanges);
-
                 // Filter changes for empty form fields.
-                ae.changes = ae.changes.filter(c => c.value !== null);
-                console.log("Active Effect Changes", ae.changes);
-                await this.document.update(ae);
+                const finalChanges = changes.concat(newChanges).filter(c => c.value !== null && c.value !== undefined && c.value !== '');
+                console.log("Active Effect Changes", finalChanges);
+                await this.document.update({
+                    name: formData.object.name,
+                    description: formData.object.description ?? '',
+                    disabled: formData.object.disabled ?? false,
+                    transfer: formData.object.transfer ?? false,
+                    changes: finalChanges,
+                    flags: flags
+                });
 
                 // Rerender the parent sheets to update the effect lists.
                 this.document.parent?.sheet?.render();

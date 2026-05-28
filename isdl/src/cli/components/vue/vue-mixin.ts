@@ -225,14 +225,13 @@ export function generateVueMixin(description: string) {
                             }
                         },
                         watch: {
-                            "context.system": {
+                            "context._renderKey": {
                                 handler: function (newVal, oldVal) {
                                     this.$nextTick(() => {
                                         const changeEvent = new Event("change", { bubbles: true });
                                         this.$el.dispatchEvent(changeEvent);
                                     });
-                                },
-                                deep: true
+                                }
                             }
                         }
                     });

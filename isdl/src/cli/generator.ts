@@ -180,7 +180,7 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             "version": "This is auto replaced",
             "compatibility": {
                 "minimum": 12,
-                "verified": 13
+                "verified": 14
             },
             "authors": [
                 {

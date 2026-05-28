@@ -159,55 +159,49 @@ export default function generateDamageResistancesComponent(destination: string, 
 
     <template>
         <div v-if="!isHidden" class="isdl-damage-resistances pt-2 double-wide">
-            <v-card class="damage-resistances-card" variant="outlined">
-                <v-card-title class="damage-resistances-header">
+            <v-card class="damage-resistances-card" variant="outlined" theme="light" color="white">
+                <v-card-title class="damage-resistances-header bg-grey-darken-3 text-white">
                     <v-icon v-if="icon" class="me-2">{{ icon }}</v-icon>
                     <span>{{ game.i18n.localize(label) }}</span>
                 </v-card-title>
-                
-                <v-card-text>
-                    <div v-if="damageResistances.length === 0" class="text-center text-disabled">
+
+                <v-card-text class="pa-0">
+                    <div v-if="damageResistances.length === 0" class="text-center text-disabled pa-2">
                         No damage resistances found
                     </div>
-                    
+
                     <v-table v-else density="compact" class="damage-resistances-table">
                         <thead>
                             <tr>
-                                <th class="text-left">Type</th>
-                                <th class="text-center">Flat Resistance</th>
-                                <th class="text-center">% Resistance</th>
+                                <th class="text-left text-white">Type</th>
+                                <th class="text-center text-white">Flat Resistance</th>
+                                <th class="text-center text-white">% Resistance</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="damage in damageResistances" :key="damage.type" class="damage-type-row">
                                 <td class="damage-type-name">
                                     <div class="damage-type-header">
-                                        <v-icon 
-                                            :color="damage.color"
-                                            size="small"
-                                            class="me-2"
-                                        >
-                                            {{ damage.icon }}
-                                        </v-icon>
-                                        <span class="text-subtitle-2" :style="{ color: damage.color }">
-                                            {{ damage.label || capitalize(damage.type) }}
-                                        </span>
+                                        <v-icon :color="damage.color" size="small" class="me-2">{{ damage.icon }}</v-icon>
+                                        <span class="text-subtitle-2">{{ damage.label || capitalize(damage.type) }}</span>
                                     </div>
                                 </td>
                                 <td class="text-center">
-                                    <v-chip 
-                                        size="small" 
-                                        :color="Number(damage.flatResistance) > 0 ? 'blue' : 'grey'"
-                                        variant="outlined"
+                                    <v-chip
+                                        size="small"
+                                        :color="Number(damage.flatResistance) > 0 ? 'primary' : 'default'"
+                                        variant="flat"
+                                        class="text-white font-weight-bold"
                                     >
                                         {{ formatValue(damage.flatResistance) }}
                                     </v-chip>
                                 </td>
                                 <td class="text-center">
-                                    <v-chip 
-                                        size="small" 
-                                        :color="Number(damage.percentResistance) > 0 ? 'blue' : 'grey'"
-                                        variant="outlined"
+                                    <v-chip
+                                        size="small"
+                                        :color="Number(damage.percentResistance) > 0 ? 'primary' : 'default'"
+                                        variant="flat"
+                                        class="text-white font-weight-bold"
                                     >
                                         {{ formatValue(damage.percentResistance, '%') }}
                                     </v-chip>
@@ -221,28 +215,26 @@ export default function generateDamageResistancesComponent(destination: string, 
     </template>
 
     <style scoped>
-    .damage-resistances-field {
-        margin: 8px 0;
-    }
-
     .damage-resistances-card {
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-radius: 6px;
+        background: #ffffff;
     }
 
     .damage-resistances-header {
-        background: rgba(var(--v-theme-info), 0.1);
-        padding: 12px 16px;
+        background: #424242;
+        color: #ffffff;
+        padding: 6px 12px;
+        font-size: 0.85rem;
         font-weight: 600;
-        border-bottom: 1px solid rgba(var(--v-theme-info), 0.2);
+        border-bottom: 1px solid #333;
     }
 
     .damage-resistances-table {
-        background: transparent;
+        background: #ffffff;
     }
 
     .damage-type-row:hover {
-        background-color: rgba(var(--v-theme-info), 0.05);
+        background-color: #f9f9f9;
     }
 
     .damage-type-name {
@@ -258,17 +250,19 @@ export default function generateDamageResistancesComponent(destination: string, 
 
     .v-table th {
         font-weight: 600;
-        color: rgba(var(--v-theme-on-surface), 0.8);
-        font-size: 0.875rem;
+        font-size: 0.8rem;
+        color: #555;
+        background: #fafafa;
+        border-bottom: 1px solid #e0e0e0;
     }
 
     .v-table td {
-        padding: 8px 12px;
-        border-bottom: 1px solid rgba(var(--v-theme-outline), 0.12);
+        padding: 4px 12px;
+        border-bottom: 1px solid #f0f0f0;
     }
 
     .v-chip {
-        min-width: 60px;
+        min-width: 48px;
         justify-content: center;
     }
     </style>
