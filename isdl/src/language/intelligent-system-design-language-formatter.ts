@@ -3,7 +3,7 @@ import { AbstractFormatter, Formatting } from 'langium/lsp';
 import {
     isAction, isActor, isColumn, isFunctionDefinition, isHookHandler,
     isItem, isKeywords, isMethodBlock, isMoneyField, isPage, isRow, isSection,
-    isTab, isConfig
+    isTab, isConfig, isChatBlock, isPrompt
 } from './generated/ast.js';
 
 export class IsdlFormatter extends AbstractFormatter {
@@ -30,6 +30,10 @@ export class IsdlFormatter extends AbstractFormatter {
         } else if (isAction(node) || isFunctionDefinition(node) || isHookHandler(node)) {
             this.formatBraceBlock(node);
         } else if (isMethodBlock(node)) {
+            this.formatBraceBlock(node);
+        } else if (isChatBlock(node)) {
+            this.formatBraceBlock(node);
+        } else if (isPrompt(node)) {
             this.formatBraceBlock(node);
         } else if (isMoneyField(node)) {
             this.formatMoneyField(node);
