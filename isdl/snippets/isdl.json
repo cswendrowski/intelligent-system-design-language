@@ -1,0 +1,293 @@
+{
+    "Config block": {
+        "prefix": "config",
+        "body": [
+            "config ${1:SystemName} {",
+            "\tlabel = \"${2:My System}\"",
+            "\tid = \"${3:my-system}\"",
+            "\tauthor = \"${4:Author}\"",
+            "\t$0",
+            "}"
+        ],
+        "description": "System configuration block"
+    },
+    "Actor": {
+        "prefix": "actor",
+        "body": [
+            "actor ${1:Name} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Define an actor document (characters, NPCs)"
+    },
+    "Item": {
+        "prefix": "item",
+        "body": [
+            "item ${1:Name} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Define an item document (equipment, spells, skills)"
+    },
+    "Section": {
+        "prefix": "section",
+        "body": [
+            "section ${1:Name} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Group fields into a named section"
+    },
+    "Page": {
+        "prefix": "page",
+        "body": [
+            "page ${1:Name} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Add a tab page to a document sheet"
+    },
+    "Tab": {
+        "prefix": "tab",
+        "body": [
+            "tab ${1:Name} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Add a sub-tab inside a page"
+    },
+    "Row": {
+        "prefix": "row",
+        "body": [
+            "row {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Arrange fields horizontally in a row"
+    },
+    "Column": {
+        "prefix": "column",
+        "body": [
+            "column {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Stack fields vertically in a column"
+    },
+    "Action": {
+        "prefix": "action",
+        "body": [
+            "action ${1:Name} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "A clickable button that runs code"
+    },
+    "Action with chat": {
+        "prefix": "actionchat",
+        "body": [
+            "action ${1:Name} {",
+            "\tfleeting result = roll(${2:d20})",
+            "\tchat ${3:Result} {",
+            "\t\tresult",
+            "\t}",
+            "}"
+        ],
+        "description": "Action that rolls dice and posts a chat card"
+    },
+    "Hook handler": {
+        "prefix": "on",
+        "body": [
+            "on ${1:combatStart} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "React to a Foundry VTT event"
+    },
+    "Function": {
+        "prefix": "function",
+        "body": [
+            "function ${1:Name}(${2:number value}) returns ${3:number} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "A reusable named function"
+    },
+    "String field": {
+        "prefix": "string",
+        "body": "string ${1:Name}",
+        "description": "A plain text field"
+    },
+    "Number field": {
+        "prefix": "number",
+        "body": "number ${1:Name}",
+        "description": "A numeric field"
+    },
+    "Boolean field": {
+        "prefix": "boolean",
+        "body": "boolean ${1:Name}",
+        "description": "A true/false checkbox"
+    },
+    "HTML field": {
+        "prefix": "html",
+        "body": "html ${1:Name}",
+        "description": "A rich text / HTML editor field"
+    },
+    "Resource field": {
+        "prefix": "resource",
+        "body": "resource ${1:Name}(max: ${2:10})",
+        "description": "A current/max resource bar (HP, Mana, etc.)"
+    },
+    "Health resource": {
+        "prefix": "health",
+        "body": "health resource ${1:HP}(max: ${2:10})",
+        "description": "A resource bar tagged as the primary health pool"
+    },
+    "Tracker field": {
+        "prefix": "tracker",
+        "body": "tracker ${1:Name}(style: ${2|bar,dial,icons,slashes,segmented,clock,plain|}, max: ${3:5})",
+        "description": "A visual progress tracker (clock, icons, bar, etc.)"
+    },
+    "Attribute field": {
+        "prefix": "attribute",
+        "body": [
+            "attribute ${1:Name}(min: ${2:1}, max: ${3:20}, mod: {",
+            "\treturn (self.${1:Name} - 10) / 2",
+            "})"
+        ],
+        "description": "A stat with an optional derived modifier"
+    },
+    "Choice field": {
+        "prefix": "choice",
+        "body": "choice<string> ${1:Name}(choices: [\"${2:Option A}\", \"${3:Option B}\"])",
+        "description": "A single-select dropdown from a fixed list"
+    },
+    "Choices field": {
+        "prefix": "choices",
+        "body": "choices<string> ${1:Name}(choices: [\"${2:Option A}\", \"${3:Option B}\"], max: ${4:3})",
+        "description": "A multi-select field from a fixed list"
+    },
+    "Die field": {
+        "prefix": "die",
+        "body": "die ${1:Name}",
+        "description": "A single die type selector (d4, d6, d8, etc.)"
+    },
+    "Dice field": {
+        "prefix": "dice",
+        "body": "dice ${1:Name}",
+        "description": "A dice pool selector (NdX)"
+    },
+    "Date field": {
+        "prefix": "date",
+        "body": "date ${1:Name}",
+        "description": "A date picker field"
+    },
+    "Time field": {
+        "prefix": "time",
+        "body": "time ${1:Name}",
+        "description": "A time picker field"
+    },
+    "Datetime field": {
+        "prefix": "datetime",
+        "body": "datetime ${1:Name}",
+        "description": "A combined date and time picker field"
+    },
+    "Money field": {
+        "prefix": "money",
+        "body": [
+            "money ${1:Gold}(icon: \"fa-solid fa-coins\", format: ${2|compact,full,auto|})"
+        ],
+        "description": "A currency field, optionally with multiple denominations"
+    },
+    "Money with denominations": {
+        "prefix": "moneydenom",
+        "body": [
+            "money ${1:Wealth}(display: breakdown) {",
+            "\t${2:Gold}   (value: ${3:100}, icon: \"fa-solid fa-coins\")",
+            "\t${4:Silver} (value: ${5:10},  icon: \"fa-solid fa-coins\")",
+            "\t${6:Copper} (value: ${7:1},   icon: \"fa-solid fa-coins\")",
+            "}"
+        ],
+        "description": "A multi-denomination currency field"
+    },
+    "Table field": {
+        "prefix": "table",
+        "body": "table<${1:ItemType}> ${2:Name}",
+        "description": "An embedded list of linked items"
+    },
+    "Inventory field": {
+        "prefix": "inventory",
+        "body": [
+            "inventory<${1:ItemType}> ${2:Name}(",
+            "\tslots: ${3:10},",
+            "\trows: ${4:2},",
+            "\tslotSize: ${5:60px}",
+            ")"
+        ],
+        "description": "A grid-based inventory of linked items"
+    },
+    "Macro field": {
+        "prefix": "macro",
+        "body": "macro ${1:Name}",
+        "description": "A Foundry VTT macro reference that can be executed"
+    },
+    "Measured template field": {
+        "prefix": "measuredTemplate",
+        "body": "measuredTemplate ${1:Name}",
+        "description": "A Foundry VTT measured template (AoE shapes)"
+    },
+    "Bonuses field": {
+        "prefix": "bonuses",
+        "body": "bonuses ${1:Name}",
+        "description": "Displays active damage type bonuses"
+    },
+    "Resistances field": {
+        "prefix": "resistances",
+        "body": "resistances ${1:Name}",
+        "description": "Displays active damage type resistances"
+    },
+    "Pinned field": {
+        "prefix": "pinned",
+        "body": "pinned ${1:Name}",
+        "description": "Displays items the player has pinned for quick access"
+    },
+    "Self property reference": {
+        "prefix": "self<",
+        "body": "self<${1|attribute,resource,number,boolean,string,tracker,choice,die,date,time,datetime,html,paperdoll|}> ${2:Name}",
+        "description": "A reference to another field on the same document"
+    },
+    "Parent property reference": {
+        "prefix": "parent<",
+        "body": "parent<${1|attribute,resource,number,boolean,string,tracker,choice,die,date,time,datetime,html,paperdoll|}> ${2:Name}",
+        "description": "A reference to a field on the owning parent document"
+    },
+    "Status effect": {
+        "prefix": "status",
+        "body": "status ${1:Name}(when: ${2:self.HP <= 0})",
+        "description": "A conditional status effect applied when an expression is true"
+    },
+    "Death status": {
+        "prefix": "death status",
+        "body": "death status ${1:Dead}(when: ${2:self.HP <= 0})",
+        "description": "A death status effect that marks the actor as dead"
+    },
+    "Fleeting variable": {
+        "prefix": "fleeting",
+        "body": "fleeting ${1:name} = ${2:value}",
+        "description": "A temporary local variable"
+    },
+    "Roll expression": {
+        "prefix": "roll(",
+        "body": "roll(${1:d20})",
+        "description": "Roll dice and get a roll result"
+    },
+    "Chat card": {
+        "prefix": "chat",
+        "body": [
+            "chat ${1:Name} {",
+            "\t${2:result}",
+            "}"
+        ],
+        "description": "Post a chat card to the Foundry chat log"
+    }
+}

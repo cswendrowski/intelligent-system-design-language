@@ -4,6 +4,7 @@ import { IntelligentSystemDesignLanguageGeneratedModule, IntelligentSystemDesign
 import { IntelligentSystemDesignLanguageValidator, registerValidationChecks } from './intelligent-system-design-language-validator.js';
 import { IsdlScopeProvider } from './isdl-scope-provider.js';
 import { IsdlFormatter } from './intelligent-system-design-language-formatter.js';
+import { IsdlHoverProvider } from './isdl-hover-provider.js';
 
 /**
  * Declaration of custom services - add your own service classes here.
@@ -33,7 +34,8 @@ export const IntelligentSystemDesignLanguageModule: Module<IntelligentSystemDesi
         ScopeProvider: (services) => new IsdlScopeProvider(services)
     },
     lsp: {
-        Formatter: (_services) => new IsdlFormatter()
+        Formatter: (_services) => new IsdlFormatter(),
+        HoverProvider: (_services) => new IsdlHoverProvider()
     }
 };
 

@@ -3,7 +3,7 @@
   "displayName": "Intelligent System Design Language",
   "description": "Intelligent System Design Language support for Visual Studio Code",
   "publisher": "IronMooseDevelopment",
-  "version": "0.2.12",
+  "version": "0.3.0",
   "author": "Iron Moose Development",
   "repository": {
     "type": "git",
@@ -98,6 +98,12 @@
         "language": "intelligent-system-design-language",
         "scopeName": "source.intelligent-system-design-language",
         "path": "syntaxes/intelligent-system-design-language.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "intelligent-system-design-language",
+        "path": "snippets/isdl.json"
       }
     ],
     "commands": [
