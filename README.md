@@ -85,4 +85,4 @@ ISDL provides just enough typing to protect yourself from things like typos and 
 
 👉 **[Start with the Getting Started Guide](https://github.com/cswendrowski/intelligent-system-design-language/wiki/Getting-Started)**
 
-💬 **[Join our Discord channel](https://discord.gg/aMqYJwSPM3)
+💬 **[Join our Discord channel](https://discord.gg/aMqYJwSPM3)**
