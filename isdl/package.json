@@ -17,7 +17,7 @@
   "preview": true,
   "license": "GPL-3.0",
   "type": "module",
-  "icon": "out/isdl.png",
+  "icon": "isdl.png",
   "scripts": {
     "build": "tsc -b tsconfig.src.json && node esbuild.mjs",
     "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.src.json --watch\" \"node esbuild.mjs --watch\"",
