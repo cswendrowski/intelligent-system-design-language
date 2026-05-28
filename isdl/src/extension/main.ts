@@ -32,35 +32,32 @@ export function deactivate(): Thenable<void> | undefined {
 function registerCommands(context: vscode.ExtensionContext) {
 
     function generate(sourceFilePath: string, destinationPath: string) {
-
-        vscode.window.showInformationMessage('Generating Intelligent System Design Language code');
-
-        // Define the path to the CLI script
-        vscode.window.showInformationMessage(context.extensionPath);
         const cliPath = path.resolve(context.extensionPath, 'bin', 'cli.js');
 
-        // Spawn a new process to run the CLI script with the provided parameters
-        vscode.window.showInformationMessage(`node ${cliPath} generate "${sourceFilePath}" --destination "${destinationPath}"`);
-        const cliProcess = spawn('node', [cliPath, 'generate', `"${sourceFilePath}"`, '--destination', `"${destinationPath}"`], {
-            cwd: context.extensionPath,
-            shell: true
-        });
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Generating ISDL system...',
+            cancellable: false
+        }, () => new Promise<void>((resolve, reject) => {
+            const cliProcess = spawn('node', [cliPath, 'generate', `"${sourceFilePath}"`, '--destination', `"${destinationPath}"`], {
+                cwd: context.extensionPath,
+                shell: true
+            });
 
-        cliProcess.stdout.on('data', (data) => {
-            //vscode.window.showInformationMessage(`CLI Output: ${data}`);
-        });
+            const errors: string[] = [];
+            cliProcess.stderr.on('data', (data) => errors.push(data.toString().trim()));
 
-        cliProcess.stderr.on('data', (data) => {
-            vscode.window.showErrorMessage(`CLI Error: ${data}`);
-        });
-
-        cliProcess.on('close', (code) => {
-            vscode.window.showInformationMessage(`CLI process exited with code ${code}`);
-        });
-
-        // The code you place here will be executed every time your command is executed
-        // Display a message box to the user
-        vscode.window.showInformationMessage('Generation complete!');
+            cliProcess.on('close', (code) => {
+                if (code === 0) {
+                    vscode.window.showInformationMessage('System generated successfully!');
+                    resolve();
+                } else {
+                    const detail = errors.length > 0 ? errors.join('\n') : `Exit code ${code}`;
+                    vscode.window.showErrorMessage(`Generation failed: ${detail}`);
+                    reject();
+                }
+            });
+        }));
     }
 
     // Register a command that can be invoked with a keybinding, a menu item, or by running a command.
