@@ -16,3 +16,4 @@ CLAUDE.md
 RELEASE_NOTES.md
 test-output/**
 test-output-*/**
+node_modules/**
