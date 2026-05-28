@@ -10,67 +10,44 @@ export class IsdlFormatter extends AbstractFormatter {
 
     protected format(node: AstNode): void {
         if (isConfig(node)) {
-            this.formatNamedBlock(node, 'config');
+            this.applyBraceFormatting(node);
         } else if (isKeywords(node)) {
-            this.formatKeywords(node);
+            this.applyBraceFormatting(node);
         } else if (isActor(node)) {
-            this.formatDocumentNode(node, 'actor');
+            this.formatWithBlankLine(node, 'actor');
         } else if (isItem(node)) {
-            this.formatDocumentNode(node, 'item');
+            this.formatWithBlankLine(node, 'item');
         } else if (isSection(node)) {
-            this.formatSection(node);
+            this.formatWithBlankLine(node, 'section');
         } else if (isRow(node)) {
-            this.formatAnonymousBlock(node, 'row');
+            this.formatWithBlankLine(node, 'row');
         } else if (isColumn(node)) {
-            this.formatAnonymousBlock(node, 'column');
+            this.formatWithBlankLine(node, 'column');
         } else if (isPage(node)) {
-            this.formatNamedBlock(node, 'page');
+            this.formatWithBlankLine(node, 'page');
         } else if (isTab(node)) {
-            this.formatNamedBlock(node, 'tab');
-        } else if (isAction(node) || isFunctionDefinition(node) || isHookHandler(node)) {
-            this.formatBraceBlock(node);
+            this.formatWithBlankLine(node, 'tab');
+        } else if (isAction(node)) {
+            this.formatWithBlankLine(node, 'action');
+        } else if (isFunctionDefinition(node)) {
+            this.formatWithBlankLine(node, 'function');
+        } else if (isHookHandler(node)) {
+            this.formatWithBlankLine(node, 'on');
         } else if (isMethodBlock(node)) {
-            this.formatBraceBlock(node);
+            this.applyBraceFormatting(node);
         } else if (isChatBlock(node)) {
-            this.formatBraceBlock(node);
+            this.applyBraceFormatting(node);
         } else if (isPrompt(node)) {
-            this.formatBraceBlock(node);
+            this.applyBraceFormatting(node);
         } else if (isMoneyField(node)) {
             this.formatMoneyField(node);
         }
     }
 
-    /** Top-level actor/item: ensure blank line before, then format braces */
-    private formatDocumentNode(node: AstNode, keyword: string): void {
+    /** Block that gets a blank line before it */
+    private formatWithBlankLine(node: AstNode, keyword: string): void {
         const formatter = this.getNodeFormatter(node);
         formatter.keyword(keyword).prepend(Formatting.newLines(2, { allowMore: true }));
-        this.applyBraceFormatting(node);
-    }
-
-    /** Section: blank line before, then standard brace formatting */
-    private formatSection(node: AstNode): void {
-        const formatter = this.getNodeFormatter(node);
-        formatter.keyword('section').prepend(Formatting.newLines(2, { allowMore: true }));
-        this.applyBraceFormatting(node);
-    }
-
-    /** Named block like config, page, tab: space before `{`, indent interior */
-    private formatNamedBlock(node: AstNode, _keyword: string): void {
-        this.applyBraceFormatting(node);
-    }
-
-    /** Anonymous block like row, column: space before `{`, indent interior */
-    private formatAnonymousBlock(node: AstNode, _keyword: string): void {
-        this.applyBraceFormatting(node);
-    }
-
-    /** keywords block has no name, just `keywords { ... }` */
-    private formatKeywords(node: AstNode): void {
-        this.applyBraceFormatting(node);
-    }
-
-    /** Action, HookHandler, FunctionDefinition, MethodBlock */
-    private formatBraceBlock(node: AstNode): void {
         this.applyBraceFormatting(node);
     }
 
