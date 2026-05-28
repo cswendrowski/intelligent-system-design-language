@@ -63,7 +63,10 @@ Tab:
     "tab" name=ID ("(" params+=(IconParam|LabelParam) ("," params+=(IconParam|LabelParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
 
 ClassExpression:
-    (Property | Action | InitiativeProperty | StatusProperty | HookHandler | FunctionDefinition);
+    (Property | MethodContainer | InitiativeProperty | StatusProperty);
+
+MethodContainer:
+    (Action | HookHandler | FunctionDefinition);
 
 
 // Fields ------------------------------------------------------

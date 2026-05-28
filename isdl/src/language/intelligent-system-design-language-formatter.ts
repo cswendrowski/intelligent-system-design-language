@@ -1,9 +1,8 @@
 import type { AstNode } from 'langium';
 import { AbstractFormatter, Formatting } from 'langium/lsp';
 import {
-    isAction, isActor, isFunctionDefinition, isHookHandler,
-    isItem, isKeywords, isLayout, isMethodBlock, isMoneyField,
-    isConfig, isChatBlock, isPrompt
+    isActor, isItem, isKeywords, isLayout, isMethodBlock, isMethodContainer,
+    isMoneyField, isConfig, isChatBlock, isPrompt
 } from './generated/ast.js';
 
 export class IsdlFormatter extends AbstractFormatter {
@@ -19,12 +18,9 @@ export class IsdlFormatter extends AbstractFormatter {
             this.formatWithBlankLine(node, 'item');
         } else if (isLayout(node)) {
             this.formatWithBlankLine(node, node.$type.toLowerCase());
-        } else if (isAction(node)) {
-            this.formatWithBlankLine(node, 'action');
-        } else if (isFunctionDefinition(node)) {
-            this.formatWithBlankLine(node, 'function');
-        } else if (isHookHandler(node)) {
-            this.formatWithBlankLine(node, 'on');
+        } else if (isMethodContainer(node)) {
+            const keywords: Record<string, string> = { Action: 'action', HookHandler: 'on', FunctionDefinition: 'function' };
+            this.formatWithBlankLine(node, keywords[node.$type]);
         } else if (isMethodBlock(node)) {
             this.applyBraceFormatting(node);
         } else if (isChatBlock(node)) {
