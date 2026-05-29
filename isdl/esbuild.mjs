@@ -57,10 +57,15 @@ async function copyAssets(outDir) {
         }
     }
 
-    // Build a self-contained Vuetify ESM bundle with Vue included.
+    // Build the Vuetify ESM bundle, externalizing Vue to ./vue.esm-browser.js.
     // The standard dist/vuetify.esm.js has bare `from 'vue'` imports which
-    // browsers cannot resolve without an import map. Bundling vue in produces
-    // a single file that works in any browser context (Foundry VTT).
+    // browsers can't resolve without an import map. Rather than bundle Vue in
+    // (which gives Vuetify its own Vue copy, distinct from the one the
+    // components bundle uses — causing resolveDirective / "Missing ref owner
+    // context" warnings from mismatched Vue instances), we rewrite the bare
+    // 'vue' import to the same relative ./vue.esm-browser.js the generated
+    // components import. At runtime vuetify.esm.js and vue.esm-browser.js sit
+    // in the same lib/ dir, so the browser loads one shared Vue instance.
     const vuetifySrc = path.resolve('node_modules/vuetify/dist/vuetify-labs.esm.js');
     const vuetifyDest = path.join(outDir, 'vuetify.esm.js');
     if (fs.existsSync(vuetifySrc)) {
@@ -71,8 +76,17 @@ async function copyAssets(outDir) {
             outfile: vuetifyDest,
             platform: 'browser',
             minify: false,
+            plugins: [{
+                name: 'externalize-vue',
+                setup(build) {
+                    build.onResolve({ filter: /^vue$/ }, () => ({
+                        path: './vue.esm-browser.js',
+                        external: true,
+                    }));
+                },
+            }],
         });
-        console.log(getTime() + 'Built self-contained vuetify.esm.js to ' + vuetifyDest);
+        console.log(getTime() + 'Built vuetify.esm.js (external vue) to ' + vuetifyDest);
     }
 }
 
