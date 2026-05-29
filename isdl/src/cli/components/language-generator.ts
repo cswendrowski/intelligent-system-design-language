@@ -5,7 +5,7 @@ import {
     Entry,
     LabelParam,
     StandardFieldParams, StringChoice,
-    StringParamChoices, StringChoicesParamChoices, isStatusProperty,
+    StringParamChoices, isStatusProperty,
 } from '../../language/generated/ast.js';
 import {
     isSection,
@@ -16,9 +16,8 @@ import {
     isActor,
     isItem,
     isHookHandler,
-    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField, isDamageBonusesField, isDamageResistancesField, isDocumentChoiceExp, isDocumentChoicesExp, isMoneyField, isInventoryField,
+    isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField,
 } from "../../language/generated/ast.js"
-import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {toMachineIdentifier} from "./utils.js";
@@ -32,294 +31,124 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
     }
 
     function humanize(string: string) {
-        // Turn TitleCase into Title Case
         return string
-            .replace(/([a-z])([A-Z])/g, '$1 $2')  // Handle lowercase followed by uppercase
-            .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')  // Handle multiple uppercase followed by lowercase
-            .replace(/([a-zA-Z])(\d)/g, '$1 $2');  // Handle letter followed by digit
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+            .replace(/([a-zA-Z])(\d)/g, '$1 $2');
     }
 
-    function generateDocument(document: Document): CompositeGeneratorNode | undefined {
-        return expandToNode`
-            "${document.name.toLowerCase()}": "${humanize(document.name)}",
-            "${document.name}": {
-                "${document.name}": "${humanize(document.name)}" ${document.body.length > 0 ? ',' : ''}
-                ${joinToNode(document.body, generateProperty, { appendNewLineIfNotEmpty: true, separator: ',' })}
-            }
-        `;
+    function choiceLocalize(choice: StringChoice): string {
+        if (!isStringExtendedChoice(choice.value)) return humanize(choice.value);
+        const label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+        if (label) return label.value;
+        const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+        return value ? humanize(value.value) : 'Unknown Choice';
     }
 
-    function generateProperty(property: ClassExpression | Layout): CompositeGeneratorNode | undefined {
+    function choiceValue(choice: StringChoice): string {
+        if (!isStringExtendedChoice(choice.value)) return toMachineIdentifier(choice.value);
+        const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+        if (value) return toMachineIdentifier(value.value);
+        const label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+        return label ? toMachineIdentifier(label.value) : 'unknown';
+    }
 
+    function propertyEntries(property: ClassExpression | Layout): Record<string, any> {
         if (isSection(property) && property.body.length > 0) {
-            return expandToNode`
-                "${property.name}": "${humanize(property.name)}",
-                ${joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
-            `;
+            return {
+                [property.name]: humanize(property.name),
+                ...Object.assign({}, ...property.body.map(p => propertyEntries(p)))
+            };
         }
-
         if (isPage(property)) {
-            return expandToNode`
-                "${property.name}": "${humanize(property.name)}",
-                ${joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' })}
-            `;
+            return {
+                [property.name]: humanize(property.name),
+                ...Object.assign({}, ...property.body.map(p => propertyEntries(p)))
+            };
         }
-
         if (isLayout(property)) {
-            return joinToNode(property.body, property => generateProperty(property), { appendNewLineIfNotEmpty: true, separator: ',' });
+            return Object.assign({}, ...property.body.map(p => propertyEntries(p)));
         }
-
         if (isStatusProperty(property)) {
             const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-            const label = labelParam ? labelParam.value : humanize(property.name);
-
-            return expandToNode`
-                    "Status.${property.name}": "${label}"
-                `;
+            return { [`Status.${property.name}`]: labelParam ? labelParam.value : humanize(property.name) };
         }
-
         if (isProperty(property)) {
             const standardParams = property.params as StandardFieldParams[];
             const labelParam = standardParams.find(x => isLabelParam(x)) as LabelParam | undefined;
             const label = labelParam ? labelParam.value : humanize(property.name);
 
-            function choiceLocalize(choice: StringChoice): string {
-                if (!isStringExtendedChoice(choice.value)) {
-                    return humanize(choice.value);
-                }
-                let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                if (label) {
-                    return label.value;
-                }
-                let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                if (value) {
-                    return humanize(value.value);
-                }
-                return "Unknown Choice";
+            if (isStringChoiceField(property) || isStringChoicesField(property) || isDamageTypeChoiceField(property)) {
+                const lp = (property.params as any[]).find((x: any) => isLabelParam(x)) as LabelParam | undefined;
+                const l = lp ? lp.value : humanize(property.name);
+                const choiceParam = (property.params as any[]).find((p: any) => isStringParamChoices(p) || p.$type === 'StringChoicesParamChoices') as StringParamChoices | undefined;
+                const choiceEntries = choiceParam
+                    ? Object.fromEntries(choiceParam.choices.map((c: StringChoice) => [choiceValue(c), choiceLocalize(c)]))
+                    : {};
+                return { [property.name]: { label: l, ...choiceEntries } };
             }
-
-            function choiceValue(choice: StringChoice): string {
-                if (!isStringExtendedChoice(choice.value)) {
-                    return toMachineIdentifier(choice.value);
-                }
-                let value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                if (value) {
-                    return toMachineIdentifier(value.value);
-                }
-                let label = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                if (label) {
-                    return toMachineIdentifier(label.value);
-                }
-                return "unknown";
-            }
-
-            if (isStringChoiceField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-                let choiceParam = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
-
-                return expandToNode`
-                "${property.name}": {
-                    "label": "${label}",
-                    ${joinToNode(choiceParam.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-                }
-            `;
-            }
-
-            if (isStringChoicesField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-                let choiceParam = property.params.find(p => p.$type === 'StringChoicesParamChoices') as StringChoicesParamChoices;
-
-                return expandToNode`
-                "${property.name}": {
-                    "label": "${label}",
-                    ${joinToNode(choiceParam.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-                }
-            `;
-            }
-
-            if (isDamageTypeChoiceField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-                let choiceParam = property.params.find(p => isStringParamChoices(p)) as StringParamChoices;
-
-                return expandToNode`
-                "${property.name}": {
-                    "label": "${label}",
-                    ${joinToNode(choiceParam.choices, choice => `"${choiceValue(choice)}": "${choiceLocalize(choice)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-                }
-            `;
-            }
-
-            if (isDamageBonusesField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-
-                return expandToNode`
-                    "${property.name}": "${label}"
-                `;
-            }
-
-            if (isDamageResistancesField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-
-                return expandToNode`
-                    "${property.name}": "${label}"
-                `;
-            }
-
-            if (isDocumentChoiceExp(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-
-                return expandToNode`
-                    "${property.name}": "${label}"
-                `;
-            }
-
-            if (isDocumentChoicesExp(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-
-                return expandToNode`
-                    "${property.name}": "${label}"
-                `;
-            }
-
-            if (isMoneyField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-
-                return expandToNode`
-                    "${property.name}": "${label}"
-                `;
-            }
-
-            if (isInventoryField(property)) {
-                const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-                const label = labelParam ? labelParam.value : humanize(property.name);
-
-                return expandToNode`
-                    "${property.name}": "${label}"
-                `;
-            }
-
-            return expandToNode`
-                "${property.name}": "${label}"
-            `;
+            return { [property.name]: label };
         }
-
-
-
         if (isAction(property)) {
             const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-            const label = labelParam ? labelParam.value : humanize(property.name);
-
-            return expandToNode`
-                "${property.name}": "${label}"
-            `;
+            return { [property.name]: labelParam ? labelParam.value : humanize(property.name) };
         }
-
         if (isHookHandler(property)) {
-            return expandToNode`
-                "${property.name}": "${humanize(property.name)}"
-            `;
+            return { [property.name]: humanize(property.name) };
         }
+        return {};
+    }
 
-        return
+    function documentEntries(document: Document): Record<string, any> {
+        const bodyEntries = Object.assign({}, ...document.body.map(p => propertyEntries(p)));
+        return {
+            [document.name.toLowerCase()]: humanize(document.name),
+            [document.name]: {
+                [document.name]: humanize(document.name),
+                ...bodyEntries
+            }
+        };
     }
 
     const actors = entry.documents.filter(d => isActor(d));
     const items = entry.documents.filter(d => isItem(d));
 
-    const fileNode = expandToNode`
-        {
-            "NoSingleDocument": "No Linked Document",
-            "EditModeWarning": "Active Effects are not applied while in Edit mode. Base values are displayed and used for all rolls, calculations and actions.",
-            "SendToChat": "Send to Chat",
-            "SETTINGS": {
-                "CreateSystemJournalName": "Create System Journal",
-                "CreateSystemJournalHint": "If disabled, the System Journal will not be automatically created on load.",
-                "RoundUpDamageApplicationName": "Round Up Damage",
-                "RoundUpDamageApplicationHint": "When enabled, damage is rounded up to the nearest whole number. When disabled, damage is rounded down.",
-                "AllowTargetDamageApplicationName": "Allow Target Damage Application",
-                "AllowTargetDamageApplicationHint": "Whether or not to allow damage and healing on chat messages to be applied to targeted tokens in addition to selected tokens. Targeting does not require permissions, so this can allow players and GMs to apply damage to ANY token they can see.",
-                "DamageApplicationChatCardName": "Damage Application Summary",
-                "DamageApplicationChatCardHint": "Controls when to send chat cards summarizing damage/healing applications with revert functionality.",
-                "DamageApplicationChatCard": {
-                    "None": "Don't send",
-                    "Public": "Send to All (public message)",
-                    "GM": "Send to GM (GM-only message)"
-                }
-            },
-            "CONTEXT": {
-                "ApplyChanges": "Apply",
-                "ApplyDamage": "As Damage",
-                "ApplyHealing": "As Healing",
-                "ApplyTemp": "As Temporary"
-            },
-            "NOTIFICATIONS": {
-                "NoTokenSelected": "No Token is currently selected",
-                "NoTokenTargeted": "No Token is currently targeted"
-            },
-            "TYPES": {
-                "Actor": {
-                    "actor": "Actor",
-                    ${joinToNode(actors, actor => expandToNode`"${actor.name.toLowerCase()}": "${humanize(actor.name)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-                },
-                "Item": {
-                    "item": "Item",
-                    ${joinToNode(items, item => expandToNode`"${item.name.toLowerCase()}": "${humanize(item.name)}"`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-                }
-            },
-            "EFFECTS": {
-                "AddOnce": "Add Once",
-                "TabEffects": "Effects"
-            },
-            "JOURNAL": {
-                "System": "System",
-                "Keywords": "Keywords",
-                "DamageTypes": "Damage Types",
-                "StatusEffects": "Status Effects",
-                "KeywordsUsageTitle": "Keyword Usage:",
-                "KeywordsUsageList": {
-                    "GameMechanics": "Defines special rules and mechanics for your game",
-                    "References": "Can be referenced in text and chat cards via @keyword",
-                    "Documentation": "Provide clear explanations for players and GMs"
-                },
-                "DamageTypeEffectsTitle": "Damage Type Effects:",
-                "DamageTypeEffectsList": {
-                    "Usage": "Can be used in damage rolls and calculations",
-                    "Resistances": "May have associated resistances and bonuses",
-                    "ChoiceFields": "Appears in damage type choice fields"
-                },
-                "StatusEffectUsageTitle": "Status Effect Usage:",
-                "StatusEffectUsageList": {
-                    "TokenApplication": "Can be applied to tokens on the canvas",
-                    "MenuAppearance": "Appear in the token status effects menu",
-                    "VisualIndicators": "Provide visual indicators of character state"
-                },
-                "KeywordBadge": "Keyword",
-                "DamageTypeBadge": "Damage Type",
-                "StatusEffectBadge": "Status Effect",
-                "DeathEffectBadge": "Death Effect",
-                "AppliedWhen": "Applied when:",
-                "OperatorLabels": {
-                    "LessThanOrEqual": "is less than or equal to",
-                    "GreaterThanOrEqual": "is greater than or equal to",
-                    "LessThan": "is less than",
-                    "GreaterThan": "is greater than",
-                    "Equals": "equals",
-                    "NotEqual": "does not equal",
-                    "Exists": "exists",
-                    "NotExists": "does not exist"
-                }
-            },
-            ${joinToNode(entry.documents, document => generateDocument(document), { appendNewLineIfNotEmpty: true, separator: ',' })}
-        }
-    `.appendNewLineIfNotEmpty();
+    const localization: Record<string, any> = {
+        NoSingleDocument: 'No Linked Document',
+        EditModeWarning: 'Active Effects are not applied while in Edit mode. Base values are displayed and used for all rolls, calculations and actions.',
+        SendToChat: 'Send to Chat',
+        SETTINGS: {
+            CreateSystemJournalName: 'Create System Journal',
+            CreateSystemJournalHint: 'If disabled, the System Journal will not be automatically created on load.',
+            RoundUpDamageApplicationName: 'Round Up Damage',
+            RoundUpDamageApplicationHint: 'When enabled, damage is rounded up to the nearest whole number. When disabled, damage is rounded down.',
+            AllowTargetDamageApplicationName: 'Allow Target Damage Application',
+            AllowTargetDamageApplicationHint: 'Whether or not to allow damage and healing on chat messages to be applied to targeted tokens in addition to selected tokens. Targeting does not require permissions, so this can allow players and GMs to apply damage to ANY token they can see.',
+            DamageApplicationChatCardName: 'Damage Application Summary',
+            DamageApplicationChatCardHint: 'Controls when to send chat cards summarizing damage/healing applications with revert functionality.',
+            DamageApplicationChatCard: { None: "Don't send", Public: 'Send to All (public message)', GM: 'Send to GM (GM-only message)' }
+        },
+        CONTEXT: { ApplyChanges: 'Apply', ApplyDamage: 'As Damage', ApplyHealing: 'As Healing', ApplyTemp: 'As Temporary' },
+        NOTIFICATIONS: { NoTokenSelected: 'No Token is currently selected', NoTokenTargeted: 'No Token is currently targeted' },
+        TYPES: {
+            Actor: { actor: 'Actor', ...Object.fromEntries(actors.map(a => [a.name.toLowerCase(), humanize(a.name)])) },
+            Item:  { item:  'Item',  ...Object.fromEntries(items.map(i =>  [i.name.toLowerCase(), humanize(i.name)])) }
+        },
+        EFFECTS: { AddOnce: 'Add Once', TabEffects: 'Effects' },
+        JOURNAL: {
+            System: 'System', Keywords: 'Keywords', DamageTypes: 'Damage Types', StatusEffects: 'Status Effects',
+            KeywordsUsageTitle: 'Keyword Usage:',
+            KeywordsUsageList: { GameMechanics: 'Defines special rules and mechanics for your game', References: 'Can be referenced in text and chat cards via @keyword', Documentation: 'Provide clear explanations for players and GMs' },
+            DamageTypeEffectsTitle: 'Damage Type Effects:',
+            DamageTypeEffectsList: { Usage: 'Can be used in damage rolls and calculations', Resistances: 'May have associated resistances and bonuses', ChoiceFields: 'Appears in damage type choice fields' },
+            StatusEffectUsageTitle: 'Status Effect Usage:',
+            StatusEffectUsageList: { TokenApplication: 'Can be applied to tokens on the canvas', MenuAppearance: 'Appear in the token status effects menu', VisualIndicators: 'Provide visual indicators of character state' },
+            KeywordBadge: 'Keyword', DamageTypeBadge: 'Damage Type', StatusEffectBadge: 'Status Effect', DeathEffectBadge: 'Death Effect',
+            AppliedWhen: 'Applied when:',
+            OperatorLabels: { LessThanOrEqual: 'is less than or equal to', GreaterThanOrEqual: 'is greater than or equal to', LessThan: 'is less than', GreaterThan: 'is greater than', Equals: 'equals', NotEqual: 'does not equal', Exists: 'exists', NotExists: 'does not exist' }
+        },
+        ...Object.assign({}, ...entry.documents.map(d => documentEntries(d)))
+    };
 
-    fs.writeFileSync(generatedFilePath, toString(fileNode));
+    fs.writeFileSync(generatedFilePath, JSON.stringify(localization, null, 4));
 }
