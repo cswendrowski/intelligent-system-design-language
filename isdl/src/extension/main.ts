@@ -94,8 +94,7 @@ function registerCommands(context: vscode.ExtensionContext) {
             return;
         }
 
-        const config = vscode.workspace.getConfiguration('isdl');
-        const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
+        const lastSelectedFile = context.globalState.get<string>('lastSelectedFile');
 
         // Pre-select the currently open .isdl file, or fall back to last used
         const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
@@ -116,10 +115,10 @@ function registerCommands(context: vscode.ExtensionContext) {
             return; // user cancelled — not an error
         }
 
-        config.update('lastSelectedFile', selectedFile.description, vscode.ConfigurationTarget.Workspace);
+        await context.globalState.update('lastSelectedFile', selectedFile.description);
 
         const sourceFilePath = selectedFile.description;
-        const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
+        const lastSelectedFolder = context.globalState.get<string>('lastSelectedFolder');
 
         const destinationFolderUri = await vscode.window.showOpenDialog({
             canSelectFiles: false,
@@ -135,15 +134,14 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
 
         const destinationPath = destinationFolderUri[0].fsPath;
-        config.update('lastSelectedFolder', destinationPath, vscode.ConfigurationTarget.Workspace);
+        await context.globalState.update('lastSelectedFolder', destinationPath);
 
         generate(sourceFilePath, destinationPath);
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('isdl.regenerate', async () => {
-        const config = vscode.workspace.getConfiguration('isdl');
-        const lastSelectedFile: string | undefined = config.get('lastSelectedFile');
-        const lastSelectedFolder: string | undefined = config.get('lastSelectedFolder');
+        const lastSelectedFile = context.globalState.get<string>('lastSelectedFile');
+        const lastSelectedFolder = context.globalState.get<string>('lastSelectedFolder');
 
         if (!lastSelectedFile || !lastSelectedFolder) {
             vscode.window.showErrorMessage('No previous generation found. Run Generate first.');
