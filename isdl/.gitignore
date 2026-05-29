@@ -3,6 +3,7 @@
 !.vscode/launch.json
 !.vscode/tasks.json
 node_modules/
+.superpowers/
 out/*
 !out/styles.scss
 src/language/generated/
