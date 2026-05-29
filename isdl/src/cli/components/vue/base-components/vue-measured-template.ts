@@ -28,7 +28,19 @@ export default function generateMeasuredTemplateComponent(destination: string) {
         });
 
         const document = inject("rawDocument");
-        
+
+        // Vuetify's up/down stepper buttons update the model without firing a
+        // native change event, so Foundry's submitOnChange form handler never
+        // persists them. When the value changes while focus is NOT on a text
+        // input (i.e. a stepper click, not typing), persist directly. Typing
+        // still persists via the input's native change on blur/enter.
+        // ('document' is the injected Foundry document; DOM access uses window.)
+        const persistOnStep = (path, newValue) => {
+            if (document && window.document.activeElement?.tagName !== 'INPUT') {
+                document.update({ [path]: newValue });
+            }
+        };
+
         const expanded = ref(false);
         const canvasRef = ref(null);
         let pixiApp = null;
@@ -425,7 +437,8 @@ export default function generateMeasuredTemplateComponent(destination: string) {
                                 <div class="template-controls">
                                     <div class="d-flex flex-row">
                                         <v-select
-                                            v-model="type"
+                                            :model-value="type"
+                                            @update:model-value="(v) => { type = v; if (document) document.update({ [systemPath + '.type']: v }); }"
                                             :name="systemPath + '.type'"
                                             :items="[
                                                 { title: 'Circle', value: 'circle' },
@@ -442,7 +455,8 @@ export default function generateMeasuredTemplateComponent(destination: string) {
                                             :disabled="disabled"
                                         />
                                         <v-number-input
-                                            v-model="direction"
+                                            :model-value="direction"
+                                            @update:model-value="(v) => { direction = v; persistOnStep(systemPath + '.direction', v); }"
                                             :name="systemPath + '.direction'"
                                             label="Direction (°)"
                                             controlVariant="stacked"
@@ -460,7 +474,8 @@ export default function generateMeasuredTemplateComponent(destination: string) {
                                     </div>
                                     <div class="d-flex flex-row" style="margin-top: 1rem;">
                                         <v-number-input
-                                            v-model="distance"
+                                            :model-value="distance"
+                                            @update:model-value="(v) => { distance = v; persistOnStep(systemPath + '.distance', v); }"
                                             :name="systemPath + '.distance'"
                                             label="Distance (grid units)"
                                             controlVariant="stacked"
@@ -476,7 +491,8 @@ export default function generateMeasuredTemplateComponent(destination: string) {
                                         />
                                         <v-number-input
                                             v-if="type === 'cone'"
-                                            v-model="angle"
+                                            :model-value="angle"
+                                            @update:model-value="(v) => { angle = v; persistOnStep(systemPath + '.angle', v); }"
                                             :name="systemPath + '.angle'"
                                             label="Angle (°)"
                                             controlVariant="stacked"
@@ -493,7 +509,8 @@ export default function generateMeasuredTemplateComponent(destination: string) {
                                         />
                                         <v-number-input
                                             v-if="type === 'ray'"
-                                            v-model="width"
+                                            :model-value="width"
+                                            @update:model-value="(v) => { width = v; persistOnStep(systemPath + '.width', v); }"
                                             :name="systemPath + '.width'"
                                             label="Width (grid units)"
                                             controlVariant="stacked"

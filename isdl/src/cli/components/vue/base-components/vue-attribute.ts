@@ -12,7 +12,7 @@ export default function generateAttributeComponent(destination: string) {
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed } from "vue";
+        import { ref, computed, inject } from "vue";
 
         const props = defineProps({
             label: String,
@@ -31,10 +31,24 @@ export default function generateAttributeComponent(destination: string) {
             hasRoll: Boolean
         });
 
+        const document = inject("rawDocument");
+
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
         });
+
+        // Vuetify's up/down stepper buttons update the model without firing a
+        // native change event, so Foundry's submitOnChange form handler never
+        // persists them. When the value changes while focus is NOT on a text
+        // input (i.e. a stepper click, not typing), persist directly. Typing
+        // still persists via the input's native change on blur/enter.
+        // ('document' is the injected Foundry document; DOM access uses window.)
+        const persistOnStep = (path, newValue) => {
+            if (document && window.document.activeElement?.tagName !== 'INPUT') {
+                document.update({ [path]: newValue });
+            }
+        };
 
         const getStyle = computed(() => {
             const p = props.primaryColor || "#92aed9";
@@ -76,7 +90,7 @@ export default function generateAttributeComponent(destination: string) {
             @mouseleave="isHovering = false"
         >
             <div v-if="attributeStyle == 'plain'">
-            <v-number-input v-if="attributeStyle == 'plain' && editMode" v-model="value" :name="systemPath" :min="props.min" :disabled="disabled" type="number" variant="outlined" density="compact" :hide-details="true" data-tooltip="Value">
+            <v-number-input v-if="attributeStyle == 'plain' && editMode" :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath, v); }" :name="systemPath" :min="props.min" :disabled="disabled" type="number" variant="outlined" density="compact" :hide-details="true" data-tooltip="Value">
             <template #label>
                 <span v-html="getLabel" />
             </template>
@@ -111,7 +125,7 @@ export default function generateAttributeComponent(destination: string) {
                 >
                 <v-label :style="getStyle"><v-icon v-if="icon" size="x-small" :icon="icon" style="padding-right: 0.5rem;"></v-icon>{{ game.i18n.localize(label) }}</v-label>
                 <div class="mod" v-if="hasMod">{{ mod }}</div>
-                <v-number-input v-model="value" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" :hide-details="true" :tile="true"></v-number-input>
+                <v-number-input :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath, v); }" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" :hide-details="true" :tile="true"></v-number-input>
                 <!-- Overlay with dice icon - appears on hover when roll function is available -->
                 <div
                   v-if="hasRoll && isHovering && !editMode"

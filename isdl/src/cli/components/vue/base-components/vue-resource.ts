@@ -12,7 +12,7 @@ export default function generateResourceComponent(destination: string) {
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed } from "vue";
+        import { ref, computed, inject } from "vue";
 
         const props = defineProps({
             label: String,
@@ -22,6 +22,20 @@ export default function generateResourceComponent(destination: string) {
             primaryColor: String,
             secondaryColor: String
         });
+
+        const document = inject("rawDocument");
+
+        // Vuetify's up/down stepper buttons update the model without firing a
+        // native change event, so Foundry's submitOnChange form handler never
+        // persists them. When the value changes while focus is NOT on a text
+        // input (i.e. a stepper click, not typing), persist directly. Typing
+        // still persists via the input's native change on blur/enter.
+        // ('document' is the injected Foundry document; DOM access uses window.)
+        const persistOnStep = (path, newValue) => {
+            if (document && window.document.activeElement?.tagName !== 'INPUT') {
+                document.update({ [path]: newValue });
+            }
+        };
 
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath + ".value"),
@@ -84,7 +98,8 @@ export default function generateResourceComponent(destination: string) {
                     <v-card-text>
                         <div class="d-flex flex-row">
                             <v-number-input
-                                v-model="value"
+                                :model-value="value"
+                                @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }"
                                 :name="systemPath + '.value'"
                                 label="Value"
                                 controlVariant="stacked"
@@ -95,7 +110,8 @@ export default function generateResourceComponent(destination: string) {
                                 hide-details="true"
                             />
                             <v-number-input
-                                v-model="temp"
+                                :model-value="temp"
+                                @update:model-value="(v) => { temp = v; persistOnStep(systemPath + '.temp', v); }"
                                 :name="systemPath + '.temp'"
                                 label="Temp"
                                 controlVariant="stacked"
@@ -106,7 +122,8 @@ export default function generateResourceComponent(destination: string) {
                                 hide-details="true"
                             />
                             <v-number-input
-                                v-model="max"
+                                :model-value="max"
+                                @update:model-value="(v) => { max = v; persistOnStep(systemPath + '.max', v); }"
                                 :name="systemPath + '.max'"
                                 label="Max"
                                 :disabled="disabled"

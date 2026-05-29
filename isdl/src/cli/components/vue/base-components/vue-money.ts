@@ -47,6 +47,18 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
 
         const document = inject("rawDocument");
 
+        // Vuetify's up/down stepper buttons update the model without firing a
+        // native change event, so Foundry's submitOnChange form handler never
+        // persists them. When the value changes while focus is NOT on a text
+        // input (i.e. a stepper click, not typing), persist directly. Typing
+        // still persists via the input's native change on blur/enter.
+        // ('document' is the injected Foundry document; DOM access uses window.)
+        const persistOnStep = (path, newValue) => {
+            if (document && window.document.activeElement?.tagName !== 'INPUT') {
+                document.update({ [path]: newValue });
+            }
+        };
+
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
                 return true;
@@ -218,6 +230,8 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
             const validValue = (typeof newValue === 'number' && isFinite(newValue)) ? newValue : 0;
             const updated = { ...current, [denomName]: validValue };
             value.value = updated;
+            // Stepper clicks don't fire a native change event; persist directly.
+            persistOnStep(\`\${props.systemPath}.\${denomName}\`, validValue);
         };
 
         // Open conversion dialog for a specific denomination
@@ -288,7 +302,8 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
             <!-- Single Currency Money (Edit Mode) -->
             <v-number-input
                 v-if="!hasDenominations && props.editMode"
-                v-model="value"
+                :model-value="value"
+                @update:model-value="(v) => { value = v; persistOnStep(props.systemPath, v); }"
                 :name="props.systemPath"
                 :disabled="isDisabled"
                 :color="fieldColor"

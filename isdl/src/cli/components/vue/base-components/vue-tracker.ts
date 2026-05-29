@@ -36,6 +36,18 @@ export default function generateTrackerComponent(destination: string) {
 
         const document = inject("rawDocument");
 
+        // Vuetify's up/down stepper buttons update the model without firing a
+        // native change event, so Foundry's submitOnChange form handler never
+        // persists them. When the value changes while focus is NOT on a text
+        // input (i.e. a stepper click, not typing), persist directly. Typing
+        // still persists via the input's native change on blur/enter.
+        // ('document' is the injected Foundry document; DOM access uses window.)
+        const persistOnStep = (path, newValue) => {
+            if (document && window.document.activeElement?.tagName !== 'INPUT') {
+                document.update({ [path]: newValue });
+            }
+        };
+
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
                 return true;
@@ -355,13 +367,14 @@ export default function generateTrackerComponent(destination: string) {
                                 </g>
                             </svg>
 
-                            <v-number-input v-if="trackerStyle == 'plain'" v-model="value" :name="systemPath" :min="min" :max="max" :disabled="disabled" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
+                            <v-number-input v-if="trackerStyle == 'plain'" :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }" :name="systemPath" :min="min" :max="max" :disabled="disabled" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
                         </div>
                         <v-expand-transition>
                             <div v-show="expanded" style="margin-top: 1rem;">
                                 <div class="d-flex flex-row">
                                     <v-number-input
-                                        v-model="value"
+                                        :model-value="value"
+                                        @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }"
                                         :name="systemPath + '.value'"
                                         label="Value"
                                         controlVariant="stacked"
@@ -374,7 +387,8 @@ export default function generateTrackerComponent(destination: string) {
                                         :disabled="isDisabled('value') || disableValue"
                                     />
                                     <v-number-input
-                                        v-model="temp"
+                                        :model-value="temp"
+                                        @update:model-value="(v) => { temp = v; persistOnStep(systemPath + '.temp', v); }"
                                         :name="systemPath + '.temp'"
                                         label="Temp"
                                         controlVariant="stacked"
@@ -390,7 +404,8 @@ export default function generateTrackerComponent(destination: string) {
                                 </div>
                                 <div class="d-flex flex-row" style="margin-top: 1rem;">
                                     <v-number-input
-                                        v-model="min"
+                                        :model-value="min"
+                                        @update:model-value="(v) => { min = v; persistOnStep(systemPath + '.min', v); }"
                                         :name="systemPath + '.min'"
                                         label="Min"
                                         controlVariant="stacked"
@@ -404,7 +419,8 @@ export default function generateTrackerComponent(destination: string) {
                                         v-if="!hideMin"
                                     />
                                     <v-number-input
-                                        v-model="max"
+                                        :model-value="max"
+                                        @update:model-value="(v) => { max = v; persistOnStep(systemPath + '.max', v); }"
                                         :name="systemPath + '.max'"
                                         label="Max"
                                         controlVariant="stacked"
