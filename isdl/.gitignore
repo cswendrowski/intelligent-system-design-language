@@ -4,6 +4,7 @@
 !.vscode/tasks.json
 node_modules/
 .superpowers/
+review/
 out/*
 !out/styles.scss
 src/language/generated/
