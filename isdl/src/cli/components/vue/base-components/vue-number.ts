@@ -36,10 +36,30 @@ export default function generateNumberComponent(destination: string, entry?: Ent
 
         const document = inject("rawDocument");
 
+        const numberInput = ref(null);
+
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
         });
+
+        // Vuetify's up/down stepper buttons update the model without firing a
+        // native change event, so Foundry's submitOnChange form handler never
+        // persists the new value. When a change arrives while the text input is
+        // NOT focused (i.e. it came from a stepper click, not typing), persist
+        // directly via document.update — the same reliable path the dice fields
+        // use (dispatching a synthetic change risks Foundry reading the DOM
+        // input before Vue has flushed the new value). Typing still persists via
+        // the input's own native change on blur/enter.
+        // Note: 'document' is the injected Foundry document; DOM access must go
+        // through window.document.
+        const onValueUpdate = (newValue) => {
+            value.value = newValue;
+            const input = numberInput.value?.\$el?.querySelector('input');
+            if (document && input && window.document.activeElement !== input) {
+                document.update({ [props.systemPath]: newValue });
+            }
+        };
 
         const isHidden = computed(() => {
             if (props.visibility === "hidden") {
@@ -115,7 +135,9 @@ export default function generateNumberComponent(destination: string, entry?: Ent
         <div v-if="!isHidden" class="isdl-number single-wide">
             <v-number-input
                 v-if="!isCalculated"
-                v-model="value"
+                ref="numberInput"
+                :model-value="value"
+                @update:model-value="onValueUpdate"
                 :name="props.systemPath"
                 :disabled="isDisabled"
                 :color="fieldColor"
