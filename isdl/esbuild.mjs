@@ -56,6 +56,14 @@ function copyAssets(outDir) {
             console.log(getTime() + `Copied ${file} to output directory ${dest}`);
         }
     }
+
+    // Copy pre-built Vuetify ESM bundle — used at runtime by generated systems
+    const vuetifySrc = path.resolve('node_modules/vuetify/dist/vuetify.esm.js');
+    const vuetifyDest = path.join(outDir, 'vuetify.esm.js');
+    if (fs.existsSync(vuetifySrc)) {
+        fs.copyFileSync(vuetifySrc, vuetifyDest);
+        console.log(getTime() + 'Copied vuetify.esm.js to output directory ' + vuetifyDest);
+    }
 }
 
 function copyStyles(outDir) {
