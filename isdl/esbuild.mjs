@@ -61,7 +61,7 @@ async function copyAssets(outDir) {
     // The standard dist/vuetify.esm.js has bare `from 'vue'` imports which
     // browsers cannot resolve without an import map. Bundling vue in produces
     // a single file that works in any browser context (Foundry VTT).
-    const vuetifySrc = path.resolve('node_modules/vuetify/dist/vuetify.esm.js');
+    const vuetifySrc = path.resolve('node_modules/vuetify/dist/vuetify-labs.esm.js');
     const vuetifyDest = path.join(outDir, 'vuetify.esm.js');
     if (fs.existsSync(vuetifySrc)) {
         await esbuild.build({
