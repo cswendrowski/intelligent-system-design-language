@@ -12,7 +12,7 @@ export default function generateDiceComponent(destination: string) {
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed, inject } from "vue";
+        import { ref, computed, inject, watch, getCurrentInstance } from "vue";
 
         const props = defineProps({
             label: String,
@@ -45,6 +45,14 @@ export default function generateDiceComponent(destination: string) {
             get: () => foundry.utils.getProperty(props.context, props.systemPath + ".die") ?? "d6",
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".die", newValue)
         });
+
+        const instance = getCurrentInstance();
+        const dispatchChange = () => {
+            const el = instance?.proxy?.\$el;
+            if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        watch(numberValue, dispatchChange);
+        watch(dieValue, dispatchChange);
     </script>
 
     <template>
