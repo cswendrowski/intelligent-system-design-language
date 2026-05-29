@@ -228,10 +228,12 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                 "recommends": [
                     {
                         "id": "intelligent-filepicker",
+                        "type": "module",
                         "reason": "Makes it much faster to pick out Icons for your Documents"
                     },
                     {
                         "id": "ric",
+                        "type": "module",
                         "reason": "Adds an UI for managing invalid Documents, such as when fields change to become required but were not filled in"
                     }
                 ]
