@@ -67,25 +67,27 @@ export async function runViteBuild(destination: string) {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
 
+        // Resolve the extension root: 4 levels up from out/cli/components/vue/
+        const extensionRoot = path.resolve(__dirname, "..", "..", "..", "..");
+        const nodeModules = path.join(extensionRoot, "node_modules");
+
         const config = defineConfig({
             root: destination,
             plugins: [
                 vue(),
                 vuetify({ autoImport: true })
             ],
-            optimizeDeps: {
-                include: ["vuetify"]
-            },
+            esbuild: false,
             resolve: {
                 alias: {
-                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify"),
-                    "datatables.net-vue3": path.resolve(__dirname, "../../../../node_modules/datatables.net-vue3"),
-                    "datatables.net-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-dt"),
-                    "datatables.net-responsive-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-responsive-dt"),
-                    "datatables.net-buttons-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons-dt"),
-                    "datatables.net-colreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-colreorder-dt"),
-                    "datatables.net-rowreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-rowreorder-dt"),
-                    "datatables.net-buttons": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons"),
+                    vuetify: path.join(nodeModules, "vuetify"),
+                    "datatables.net-vue3": path.join(nodeModules, "datatables.net-vue3"),
+                    "datatables.net-dt": path.join(nodeModules, "datatables.net-dt"),
+                    "datatables.net-responsive-dt": path.join(nodeModules, "datatables.net-responsive-dt"),
+                    "datatables.net-buttons-dt": path.join(nodeModules, "datatables.net-buttons-dt"),
+                    "datatables.net-colreorder-dt": path.join(nodeModules, "datatables.net-colreorder-dt"),
+                    "datatables.net-rowreorder-dt": path.join(nodeModules, "datatables.net-rowreorder-dt"),
+                    "datatables.net-buttons": path.join(nodeModules, "datatables.net-buttons"),
                 }
             },
             build: {
