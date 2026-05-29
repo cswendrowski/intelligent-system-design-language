@@ -26,7 +26,7 @@ function copyPackageJson(outDir) {
     console.log(getTime() + 'Copied package.json to output directory ' + dest);
 }
 
-function copyAssets(outDir) {
+async function copyAssets(outDir) {
     // Copy GitHub workflow file
     const workflowSrc = path.resolve('src/extension/github/system-workflow.yml');
     const workflowDest = path.join(outDir, 'extension/github/system-workflow.yml');
@@ -57,12 +57,22 @@ function copyAssets(outDir) {
         }
     }
 
-    // Copy pre-built Vuetify ESM bundle — used at runtime by generated systems
+    // Build a self-contained Vuetify ESM bundle with Vue included.
+    // The standard dist/vuetify.esm.js has bare `from 'vue'` imports which
+    // browsers cannot resolve without an import map. Bundling vue in produces
+    // a single file that works in any browser context (Foundry VTT).
     const vuetifySrc = path.resolve('node_modules/vuetify/dist/vuetify.esm.js');
     const vuetifyDest = path.join(outDir, 'vuetify.esm.js');
     if (fs.existsSync(vuetifySrc)) {
-        fs.copyFileSync(vuetifySrc, vuetifyDest);
-        console.log(getTime() + 'Copied vuetify.esm.js to output directory ' + vuetifyDest);
+        await esbuild.build({
+            entryPoints: [vuetifySrc],
+            bundle: true,
+            format: 'esm',
+            outfile: vuetifyDest,
+            platform: 'browser',
+            minify: false,
+        });
+        console.log(getTime() + 'Built self-contained vuetify.esm.js to ' + vuetifyDest);
     }
 }
 
@@ -103,11 +113,11 @@ function copyStyles(outDir) {
 const plugins = [{
     name: 'watch-plugin',
     setup(build) {
-        build.onEnd(result => {
+        build.onEnd(async result => {
             if (result.errors.length === 0) {
                 console.log(getTime() + success);
                 copyPackageJson('out');
-                copyAssets('out');
+                await copyAssets('out');
                 copyStyles('out');
             }
         });
@@ -139,7 +149,7 @@ if (watch) {
 } else {
     await ctx.rebuild();
     copyPackageJson('out');
-    copyAssets('out');
+    await copyAssets('out');
     copyStyles('out');
     ctx.dispose();
 }

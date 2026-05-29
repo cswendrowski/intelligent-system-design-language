@@ -41,7 +41,9 @@ export function generateVueMixin(description: string) {
     };
 
     const fileNode = expandToNode`
-        import { createApp, createVuetify, faIconset, faAliases, VNumberInput, ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
+        import { createApp } from "../../../lib/vue.esm-browser.js";
+        import * as Vuetify from "../../../lib/vuetify.esm.js";
+        import { ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
 
         /**
          * Vue rendering mixin for ApplicationV2.
@@ -152,13 +154,14 @@ export function generateVueMixin(description: string) {
                     target.innerHTML = this.vueTemplates.join("");
 
                     const aliases = {
-                        ...faAliases,
                         collapse: 'fas fa-chevron-up',
                         complete: 'fas fa-check',
                         cancel: 'fas fa-times-circle',
                         close: 'fas fa-times',
                         delete: 'fas fa-times-circle',
+                        // delete (e.g. v-chip close)
                         clear: 'fas fa-times-circle',
+                        // delete (e.g. v-chip close)
                         success: 'fas fa-check-circle',
                         info: 'fas fa-info-circle',
                         warning: 'fas fa-exclamation',
@@ -167,8 +170,10 @@ export function generateVueMixin(description: string) {
                         next: 'fas fa-chevron-right',
                         checkboxOn: 'fas fa-check-square',
                         checkboxOff: 'far fa-square',
+                        // note 'far'
                         checkboxIndeterminate: 'fas fa-minus-square',
                         delimiter: 'fas fa-circle',
+                        // for carousel
                         sortAsc: 'fas fa-arrow-up',
                         sortDesc: 'fas fa-arrow-down',
                         expand: 'fas fa-chevron-down',
@@ -192,6 +197,9 @@ export function generateVueMixin(description: string) {
                         treeviewCollapse: 'fas fa-caret-down',
                         treeviewExpand: 'fas fa-caret-right',
                         eyeDropper: 'fas fa-eye-dropper'
+                    };
+                    const fa = {
+                        component: Vuetify.components.VClassIcon
                     };
 
                     const vueData = this.vueData(context);
@@ -228,13 +236,17 @@ export function generateVueMixin(description: string) {
                         }
                     });
                     ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { appendNewLineIfNotEmpty: true})}
-                    const vuetify = createVuetify({
+                    const vuetify = Vuetify.createVuetify({
                         icons: {
                             defaultSet: 'fa',
                             aliases,
-                            sets: { fa: faIconset },
+                            sets: {
+                                fa,
+                            },
                         },
-                        components: { VNumberInput }
+                        components: {
+                            VNumberInput: Vuetify.components.VNumberInput
+                        }
                     });
                     this.vueApp.use(vuetify);
 
