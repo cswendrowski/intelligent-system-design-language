@@ -413,6 +413,7 @@
   "main": "./out/extension/main.cjs",
   "bin": {
     "isdl": "./bin/cli.js",
+    "isdl-lsp": "./bin/lsp.js",
     "intelligent-system-design-language-cli": "./bin/cli.js"
   }
 }
