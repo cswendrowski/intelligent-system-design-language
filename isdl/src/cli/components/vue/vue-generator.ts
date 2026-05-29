@@ -278,7 +278,8 @@ function generateIndexMjs(entry: Entry, destination: string) {
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
     export { createApp } from 'vue';
     export { createVuetify } from 'vuetify';
-    export { VClassIcon, VNumberInput } from 'vuetify/components';
+    export { VNumberInput } from 'vuetify/components';
+    export { VClassIcon } from 'vuetify/lib/composables/icons.mjs';
     `.appendNewLine();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
