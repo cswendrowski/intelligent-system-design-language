@@ -9,7 +9,7 @@ import {
     isHtmlExp,
     isConfigExpression,
 } from "../language/generated/ast.js"
-import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
+import { expandToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extractDestinationAndName } from './cli-util.js';
@@ -249,29 +249,30 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
 function generateTemplateJson(entry: Entry, id: string, destination: string) {
     const generatedFilePath = path.join(destination, `template.json`);
 
-    function generateHtmlFields(document: Document): CompositeGeneratorNode | undefined {
-        return expandToNode`
-            ${joinToNode(getAllOfType<HtmlExp>(document.body, isHtmlExp), property => `,"${(property as HtmlExp).name.toLowerCase()}"`)}
-        `;
+    function getHtmlFields(documents: Document[]): string[] {
+        const extra = documents.flatMap(doc =>
+            getAllOfType<HtmlExp>(doc.body, isHtmlExp).map(p => (p as HtmlExp).name.toLowerCase())
+        );
+        return ['description', ...extra];
     }
 
-    const fileNode = expandToNode`
-    {
-        "Actor": {
-            "types": [ ${joinToNode(entry.documents.filter(d => isActor(d)), document => `"${document.name.toLowerCase()}"`, { separator: ',' })} ],
-            "htmlFields": ["description" ${joinToNode(entry.documents.filter(d => isActor(d)), document => generateHtmlFields(document))} ],
-            ${joinToNode(entry.documents.filter(d => isActor(d)), document => `"${document.name.toLowerCase()}": {}`, { appendNewLineIfNotEmpty: true, separator: ',' })}
-            
+    const actorDocs = entry.documents.filter(d => isActor(d));
+    const itemDocs = entry.documents.filter(d => isItem(d));
+
+    const template = {
+        Actor: {
+            types: actorDocs.map(d => d.name.toLowerCase()),
+            htmlFields: getHtmlFields(actorDocs),
+            ...Object.fromEntries(actorDocs.map(d => [d.name.toLowerCase(), {}]))
         },
-        "Item": {
-            "types": [ ${joinToNode(entry.documents.filter(d => isItem(d)), document => `"${document.name.toLowerCase()}"`, { separator: ',' })} ],
-            "htmlFields": [ "description" ${joinToNode(entry.documents.filter(d => isItem(d)), document => generateHtmlFields(document))} ],
-            ${joinToNode(entry.documents.filter(d => isItem(d)), document => `"${document.name.toLowerCase()}": {}`, { appendNewLineIfNotEmpty: true, separator: ',' })}
+        Item: {
+            types: itemDocs.map(d => d.name.toLowerCase()),
+            htmlFields: getHtmlFields(itemDocs),
+            ...Object.fromEntries(itemDocs.map(d => [d.name.toLowerCase(), {}]))
         }
-    }
-    `.appendNewLineIfNotEmpty();
+    };
 
-    fs.writeFileSync(generatedFilePath, toString(fileNode));
+    fs.writeFileSync(generatedFilePath, JSON.stringify(template, null, 4));
 }
 
 
