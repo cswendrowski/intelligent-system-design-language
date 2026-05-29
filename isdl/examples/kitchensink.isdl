@@ -99,6 +99,7 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         section Basic {
             string StringField
             number NumberField
+            number CalculatorField(calculator: true)
             boolean BooleanField
             html HtmlField
             choice<string> ChoiceStringField(choices: ["Option A", "Option B", "Option C"])

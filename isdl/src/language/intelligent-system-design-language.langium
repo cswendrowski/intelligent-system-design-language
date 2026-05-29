@@ -149,7 +149,7 @@ ChoiceCustomProperty:
 NumberExp:
     ExpressionModifier "number" name=ID ("(" params+=NumberParameter* ("," params+=NumberParameter)* ")")?;
 NumberParameter:
-    (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | StandardFieldParams);
+    (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | NumberParamCalculator | StandardFieldParams);
 
 
 // Boolean -------------
