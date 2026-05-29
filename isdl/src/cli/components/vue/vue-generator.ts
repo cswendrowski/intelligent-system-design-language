@@ -98,15 +98,6 @@ export async function runViteBuild(destination: string) {
                     name: "vueComponents",
                     fileName: "components.vue.es",
                     formats: ["es"]
-                },
-                rollupOptions: {
-                    external: ["vue"],
-                    output: {
-                        // Rewrite bare "vue" specifier to a relative path the browser can load
-                        paths: {
-                            vue: "../../../../lib/vue.esm-browser.js"
-                        }
-                    }
                 }
             }
         });
@@ -285,6 +276,9 @@ function generateIndexMjs(entry: Entry, destination: string) {
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
+    export { createApp } from 'vue';
+    export { createVuetify } from 'vuetify';
+    export { VClassIcon, VNumberInput } from 'vuetify/components';
     `.appendNewLine();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));

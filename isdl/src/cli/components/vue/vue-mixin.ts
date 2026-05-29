@@ -41,9 +41,7 @@ export function generateVueMixin(description: string) {
     };
 
     const fileNode = expandToNode`
-        import { createApp } from "../../../lib/vue.esm-browser.js";
-        import * as Vuetify from "../../../lib/vuetify.esm.js";
-        import { ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
+        import { createApp, createVuetify, VClassIcon, VNumberInput, ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
 
         /**
          * Vue rendering mixin for ApplicationV2.
@@ -199,7 +197,7 @@ export function generateVueMixin(description: string) {
                         eyeDropper: 'fas fa-eye-dropper'
                     };
                     const fa = {
-                        component: Vuetify.components.VClassIcon
+                        component: VClassIcon
                     };
 
                     const vueData = this.vueData(context);
@@ -236,7 +234,7 @@ export function generateVueMixin(description: string) {
                         }
                     });
                     ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { appendNewLineIfNotEmpty: true})}
-                    const vuetify = Vuetify.createVuetify({
+                    const vuetify = createVuetify({
                         icons: {
                             defaultSet: 'fa',
                             aliases,
@@ -245,7 +243,7 @@ export function generateVueMixin(description: string) {
                             },
                         },
                         components: {
-                            VNumberInput: Vuetify.components.VNumberInput
+                            VNumberInput
                         }
                     });
                     this.vueApp.use(vuetify);
