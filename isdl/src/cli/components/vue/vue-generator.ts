@@ -66,6 +66,7 @@ export async function runViteBuild(destination: string) {
     try {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
+        const nodeModules = path.resolve(__dirname, "..", "..", "..", "..", "node_modules");
 
         const config = defineConfig({
             root: destination,
@@ -77,16 +78,21 @@ export async function runViteBuild(destination: string) {
                 include: ["vuetify"]
             },
             resolve: {
-                alias: {
-                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify"),
-                    "datatables.net-vue3": path.resolve(__dirname, "../../../../node_modules/datatables.net-vue3"),
-                    "datatables.net-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-dt"),
-                    "datatables.net-responsive-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-responsive-dt"),
-                    "datatables.net-buttons-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons-dt"),
-                    "datatables.net-colreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-colreorder-dt"),
-                    "datatables.net-rowreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-rowreorder-dt"),
-                    "datatables.net-buttons": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons"),
-                }
+                // Array form required so specific subpath aliases take precedence over the
+                // prefix-matching 'vuetify' alias (object form doesn't guarantee ordering).
+                alias: [
+                    { find: "vuetify/labs/components", replacement: path.join(nodeModules, "vuetify", "lib", "labs", "components.mjs") },
+                    { find: "vuetify/iconsets/fa",     replacement: path.join(nodeModules, "vuetify", "lib", "iconsets", "fa.mjs") },
+                    { find: "vuetify/components",      replacement: path.join(nodeModules, "vuetify", "lib", "components", "index.mjs") },
+                    { find: "vuetify",                 replacement: path.join(nodeModules, "vuetify") },
+                    { find: "datatables.net-vue3",          replacement: path.join(nodeModules, "datatables.net-vue3") },
+                    { find: "datatables.net-dt",            replacement: path.join(nodeModules, "datatables.net-dt") },
+                    { find: "datatables.net-responsive-dt", replacement: path.join(nodeModules, "datatables.net-responsive-dt") },
+                    { find: "datatables.net-buttons-dt",    replacement: path.join(nodeModules, "datatables.net-buttons-dt") },
+                    { find: "datatables.net-colreorder-dt", replacement: path.join(nodeModules, "datatables.net-colreorder-dt") },
+                    { find: "datatables.net-rowreorder-dt", replacement: path.join(nodeModules, "datatables.net-rowreorder-dt") },
+                    { find: "datatables.net-buttons",       replacement: path.join(nodeModules, "datatables.net-buttons") },
+                ]
             },
             build: {
                 emptyOutDir: true, // Clears previous builds
