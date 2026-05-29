@@ -16,4 +16,3 @@ CLAUDE.md
 RELEASE_NOTES.md
 test-output/**
 test-output-*/**
-node_modules/@rollup/rollup-win32-x64-msvc/**
