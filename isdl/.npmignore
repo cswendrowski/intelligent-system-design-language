@@ -1,0 +1,35 @@
+# npm package ships only the built CLI/language output (out/) and bin shims.
+# Runtime dependencies are installed from package.json on `npm install`.
+# (VSIX packaging is controlled separately by .vscodeignore.)
+
+# Source & build tooling
+src/**
+esbuild.mjs
+tsconfig*.json
+vitest.config.ts
+langium-config.json
+langium-quickstart.md
+.eslintrc.json
+
+# VS Code extension-only assets (not used by the CLI)
+snippets/**
+syntaxes/**
+language-configuration.json
+
+# Examples, docs, tests, packaged artifacts
+examples/**
+docs/**
+test/**
+test-output/**
+test-output-*/**
+*.vsix
+
+# Images & misc repo files
+screenshot-*.png
+fsdl-logo.png
+CLAUDE.md
+RELEASE_NOTES.md
+.vscode/**
+.vscode-test/**
+.superpowers/**
+review/**
