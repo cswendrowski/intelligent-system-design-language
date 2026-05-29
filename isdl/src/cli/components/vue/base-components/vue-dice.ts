@@ -12,7 +12,7 @@ export default function generateDiceComponent(destination: string) {
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed, inject, watch, getCurrentInstance } from "vue";
+        import { ref, computed, inject, watch } from "vue";
 
         const props = defineProps({
             label: String,
@@ -46,13 +46,12 @@ export default function generateDiceComponent(destination: string) {
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath + ".die", newValue)
         });
 
-        const instance = getCurrentInstance();
-        const dispatchChange = () => {
-            const el = instance?.proxy?.\$el;
-            if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
-        };
-        watch(numberValue, dispatchChange);
-        watch(dieValue, dispatchChange);
+        watch(numberValue, (newVal) => {
+            if (document) document.update({ [\`\${props.systemPath}.number\`]: newVal });
+        });
+        watch(dieValue, (newVal) => {
+            if (document) document.update({ [\`\${props.systemPath}.die\`]: newVal });
+        });
     </script>
 
     <template>
@@ -67,7 +66,7 @@ export default function generateDiceComponent(destination: string) {
                     class="v-field--active"
                     variant="outlined"
                     density="compact"
-                    :disabled="isDisabled"
+                    :disabled="disabled"
                 >
                     <template #label>
                         <span v-html="getLabel(label, icon)" />

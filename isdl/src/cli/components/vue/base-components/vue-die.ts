@@ -13,7 +13,7 @@ export default function generateDieComponent(destination: string, entry?: Entry)
 
     const fileNode = expandToNode`
     <script setup>
-        import { ref, computed, inject, watch, getCurrentInstance } from "vue";
+        import { ref, computed, inject, watch } from "vue";
 
         const props = defineProps({
             label: String,
@@ -48,10 +48,8 @@ export default function generateDieComponent(destination: string, entry?: Entry)
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
         });
 
-        const instance = getCurrentInstance();
-        watch(value, () => {
-            const el = instance?.proxy?.\$el;
-            if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
+        watch(value, (newVal) => {
+            if (document) document.update({ [props.systemPath]: newVal });
         });
 
         const dieIcon = computed(() => {
