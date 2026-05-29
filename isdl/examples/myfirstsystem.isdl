@@ -1,0 +1,10 @@
+config MyFirstSystem {
+    label = "My First System"
+    id = "my-first-system"
+    description = "Hey look I'm a system developer!"
+    author = "Cody Swendrowski"
+}
+
+actor PC {
+    health resource HP(max: 10)
+}
