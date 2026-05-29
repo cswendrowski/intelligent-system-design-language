@@ -46,7 +46,7 @@ jobs:
       working-directory: ./isdl
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      run: vsce publish -p "$VSCE_PAT"
+      run: vsce publish -p "${{ secrets.VSCE_PAT }}"
 
     - name: Upload VSIX to release
       working-directory: ./isdl
