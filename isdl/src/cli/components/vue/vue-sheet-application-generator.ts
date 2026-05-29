@@ -8,7 +8,7 @@ import {
     BackgroundParam, BooleanExp,
     ChoiceCustomProperty, ChoiceStringValue,
     ClassExpression,
-    ColorParam, DateExp, DateTimeExp, DiceField, DieChoicesParam, DieField,
+    ColorParam, DateExp, DateTimeExp, DiceField, DieChoicesParam, DieField, DieNoneParam,
     Document,
     DocumentChoiceExp,
     DocumentChoicesExp,
@@ -26,7 +26,7 @@ import {
     isBooleanParamValue, isChoiceCustomProperty, isChoiceStringValue,
     isColorParam, isColumn,
     isDateExp,
-    isDateTimeExp, isDiceField, isDiceFields, isDieChoicesParam,
+    isDateTimeExp, isDiceField, isDiceFields, isDieChoicesParam, isDieNoneParam,
     isDieField,
     isDocumentChoiceExp,
     isDocumentChoicesExp,
@@ -2025,6 +2025,8 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             if (isDiceFields(element)) {
                 let choicesParam = element.params.find(x => isDieChoicesParam(x)) as DieChoicesParam | undefined;
                 let choices = choicesParam ? `[${choicesParam.choices.join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
+                let noneParam = element.params.find(x => isDieNoneParam(x)) as DieNoneParam | undefined;
+                let noneAttr = noneParam?.value ? `:none="true"` : '';
 
                 if (isDieField(element)) {
                     return expandToNode`
@@ -2034,6 +2036,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         icon="${iconParam?.value}"
                         systemPath="${systemPath}"
                         :choices="${choices}"
+                        ${noneAttr}
                         ${standardParamsFragment}>
                     </i-die>
                     `;

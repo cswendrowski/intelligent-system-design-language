@@ -155,9 +155,26 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
 
         section Dice {
-            die DieField
+            die DieField(none: true)
             dice DiceField
-            //roll RollField
+
+            action RollDice(icon: "fa-solid fa-dice") {
+                if (self.DieField == "none") {
+                    fleeting result = roll(self.DiceField)
+                    chat DiceRoll {
+                        flavor "Rolling " + self.DiceField + " (no bonus die)"
+                        result
+                    }
+                } else {
+                    fleeting diceResult = roll(self.DiceField)
+                    fleeting dieResult = roll(self.DieField)
+                    chat DiceRoll {
+                        flavor "Rolling " + self.DiceField + " + " + self.DieField
+                        diceResult
+                        dieResult
+                    }
+                }
+            }
         }
 
         section DocumentLinks {

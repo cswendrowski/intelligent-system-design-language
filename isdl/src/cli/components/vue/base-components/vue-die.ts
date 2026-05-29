@@ -23,6 +23,10 @@ export default function generateDieComponent(destination: string, entry?: Entry)
             disabled: Boolean,
             icon: String,
             color: String,
+            none: {
+                type: Boolean,
+                default: false
+            },
             choices: {
                 type: Array,
                 default: () => ['d4', 'd6', 'd8', 'd10', 'd12', 'd20']
@@ -35,6 +39,10 @@ export default function generateDieComponent(destination: string, entry?: Entry)
             return props.color || 'primary';
         });
 
+        const allChoices = computed(() => {
+            return props.none ? ['none', ...props.choices] : props.choices;
+        });
+
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
@@ -42,7 +50,8 @@ export default function generateDieComponent(destination: string, entry?: Entry)
 
         const dieIcon = computed(() => {
             const currentValue = value.value;
-            if (currentValue && currentValue.startsWith('d')) {
+            if (!currentValue || currentValue === 'none') return 'fa-solid fa-ban';
+            if (currentValue.startsWith('d')) {
                 return \`fa-solid fa-dice-\${currentValue}\`;
             }
             return 'fa-solid fa-dice';
@@ -50,10 +59,10 @@ export default function generateDieComponent(destination: string, entry?: Entry)
     </script>
 
     <template>
-        <v-select 
+        <v-select
             v-model="value"
             :name="props.systemPath"
-            :items="props.choices"
+            :items="allChoices"
             :disabled="disabled"
             :color="selectColor"
             density="compact"

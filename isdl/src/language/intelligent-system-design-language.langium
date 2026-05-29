@@ -352,7 +352,7 @@ DiceField:
     ExpressionModifier "dice" name=ID ("(" params+=DieParams ("," params+=DieParams)* ")")?;
 
 DieParams:
-    (StandardFieldParams | DieValueParam | DieChoicesParam | DieInitialParam);
+    (StandardFieldParams | DieValueParam | DieChoicesParam | DieInitialParam | DieNoneParam);
 
 DieValueParam:
     "value:" value=(DICE | MethodBlock);
@@ -362,6 +362,9 @@ DieInitialParam:
 
 DieChoicesParam:
     "choices:" "[" (choices+=DICE ("," choices+=DICE)*)? "]";
+
+DieNoneParam:
+    "none:" value=BOOLEAN;
 
 
 // Paperdoll -------------
