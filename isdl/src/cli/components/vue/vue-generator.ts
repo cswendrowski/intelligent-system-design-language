@@ -77,7 +77,6 @@ export async function runViteBuild(destination: string) {
                 vue(),
                 vuetify({ autoImport: true })
             ],
-            esbuild: false,
             resolve: {
                 alias: {
                     vuetify: path.join(nodeModules, "vuetify"),
@@ -95,20 +94,18 @@ export async function runViteBuild(destination: string) {
                 sourcemap: false, // Optional: Enable for debugging
                 outDir: "./system/sheets/vue/components",
                 lib: {
-                    entry: "./system/templates/vue/index.mjs", // Entry point
+                    entry: "./system/templates/vue/index.mjs",
                     name: "vueComponents",
-                    fileName: "components.vue.es"
+                    fileName: "components.vue.es",
+                    formats: ["es"]
                 },
                 rollupOptions: {
-                    external: ["vue"], // Keep Vue as an external dependency
+                    external: ["vue"],
                     output: {
-                        globals: {
-                            vue: "Vue"
-                        },
-                        // Map the external dependency to a local copy of Vue 3 esm.
+                        // Rewrite bare "vue" specifier to a relative path the browser can load
                         paths: {
                             vue: "../../../../lib/vue.esm-browser.js"
-                        },
+                        }
                     }
                 }
             }
