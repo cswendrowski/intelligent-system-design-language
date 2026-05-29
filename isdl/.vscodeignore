@@ -16,9 +16,4 @@ CLAUDE.md
 RELEASE_NOTES.md
 test-output/**
 test-output-*/**
-node_modules/esbuild/**
-node_modules/@esbuild/**
-node_modules/esbuild-register/**
 node_modules/@rollup/rollup-win32-x64-msvc/**
-**/node_modules/@esbuild/**
-**/node_modules/esbuild/**
