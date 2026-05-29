@@ -67,26 +67,25 @@ export async function runViteBuild(destination: string) {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
 
-        // Resolve the extension root: 4 levels up from out/cli/components/vue/
-        const extensionRoot = path.resolve(__dirname, "..", "..", "..", "..");
-        const nodeModules = path.join(extensionRoot, "node_modules");
-
         const config = defineConfig({
             root: destination,
             plugins: [
                 vue(),
                 vuetify({ autoImport: true })
             ],
+            optimizeDeps: {
+                include: ["vuetify"]
+            },
             resolve: {
                 alias: {
-                    vuetify: path.join(nodeModules, "vuetify"),
-                    "datatables.net-vue3": path.join(nodeModules, "datatables.net-vue3"),
-                    "datatables.net-dt": path.join(nodeModules, "datatables.net-dt"),
-                    "datatables.net-responsive-dt": path.join(nodeModules, "datatables.net-responsive-dt"),
-                    "datatables.net-buttons-dt": path.join(nodeModules, "datatables.net-buttons-dt"),
-                    "datatables.net-colreorder-dt": path.join(nodeModules, "datatables.net-colreorder-dt"),
-                    "datatables.net-rowreorder-dt": path.join(nodeModules, "datatables.net-rowreorder-dt"),
-                    "datatables.net-buttons": path.join(nodeModules, "datatables.net-buttons"),
+                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify"),
+                    "datatables.net-vue3": path.resolve(__dirname, "../../../../node_modules/datatables.net-vue3"),
+                    "datatables.net-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-dt"),
+                    "datatables.net-responsive-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-responsive-dt"),
+                    "datatables.net-buttons-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons-dt"),
+                    "datatables.net-colreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-colreorder-dt"),
+                    "datatables.net-rowreorder-dt": path.resolve(__dirname, "../../../../node_modules/datatables.net-rowreorder-dt"),
+                    "datatables.net-buttons": path.resolve(__dirname, "../../../../node_modules/datatables.net-buttons"),
                 }
             },
             build: {
@@ -94,10 +93,21 @@ export async function runViteBuild(destination: string) {
                 sourcemap: false, // Optional: Enable for debugging
                 outDir: "./system/sheets/vue/components",
                 lib: {
-                    entry: "./system/templates/vue/index.mjs",
+                    entry: "./system/templates/vue/index.mjs", // Entry point
                     name: "vueComponents",
-                    fileName: "components.vue.es",
-                    formats: ["es"]
+                    fileName: "components.vue.es"
+                },
+                rollupOptions: {
+                    external: ["vue"], // Keep Vue as an external dependency
+                    output: {
+                        globals: {
+                            vue: "Vue"
+                        },
+                        // Map the external dependency to a local copy of Vue 3 esm.
+                        paths: {
+                            vue: "../../../../lib/vue.esm-browser.js"
+                        },
+                    }
                 }
             }
         });
@@ -276,10 +286,6 @@ function generateIndexMjs(entry: Entry, destination: string) {
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
-    export { createApp } from 'vue';
-    export { createVuetify } from 'vuetify';
-    export { VNumberInput } from 'vuetify/components';
-    export { VClassIcon } from 'vuetify/lib/composables/icons.mjs';
     `.appendNewLine();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
