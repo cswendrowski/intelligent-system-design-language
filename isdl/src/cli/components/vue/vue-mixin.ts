@@ -41,9 +41,7 @@ export function generateVueMixin(description: string) {
     };
 
     const fileNode = expandToNode`
-        import { createApp } from "../../../lib/vue.esm-browser.js";
-        import * as Vuetify from "../../../lib/vuetify.esm.js";
-        import { ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
+        import { createApp, createVuetify, faIconset, faAliases, VNumberInput, ${joinToNode(Object.values(customComponents), c => expandToNode`${c}`, { separator: ", "})} } from "./components/components.vue.es.mjs";
 
         /**
          * Vue rendering mixin for ApplicationV2.
@@ -198,9 +196,7 @@ export function generateVueMixin(description: string) {
                         treeviewExpand: 'fas fa-caret-right',
                         eyeDropper: 'fas fa-eye-dropper'
                     };
-                    const fa = {
-                        component: Vuetify.components.VClassIcon
-                    };
+                    const fa = faIconset;
 
                     const vueData = this.vueData(context);
                     console.log("Vue App Data:", vueData, this.document);
@@ -236,17 +232,13 @@ export function generateVueMixin(description: string) {
                         }
                     });
                     ${joinToNode(Object.keys(customComponents) as Array<keyof typeof customComponents>, c => expandToNode`this.vueApp.component("${c}", ${customComponents[c]});`, { appendNewLineIfNotEmpty: true})}
-                    const vuetify = Vuetify.createVuetify({
+                    const vuetify = createVuetify({
                         icons: {
                             defaultSet: 'fa',
-                            aliases,
-                            sets: {
-                                fa,
-                            },
+                            aliases: { ...faAliases, ...aliases },
+                            sets: { fa },
                         },
-                        components: {
-                            VNumberInput: Vuetify.components.VNumberInput
-                        }
+                        components: { VNumberInput }
                     });
                     this.vueApp.use(vuetify);
 

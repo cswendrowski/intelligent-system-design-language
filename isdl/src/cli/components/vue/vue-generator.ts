@@ -93,21 +93,10 @@ export async function runViteBuild(destination: string) {
                 sourcemap: false, // Optional: Enable for debugging
                 outDir: "./system/sheets/vue/components",
                 lib: {
-                    entry: "./system/templates/vue/index.mjs", // Entry point
+                    entry: "./system/templates/vue/index.mjs",
                     name: "vueComponents",
-                    fileName: "components.vue.es"
-                },
-                rollupOptions: {
-                    external: ["vue"], // Keep Vue as an external dependency
-                    output: {
-                        globals: {
-                            vue: "Vue"
-                        },
-                        // Map the external dependency to a local copy of Vue 3 esm.
-                        paths: {
-                            vue: "../../../../lib/vue.esm-browser.js"
-                        },
-                    }
+                    fileName: "components.vue.es",
+                    formats: ["es"]
                 }
             }
         });
@@ -286,6 +275,10 @@ function generateIndexMjs(entry: Entry, destination: string) {
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}
+    export { createApp } from 'vue';
+    export { createVuetify } from 'vuetify';
+    export { fa as faIconset, aliases as faAliases } from 'vuetify/iconsets/fa';
+    export { VNumberInput } from 'vuetify/labs/components';
     `.appendNewLine();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
