@@ -468,7 +468,7 @@ export function generateBaseDocumentSheet(entry: Entry, id: string, destination:
                         ChatMessage.create({
                             content: content,
                             speaker: ChatMessage.getSpeaker(),
-                            type: CONST.CHAT_MESSAGE_TYPES.IC
+                            style: CONST.CHAT_MESSAGE_STYLES.IC
                         });
                         break;
                     case "toggle":

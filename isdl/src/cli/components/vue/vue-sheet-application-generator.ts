@@ -602,7 +602,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                     speaker: ChatMessage.getSpeaker(),
                     content: ${attribute.name}Content,
                     flavor: "",
-                    type: ${attribute.name}Context.parts.find(x => x.isRoll) ? null : CONST.CHAT_MESSAGE_STYLES.IC,
+                    ...(${attribute.name}Context.parts.find(x => x.isRoll) ? {} : { style: CONST.CHAT_MESSAGE_STYLES.IC }),
                     rolls: Array.from(${attribute.name}Context.parts.filter(x => x.isRoll).map(x => x.value)),
                 });
             };
