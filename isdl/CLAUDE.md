@@ -39,7 +39,9 @@ This is a VS Code extension and CLI tool for the Intelligent System Design Langu
 npm run build
 ```
 
-Only build the project, do not attempt to do test generations as this consumes too many tokens.
+During iterative development, only build the project (`npm run build`) — don't run a test generation on every change, as each generation consumes a lot of tokens. Test generation is reserved for QA: once a change is complete and builds cleanly, you may generate a system from a sample `.isdl` (e.g. the kitchensink) to verify the generated output before handing off. Generate deliberately at the end of a unit of work, not speculatively mid-iteration.
+
+`examples/kitchensink.isdl` is explicitly the QA fixture — it exists to exercise the generator. When you add or change a feature, add a representative test case for it to the kitchensink (a field, param, table, action, etc. that hits the new code path), so the next generation covers it. Keep additions minimal and clearly relevant to the feature.
 
 ## File Extensions
 
