@@ -59,8 +59,15 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: gh release upload "${{ github.event.release.tag_name }}" *.vsix
 
+    # The package.json name stays "isdl" for the VS Code Marketplace identity
+    # (IronMooseDevelopment.isdl). npm rejects "isdl" as too similar to existing
+    # packages, so rename to the npm package name for the publish only. This runs
+    # AFTER vsce publish, so the VSIX is unaffected. The bin commands
+    # (isdl / isdl-lsp) are independent of the package name and stay the same.
     - name: Publish CLI to npm
       working-directory: ./isdl
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      run: npm publish --access public
+      run: |
+        npm pkg set name=intelligent-system-design-language
+        npm publish --access public
