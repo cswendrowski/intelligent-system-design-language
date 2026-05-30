@@ -806,8 +806,16 @@ export function translateExpression(entry: Entry, id: string, expression: string
         if (expression.subProperty != undefined) {
             accessPath = `${accessPath}.${expression.subProperty}`;
         }
-        if (expression.arrayAccess != undefined) {
+        else if (expression.arrayAccess != undefined) {
             accessPath = `${accessPath}[${translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty)}]`;
+        }
+        else if (isRoll(expression.variable.ref?.value) || isDamageRoll(expression.variable.ref?.value)) {
+            // A bare reference to a roll variable used in a general expression
+            // (comparison, arithmetic, assignment, return, function arg) should
+            // use the roll's numeric total rather than the Roll object itself.
+            // Chat-card rendering uses a separate path that keeps the Roll object
+            // for dice display, so this does not affect "chat { roll1 }".
+            accessPath = `${accessPath}.total`;
         }
 
         return expandToNode`

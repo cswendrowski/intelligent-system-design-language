@@ -28,6 +28,29 @@ actor BasicHero {
             self.Name + " heals for " + amount.total + " HP!"
         }
     }
+
+    // Comparing a roll reference against a number should use the roll's total.
+    action CheckDifficulty {
+        fleeting check = roll(d20 + 1)
+        if (check >= 20) {
+            chat difficultyResult {
+                check
+                "Critical Success!"
+            }
+        }
+        else if (check >= 10) {
+            chat difficultyResult {
+                check
+                "Success!"
+            }
+        }
+        else {
+            chat difficultyResult {
+                check
+                "Failure!"
+            }
+        }
+    }
 }
 
 actor Superhero {
