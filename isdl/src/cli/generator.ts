@@ -76,6 +76,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateChatCardClass(entry, data.destination);
     generateStandardChatCardTemplate(data.destination);
     generateRenderChatLogHookMjs(entry, id, data.destination);
+    generateRenderSettingsHookMjs(entry, id, data.destination);
     generateExtendedRoll(entry, id, data.destination);
     generateDamageRoll(entry, id, data.destination);
     generateContextMenu2(entry, id, data.destination);
@@ -287,6 +288,7 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
         import {init} from "./hooks/init.mjs";
         import {ready} from "./hooks/ready.mjs";
         import {renderChatLog} from "./hooks/render-chat-log.mjs";
+        import {renderSettings} from "./hooks/render-settings.mjs";
         import {hotReload} from "./hooks/hot-reload.mjs";
         import {hotbarDrop} from "./hooks/hotbar-drop.mjs";
 
@@ -294,6 +296,7 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
         Hooks.once("ready", ready);
         Hooks.on("devModeReady", ({registerPackageDebugFlag}) => registerPackageDebugFlag("${id}"));
         Hooks.on("renderChatMessage", renderChatLog);
+        Hooks.on("renderSettings", renderSettings);
         Hooks.on("hotReload", hotReload);
         Hooks.on("hotbarDrop", hotbarDrop);
     `.appendNewLineIfNotEmpty();
@@ -374,6 +377,46 @@ function generateRenderChatLogHookMjs(entry: Entry, id: string, destination: str
 
         export function renderChatLog(app, html, data) {
             ${entry.config.name}ChatCard.activateListeners(html);
+        }
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateRenderSettingsHookMjs(entry: Entry, id: string, destination: string) {
+    const generatedFileDir = path.join(destination, "system", "hooks");
+    const generatedFilePath = path.join(generatedFileDir, `render-settings.mjs`);
+
+    if (!fs.existsSync(generatedFileDir)) {
+        fs.mkdirSync(generatedFileDir, { recursive: true });
+    }
+
+    const fileNode = expandToNode`
+        // Adds an "ISDL" version row to the Foundry Settings sidebar, next to the
+        // system info, showing which version of ISDL generated this system.
+        export function renderSettings(app, html) {
+            const root = html instanceof HTMLElement ? html : html?.[0];
+            if (!root) return;
+
+            const info = root.querySelector("section.info");
+            if (!info || info.querySelector(".isdl-version")) return;
+
+            const version = game.system.flags?.["isdl-version"] ?? "unknown";
+
+            const row = document.createElement("div");
+            row.classList.add("isdl-version");
+            const label = document.createElement("span");
+            label.classList.add("label");
+            label.textContent = "ISDL";
+            const value = document.createElement("span");
+            value.classList.add("value");
+            value.textContent = version;
+            row.append(label, value);
+
+            // Place it right after the system row when present, else append.
+            const systemRow = info.querySelector(".system");
+            if (systemRow) systemRow.after(row);
+            else info.appendChild(row);
         }
     `.appendNewLineIfNotEmpty();
 
