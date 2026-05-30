@@ -28,10 +28,17 @@ import {
     isResourceExp,
     isSingleDocumentExp,
     isSizeParam,
+    isStringChoiceField,
     isStringExp,
+    isStringExtendedChoice,
+    isStringParamChoices,
     isStringParamValue,
+    isChoiceStringValue,
+    isLabelParam,
     isTimeExp,
     isVariableExpression,
+    ChoiceStringValue,
+    LabelParam,
     NumberExp,
     NumberParamMin,
     NumberParamValue,
@@ -40,9 +47,11 @@ import {
     Property,
     ResourceExp,
     SizeParam,
+    StringChoice,
+    StringParamChoices,
     StringParamValue
 } from "../../../language/generated/ast.js";
-import { getDocument, getSystemPath, globalGetAllOfType } from '../utils.js';
+import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { AstUtils } from 'langium';
 
 
@@ -155,6 +164,32 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             }
             return expandToNode`
                 <i-text-field label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-text-field>
+            `;
+        }
+
+        if (isStringChoiceField(element)) {
+            const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
+            if (!choicesParam || choicesParam.choices.length === 0) {
+                return expandToNode``;
+            }
+
+            function choiceValue(choice: StringChoice): string {
+                if (!isStringExtendedChoice(choice.value)) {
+                    return toMachineIdentifier(choice.value);
+                }
+                const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                if (value) return toMachineIdentifier(value.value);
+                const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                if (choiceLabel) return toMachineIdentifier(choiceLabel.value);
+                return "unknown";
+            }
+
+            const items = choicesParam.choices
+                .map(c => `{ title: game.i18n.localize('${document.name}.${element.name}.${choiceValue(c)}'), value: '${choiceValue(c)}' }`)
+                .join(", ");
+
+            return expandToNode`
+            <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${items}]" item-title="title" item-value="value" ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
             `;
         }
 
