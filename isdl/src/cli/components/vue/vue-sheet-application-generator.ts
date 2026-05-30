@@ -1733,14 +1733,18 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 const pageName = page?.name ?? document.name;
                 const systemPath = getSystemPath(element, [], undefined, false);
                 let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
+                // Wrap in a drop zone so drag-drop works for pinned tables inside a
+                // row/column (same reason as regular tables above).
                 return expandToNode`
-                <${componentName}
-                    :context="context"
-                    label="${label}"
-                    icon="${iconParam?.value}"
-                    systemPath="${systemPath}"
-                    :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor">
-                </${componentName}>
+                <div class="datatable-drop-zone">
+                    <${componentName}
+                        :context="context"
+                        label="${label}"
+                        icon="${iconParam?.value}"
+                        systemPath="${systemPath}"
+                        :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor">
+                    </${componentName}>
+                </div>
                 `;
             }
 
@@ -2066,8 +2070,15 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 const pageName = page?.name ?? document.name;
                 const systemPath = getSystemPath(element, [], undefined, false);
                 let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
+                // Wrap in a drop zone so drag-drop works for tables inside a row/column.
+                // Tables rendered as their own tab are wrapped in .tabs-container (the
+                // sheet's drop target); layout-rendered tables aren't, so without this
+                // wrapper they have no drop target. The wrapper only exists in the layout
+                // case (never nested inside a .tabs-container), so no double drop binding.
                 return expandToNode`
-                    <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+                    <div class="datatable-drop-zone">
+                        <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+                    </div>
                 `.appendNewLine();
             }
 

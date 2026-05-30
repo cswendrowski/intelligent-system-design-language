@@ -109,7 +109,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 },
                 // Custom property that's merged into this.options
                 dragDrop: [
-                    {dragSelector: "tr", dropSelector: ".tabs-container"},
+                    {dragSelector: "tr", dropSelector: ".tabs-container, .datatable-drop-zone"},
                     {dropSelector: ".single-document"},
                     {dragSelector: ".paper-doll-slot", dropSelector: ".paper-doll-slot"},
                     {dragSelector: ".inventory-slot.filled", dropSelector: ".inventory-grid-container"}
