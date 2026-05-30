@@ -345,6 +345,7 @@
 
   .v-row {
     column-gap: 1rem;
+    height: 100%;
 
     > .v-col {
       padding-left: 0;
@@ -670,6 +671,7 @@
   }
 
   .isdl-tracker {
+    height: 100%;
 
     .tracker-content {
       width: 100%;
