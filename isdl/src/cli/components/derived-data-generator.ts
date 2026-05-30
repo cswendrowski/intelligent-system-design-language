@@ -34,7 +34,6 @@ import {
     isNumberParamMin,
     isWhereParam,
     isDocument,
-    isPage,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -702,12 +701,16 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 if (isDocument(item)) {
                     // Recursively process document bodies
                     result.push(...getTopLevelProperties(item.body));
-                } else if (isPage(item)) {
-                    // For pages, add the page itself (it's a Layout)
-                    result.push(item);
-                } else if (isLayout(item) && !isPage(item)) {
-                    // For sections and other layouts, add the layout itself
-                    result.push(item);
+                } else if (isLayout(item)) {
+                    // Flatten ALL layouts (pages, sections, rows, columns, tabs) down to
+                    // their leaf properties. Layout nodes must NOT be added to the
+                    // dependency graph: anonymous layouts (row/column have no name) all
+                    // resolve to the same 'unknown' key in topologicalSort's visited set,
+                    // so every anonymous layout after the first is skipped and the derived
+                    // data for its children (e.g. a resource's calculated max) is never
+                    // emitted — leaving it at the datamodel default. Flattening to named
+                    // leaf properties makes section/row/column/page/root all behave the same.
+                    result.push(...getTopLevelProperties(item.body));
                 } else {
                     // For regular properties (ClassExpression), add them directly
                     result.push(item as ClassExpression | Layout);
