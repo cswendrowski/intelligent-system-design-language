@@ -28,13 +28,17 @@ jobs:
       run: npm run langium:generate
       working-directory: ./isdl
 
-    - name: Build
-      run: npm run build
-      working-directory: ./isdl
-
+    # Bump the version BEFORE building: esbuild copies package.json into
+    # out/ during the build, and the generator reads that copy to stamp the
+    # isdl-version flag into generated systems. Building first would bake in
+    # the stale committed version instead of the release version.
     - name: Set version from release tag
       working-directory: ./isdl
       run: npm version "${{ github.event.release.tag_name }}" --no-git-tag-version --allow-same-version
+
+    - name: Build
+      run: npm run build
+      working-directory: ./isdl
 
     - name: Install vsce
       run: npm install -g @vscode/vsce
