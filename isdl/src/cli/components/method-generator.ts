@@ -469,6 +469,21 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 accessPath = `${accessPath}.${subProperty.toLowerCase()}`;
             }
         }
+
+        // A bare reference to a roll variable (e.g. `fleeting r = roll(d20 + 1)`
+        // used as `r >= 20` or `r + 5`) should use the roll's numeric total, not
+        // the Roll object. In expression contexts the reference parses as a Ref
+        // (Ref precedes FleetingAccess in PrimitiveExpression), so this is the
+        // path that needs it. Skip when the user already accessed a subproperty
+        // (r.total, r.dice) or when the ref is a Parameter rather than a variable.
+        // Chat-card rendering keeps the Roll object via a separate path.
+        const refTarget = expression.val.ref;
+        if ((expression.subProperties?.length ?? 0) === 0
+            && isVariableExpression(refTarget)
+            && (isRoll(refTarget.value) || isDamageRoll(refTarget.value))) {
+            accessPath = `${accessPath}.total`;
+        }
+
         console.log("Access Path: ", accessPath);
         return expandToNode`
             ${accessPath}
