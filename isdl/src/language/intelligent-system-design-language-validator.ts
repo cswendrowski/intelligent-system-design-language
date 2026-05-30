@@ -32,11 +32,15 @@ import {
     isBinaryExpression, isLiteral, NumberExp,
     MethodBlockExpression, isReturnExpression, ResourceExp, AttributeExp,
     Action, isAction,
-    DamageTrackExp
+    DamageTrackExp,
+    ParentAccess, ParentAssignment, IfStatement,
+    isIfStatement, isParentTypeCheckExpression,
+    TargetAccess, TargetAssignment, isTargetTypeCheckExpression
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType } from '../cli/components/utils.js';
 import { DiagnosticTag } from 'vscode-languageserver';
+import { AstUtils, type AstNode } from 'langium';
 
 /**
  * Register custom validation checks.
@@ -57,7 +61,11 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         NumberExp: validator.validateNumberExp,
         ResourceExp: validator.validateResourceExp,
         AttributeExp: validator.validateAttributeExp,
-        DamageTrackExp: validator.validateWipField
+        DamageTrackExp: validator.validateWipField,
+        ParentAccess: validator.validateParentAccess,
+        ParentAssignment: validator.validateParentAccess,
+        TargetAccess: validator.validateTargetAccess,
+        TargetAssignment: validator.validateTargetAccess
     };
     registry.register(checks, validator);
 }
@@ -331,6 +339,54 @@ export class IntelligentSystemDesignLanguageValidator {
         if (modParam && isMethodBlock(modParam.method)) {
             this.validateNumericExpression(modParam.method.body, accept);
         }
+    }
+
+    /**
+     * `parent.X` only resolves inside an `if (parent is SomeActor)` check, because an
+     * Item can be owned by any Actor type. Without the guard the property reference
+     * fails to resolve, producing a cryptic "Could not resolve reference to Property"
+     * error. Detect the missing guard and surface a clear, actionable message instead.
+     */
+    validateParentAccess(node: ParentAccess | ParentAssignment, accept: ValidationAcceptor): void {
+        // Is there an enclosing `if (parent is SomeActor) { ... }`?
+        const guard = AstUtils.getContainerOfType(node as AstNode, (n: AstNode): n is IfStatement =>
+            isIfStatement(n) && isParentTypeCheckExpression(n.expression));
+        if (guard) return;
+
+        const propName = (node as any).property?.$refText ?? "<property>";
+        accept('error',
+            `'parent' access must be wrapped in an 'if (parent is SomeActor)' check. ` +
+            `An Item can be owned by any Actor type, so ISDL needs to know which Actor's fields ` +
+            `you mean before it can resolve 'parent.${propName}'.\n\n` +
+            `Example:\n` +
+            `    if (parent is Hero) {\n` +
+            `        parent.${propName} -= 1\n` +
+            `    }`,
+            { node, property: 'property' }
+        );
+    }
+
+    /**
+     * `target.X` only resolves inside an `if (target is SomeActor)` check, for the same
+     * reason as `parent` — the targeted token can be any Actor type. Surface a clear
+     * message when the guard is missing.
+     */
+    validateTargetAccess(node: TargetAccess | TargetAssignment, accept: ValidationAcceptor): void {
+        const guard = AstUtils.getContainerOfType(node as AstNode, (n: AstNode): n is IfStatement =>
+            isIfStatement(n) && isTargetTypeCheckExpression(n.expression));
+        if (guard) return;
+
+        const propName = (node as any).property?.$refText ?? "<property>";
+        accept('error',
+            `'target' access must be wrapped in an 'if (target is SomeActor)' check. ` +
+            `The targeted token can be any Actor type, so ISDL needs to know which Actor's fields ` +
+            `you mean before it can resolve 'target.${propName}'.\n\n` +
+            `Example:\n` +
+            `    if (target is Monster) {\n` +
+            `        target.${propName} -= 1\n` +
+            `    }`,
+            { node, property: 'property' }
+        );
     }
 
     private validateNumericExpression(body: MethodBlockExpression[], accept: ValidationAcceptor): void {
