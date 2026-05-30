@@ -16,7 +16,8 @@ export default function generateParentPropertyReferenceComponent(destination: st
   <div class="isdl-parent-property-reference single-wide">
     <v-select
       :name="props.systemPath"
-      v-model="value"
+      :model-value="value"
+      @update:model-value="(v) => { value = v; if (document) document.update({ [props.systemPath]: v }); }"
       :items="refChoices"
       item-title="label"
       item-value="value"
@@ -33,7 +34,9 @@ export default function generateParentPropertyReferenceComponent(destination: st
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
+
+const document = inject("rawDocument");
 
 const props = defineProps({
   context: {

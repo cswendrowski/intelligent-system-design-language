@@ -54,7 +54,8 @@ export default function generateSelfPropertyReferenceComponent(destination: stri
     <template>
         <div class="isdl-self-property-reference single-wide">
             <v-select
-                v-model="value"
+                :model-value="value"
+                @update:model-value="(v) => { value = v; if (document) document.update({ [props.systemPath]: v }); }"
                 :items="availableChoices"
                 :name="props.systemPath"
                 :disabled="disabled"
