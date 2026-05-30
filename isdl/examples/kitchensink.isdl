@@ -53,7 +53,8 @@ actor BasicHero {
     }
 }
 
-actor Superhero {
+// QA: custom default sheet size (width/height params on the document)
+actor Superhero(width: 900, height: 700) {
 
     page Alias {
         string SuperheroName

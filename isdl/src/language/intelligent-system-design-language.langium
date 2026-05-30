@@ -32,7 +32,7 @@ Actor:
 Item:
     "item" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ClassBlock;
 DocumentParam:
-    (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam | DocumentCreatableParam | DocumentDefaultParam);
+    (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam | DocumentCreatableParam | DocumentDefaultParam | WidthParam | HeightParam);
 DocumentSvgParam:
     "svg:" value=STRING;
 DocumentDescriptionParam:

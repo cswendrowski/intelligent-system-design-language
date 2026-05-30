@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, Document, Entry, FunctionDefinition, HtmlExp, isAction, isActor, isFunctionDefinition, isHtmlExp } from "../../../language/generated/ast.js";
+import { Action, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, isAction, isActor, isFunctionDefinition, isHeightParam, isHtmlExp, isWidthParam } from "../../../language/generated/ast.js";
 import { humanize, titleize } from 'inflection';
 import { getAllOfType, toMachineIdentifier } from '../utils.js';
 import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
@@ -16,6 +16,14 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
     }
 
     const vueComponentName = `${document.name.toLowerCase()}-${type}-app`;
+
+    // Default sheet window size, overridable via `width:`/`height:` params on the actor/item.
+    // A value of `auto` lets Foundry size that dimension to its content.
+    const formatDimension = (value: 'auto' | number): string => value === 'auto' ? '"auto"' : `${value}`;
+    const widthParam = document.params?.find(isWidthParam) as WidthParam | undefined;
+    const heightParam = document.params?.find(isHeightParam) as HeightParam | undefined;
+    const sheetWidth = widthParam ? formatDimension(widthParam.value) : (type == "item" ? 1050 : 1200);
+    const sheetHeight = heightParam ? formatDimension(heightParam.value) : (type == "item" ? 875 : 950);
 
     const htmlElements = getAllOfType<HtmlExp>(document.body, isHtmlExp);
     let actions = getAllOfType<Action>(document.body, isAction);
@@ -74,8 +82,8 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                 viewPermission: DOCUMENT_OWNERSHIP_LEVELS.LIMITED,
                 editPermission: DOCUMENT_OWNERSHIP_LEVELS.OWNER,
                 position: {
-                    width: ${type == "item" ? 1050 : 1200},
-                    height: ${type == "item" ? 875 : 950},
+                    width: ${sheetWidth},
+                    height: ${sheetHeight},
                 },
                 window: {
                     resizable: true,
