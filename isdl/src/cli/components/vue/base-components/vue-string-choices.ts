@@ -81,6 +81,17 @@ export default function generateStringChoicesComponent(destination: string, entr
             }
         });
 
+        // v-select doesn't fire a native change event, so Foundry's
+        // submitOnChange never persists a selection until another field
+        // changes. Apply the selection (the computed setter transforms it into
+        // the stored shape) and then persist that stored value directly.
+        const onChoicesChange = (newValues) => {
+            selectedValues.value = newValues;
+            if (document) {
+                document.update({ [props.systemPath]: foundry.utils.getProperty(props.context, props.systemPath) });
+            }
+        };
+
         const fieldColor = computed(() => {
             return props.color || 'primary';
         });
@@ -120,9 +131,10 @@ export default function generateStringChoicesComponent(destination: string, entr
     <template>
         <div class="isdl-string-choices double-wide">
             <!-- Simple choices field - uses v-select with multiple -->
-            <v-select 
+            <v-select
                 v-if="!props.isExtended"
-                v-model="selectedValues"
+                :model-value="selectedValues"
+                @update:model-value="onChoicesChange"
                 :name="props.systemPath"
                 :items="props.items"
                 item-title="label"
@@ -144,9 +156,10 @@ export default function generateStringChoicesComponent(destination: string, entr
             </v-select>
 
             <!-- Extended choices field - uses v-select with custom templates, same style as choice<string> -->
-            <v-select 
+            <v-select
                 v-else
-                v-model="selectedValues"
+                :model-value="selectedValues"
+                @update:model-value="onChoicesChange"
                 :name="props.systemPath"
                 :items="props.items"
                 item-title="label"

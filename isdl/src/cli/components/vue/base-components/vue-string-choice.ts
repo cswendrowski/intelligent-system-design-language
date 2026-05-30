@@ -72,9 +72,10 @@ export default function generateStringChoiceComponent(destination: string, entry
     <template>
         <div v-if="!isHidden" class="isdl-string-choice single-wide">
             <!-- Simple choice field - uses v-select -->
-            <v-select 
+            <v-select
                 v-if="!props.isExtended"
-                v-model="value"
+                :model-value="value"
+                @update:model-value="(v) => { value = v; if (document) document.update({ [props.systemPath]: v }); }"
                 :name="props.systemPath"
                 :items="props.items"
                 item-title="label"
