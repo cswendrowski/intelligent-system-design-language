@@ -270,7 +270,7 @@ MacroExecute:
 TableField:
     ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
 TableParams:
-    (StandardFieldParams | WhereParam | TableFieldsParam);
+    (StandardFieldParams | WhereParam | TableFieldsParam | TableImageParam);
 SingleDocumentExp:
     ExpressionModifier document=[Document:ID] name=ID StandardFieldParamsFrag;
 DocumentChoiceExp:
@@ -281,6 +281,8 @@ DocumentChoiceParms:
     (StandardFieldParams | WhereParam | GlobalParam);
 TableFieldsParam:
     "fields:" "[" fields+=ID ("," fields+=ID)* "]";
+TableImageParam:
+    "image:" value=BOOLEAN;
 
 // Inventory -------------
 

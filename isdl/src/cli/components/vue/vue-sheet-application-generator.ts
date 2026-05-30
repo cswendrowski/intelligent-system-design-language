@@ -80,7 +80,7 @@ import {
     StringParamChoices, StringChoicesParamChoices,
     StringParamValue, TableField, TimeExp, TrackerExp,
     TrackerStyleParameter,
-    VisibilityParam, Expression
+    VisibilityParam, VisibilityValue, Expression
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
 import {AstUtils} from 'langium';
@@ -552,9 +552,11 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                     `;
                 }
 
+                // VisibilityValue is an AST node; emit its literal value (e.g. "gmOnly"),
+                // not the stringified node ("[object Object]").
                 return expandToNode`
                 '${element.name.toLowerCase()}': computed(() => {
-                    return '${visibilityParam.visibility}';
+                    return '${(visibilityParam.visibility as VisibilityValue).visibility}';
                 })
                 `;
             }
@@ -985,7 +987,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const label = labelParam?.value ?? `${document.name}.${tab.name}`;
 
         return expandToNode`
-            <v-tab value="${tab.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${pageName}', '${tab.name}')">{{ game.i18n.localize('${label}') }}</v-tab>
+            <v-tab v-if="!isHidden('${tab.name.toLowerCase()}')" value="${tab.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${pageName}', '${tab.name}')">{{ game.i18n.localize('${label}') }}</v-tab>
         `;
     }
 
@@ -1025,7 +1027,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const systemPath = getSystemPath(element, [], undefined, false);
         let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
         return expandToNode`
-        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="table" class="tabs-container">
+        <v-tabs-window-item v-if="!isHidden('${element.name.toLowerCase()}')" value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="table" class="tabs-container">
             <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
         </v-tabs-window-item>
         `.appendNewLine();
@@ -1115,7 +1117,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         }
 
         return expandToNode`
-        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="inventory" class="tabs-container">
+        <v-tabs-window-item v-if="!isHidden('${element.name.toLowerCase()}')" value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="inventory" class="tabs-container">
             <i-inventory
                 label="${label}"
                 systemPath="${systemPath}"
@@ -1153,7 +1155,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const label = labelParam?.value ?? `${document.name}.${element.name}`;
 
         return expandToNode`
-        <v-tab value="${element.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${document.name}', '${element.name}')">{{ game.i18n.localize("${label}") }}</v-tab>
+        <v-tab v-if="!isHidden('${element.name.toLowerCase()}')" value="${element.name.toLowerCase()}" prepend-icon="${icon}" @mousedown="spawnDatatableWindow($event, '${document.name}', '${element.name}')">{{ game.i18n.localize("${label}") }}</v-tab>
         `.appendNewLine();
     }
 
@@ -1162,7 +1164,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const pageName = page ? page.name : document.name;
         let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
         return expandToNode`
-        <v-tabs-window-item value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="pinned" class="tabs-container">
+        <v-tabs-window-item v-if="!isHidden('${element.name.toLowerCase()}')" value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="pinned" class="tabs-container">
             <${componentName} 
                 :context="context"
                 :primaryColor="primaryColor"

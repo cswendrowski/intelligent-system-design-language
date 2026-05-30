@@ -23,10 +23,13 @@ import {
     isResourceExp, isStringChoiceField,
     isStringExp,
     isTableFieldsParam,
+    isTableImageParam,
     isTimeExp,
     isTrackerExp, Layout, Property,
+    isVisibilityParam, isMethodBlock,
     StandardFieldParams,
-    TableField, TableFieldsParam
+    TableField, TableFieldsParam, TableImageParam,
+    VisibilityParam, VisibilityValue
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getSystemPath} from '../utils.js';
 import {AstUtils, Reference} from 'langium';
@@ -41,6 +44,20 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
     }
 
     const iconParam = table.params.find(p => isIconParam(p)) as IconParam | undefined;
+
+    // Image column is configurable; defaults to visible unless `image: false` is set in the table definition.
+    const imageParam = table.params.find(p => isTableImageParam(p)) as TableImageParam | undefined;
+    const imageDefaultVisible = imageParam ? imageParam.value : true;
+
+    // Resolve the static visibility of a column from its `visibility:` param (preferred) or its modifier.
+    // Method-block visibility can't be resolved at build time, so we fall back to the modifier / default.
+    function getStaticColumnVisibility(property: Property): string {
+        const visParam = (property.params as StandardFieldParams[] | undefined)?.find(p => isVisibilityParam(p)) as VisibilityParam | undefined;
+        if (visParam && !isMethodBlock(visParam.visibility)) {
+            return (visParam.visibility as VisibilityValue).visibility;
+        }
+        return property.modifier ?? 'default';
+    }
 
     let fieldsParam = table.params.find(x => isTableFieldsParam(x)) as TableFieldsParam | undefined;
     let defaultVisibleFields = [] as string[];
@@ -61,8 +78,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         if ( isHtmlExp(property) || isInitiativeProperty(property) || isPaperDollElement(property) || isHookHandler(property) ) return undefined;
 
         if ( isProperty(property) ) {
-            const isHidden = property.modifier == "hidden";
-            if (isHidden) return undefined;
+            const visibility = getStaticColumnVisibility(property);
+            // Statically-hidden columns are excluded entirely (no leak, no slot).
+            if (visibility === "hidden") return undefined;
 
             let systemPath = getSystemPath(property, [], undefined, false);
             let sortable = true;
@@ -82,7 +100,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             if (isStringExp(property)) {
                 minWidth = '140px'; // Text fields need more space for content
                 return expandToNode`
-                    { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}' },
+                    { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}', visibility: '${visibility}' },
                 `;
             }
 
@@ -112,7 +130,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             }
 
             return expandToNode`
-                { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}', type: '${property.$type}' },
+                { title: game.i18n.localize("${localizeName}"), key: '${systemPath}', sortable: ${sortable}, minWidth: '${minWidth}', type: '${property.$type}', visibility: '${visibility}' },
             `;
         }
         return undefined;
@@ -127,8 +145,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         if ( isHtmlExp(property) || isInitiativeProperty(property) || isPaperDollElement(property) || isHookHandler(property) ) return undefined;
 
         if ( isProperty(property) ) {
-            const isHidden = property.modifier == "hidden";
-            if (isHidden) return undefined;
+            // Match the header generator: statically-hidden columns have no header and no slot.
+            // gmOnly/secret columns keep their slot (GMs/owners may still see the column).
+            if (getStaticColumnVisibility(property) === "hidden") return undefined;
 
             let systemPath = getSystemPath(property, [], undefined, false);
             const slotName = systemPath;
@@ -312,6 +331,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         window.isdlItemMaps.set(document._id, itemMap);
         
         const customHeaders = [
+            // Image and Name are configurable columns like any other. Image is ordered first by default.
+            { title: game.i18n.localize("Image"), key: 'img', sortable: false, width: '50px', maxWidth: '50px' },
+            { title: game.i18n.localize("Name"), key: 'name', sortable: true, minWidth: '120px', locked: true },
             ${joinToNode(table.document.ref!.body, p => generateDataTableHeader(table.document, p), { appendNewLineIfNotEmpty: true })}
         ];
 
@@ -343,33 +365,32 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             return ordered;
         });
 
+        // Per-viewer column gating from the referenced field's visibility.
+        // 'hidden' columns are already dropped at build time; method-block visibility can't be
+        // resolved here, so such columns fall through as visible.
+        const passesVisibility = (header) => {
+            const v = header?.visibility;
+            if (v === 'gmOnly') return game.user.isGM;
+            if (v === 'secret') {
+                return game.user.isGM || document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+            }
+            return true;
+        };
+
         const visibleHeaders = computed(() => {
             const baseHeaders = [
-                { 
+                {
                     title: "",
-                    key: 'system.pinned', 
+                    key: 'system.pinned',
                     sortable: false,
                     width: '40px',
                     maxWidth: '40px',
                     align: 'center'
-                },
-                { 
-                    title: game.i18n.localize("Image"), 
-                    key: 'img', 
-                    sortable: false,
-                    width: '50px',
-                    maxWidth: '50px'
-                },
-                { 
-                    title: game.i18n.localize("Name"), 
-                    key: 'name', 
-                    sortable: true,
-                    minWidth: '120px'
                 }
             ];
-            
-            let customHeadersToShow = orderedHeaders.value.filter(header => header && isColumnVisible(header.key));
-            
+
+            let customHeadersToShow = orderedHeaders.value.filter(header => header && isColumnVisible(header.key) && passesVisibility(header));
+
             const actionHeaders = [
                 { 
                     title: game.i18n.localize("Actions"), 
@@ -390,30 +411,46 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             ${joinToNode(defaultVisibleFields, p => expandToNode`'system.${p.toLowerCase()}'`, { separator: ",", appendNewLineIfNotEmpty: true })}
         ];
 
+        // Default visibility per column. Image defaults to the image table param (default true),
+        // Name is always visible (locked), and the rest follow the table's fields defaults.
+        const columnDefaultVisible = (key) => {
+            if (key === 'img') return ${imageDefaultVisible};
+            if (key === 'name') return true;
+            return defaultVisibileColumns.includes(key);
+        };
+
+        const buildDefaultVisibility = (tableSettings) => {
+            const defaultVisibility = {};
+            customHeaders.forEach(col => {
+                defaultVisibility[col.key] = columnDefaultVisible(col.key);
+                if (tableSettings && tableSettings.visibility && tableSettings.visibility[col.key] !== undefined) {
+                    defaultVisibility[col.key] = tableSettings.visibility[col.key];
+                }
+            });
+            // Name can never be hidden.
+            defaultVisibility['name'] = true;
+            return defaultVisibility;
+        };
+
         const initializeColumnSettings = async () => {
             try {
                 const savedSettings = game.settings.get("${id}", settingKey) || {};
                 const documentTables = savedSettings[document._id] || {};
                 const tableSettings = documentTables['${pageName}${table.name}'] || {};
-                
-                // Initialize visibility with defaults if no saved settings
-                const defaultVisibility = {};
-                customHeaders.forEach(col => {
-                    if (defaultVisibileColumns.includes(col.key)) {
-                        defaultVisibility[col.key] = true;
-                    } else {
-                        defaultVisibility[col.key] = false;
-                    }
-                    if (tableSettings.visibility && tableSettings.visibility[col.key] !== undefined) {
-                        defaultVisibility[col.key] = tableSettings.visibility[col.key];
-                    }
-                });
-                
-                columnVisibility.value = defaultVisibility;
-                
+
+                columnVisibility.value = buildDefaultVisibility(tableSettings);
+
                 // Initialize order
                 if (tableSettings.order && Array.isArray(tableSettings.order)) {
-                    columnOrder.value = [...tableSettings.order];
+                    // Start from the saved order, then splice in any columns the save predates
+                    // (e.g. img/name, or fields added to the document later) at their default index.
+                    const order = [...tableSettings.order];
+                    customHeaders.map(h => h.key).forEach((key, idx) => {
+                        if (!order.includes(key)) {
+                            order.splice(Math.min(idx, order.length), 0, key);
+                        }
+                    });
+                    columnOrder.value = order;
                 } else {
                     // Default order is the order they appear in customHeaders
                     columnOrder.value = customHeaders.map(h => h.key);
@@ -421,15 +458,7 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
             } catch (error) {
                 console.warn("Failed to load column settings, using defaults:", error);
                 // Use defaults if setting doesn't exist yet
-                const defaultVisibility = {};
-                customHeaders.forEach(col => {
-                    if (defaultVisibileColumns.includes(col.key)) {
-                        defaultVisibility[col.key] = true;
-                    } else {
-                        defaultVisibility[col.key] = false;
-                    }
-                });
-                columnVisibility.value = defaultVisibility;
+                columnVisibility.value = buildDefaultVisibility(null);
                 columnOrder.value = customHeaders.map(h => h.key);
             }
         };
@@ -464,20 +493,14 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         };
 
         const toggleColumn = async (columnKey) => {
+            // Name is the row identity column and can't be hidden.
+            if (columnKey === 'name') return;
             columnVisibility.value[columnKey] = !columnVisibility.value[columnKey];
             await saveColumnSettings();
         };
 
         const resetColumns = async () => {
-            const defaultVisibility = {};
-            customHeaders.forEach(col => {
-                if (defaultVisibileColumns.includes(col.key)) {
-                    defaultVisibility[col.key] = true;
-                } else {
-                    defaultVisibility[col.key] = false;
-                }
-            });
-            columnVisibility.value = defaultVisibility;
+            columnVisibility.value = buildDefaultVisibility(null);
             columnOrder.value = customHeaders.map(h => h.key);
             await saveColumnSettings();
         };
@@ -901,9 +924,10 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                         Drag to reorder columns, check/uncheck to show/hide columns
                     </div>
                     <v-list density="compact" class="column-config-list">
-                        <div 
-                            v-for="(columnKey, index) in columnOrder" 
+                        <div
+                            v-for="(columnKey, index) in columnOrder"
                             :key="columnKey"
+                            v-if="passesVisibility(customHeaders.find(h => h.key === columnKey))"
                             class="column-config-item"
                             draggable="true"
                             @dragstart="onColumnDragStart($event, index)"
@@ -918,8 +942,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                                         size="small"
                                         style="cursor: grab;"
                                     ></v-icon>
-                                    <v-checkbox-btn 
-                                        :model-value="columnVisibility[columnKey]" 
+                                    <v-checkbox-btn
+                                        :model-value="columnKey === 'name' ? true : columnVisibility[columnKey]"
+                                        :disabled="columnKey === 'name'"
                                         @update:model-value="toggleColumn(columnKey)"
                                         class="me-2"
                                     ></v-checkbox-btn>

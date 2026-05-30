@@ -116,6 +116,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         return rollResult.total
     }
     pinned Favorites
+    // QA: table-level visibility for a pinned-field tab (gates both the tab button and window for non-GMs)
+    gmOnly pinned GmPinned
 
     page PlainFields {
 
@@ -646,6 +648,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     table<Spell> Spells(fields: [Type, Class])
     table<Skill> Skills(fields: [Ability, Trained, SkillMod])
     table<Spell> VuetifySpells
+    // QA: table-level visibility — modifier form hides the whole tab for non-GMs
+    gmOnly table<Spell> GmOnlyTable
+    // QA: param form (exercises the visibility literal-extraction fix; method-block forms already exist elsewhere)
+    table<Spell> SecretParamTable(visibility: Visibility.gmOnly)
+    // QA: image column hidden by default via the image param
+    table<Spell> NoImageTable(image: false)
 }
 
 actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp") {
@@ -768,6 +776,10 @@ item Spell {
     number Cost
     string Summary
 
+    // QA: per-column visibility gating in tables (VuetifySpells has no fields restriction, so these show as columns)
+    gmOnly number GmOnlyColumn
+    secret string SecretColumn
+
     section Dice {
         die BonusDie
         dice DamageDice
@@ -856,6 +868,9 @@ item Spell {
             secret string SecretField
             readonly string ReadOnlyField
             locked string LockedField
+            // QA: static param-form visibility (the above are modifier-form; these exercise the literal-extraction fix)
+            string ParamGmOnlyField(visibility: Visibility.gmOnly)
+            string ParamSecretField(visibility: Visibility.secret)
         }
 
         section ActionsWithVisibility {
