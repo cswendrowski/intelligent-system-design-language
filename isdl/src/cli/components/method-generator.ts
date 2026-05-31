@@ -164,7 +164,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     function translateAssignmentExpression(expression: Assignment): CompositeGeneratorNode | undefined {
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
 
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false, true);
 
         // Special case: For dice .die subproperty increment/decrement, use die choice navigation instead of numeric increment
         if (isDiceField(expression.property?.ref) && expression.subProperties && expression.subProperties.length > 0 &&
@@ -339,7 +339,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     function translateParentAssignmentExpression(expression: ParentAssignment): CompositeGeneratorNode | undefined {
         //console.log("Translating Assignment Expression: " + expression.property.ref?.name);
 
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression.propertyLookup?.ref, false, true);
 
         if (isParentIncrementDecrementAssignment(expression)) {
             const modifier = expression.term == "++" ? "+" : "-";
@@ -367,7 +367,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
 
     function translateTargetAssignmentExpression(expression: TargetAssignment): CompositeGeneratorNode | undefined {
-        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, false);
+        let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, false, true);
 
         if (isTargetIncrementDecrementAssignment(expression)) {
             const modifier = expression.term == "++" ? "+" : "-";

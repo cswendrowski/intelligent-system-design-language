@@ -153,6 +153,10 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         fleeting rollResult = roll(d6 + self.Fight + mod)
         return rollResult.total
     }
+    // QA: assigning to a self attribute must write .value, not the derived .mod
+    action DrainFight {
+        self.Fight -= 1
+    }
     pinned Favorites
     // QA: table-level visibility for a pinned-field tab (gates both the tab button and window for non-GMs)
     gmOnly pinned GmPinned
@@ -819,6 +823,13 @@ item Spell {
     // QA: per-column visibility gating in tables (VuetifySpells has no fields restriction, so these show as columns)
     gmOnly number GmOnlyColumn
     secret string SecretColumn
+
+    // QA: assigning to a parent attribute must write .value, not the derived .mod
+    action DrainParentFight {
+        if (parent is Hero) {
+            parent.Fight -= self.Cost
+        }
+    }
 
     section Dice {
         die BonusDie

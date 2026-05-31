@@ -61,7 +61,7 @@ function appendPropertyAccessor(systemPath: string, document: Document, property
     return systemPath;
 }
 
-export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], generatingProperty: Property | ParentAccess | Access | undefined = undefined, safeAccess=true): string {
+export function getSystemPath(reference: Property | undefined, subProperties: string[] = [], generatingProperty: Property | ParentAccess | Access | undefined = undefined, safeAccess=true, forAssignment=false): string {
     // Not all references are to the baseline - resources and attributes have sub-paths
     if (reference == undefined) {
         return "";
@@ -148,7 +148,10 @@ export function getSystemPath(reference: Property | undefined, subProperties: st
         return systemPath;
     }
 
-    const suffix = getPropertyAccessorSuffix(reference);
+    // Attributes expose `.value` (the editable base score) and `.mod` (the derived modifier).
+    // Reads default to `.mod`; assignments must target `.value` or they write to the derived
+    // field and are lost on the next prepareDerivedData.
+    const suffix = (forAssignment && isAttributeExp(reference)) ? '.value' : getPropertyAccessorSuffix(reference);
     return `${basePath}${reference.name.toLowerCase()}${suffix}`;
 }
 
