@@ -468,9 +468,9 @@ MethodParam:
 // Functions -----------
 
 FunctionCall:
-    "self." method=[FunctionDefinition:ID] ("(" params+=Expression ("," params+=Expression)* ")")?;
+    "self." method=[FunctionDefinition:ID] ("(" (params+=Expression ("," params+=Expression)*)? ")")?;
 FunctionDefinition:
-    "function" name=ID ("(" params+=FunctionParam ("," params+=FunctionParam)* ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
+    "function" name=ID ("(" (params+=FunctionParam ("," params+=FunctionParam)*)? ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
 FunctionParam:
     param=(Property) ("=" defaultValue=Expression)?;
 

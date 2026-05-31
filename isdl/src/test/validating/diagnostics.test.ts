@@ -22,6 +22,12 @@ describe('parser diagnostics', () => {
         expect(diags).toHaveLength(0);
     });
 
+    it('allows empty parameter lists on function definitions and calls', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    function NoArgs() returns boolean {\n        return true\n    }\n    action Run {\n        fleeting x = self.NoArgs()\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
     it('collapses a syntax error to a single diagnostic instead of a cascade', async () => {
         // An unterminated array is a real syntax error; the recovery cascade must be trimmed to one.
         const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting a = [1, 2\n        fleeting b = 3\n    }\n}`;
