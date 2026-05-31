@@ -25,6 +25,12 @@ actor BasicHero {
         health resource HP(max: { return self.Brawn + self.HealthModifier })
     }
 
+    // QA: expression `initial:` -- references a derived (value:) field, so it can't be a schema
+    // default; it's applied once in _preCreate. Literal initials (Equipment.Quantity) still use
+    // the schema. MaxStamina is computed; ReserveStamina starts equal to it at creation.
+    number MaxStamina(value: { return self.HealthModifier + 5 })
+    number ReserveStamina(initial: { return self.MaxStamina })
+
       action GetUserChoice {
         fleeting userInput = prompt(
         label: "Choose Your Action",

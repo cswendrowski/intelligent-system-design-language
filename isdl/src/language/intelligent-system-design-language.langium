@@ -411,7 +411,7 @@ SelfPropertyRefChoice:
 NumberParamMin:
     "min:" value=(MethodBlock | INT);
 NumberParamInitial:
-    "initial:" value=(INT);
+    "initial:" value=(MethodBlock | INT);
 SizeParam:
     "size:" value=PX;
 NumberParamValue:
