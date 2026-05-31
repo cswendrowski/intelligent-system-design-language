@@ -86,8 +86,15 @@
       overflow: hidden;
     }
 
+    // With the window sized to content (height: auto), neutralize Vuetify's 100vh
+    // min-heights so the layout collapses to the form instead of leaving dark space.
     .v-application__wrap {
       min-height: unset;
+    }
+
+    .v-main {
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
     .v-container {
