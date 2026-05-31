@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { Document, Entry, isActor, Prompt } from '../../../language/generated/ast.js';
+import { Document, Entry, isActor, isDamageTypeChoiceField, isProperty, isStringChoiceField, Prompt } from '../../../language/generated/ast.js';
 import { titleize } from 'inflection';
 
 export function generatePromptSheetClass(name: string, entry: Entry, id: string,  document: Document, prompt: Prompt, destination: string) {
@@ -10,6 +10,13 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
     // `name` is the prompt identity (action + variable). The prompt's fields live under
     // system.<identity-lowercased>, matching the v-model paths in the generated component.
     const promptPath = name.toLowerCase();
+
+    // Single-choice fields (choice<string>/choice<damageType>) are stored as {value,icon,color}
+    // objects in the datamodel. The action expects first.Field === the chosen value, so flatten
+    // those to their .value on harvest. (choices<string> already stores an array of plain values.)
+    const choiceFieldNames = prompt.body
+        .filter(p => isProperty(p) && (isStringChoiceField(p) || isDamageTypeChoiceField(p)))
+        .map(p => (p as any).name.toLowerCase());
     const generatedFileDir = path.join(destination, "system", "sheets", "vue", type, "prompts");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}-${name}-prompt-app.mjs`);
 
@@ -35,13 +42,22 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 this.promptResolve = options.promptResolve;
             }
 
-            // Resolve the awaiting action with the user's input, harvested from the in-memory
-            // document.system where the Vue v-models wrote it. Shape matches the legacy dialog
-            // path: { ...fields, system: { ...fields } } so userInput.X access is unchanged.
+            // Plain, writable scratch copy of the document's system data that the Vue v-models bind
+            // to (context.system points here). Using a toObject() clone -- not the live DataModel --
+            // means every field type is writable, including getter-only document-reference fields.
+            #promptData;
+
+            // Resolve the awaiting action with the user's input, harvested from the scratch data.
+            // Shape matches the legacy dialog path: { ...fields, system: { ...fields } } so
+            // userInput.X access is unchanged.
             _resolvePrompt() {
                 if (this.#promptResolved) return;
                 this.#promptResolved = true;
-                const data = foundry.utils.deepClone(foundry.utils.getProperty(this.document.system, "${promptPath}")) ?? {};
+                const data = foundry.utils.deepClone(foundry.utils.getProperty(this.#promptData, "${promptPath}")) ?? {};
+                // Flatten single-choice fields ({value,icon,color}) to their chosen value.
+                for (const key of ${JSON.stringify(choiceFieldNames)}) {
+                    if (data[key] && typeof data[key] === "object" && "value" in data[key]) data[key] = data[key].value;
+                }
                 this.promptResolve?.({ ...data, system: data });
                 this.close();
             }
@@ -101,6 +117,8 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
             };
 
             async _prepareContext(options) {
+                // Fresh, writable scratch copy of system data for the prompt's inputs to bind to.
+                this.#promptData = foundry.utils.deepClone(this.document.toObject().system);
                 // Output initialization
                 const context = {
                     // Validates both permissions and compendium status
@@ -113,7 +131,7 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                     document: this.document,
 
                     // Add the data to context.data for easier access, as well as flags.
-                    system: this.document.system,
+                    system: this.#promptData,
                     flags: this.document.flags,
 
                     // Roll data.

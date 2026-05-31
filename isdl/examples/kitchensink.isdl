@@ -44,16 +44,18 @@ actor BasicHero {
             boolean Confirmed
             choice<string> Kind(choices: ["Alpha", "Beta", "Gamma"])
             choices<string> Tags(choices: ["Red", "Green", "Blue"])
+            choice<damageType> Element(choices: ["None", { label: "Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF0000 }])
             die Size
             dice Pool
-            attribute Power(min: 1, max: 10)
-            resource Pips(max: 5)
+            self<attribute> Stat
+            choice<Skill> ChosenSkill
+            choices<Skill> ManySkills
         }
         fleeting second = prompt(label: "Second Prompt") {
             number Bonus
         }
         chat VuePromptResult {
-            "Kind: " + first.Kind + " | Amount: " + first.Amount + " | Bonus: " + second.Bonus
+            "Kind: " + first.Kind + " | Element: " + first.Element + " | Bonus: " + second.Bonus
         }
     }
 

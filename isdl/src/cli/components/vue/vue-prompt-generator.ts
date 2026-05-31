@@ -6,28 +6,22 @@ import {
     ClassExpression,
     Document,
     Entry,
-    ImageParam,
     isAction,
     isActor,
     isAttributeExp,
-    isAttributeParamMod,
     isBooleanExp,
     isDateExp,
     isDateTimeExp,
     isDocumentChoiceExp,
+    isDocumentChoicesExp,
     isHookHandler,
-    isHtmlExp,
-    isImageParam,
     isNumberExp,
-    isNumberParamMin,
     isNumberParamValue,
-    isPaperDollExp,
     isParentPropertyRefChoiceParam,
     isParentPropertyRefExp,
     isProperty,
     isResourceExp,
     isSingleDocumentExp,
-    isSizeParam,
     isStringChoiceField,
     isStringExp,
     isStringExtendedChoice,
@@ -40,36 +34,25 @@ import {
     ChoiceStringValue,
     LabelParam,
     NumberExp,
-    NumberParamMin,
     NumberParamValue,
     ParentPropertyRefChoiceParam,
     Prompt,
     Property,
     ResourceExp,
-    SizeParam,
     StringChoice,
     StringParamChoices,
     StringParamValue,
     isStringChoicesField,
     isDamageTypeChoiceField,
-    isIconParam,
-    isColorParam,
-    isChoiceCustomProperty,
     isDieField,
     isDiceField,
     isDieChoicesParam,
     isDieNoneParam,
-    isMoneyField,
-    isTrackerExp,
     isSelfPropertyRefExp,
-    ChoiceCustomProperty,
-    ColorParam,
     DieChoicesParam,
-    DieNoneParam,
-    IconParam
+    DieNoneParam
 } from "../../../language/generated/ast.js";
 import { getDocument, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
-import { humanize } from 'inflection';
 import { AstUtils } from 'langium';
 
 
@@ -187,15 +170,12 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
 
         if (isStringChoiceField(element) || isStringChoicesField(element) || isDamageTypeChoiceField(element)) {
             const isMulti = isStringChoicesField(element);
-            const elementName = (element as any).name as string;
             const fieldParams = (element as any).params as any[];
             // choice<string>/choice<damageType> use StringParamChoices; choices<string> uses StringChoicesParamChoices.
             const singleChoices = (fieldParams.find(p => isStringParamChoices(p)) as StringParamChoices | undefined)?.choices;
             const multiChoices = (fieldParams.find((p: any) => p.$type === 'StringChoicesParamChoices') as any)?.choices as StringChoice[] | undefined;
             const choices = singleChoices ?? multiChoices;
             if (!choices || choices.length === 0) return expandToNode``;
-
-            const fieldIcon = (fieldParams.find(p => isIconParam(p)) as IconParam | undefined)?.value ?? '';
 
             function choiceValue(choice: StringChoice): string {
                 if (!isStringExtendedChoice(choice.value)) return toMachineIdentifier(choice.value);
@@ -206,41 +186,34 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
                 return "unknown";
             }
 
-            function choiceData(choice: StringChoice): string {
-                const v = choiceValue(choice);
-                const labelExpr = `game.i18n.localize('${document.name}.${elementName}.${v}')`;
-                if (!isStringExtendedChoice(choice.value)) {
-                    return `{ label: ${labelExpr}, value: '${v}', icon: '', color: '' }`;
-                }
-                const icon = choice.value.properties.find(isIconParam) as IconParam | undefined;
-                const color = choice.value.properties.find(isColorParam) as ColorParam | undefined;
-                const customProps = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
-                const customKeys = customProps.length > 0
-                    ? `, customKeys: [${customProps.map(c => `{ key: '${c.key}', label: '${humanize(c.key)}', value: ${typeof c.value === 'string' ? `'${c.value}'` : c.value} }`).join(',')}]`
-                    : '';
-                return `{ label: ${labelExpr}, value: '${v}', icon: '${icon?.value ?? ''}', color: '${color?.value ?? ''}'${customKeys} }`;
+            // Display text: original string for plain choices, the label/value for extended ones.
+            function choiceDisplay(choice: StringChoice): string {
+                if (!isStringExtendedChoice(choice.value)) return choice.value;
+                const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
+                if (choiceLabel) return choiceLabel.value;
+                const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
+                if (value) return value.value;
+                return choiceValue(choice);
             }
 
-            const items = choices.map(choiceData).join(", ");
-            const componentName = isMulti ? 'i-string-choices' : 'i-string-choice';
-            const maxParam = fieldParams.find((p: any) => p.$type === 'StringChoicesParamMax') as any;
-            const maxAttr = (isMulti && maxParam) ? `:maxSelections="${maxParam.value}"` : '';
-
+            // A plain select that stores the chosen value (string, or array for multi) so the action
+            // gets first.Field === "value" directly -- not a rich {value,icon,color} object.
+            const items = choices.map(c => `{ title: '${choiceDisplay(c).replace(/'/g, "\\'")}', value: '${choiceValue(c)}' }`).join(", ");
             return expandToNode`
-            <${componentName} :context="context" label="${label}" icon="${fieldIcon}" systemPath="${systemPath}" :items="[${items}]" :isExtended="true" ${maxAttr} :editMode="editMode" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></${componentName}>
+            <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${items}]" item-title="title" item-value="value" ${isMulti ? 'multiple chips' : ''} ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
             `;
         }
 
-        if (isDocumentChoiceExp(element)) {
-            const componentName = `${document.name.toLowerCase()}${element.name}DocumentChoice`;
+        if (isDocumentChoiceExp(element) || isDocumentChoicesExp(element)) {
+            // Pick a document (or documents) of the referenced type. Stores UUID(s) in the
+            // prompt's context path; the sheet DocumentChoice component is document-coupled and
+            // can't be reused here, so we list candidates with a plain select bound to context.
+            const refDoc = element.document.ref;
+            const collection = (refDoc && isActor(refDoc)) ? 'game.actors' : 'game.items';
+            const docType = refDoc?.name.toLowerCase() ?? '';
+            const multiple = isDocumentChoicesExp(element);
             return expandToNode`
-                <${componentName} :context="context" :editMode="editMode" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></${componentName}>
-            `;
-        }
-
-        if (isHtmlExp(element)) {
-            return expandToNode`
-            <i-prosemirror ${labelFragment} :field="context.editors['${systemPath}']" :disabled="!editMode"></i-prosemirror>
+            <v-select name="${systemPath}" v-model="context.${systemPath}" :items="${collection}.filter(d => d.type === '${docType}').map(d => ({ title: d.name, value: d.uuid }))" item-title="title" item-value="value" ${multiple ? 'multiple chips' : ''} ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
             `;
         }
 
@@ -278,33 +251,8 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             `;
         }
 
-        if (isAttributeExp(element)) {
-            const minParam = element.params.find(x => isNumberParamMin(x)) as NumberParamMin;
-            const min = minParam?.value ?? 0;
-            const hasMod = element.params.find(x => isAttributeParamMod(x)) != undefined;
-
-            return expandToNode`
-                <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${systemPath}.mod" systemPath="${systemPath}.value" :context="context" :min="${min}" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
-            `;
-        }
-
-        if (isResourceExp(element)) {
-            return expandToNode`
-            <i-resource label="${label}" systemPath="${systemPath}" :context="context" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
-            `;
-        }
-
-        if (isTrackerExp(element)) {
-            return expandToNode`
-            <i-tracker label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-tracker>
-            `;
-        }
-
-        if (isMoneyField(element)) {
-            return expandToNode`
-            <i-money label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-money>
-            `;
-        }
+        // attribute/resource/tracker/money are persistent stateful widgets, not one-shot inputs --
+        // they're intentionally unsupported in prompts (use number / choice instead).
 
         if (isDieField(element) || isDiceField(element)) {
             const choicesParam = element.params.find(x => isDieChoicesParam(x)) as DieChoicesParam | undefined;
@@ -361,20 +309,10 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             `;
         }
 
-        if (isPaperDollExp(element)) {
-            let sizeParam = element.params.find(x => isSizeParam(x)) as SizeParam;
-            let size = sizeParam?.value ?? "40px";
-
-            let imageParam = element.params.find(x => isImageParam(x)) as ImageParam;
-            let image = imageParam?.value ?? `systems/${id}/img/paperdoll_default.png`;
-
-            return expandToNode`
-            <i-paperdoll label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" image="${image}" size="${size}" :slots="${element.name.toLowerCase()}Slots"></i-paperdoll>
-            `;
-        }
+        // html / paperdoll are not one-shot inputs and are intentionally unsupported in prompts.
 
         return expandToNode`
-        <v-alert text="Unknown Property ${element.name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
+        <v-alert text="Unsupported prompt field ${element.name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
         `;
     }
 
