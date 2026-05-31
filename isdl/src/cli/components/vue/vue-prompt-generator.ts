@@ -78,15 +78,17 @@ export function generatePromptApp(name: string, entry: Entry, id: string, docume
         const editMode = true;
     </script>
     <template>
-        <v-app>
-            <v-main class="d-flex">
-                <v-container class="topography" fluid style="padding: 1rem; height: 100%;">
-                    ${joinToNode(prompt.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
-                    <v-row class="flexrow">
+        <v-app style="height: 100%; min-height: 0;">
+            <v-main class="d-flex" style="height: 100%; min-height: 0; flex: 1 1 auto;">
+                <v-container class="topography" fluid style="padding: 1rem; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${joinToNode(prompt.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
+                    </div>
+                    <v-row class="flexrow" style="flex: 0 0 auto; margin: 0;">
                         <v-btn @click="context.promptSubmit && context.promptSubmit()" color="primary" class="ma-1 action-btn">Submit</v-btn>
                         <v-btn @click="context.promptCancel && context.promptCancel()" color="error" class="ma-1 action-btn">Cancel</v-btn>
                     </v-row>
-                </v-container>                
+                </v-container>
             </v-main>
         </v-app>
     </template>
@@ -198,9 +200,12 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
 
             // A plain select that stores the chosen value (string, or array for multi) so the action
             // gets first.Field === "value" directly -- not a rich {value,icon,color} object.
+            // Single choices are stored as {value,icon,color} in the datamodel, so bind to .value;
+            // multi-choices store a plain array of values.
             const items = choices.map(c => `{ title: '${choiceDisplay(c).replace(/'/g, "\\'")}', value: '${choiceValue(c)}' }`).join(", ");
+            const modelPath = isMulti ? systemPath : `${systemPath}.value`;
             return expandToNode`
-            <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${items}]" item-title="title" item-value="value" ${isMulti ? 'multiple chips' : ''} ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
+            <v-select name="${systemPath}" v-model="context.${modelPath}" :items="[${items}]" item-title="title" item-value="value" ${isMulti ? 'multiple chips' : ''} :label="game.i18n.localize('${label}.label')" :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
             `;
         }
 

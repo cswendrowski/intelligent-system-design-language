@@ -53,7 +53,10 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
             _resolvePrompt() {
                 if (this.#promptResolved) return;
                 this.#promptResolved = true;
-                const data = foundry.utils.deepClone(foundry.utils.getProperty(this.#promptData, "${promptPath}")) ?? {};
+                // Read from the live reactive context the inputs actually wrote to (not #promptData,
+                // which _prepareContext reassigns on every render).
+                const liveSystem = this.vueRoot?.context?.system ?? this.#promptData;
+                const data = foundry.utils.deepClone(foundry.utils.getProperty(liveSystem, "${promptPath}")) ?? {};
                 // Flatten single-choice fields ({value,icon,color}) to their chosen value.
                 for (const key of ${JSON.stringify(choiceFieldNames)}) {
                     if (data[key] && typeof data[key] === "object" && "value" in data[key]) data[key] = data[key].value;

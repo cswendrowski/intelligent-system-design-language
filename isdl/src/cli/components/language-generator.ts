@@ -17,7 +17,9 @@ import {
     isItem,
     isHookHandler,
     isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField,
+    isVariableExpression, isPrompt,
 } from "../../language/generated/ast.js"
+import { Prompt, VariableExpression } from '../../language/generated/ast.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {toMachineIdentifier} from "./utils.js";
@@ -91,7 +93,12 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         }
         if (isAction(property)) {
             const labelParam = property.params.find(x => isLabelParam(x)) as LabelParam | undefined;
-            return { [property.name]: labelParam ? labelParam.value : humanize(property.name) };
+            // Emit localization entries for any prompt fields inside the action so their labels resolve.
+            const promptFields = (property.method.body.filter(x => isVariableExpression(x)) as VariableExpression[])
+                .filter(v => isPrompt(v.value))
+                .flatMap(v => (v.value as Prompt).body);
+            const promptEntries = Object.assign({}, ...promptFields.map(f => propertyEntries(f)));
+            return { [property.name]: labelParam ? labelParam.value : humanize(property.name), ...promptEntries };
         }
         if (isHookHandler(property)) {
             return { [property.name]: humanize(property.name) };
