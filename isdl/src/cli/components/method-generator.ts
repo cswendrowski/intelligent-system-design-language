@@ -566,6 +566,35 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
 
 
+        // Parent/Self property references store a *path* to another property (e.g. a chosen parent
+        // attribute). Reading one as a value must dereference it to the referenced property's value,
+        // not return the raw stored path. context.object is in scope in every value context
+        // (derived data sets it to `this`, actions/chat use the document).
+        if (isParentPropertyRefExp(expression.property?.ref) || isSelfPropertyRefExp(expression.property?.ref)) {
+            const refName = expression.property!.ref!.name.toLowerCase();
+            const propertyType = (expression.property!.ref as any).propertyType;
+            const subs = expression.subProperties ?? [];
+            let accessor = "";
+            if (subs.length > 0) {
+                accessor = subs.map(s => `?.${s.toLowerCase()}`).join("");
+            } else if (propertyType === "attribute") {
+                accessor = "?.mod";
+            } else if (propertyType === "resource" || propertyType === "tracker" || propertyType === "choice") {
+                accessor = "?.value";
+            }
+
+            if (isParentPropertyRefExp(expression.property?.ref)) {
+                // Parent refs store a full path (e.g. "system.fight") resolved against the parent.
+                return expandToNode`
+                    foundry.utils.getProperty(context.object.parent, context.object.system.${refName}.toLowerCase())${accessor}
+                `;
+            }
+            // Self refs store a property name resolved against this document under system.
+            return expandToNode`
+                foundry.utils.getProperty(context.object, "system." + context.object.system.${refName}.toLowerCase())${accessor}
+            `;
+        }
+
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression);
 
         if (isStatusProperty(generatingProperty)) {

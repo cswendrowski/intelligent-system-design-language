@@ -722,6 +722,8 @@ item Skill {
     parent<attribute> Ability(choices: [Hero])
     boolean Trained
     number SkillMod
+    // QA: reading a parent<attribute> ref as a value should resolve to the referenced attribute's number, not the stored path
+    number AbilityValue(value: { return self.Ability })
     tracker UsesLeft(style: slashes)
     die Die
     //dice Dice
