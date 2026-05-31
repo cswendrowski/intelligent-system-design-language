@@ -28,6 +28,19 @@ describe('parser diagnostics', () => {
         expect(diags).toHaveLength(0);
     });
 
+    it('rejects unsupported field types inside a prompt', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting x = prompt(label: "T") {\n            number Amount\n            resource Bad(max: 10)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(1);
+        expect(diags[0].message).toContain("can't be used in a prompt");
+    });
+
+    it('allows supported input fields inside a prompt', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting x = prompt(label: "T") {\n            string Title\n            number Amount\n            boolean Confirmed\n            choice<string> Kind(choices: ["A", "B"])\n            choices<string> Tags(choices: ["X", "Y"])\n            die Size\n            dice Pool\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
     it('collapses a syntax error to a single diagnostic instead of a cascade', async () => {
         // An unterminated array is a real syntax error; the recovery cascade must be trimmed to one.
         const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting a = [1, 2\n        fleeting b = 3\n    }\n}`;
