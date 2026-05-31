@@ -321,7 +321,9 @@ InventorySumProperties:
     property=[Property:ID] | "[" properties+=[Property:ID] ("," properties+=[Property:ID])* "]";
 
 InventorySumMaxParam:
-    "sumMax:" (value=INT | expression=Expression | values=InventorySumMaxValues);
+    // `values` (a [..] list) must precede `expression`, because Expression now includes
+    // ArrayExpression and would otherwise swallow the list as a single (mis-generated) expression.
+    "sumMax:" (value=INT | values=InventorySumMaxValues | expression=Expression);
 
 InventorySumMaxValues:
     "[" values+=(INT | Expression) ("," values+=(INT | Expression))* "]";
