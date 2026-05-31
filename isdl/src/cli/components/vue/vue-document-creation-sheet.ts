@@ -37,7 +37,9 @@ export function generateDocumentCreationDialog(entry: Entry, id: string, destina
                 classes: ["${id}", "sheet", "vue-sheet", "document-creation"],
                 position: {
                     width: 400,
-                    height: 350,
+                    // Size to content so the short create form isn't a fixed window with empty
+                    // space below it (the .document-creation styles neutralize Vuetify's min-height).
+                    height: "auto",
                 },
                 window: {
                     resizable: false,
