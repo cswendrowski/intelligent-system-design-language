@@ -41,6 +41,8 @@ actor BasicHero {
         fleeting first = prompt(label: "First Prompt") {
             string Title
             number Amount(value: 3)
+            number Doubled(value: { return self.HealthModifier + 10 })
+            string StaticNote(value: "Computed note")
             boolean Confirmed
             choice<string> Kind(choices: ["Alpha", "Beta", "Gamma"])
             choices<string> Tags(choices: ["Red", "Green", "Blue"])
@@ -55,7 +57,20 @@ actor BasicHero {
             number Bonus
         }
         chat VuePromptResult {
-            "Kind: " + first.Kind + " | Element: " + first.Element + " | Bonus: " + second.Bonus
+            "Title: " + first.Title
+            "Amount: " + first.Amount
+            "Doubled: " + first.Doubled
+            "StaticNote: " + first.StaticNote
+            "Confirmed: " + first.Confirmed
+            "Kind: " + first.Kind
+            "Tags: " + first.Tags
+            "Element: " + first.Element
+            "Size: " + first.Size
+            "Pool: " + first.Pool
+            "Stat: " + first.Stat
+            "ChosenSkill: " + first.ChosenSkill
+            "ManySkills: " + first.ManySkills
+            "Bonus: " + second.Bonus
         }
     }
 

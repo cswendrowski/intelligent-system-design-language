@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { expandToNode, toString } from 'langium/generate';
-import { Document, Entry, isActor, isDamageTypeChoiceField, isProperty, isStringChoiceField, Prompt } from '../../../language/generated/ast.js';
+import { expandToNode, joinToNode, toString, CompositeGeneratorNode } from 'langium/generate';
+import { Document, Entry, isActor, isDamageTypeChoiceField, isDiceField, isMethodBlock, isNumberExp, isNumberParamValue, isProperty, isStringChoiceField, isStringExp, isStringParamValue, NumberParamValue, Prompt, StringParamValue } from '../../../language/generated/ast.js';
+import { translateExpression } from '../method-generator.js';
 import { titleize } from 'inflection';
 
 export function generatePromptSheetClass(name: string, entry: Entry, id: string,  document: Document, prompt: Prompt, destination: string) {
@@ -17,6 +18,46 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
     const choiceFieldNames = prompt.body
         .filter(p => isProperty(p) && (isStringChoiceField(p) || isDamageTypeChoiceField(p)))
         .map(p => (p as any).name.toLowerCase());
+
+    // Dice fields are stored as {die, number} SchemaFields. A bare dice reference resolves to its
+    // `.value` formula (number + die, e.g. "3d6") in normal contexts, but the prompt has no derived
+    // prep to compute that, so flatten {die, number} to the same formula string on harvest.
+    const diceFieldNames = prompt.body
+        .filter(p => isProperty(p) && isDiceField(p))
+        .map(p => (p as any).name.toLowerCase());
+
+    // Calculated fields (number/string with a `value:` param) are read-only and need their
+    // computed result seeded into the scratch data -- the prompt has no derived-data prep, so
+    // toObject() only carries the schema initial. Build a compute snippet per such field,
+    // reusing the same expression translator the document's derived data uses.
+    const valueFields = prompt.body.filter(p => isProperty(p)).map(p => {
+        let valueExpr: any;
+        let isStringLiteral = false;
+        if (isNumberExp(p)) {
+            const vp = p.params.find(x => isNumberParamValue(x)) as NumberParamValue | undefined;
+            if (!vp) return undefined;
+            valueExpr = vp.value;
+        } else if (isStringExp(p)) {
+            const vp = p.params.find(x => isStringParamValue(x)) as StringParamValue | undefined;
+            if (!vp || vp.value === "") return undefined;
+            valueExpr = vp.value;
+            isStringLiteral = typeof vp.value === 'string';
+        } else {
+            return undefined;
+        }
+        const body: CompositeGeneratorNode = isMethodBlock(valueExpr)
+            ? translateExpression(entry, id, valueExpr, true, p) as CompositeGeneratorNode
+            : expandToNode`return ${isStringLiteral ? `"${valueExpr}"` : valueExpr};`;
+        return { name: (p as any).name.toLowerCase(), body };
+    }).filter((x): x is { name: string; body: CompositeGeneratorNode } => x !== undefined);
+
+    const valueFieldSeeds = joinToNode(valueFields.map(vf => expandToNode`
+                const ${vf.name}ValueFunc = (system) => {
+                    const context = { object: this.document };
+                    ${vf.body}
+                };
+                foundry.utils.setProperty(this.#promptData, "${promptPath}.${vf.name}", ${vf.name}ValueFunc(this.document.system));
+    `), { appendNewLineIfNotEmpty: true });
     const generatedFileDir = path.join(destination, "system", "sheets", "vue", type, "prompts");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}-${name}-prompt-app.mjs`);
 
@@ -60,6 +101,10 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 // Flatten single-choice fields ({value,icon,color}) to their chosen value.
                 for (const key of ${JSON.stringify(choiceFieldNames)}) {
                     if (data[key] && typeof data[key] === "object" && "value" in data[key]) data[key] = data[key].value;
+                }
+                // Flatten dice fields ({die, number}) to their formula string (number + die).
+                for (const key of ${JSON.stringify(diceFieldNames)}) {
+                    if (data[key] && typeof data[key] === "object" && "die" in data[key]) data[key] = \`\${data[key].number}\${data[key].die}\`;
                 }
                 this.promptResolve?.({ ...data, system: data });
                 this.close();
@@ -122,6 +167,11 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
             async _prepareContext(options) {
                 // Fresh, writable scratch copy of system data for the prompt's inputs to bind to.
                 this.#promptData = foundry.utils.deepClone(this.document.toObject().system);
+
+                // Seed calculated (value:) fields with their computed result so they display
+                // read-only. Evaluated once here against the live document; a value expression
+                // that references a sibling prompt field uses prep-time values, not live input.
+                ${valueFieldSeeds}
                 // Output initialization
                 const context = {
                     // Validates both permissions and compendium status
