@@ -311,10 +311,22 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         const columnOrder = ref([]);
 
         const data = computed(() => {
-            // Table fields represent embedded items. Use context.object.items (plain objects
-            // from toObject()) to avoid Vue's reactive proxy traversing Foundry's EmbeddedCollection.
+            // Table fields represent embedded items. Map over context.object.items (plain objects
+            // from toObject()) to keep the reactive dependency and avoid Vue's reactive proxy
+            // traversing Foundry's EmbeddedCollection. toObject() omits derived/computed values
+            // (their getters are non-enumerable), so we transiently read the live item and overlay
+            // each schema field's resolved value -- the live item is never stored in reactive state.
             const allItems = props.context?.object?.items ?? [];
-            return allItems.filter(i => i.type === '${table.document.ref?.name.toLowerCase() ?? ''}');
+            return allItems.filter(i => i.type === '${table.document.ref?.name.toLowerCase() ?? ''}').map(plain => {
+                const live = document.items.get(plain._id);
+                if (live) {
+                    const fields = live.system.schema?.fields ?? live.system.constructor?.schema?.fields ?? {};
+                    for (const key of Object.keys(fields)) {
+                        plain.system[key] = foundry.utils.deepClone(live.system[key]);
+                    }
+                }
+                return plain;
+            });
         });
 
         // Create a map of item _id to item for drag operations

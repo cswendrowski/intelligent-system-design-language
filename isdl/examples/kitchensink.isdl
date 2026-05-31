@@ -724,6 +724,8 @@ item Skill {
     number SkillMod
     // QA: reading a parent<attribute> ref as a value should resolve to the referenced attribute's number, not the stored path
     number AbilityValue(value: { return self.Ability })
+    // QA: a calculated value must render in a table column (derived values are dropped by toObject)
+    number Doubled(value: { return self.SkillMod * 2 })
     tracker UsesLeft(style: slashes)
     die Die
     //dice Dice
