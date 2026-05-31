@@ -141,7 +141,10 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 classes: ["${id}", "dialog", "vue-sheet", "isdl-prompt", "${type}", "${document.name.toLowerCase()}-prompt"],
                 position: {
                     width: 400,
-                    height: 600,
+                    // Size to content so short prompts aren't a tall window of empty space; the
+                    // window's max-height: 100% caps tall prompts, at which point the field list
+                    // scrolls and the Submit/Cancel footer stays pinned.
+                    height: "auto",
                 },
                 window: {
                     resizable: true,
