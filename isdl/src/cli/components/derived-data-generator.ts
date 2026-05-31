@@ -1411,7 +1411,14 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                     
                     const createData = foundry.utils.mergeObject(data, createResponse, { inplace: false });
                     createData.type = createData.type || type;
-                    createData.type = createData.type.toLowerCase();
+                    // The type field can come back as the autocomplete's display label (e.g. the
+                    // localized "Basic Hero") rather than the machine type ("basichero"). Lower-casing
+                    // alone doesn't recover a multi-word machine type, so map the response back against
+                    // the known types -- matching either the raw machine type or its displayed label --
+                    // and fall back to the resolved default type if nothing matches.
+                    if (!types.includes(createData.type)) {
+                        createData.type = types.find(t => t === createData.type || (game.i18n.has(t) ? game.i18n.localize(t) : t) === createData.type) ?? type;
+                    }
                     if (!createData.folder) delete createData.folder;
                     if (!createData.name?.trim()) createData.name = this.defaultName();
                     return this.create(createData, { parent, pack, renderSheet: true });
