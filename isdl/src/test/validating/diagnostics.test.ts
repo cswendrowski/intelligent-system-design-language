@@ -15,6 +15,13 @@ async function errors(src: string) {
 
 describe('parser diagnostics', () => {
 
+    it('allows references and expressions as array items', async () => {
+        // Arrays accept any expression, not just literals (self.X, math, etc.).
+        const src = `${CONFIG}\n\nactor A {\n    number Foo\n    number Bar\n    action X {\n        fleeting a = [self.Foo, self.Bar + 1, 3]\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
     it('collapses a syntax error to a single diagnostic instead of a cascade', async () => {
         // An unterminated array is a real syntax error; the recovery cascade must be trimmed to one.
         const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting a = [1, 2\n        fleeting b = 3\n    }\n}`;

@@ -688,7 +688,7 @@ ParentTypeCheckExpression:
 TargetTypeCheckExpression:
     "target" "is" document=[Document:ID];
 ArrayExpression:
-    "[" items+=Literal ("," items+=Literal)* "]";
+    "[" (items+=Expression ("," items+=Expression)*)? "]";
 
 // Math Expressions ------
 MathExpression:
