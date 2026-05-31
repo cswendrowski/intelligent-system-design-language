@@ -71,8 +71,6 @@ import {
     isParameter,
     isPrompt,
     isLabelParam,
-    isNumberExp,
-    isStringExp,
     isTargetParam,
     IntelligentSystemDesignLanguageTerminals,
     isMathExpression,
@@ -92,6 +90,7 @@ import {
     isVisibilityValue,
     isFunctionCall,
     isAction,
+    isDocument,
     isIncrementDecrementAssignment,
     isQuickModifyAssignment,
     isVariableIncrementDecrementAssignment,
@@ -119,19 +118,13 @@ import {
     isMacroExecute,
     isMeasuredTemplateField,
     isStringChoiceField,
-    isStringParamChoices,
-    isStringExtendedChoice,
-    isChoiceStringValue,
-    StringChoice,
-    StringParamChoices,
-    ChoiceStringValue,
     isDiceField,
     isDieChoicesParam,
     isDocumentChoicesExp,
     isDocumentChoiceExp
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
-import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
+import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
 export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty | NumberRange, preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
@@ -1637,80 +1630,20 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const targetParam = expression.params.find(x => isTargetParam(x)) as TargetParam | undefined;
         const target = targetParam?.value ?? "self";
 
+        // Registry key for the generated Vue prompt app (game.system.prompts.<doc><action><variable>).
+        const promptAction = AstUtils.getContainerOfType(expression, isAction);
+        const promptDocument = AstUtils.getContainerOfType(expression, isDocument);
+        const promptVariable = getPromptVariable(expression);
+        const promptKey = (promptDocument && promptAction)
+            ? getPromptRegistryKey(promptDocument, promptAction, promptVariable)
+            : '';
+
         const locationParam = expression.params.find(x => isLocationParam(x)) as LocationParam | undefined;
         const widthParam = expression.params.find(x => isWidthParam(x)) as WidthParam | undefined;
         const heightParam = expression.params.find(x => isHeightParam(x)) as HeightParam | undefined;
         const timeLimitParam = expression.params.find(x => isTimeLimitParam(x)) as TimeLimitParam | undefined;
         // const iconParam = expression.params.find(x => isIconParam(x));
         // const icon = iconParam?.value ?? "fa-solid fa-comment-dots";
-
-        function translateDialogBody(expression: ClassExpression): CompositeGeneratorNode | undefined {
-
-            if (isNumberExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="number" name="${expression.name.toLowerCase()}" value="0" />
-                    </div>
-                `;
-            }
-
-            if (isBooleanExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="checkbox" name="${expression.name.toLowerCase()}" />
-                    </div>
-                `;
-            }
-
-            if (isStringExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="text" name="${expression.name.toLowerCase()}" />
-                    </div>
-                `;
-            }
-
-            if (isStringChoiceField(expression)) {
-                const choicesParam = expression.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
-                if (!choicesParam || choicesParam.choices.length === 0) {
-                    return undefined;
-                }
-
-                function choiceValue(choice: StringChoice): string {
-                    if (!isStringExtendedChoice(choice.value)) {
-                        return toMachineIdentifier(choice.value);
-                    }
-                    const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (value) return toMachineIdentifier(value.value);
-                    const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                    if (choiceLabel) return toMachineIdentifier(choiceLabel.value);
-                    return "unknown";
-                }
-
-                function choiceDisplay(choice: StringChoice): string {
-                    if (!isStringExtendedChoice(choice.value)) return choice.value;
-                    const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                    if (choiceLabel) return choiceLabel.value;
-                    const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (value) return value.value;
-                    return choiceValue(choice);
-                }
-
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <select name="${expression.name.toLowerCase()}">
-                            ${joinToNode(choicesParam.choices, c => expandToNode`<option value="${choiceValue(c)}">${choiceDisplay(c)}</option>`, { appendNewLineIfNotEmpty: true })}
-                        </select>
-                    </div>
-                `;
-            }
-
-            return undefined;
-        }
 
         let durationExpression: CompositeGeneratorNode | undefined;
 
@@ -1754,7 +1687,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
                         ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
                         title: "${title}",
-                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                        promptKey: "${promptKey}",
+                        documentUuid: context.object.uuid,
                     }, {recipients: [firstGm.id]});
                 });
             `;
@@ -1796,7 +1730,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
                         ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
                         title: "${title}",
-                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                        promptKey: "${promptKey}",
+                        documentUuid: context.object.uuid,
                     }, {recipients: [ownerId]});
                 });
             `;
@@ -1840,7 +1775,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     type: "prompt",
                     userId: game.user.id,
                     title: "${title}",
-                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    promptKey: "${promptKey}",
+                    documentUuid: context.object.uuid,
                     ${widthParam ? expandToNode`width: ${widthParam.value},` : ""}
                     ${heightParam ? expandToNode`height: ${heightParam.value},` : ""}
                     ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
@@ -1851,59 +1787,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
         }
 
+        // Self-target: open the generated Vue prompt app (game.system.prompts.<doc><action>).
+        // The app resolves this promise with the user's input (or {} on cancel/close).
         return expandToNode`
             await new Promise(async (resolve, reject) => {
-                let uuid = foundry.utils.randomID();
-                ${timeLimitParam ? expandToNode`
-                    setTimeout(() => {
-                        console.warn("Prompt timed out:", uuid);
-                        // Find the window from ui.windows with the uuid
-                        const dialog = Object.values(ui.windows).find(w => w.options.classes.includes("dialog") && w.options.classes.includes("prompt") && w.options.classes.includes(uuid));
-                        if (dialog) {
-                            dialog.close();
-                        }
-                        resolve({});
-                    }, ${durationExpression});
-                }
-                ` : ""}
-
-                Dialog.prompt({
-                    title: "${title}",
-                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
-                    callback: (html, event) => {
-                        // Grab the form data
-                        const formData = new FormDataExtended(html[0].querySelector("form"));
-                        const data = { system: {} };
-                        for (const [key, value] of formData.entries()) {
-                            // Translate values to more helpful ones, such as booleans and numbers
-                            if (value === "true") {
-                                data[key] = true;
-                                data.system[key] = true;
-                            }
-                            else if (value === "false") {
-                                data[key] = false;
-                                data.system[key] = false;
-                            }
-                            else if (!isNaN(value)) {
-                                data[key] = parseInt(value);
-                                data.system[key] = parseInt(value);
-                            }
-                            else {
-                                data[key] = value;
-                                data.system[key] = value;
-                            }
-                        }
-                        resolve(data);
-                        return data;
-                    },
-                    options: {
-                        classes: ["${id}", "dialog", "prompt", uuid],
-                        ${widthParam ? `width: ${widthParam.value},` : ""}
-                        ${heightParam ? `height: ${heightParam.value},` : ""}
-                        ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
-                        top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
-                    }
-                });
+                const promptApp = new game.system.prompts.${promptKey}(context.object, { promptResolve: resolve });
+                promptApp.render(true);
             });
         `;
     }

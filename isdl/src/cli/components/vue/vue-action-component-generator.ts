@@ -4,6 +4,7 @@ import { expandToNode, toString } from 'langium/generate';
 import { Action, Document, Entry, IconParam, isActor, isIconParam, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
 import { generatePromptApp } from './vue-prompt-generator.js';
 import { generatePromptSheetClass } from './vue-prompt-sheet-class-generator.js';
+import { getPromptIdentity } from '../utils.js';
 
 export function generateActionComponent(entry: Entry, id: string, document: Document, action: Action, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -12,10 +13,12 @@ export function generateActionComponent(entry: Entry, id: string, document: Docu
     const iconParam = action.params.find(x => isIconParam(x)) as IconParam | undefined;
 
     const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
-    const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
-    for ( const prompt of prompts ) {
-        generatePromptSheetClass(action.name, entry, id, document, prompt, destination);
-        generatePromptApp(action.name, entry, id, document, prompt, destination);
+    const promptVariables = variables.filter(x => isPrompt(x.value));
+    for ( const variable of promptVariables ) {
+        const prompt = variable.value as Prompt;
+        const identity = getPromptIdentity(action, variable);
+        generatePromptSheetClass(identity, entry, id, document, prompt, destination);
+        generatePromptApp(identity, entry, id, document, prompt, destination);
     }
 
     if (!fs.existsSync(generatedFileDir)) {

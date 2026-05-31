@@ -1,15 +1,19 @@
 import { AstNode, AstUtils } from 'langium';
 import {
+    Action,
     ClassExpression,
     Document,
     Entry,
     IfStatement, isDamageTypeChoiceField,
+    isVariableExpression,
     Page,
     ParentAccess,
     ParentTypeCheckExpression,
+    Prompt,
     Property,
     TargetAccess,
     TargetTypeCheckExpression,
+    VariableExpression,
 } from '../../language/generated/ast.js';
 import {
     isResourceExp,
@@ -25,6 +29,31 @@ import {
     Layout,
     isLayout, isStringChoiceField, isTargetAccess, isDocumentChoiceExp, Access, isDiceField,
 } from "../../language/generated/ast.js"
+
+// --- Prompt identity helpers -------------------------------------------------
+// A prompt is uniquely identified by its enclosing action AND the fleeting
+// variable it's assigned to, so an action may contain multiple prompts without
+// collision. All prompt generators (app class, component, registry, index export,
+// caller) MUST derive names from these helpers to stay consistent.
+
+export function getPromptVariable(prompt: Prompt): VariableExpression | undefined {
+    return AstUtils.getContainerOfType(prompt, isVariableExpression);
+}
+
+/** PascalCase-ish identity used for class/file/component names, e.g. "GetUserChoiceuserInput". */
+export function getPromptIdentity(action: Action, variable: VariableExpression | undefined): string {
+    return `${action.name}${variable?.name ?? ''}`;
+}
+
+/** game.system.prompts registry key, e.g. "herogetuserchoiceuserInput". */
+export function getPromptRegistryKey(document: Document, action: Action, variable: VariableExpression | undefined): string {
+    return `${document.name.toLowerCase()}${getPromptIdentity(action, variable)}`;
+}
+
+/** Lowercase system sub-path the prompt's fields live under, e.g. "getuserchoiceuserinput". */
+export function getPromptDataPath(action: Action, variable: VariableExpression | undefined): string {
+    return `${action.name.toLowerCase()}${(variable?.name ?? '').toLowerCase()}`;
+}
 
 export function toMachineIdentifier(s: string): string {
     return s.replace(/[^a-zA-Z0-9]/g, '');

@@ -95,6 +95,25 @@
     }
   }
 
+  &.isdl-prompt {
+
+    // Prompts pin a Submit/Cancel footer below a scrolling field list. For that
+    // the height must cascade down to the inner scroller, so the outer window must
+    // not scroll and the Vuetify layout must be allowed to shrink to the window.
+    .window-content {
+      overflow: hidden;
+    }
+
+    .v-application__wrap {
+      min-height: unset;
+    }
+
+    .v-main {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+  }
+
   &.active-effect {
     .v-col {
       padding: 0;

@@ -23,6 +23,7 @@ import {
     isChoiceStringValue,
     ChoiceStringValue, StringChoiceField,
     Document, ClassExpression, Layout, isLayout, isNumberExp, isStringExp,
+    Prompt,
     isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue, isStringChoiceField,
     StringParamValue, isAttributeParamMod, AttributeParamMod,
     MethodBlock, isMethodBlock, isAccess,
@@ -65,7 +66,8 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         ParentAccess: validator.validateParentAccess,
         ParentAssignment: validator.validateParentAccess,
         TargetAccess: validator.validateTargetAccess,
-        TargetAssignment: validator.validateTargetAccess
+        TargetAssignment: validator.validateTargetAccess,
+        Prompt: validator.validatePrompt
     };
     registry.register(checks, validator);
 }
@@ -74,6 +76,29 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
  * Implementation of custom validations.
  */
 export class IntelligentSystemDesignLanguageValidator {
+
+    // Prompts are one-shot input dialogs, so only fields that yield a single user-supplied value
+    // are allowed. Persistent widgets (attribute/resource/tracker/money), display/aggregate fields,
+    // embedded collections (tables/inventories), layouts, etc. are rejected with a clear message.
+    validatePrompt(prompt: Prompt, accept: ValidationAcceptor): void {
+        const allowed = new Set([
+            'StringExp', 'NumberExp', 'BooleanExp',
+            'StringChoiceField', 'StringChoicesField', 'DamageTypeChoiceField',
+            'DocumentChoiceExp', 'DocumentChoicesExp', 'SingleDocumentExp',
+            'ParentPropertyRefExp', 'SelfPropertyRefExp',
+            'DieField', 'DiceField',
+            'DateExp', 'TimeExp', 'DateTimeExp'
+        ]);
+        for (const field of prompt.body) {
+            if (!allowed.has(field.$type)) {
+                const label = (field as any).name ?? field.$type;
+                accept('error',
+                    `'${label}' can't be used in a prompt. Prompts only accept input fields: string, number, boolean, `
+                    + `choice/choices (string, damageType, or document), parent/self references, die, dice, and date/time/datetime.`,
+                    { node: field });
+            }
+        }
+    }
 
     validateEntry(entry: Entry, accept: ValidationAcceptor): void {
         if (!entry.config) {

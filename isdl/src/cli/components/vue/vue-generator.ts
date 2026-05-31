@@ -9,7 +9,6 @@ import {
     isPage, isPinnedField,
     isPrompt, isTableField,
     isVariableExpression, PinnedField,
-    Prompt,
     TableField,
     VariableExpression
 } from "../../../language/generated/ast.js";
@@ -23,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
 import { generateVueMixin } from './vue-mixin.js';
-import { getAllOfType } from '../utils.js';
+import { getAllOfType, getPromptIdentity } from '../utils.js';
 import { generateDatatableVueSheet } from './vue-datatable-sheet-class-generator.js';
 import { AstUtils } from 'langium';
 import {generateActiveEffectVueSheet} from "./vue-active-effect-sheet-generator.js";
@@ -217,10 +216,12 @@ function generateIndexMjs(entry: Entry, destination: string) {
 
     function generatePromptExports(action: Action, document: Document): CompositeGeneratorNode | undefined {
         const type = isActor(document) ? 'actor' : 'item';
-        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
-        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+        const promptVariables = (action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
 
-        return joinToNode(prompts.map(x => `export { default as ${document.name}${titleize(type)}${action.name}Prompt } from './${type}/${document.name.toLowerCase()}/components/prompts/${document.name.toLowerCase()}${action.name}Prompt.vue';`), { appendNewLineIfNotEmpty: true });
+        return joinToNode(promptVariables.map(v => {
+            const identity = getPromptIdentity(action, v);
+            return `export { default as ${document.name}${titleize(type)}${identity}Prompt } from './${type}/${document.name.toLowerCase()}/components/prompts/${document.name.toLowerCase()}${identity}Prompt.vue';`;
+        }), { appendNewLineIfNotEmpty: true });
     }
 
     function generateDatatableExportForDocument(document: Document): CompositeGeneratorNode {

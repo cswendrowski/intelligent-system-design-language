@@ -36,6 +36,56 @@ actor BasicHero {
         }
     }
 
+    // QA: Vue prompts -- two prompts in one action (unique identity) + diverse input field types.
+    action VuePromptTest {
+        fleeting first = prompt(label: "First Prompt") {
+            string Title
+            number Amount(value: 3)
+            number Doubled(value: { return self.HealthModifier + 10 })
+            string StaticNote(value: "Computed note")
+            boolean Confirmed
+            choice<string> Kind(choices: ["Alpha", "Beta", "Gamma"])
+            choices<string> Tags(choices: ["Red", "Green", "Blue"])
+            choice<damageType> Element(choices: ["None", { label: "Fire", value: "Fire", icon: "fa-solid fa-fire", color: #FF0000 }])
+            die Size
+            dice Pool
+            self<attribute> Stat
+            choice<Skill> ChosenSkill
+            choices<Skill> ManySkills
+        }
+        fleeting second = prompt(label: "Second Prompt") {
+            number Bonus
+        }
+        chat VuePromptResult {
+            "Title: " + first.Title
+            "Amount: " + first.Amount
+            "Doubled: " + first.Doubled
+            "StaticNote: " + first.StaticNote
+            "Confirmed: " + first.Confirmed
+            "Kind: " + first.Kind
+            "Tags: " + first.Tags
+            "Element: " + first.Element
+            "Size: " + first.Size
+            "Pool: " + first.Pool
+            "Stat: " + first.Stat
+            "ChosenSkill: " + first.ChosenSkill
+            "ManySkills: " + first.ManySkills
+            "Bonus: " + second.Bonus
+        }
+    }
+
+    // QA: socket-target prompt -- routes through game.socket to the GM's client,
+    // which opens the same Vue prompt app and resolves back over the socket.
+    action AskGm {
+        fleeting answer = prompt(label: "GM Decision", target: gm) {
+            choice<string> Verdict(choices: ["Approve", "Deny"])
+            number Modifier
+        }
+        chat AskGmResult {
+            "GM ruled: " + answer.Verdict + " (modifier " + answer.Modifier + ")"
+        }
+    }
+
     action Heal {
         fleeting amount = roll(1d8)
         self.HP += amount.total

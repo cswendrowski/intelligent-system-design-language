@@ -4,14 +4,14 @@ import {
     Document, DocumentCreatableParam, DocumentDescriptionParam, DocumentSvgParam,
     Entry, isAction, isActor, isDocumentCreatableParam, isDocumentDefaultParam, isDocumentDescriptionParam,
     isDocumentSvgParam, isIconParam, isItem, isPrompt,
-    isResourceExp, isStatusParamWhen, isStatusProperty, isVariableExpression, IconParam, Item, Prompt,
+    isResourceExp, isStatusParamWhen, isStatusProperty, isVariableExpression, IconParam, Item,
     ResourceExp,
     StatusProperty, VariableExpression
 } from "../../language/generated/ast.js";
 import path from "node:path";
 import fs from "node:fs";
 import {CompositeGeneratorNode, expandToNode, joinToNode, toString} from "langium/generate";
-import {getAllOfType} from "./utils.js";
+import {getAllOfType, getPromptIdentity} from "./utils.js";
 import {collectAllKeywords} from "./keywords-generator.js";
 
 export function generateInitHookMjs(entry: Entry, id: string, destination: string) {
@@ -136,10 +136,12 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
 
     function generatePromptImports(action: Action, document: Document): CompositeGeneratorNode | undefined {
         const type = isActor(document) ? 'actor' : 'item';
-        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
-        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+        const promptVariables = (action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
 
-        return joinToNode(prompts.map(x => `import ${document.name}${action.name}PromptApp from "../sheets/vue/${type}/prompts/${document.name.toLowerCase()}-${action.name}-prompt-app.mjs";`), { appendNewLineIfNotEmpty: true });
+        return joinToNode(promptVariables.map(v => {
+            const identity = getPromptIdentity(action, v);
+            return `import ${document.name}${identity}PromptApp from "../sheets/vue/${type}/prompts/${document.name.toLowerCase()}-${identity}-prompt-app.mjs";`;
+        }), { appendNewLineIfNotEmpty: true });
     }
 
     function generateDocumentPromptAssignment(document: Document): CompositeGeneratorNode | undefined {
@@ -148,10 +150,12 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
     }
 
     function generatePromptAssignments(action: Action, document: Document): CompositeGeneratorNode | undefined {
-        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
-        const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[];
+        const promptVariables = (action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
 
-        return joinToNode(prompts.map(x => `${document.name.toLowerCase()}${action.name}: ${document.name}${action.name}PromptApp`), { appendNewLineIfNotEmpty: true, separator: ',' });
+        return joinToNode(promptVariables.map(v => {
+            const identity = getPromptIdentity(action, v);
+            return `${document.name.toLowerCase()}${identity}: ${document.name}${identity}PromptApp`;
+        }), { appendNewLineIfNotEmpty: true, separator: ',' });
     }
 
     const fileNode = expandToNode`
