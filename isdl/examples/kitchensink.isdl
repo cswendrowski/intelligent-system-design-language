@@ -36,6 +36,27 @@ actor BasicHero {
         }
     }
 
+    // QA: Vue prompts -- two prompts in one action (unique identity) + diverse input field types.
+    action VuePromptTest {
+        fleeting first = prompt(label: "First Prompt") {
+            string Title
+            number Amount(value: 3)
+            boolean Confirmed
+            choice<string> Kind(choices: ["Alpha", "Beta", "Gamma"])
+            choices<string> Tags(choices: ["Red", "Green", "Blue"])
+            die Size
+            dice Pool
+            attribute Power(min: 1, max: 10)
+            resource Pips(max: 5)
+        }
+        fleeting second = prompt(label: "Second Prompt") {
+            number Bonus
+        }
+        chat VuePromptResult {
+            "Kind: " + first.Kind + " | Amount: " + first.Amount + " | Bonus: " + second.Bonus
+        }
+    }
+
     action Heal {
         fleeting amount = roll(1d8)
         self.HP += amount.total

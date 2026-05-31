@@ -1,17 +1,15 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { AstUtils } from 'langium';
-import { Document, Entry, isActor, isVariableExpression, Prompt } from '../../../language/generated/ast.js';
+import { Document, Entry, isActor, Prompt } from '../../../language/generated/ast.js';
 import { titleize } from 'inflection';
 
 export function generatePromptSheetClass(name: string, entry: Entry, id: string,  document: Document, prompt: Prompt, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
 
-    // The prompt's fields are stored under system.<action><variable> (e.g. getuserchoiceuserinput),
-    // matching the v-model paths in the generated Vue prompt component.
-    const promptVariable = AstUtils.getContainerOfType(prompt, isVariableExpression);
-    const promptPath = `${name.toLowerCase()}${promptVariable?.name.toLowerCase() ?? ''}`;
+    // `name` is the prompt identity (action + variable). The prompt's fields live under
+    // system.<identity-lowercased>, matching the v-model paths in the generated component.
+    const promptPath = name.toLowerCase();
     const generatedFileDir = path.join(destination, "system", "sheets", "vue", type, "prompts");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}-${name}-prompt-app.mjs`);
 
@@ -138,6 +136,22 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 context.promptCancel = () => this._cancelPrompt();
 
                 return context;
+            }
+
+            // Field components (i-die, i-money, etc.) inject "rawDocument" and call .update() to
+            // persist on change. A prompt is transient scratch input, so override rawDocument with
+            // a proxy whose .update() is a no-op: fields still read/write the in-memory context
+            // (which we harvest on submit), but nothing is written to the actual document.
+            _getProvidedData() {
+                const realDocument = this.document;
+                const noPersistDocument = new Proxy(realDocument, {
+                    get(target, prop) {
+                        if (prop === "update" || prop === "updateSource") return async () => {};
+                        const value = target[prop];
+                        return typeof value === "function" ? value.bind(target) : value;
+                    }
+                });
+                return { rawDocument: noPersistDocument };
             }
 
             /**

@@ -49,9 +49,27 @@ import {
     SizeParam,
     StringChoice,
     StringParamChoices,
-    StringParamValue
+    StringParamValue,
+    isStringChoicesField,
+    isDamageTypeChoiceField,
+    isIconParam,
+    isColorParam,
+    isChoiceCustomProperty,
+    isDieField,
+    isDiceField,
+    isDieChoicesParam,
+    isDieNoneParam,
+    isMoneyField,
+    isTrackerExp,
+    isSelfPropertyRefExp,
+    ChoiceCustomProperty,
+    ColorParam,
+    DieChoicesParam,
+    DieNoneParam,
+    IconParam
 } from "../../../language/generated/ast.js";
-import { getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
+import { getDocument, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
+import { humanize } from 'inflection';
 import { AstUtils } from 'langium';
 
 
@@ -167,16 +185,20 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             `;
         }
 
-        if (isStringChoiceField(element)) {
-            const choicesParam = element.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
-            if (!choicesParam || choicesParam.choices.length === 0) {
-                return expandToNode``;
-            }
+        if (isStringChoiceField(element) || isStringChoicesField(element) || isDamageTypeChoiceField(element)) {
+            const isMulti = isStringChoicesField(element);
+            const elementName = (element as any).name as string;
+            const fieldParams = (element as any).params as any[];
+            // choice<string>/choice<damageType> use StringParamChoices; choices<string> uses StringChoicesParamChoices.
+            const singleChoices = (fieldParams.find(p => isStringParamChoices(p)) as StringParamChoices | undefined)?.choices;
+            const multiChoices = (fieldParams.find((p: any) => p.$type === 'StringChoicesParamChoices') as any)?.choices as StringChoice[] | undefined;
+            const choices = singleChoices ?? multiChoices;
+            if (!choices || choices.length === 0) return expandToNode``;
+
+            const fieldIcon = (fieldParams.find(p => isIconParam(p)) as IconParam | undefined)?.value ?? '';
 
             function choiceValue(choice: StringChoice): string {
-                if (!isStringExtendedChoice(choice.value)) {
-                    return toMachineIdentifier(choice.value);
-                }
+                if (!isStringExtendedChoice(choice.value)) return toMachineIdentifier(choice.value);
                 const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
                 if (value) return toMachineIdentifier(value.value);
                 const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
@@ -184,12 +206,28 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
                 return "unknown";
             }
 
-            const items = choicesParam.choices
-                .map(c => `{ title: game.i18n.localize('${document.name}.${element.name}.${choiceValue(c)}'), value: '${choiceValue(c)}' }`)
-                .join(", ");
+            function choiceData(choice: StringChoice): string {
+                const v = choiceValue(choice);
+                const labelExpr = `game.i18n.localize('${document.name}.${elementName}.${v}')`;
+                if (!isStringExtendedChoice(choice.value)) {
+                    return `{ label: ${labelExpr}, value: '${v}', icon: '', color: '' }`;
+                }
+                const icon = choice.value.properties.find(isIconParam) as IconParam | undefined;
+                const color = choice.value.properties.find(isColorParam) as ColorParam | undefined;
+                const customProps = choice.value.properties.filter(isChoiceCustomProperty) as ChoiceCustomProperty[];
+                const customKeys = customProps.length > 0
+                    ? `, customKeys: [${customProps.map(c => `{ key: '${c.key}', label: '${humanize(c.key)}', value: ${typeof c.value === 'string' ? `'${c.value}'` : c.value} }`).join(',')}]`
+                    : '';
+                return `{ label: ${labelExpr}, value: '${v}', icon: '${icon?.value ?? ''}', color: '${color?.value ?? ''}'${customKeys} }`;
+            }
+
+            const items = choices.map(choiceData).join(", ");
+            const componentName = isMulti ? 'i-string-choices' : 'i-string-choice';
+            const maxParam = fieldParams.find((p: any) => p.$type === 'StringChoicesParamMax') as any;
+            const maxAttr = (isMulti && maxParam) ? `:maxSelections="${maxParam.value}"` : '';
 
             return expandToNode`
-            <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${items}]" item-title="title" item-value="value" ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
+            <${componentName} :context="context" label="${label}" icon="${fieldIcon}" systemPath="${systemPath}" :items="[${items}]" :isExtended="true" ${maxAttr} :editMode="editMode" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></${componentName}>
             `;
         }
 
@@ -245,29 +283,81 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
             const min = minParam?.value ?? 0;
             const hasMod = element.params.find(x => isAttributeParamMod(x)) != undefined;
 
-            const modSystemPath = getSystemPath(element, ["mod"], undefined, false);
-            const valueSystemPath = getSystemPath(element, ["value"], undefined, false);
-
             return expandToNode`
-                <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${modSystemPath}" systemPath="${valueSystemPath}" :context="context" :min="${min}" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
+                <i-attribute label="${label}" :hasMod="${hasMod}" :mod="context.${systemPath}.mod" systemPath="${systemPath}.value" :context="context" :min="${min}" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-attribute>
             `;
         }
 
         if (isResourceExp(element)) {
             return expandToNode`
-            <i-resource label="${label}" systemPath="system.${element.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
+            <i-resource label="${label}" systemPath="${systemPath}" :context="context" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-resource>
+            `;
+        }
+
+        if (isTrackerExp(element)) {
+            return expandToNode`
+            <i-tracker label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-tracker>
+            `;
+        }
+
+        if (isMoneyField(element)) {
+            return expandToNode`
+            <i-money label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :disabled="!editMode || ${disabled}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-money>
+            `;
+        }
+
+        if (isDieField(element) || isDiceField(element)) {
+            const choicesParam = element.params.find(x => isDieChoicesParam(x)) as DieChoicesParam | undefined;
+            const choices = choicesParam ? `[${choicesParam.choices.join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
+            if (isDieField(element)) {
+                const noneParam = element.params.find(x => isDieNoneParam(x)) as DieNoneParam | undefined;
+                const noneAttr = noneParam?.value ? `:none="true"` : '';
+                return expandToNode`
+                <i-die label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :disabled="!editMode || ${disabled}" :choices="${choices}" ${noneAttr} :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-die>
+                `;
+            }
+            return expandToNode`
+            <i-dice label="${label}" systemPath="${systemPath}" :context="context" :editMode="editMode" :disabled="!editMode || ${disabled}" :choices="${choices}" :primaryColor="primaryColor" :secondaryColor="secondaryColor"></i-dice>
             `;
         }
 
         if (isSingleDocumentExp(element)) {
             return expandToNode`
-            <i-document-link label="${label}" systemPath="system.${element.name.toLowerCase()}" documentName="${element.document.ref?.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :secondaryColor="secondaryColor"></i-document-link>
+            <i-document-link label="${label}" systemPath="${systemPath}" documentName="${element.document.ref?.name.toLowerCase()}" :context="context" :disabled="!editMode || ${disabled}" :secondaryColor="secondaryColor"></i-document-link>
+            `;
+        }
+
+        if (isSelfPropertyRefExp(element)) {
+            const choicesParam = element.params.find(p => isParentPropertyRefChoiceParam(p)) as ParentPropertyRefChoiceParam | undefined;
+            let allChoices: Property[] = [];
+            switch (element.propertyType) {
+                case "attribute": allChoices = globalGetAllOfType<AttributeExp>(entry, isAttributeExp); break;
+                case "resource": allChoices = globalGetAllOfType<ResourceExp>(entry, isResourceExp); break;
+                case "number": allChoices = globalGetAllOfType<NumberExp>(entry, isNumberExp); break;
+            }
+            let refChoices = allChoices.map(x => {
+                const parentDocument = getDocument(x);
+                if (choicesParam && choicesParam.choices.length > 0) {
+                    if (!choicesParam.choices.find(y => {
+                        const documentNameMatches = y.document.ref?.name.toLowerCase() == parentDocument?.name.toLowerCase();
+                        if (y.property != undefined) {
+                            return documentNameMatches && y.property.ref?.name.toLowerCase() == x.name.toLowerCase();
+                        }
+                        return documentNameMatches;
+                    })) return undefined;
+                }
+                return { path: `system.${x.name.toLowerCase()}`, parent: parentDocument?.name, name: x.name };
+            }).filter(x => x != undefined);
+            const choices = refChoices.map(c => `{ label: '${c?.parent} - ${c?.name}', value: '${c?.path}' }`).join(", ");
+            return expandToNode`
+            <v-select name="${systemPath}" v-model="context.${systemPath}" :items="[${choices}]" item-title="label" item-value="value" ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-select>
             `;
         }
 
         if (isDateExp(element) || isTimeExp(element) || isDateTimeExp(element)) {
+            const dtType = isDateExp(element) ? 'date' : (isTimeExp(element) ? 'time' : 'datetime-local');
             return expandToNode`
-            <p>${label} - TODO</p>
+            <v-text-field type="${dtType}" name="${systemPath}" v-model="context.${systemPath}" ${labelFragment} :disabled="!editMode || ${disabled}" variant="outlined" density="compact"></v-text-field>
             `;
         }
 

@@ -132,7 +132,7 @@ import {
     isDocumentChoiceExp
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
-import { getParentDocument, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
+import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
 export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty | NumberRange, preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
@@ -1638,10 +1638,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const targetParam = expression.params.find(x => isTargetParam(x)) as TargetParam | undefined;
         const target = targetParam?.value ?? "self";
 
-        // Registry key for the generated Vue prompt app (game.system.prompts.<doc><action>).
+        // Registry key for the generated Vue prompt app (game.system.prompts.<doc><action><variable>).
         const promptAction = AstUtils.getContainerOfType(expression, isAction);
         const promptDocument = AstUtils.getContainerOfType(expression, isDocument);
-        const promptKey = `${promptDocument?.name.toLowerCase() ?? ''}${promptAction?.name ?? ''}`;
+        const promptVariable = getPromptVariable(expression);
+        const promptKey = (promptDocument && promptAction)
+            ? getPromptRegistryKey(promptDocument, promptAction, promptVariable)
+            : '';
 
         const locationParam = expression.params.find(x => isLocationParam(x)) as LocationParam | undefined;
         const widthParam = expression.params.find(x => isWidthParam(x)) as WidthParam | undefined;
