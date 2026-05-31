@@ -27,6 +27,7 @@ export default function generateNumberComponent(destination: string, entry?: Ent
             hasValueParam: Boolean,
             primaryColor: String,
             secondaryColor: String,
+            min: Number,
             max: Number,
             calculator: {
                 type: Boolean,
@@ -141,6 +142,8 @@ export default function generateNumberComponent(destination: string, entry?: Ent
                 :name="props.systemPath"
                 :disabled="isDisabled"
                 :color="fieldColor"
+                :min="props.min"
+                :max="props.max"
                 controlVariant="stacked"
                 density="compact"
                 variant="outlined"
