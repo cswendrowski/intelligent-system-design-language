@@ -58,72 +58,49 @@ export function generateReadyHookMjs(entry: Entry, id: string, destination: stri
         /* -------------------------------------------- */
 
         async function _handlePrompt(message) {
-            await new Promise(async (resolve, reject) => {
-                if (message.timeLimit && message.timeLimit > 0) {
-                    setTimeout(() => {
-                        console.warn("Prompt timed out:", message.uuid);
-                        // Find the window from ui.windows with the uuid
-                        const dialog = Object.values(ui.windows).find(w => w.options.classes.includes("dialog") && w.options.classes.includes("prompt") && w.options.classes.includes(message.uuid));
-                        if (dialog) {
-                            dialog.close();
-                        }
-                        game.socket.emit("system.${id}", {
-                            type: "promptResponse",
-                            uuid: message.uuid,
-                            data: {}
-                        }, { recipients: [message.userId] });
-                        resolve();
-                    }, message.timeLimit);
-                }
-                Dialog.prompt({
-                    title: message.title,
-                    content: message.content,
-                    callback: (html, event) => {
-                        // Grab the form data
-                        const formData = new FormDataExtended(html[0].querySelector("form"));
-                        const data = { system: {} };
-                        for (const [key, value] of formData.entries()) {
-                            // Translate values to more helpful ones, such as booleans and numbers
-                            if (value === "true") {
-                                data[key] = true;
-                                data.system[key] = true;
-                            }
-                            else if (value === "false") {
-                                data[key] = false;
-                                data.system[key] = false;
-                            }
-                            else if (!isNaN(value)) {
-                                data[key] = parseInt(value);
-                                data.system[key] = parseInt(value);
-                            }
-                            else if (value === "null") {
-                                data[key] = null;
-                                data.system[key] = null;
-                            }
-                            else {
-                                data[key] = value;
-                                data.system[key] = value;
-                            }
-                        }
-    
-                        game.socket.emit("system.${id}", {
-                            type: "promptResponse",
-                            uuid: message.uuid,
-                            data: data
-                        }, { recipients: [message.userId] });
-    
-                        resolve();
-                        return data;
-                    },
-                    options: {
-                        classes: ["${id}", "dialog", "prompt", message.uuid],
-                        width: message.width,
-                        height: message.height,
-                        left: message.left,
-                        top: message.top,
-                    }
-                });
-            });
+            // Respond to the requesting client exactly once with the harvested input (or {}).
+            let responded = false;
+            const respond = (data) => {
+                if (responded) return;
+                responded = true;
+                game.socket.emit("system.${id}", {
+                    type: "promptResponse",
+                    uuid: message.uuid,
+                    data: data ?? {}
+                }, { recipients: [message.userId] });
+            };
+
+            // Load the prompt's target document. The receiving user may not own it (e.g. another
+            // player or the GM is being prompted), but the Vue prompt app reads it via toObject()
+            // and suppresses writes, so no ownership is required.
+            const doc = await fromUuid(message.documentUuid);
+            const PromptApp = game.system.prompts[message.promptKey];
+            if (!doc || !PromptApp) {
+                console.warn("Could not open prompt for", message.documentUuid, message.promptKey);
+                respond({});
+                return;
+            }
+
+            const options = { promptResolve: respond };
+            // Honor any size/location the requester specified.
+            const position = {};
+            if (message.width) position.width = message.width;
+            if (message.height) position.height = message.height;
+            if (message.left != null) position.left = message.left;
+            if (message.top != null) position.top = message.top;
+            if (Object.keys(position).length > 0) options.position = position;
+
+            const app = new PromptApp(doc, options);
+            app.render(true);
+
+            // Time limit: close the app, which resolves {} through promptResolve (= respond).
+            if (message.timeLimit && message.timeLimit > 0) {
+                setTimeout(() => {
+                    if (responded) return;
+                    console.warn("Prompt timed out:", message.uuid);
+                    app.close();
+                }, message.timeLimit);
+            }
         }
         
         /* -------------------------------------------- */

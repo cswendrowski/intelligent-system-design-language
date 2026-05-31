@@ -71,8 +71,6 @@ import {
     isParameter,
     isPrompt,
     isLabelParam,
-    isNumberExp,
-    isStringExp,
     isTargetParam,
     IntelligentSystemDesignLanguageTerminals,
     isMathExpression,
@@ -120,12 +118,6 @@ import {
     isMacroExecute,
     isMeasuredTemplateField,
     isStringChoiceField,
-    isStringParamChoices,
-    isStringExtendedChoice,
-    isChoiceStringValue,
-    StringChoice,
-    StringParamChoices,
-    ChoiceStringValue,
     isDiceField,
     isDieChoicesParam,
     isDocumentChoicesExp,
@@ -1653,74 +1645,6 @@ export function translateExpression(entry: Entry, id: string, expression: string
         // const iconParam = expression.params.find(x => isIconParam(x));
         // const icon = iconParam?.value ?? "fa-solid fa-comment-dots";
 
-        function translateDialogBody(expression: ClassExpression): CompositeGeneratorNode | undefined {
-
-            if (isNumberExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="number" name="${expression.name.toLowerCase()}" value="0" />
-                    </div>
-                `;
-            }
-
-            if (isBooleanExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="checkbox" name="${expression.name.toLowerCase()}" />
-                    </div>
-                `;
-            }
-
-            if (isStringExp(expression)) {
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <input type="text" name="${expression.name.toLowerCase()}" />
-                    </div>
-                `;
-            }
-
-            if (isStringChoiceField(expression)) {
-                const choicesParam = expression.params.find(p => isStringParamChoices(p)) as StringParamChoices | undefined;
-                if (!choicesParam || choicesParam.choices.length === 0) {
-                    return undefined;
-                }
-
-                function choiceValue(choice: StringChoice): string {
-                    if (!isStringExtendedChoice(choice.value)) {
-                        return toMachineIdentifier(choice.value);
-                    }
-                    const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (value) return toMachineIdentifier(value.value);
-                    const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                    if (choiceLabel) return toMachineIdentifier(choiceLabel.value);
-                    return "unknown";
-                }
-
-                function choiceDisplay(choice: StringChoice): string {
-                    if (!isStringExtendedChoice(choice.value)) return choice.value;
-                    const choiceLabel = choice.value.properties.find(isLabelParam) as LabelParam | undefined;
-                    if (choiceLabel) return choiceLabel.value;
-                    const value = choice.value.properties.find(isChoiceStringValue) as ChoiceStringValue | undefined;
-                    if (value) return value.value;
-                    return choiceValue(choice);
-                }
-
-                return expandToNode`
-                    <div class="form-group">
-                        <label>${humanize(expression.name)}</label>
-                        <select name="${expression.name.toLowerCase()}">
-                            ${joinToNode(choicesParam.choices, c => expandToNode`<option value="${choiceValue(c)}">${choiceDisplay(c)}</option>`, { appendNewLineIfNotEmpty: true })}
-                        </select>
-                    </div>
-                `;
-            }
-
-            return undefined;
-        }
-
         let durationExpression: CompositeGeneratorNode | undefined;
 
         if (timeLimitParam != undefined) {
@@ -1763,7 +1687,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
                         ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
                         title: "${title}",
-                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                        promptKey: "${promptKey}",
+                        documentUuid: context.object.uuid,
                     }, {recipients: [firstGm.id]});
                 });
             `;
@@ -1805,7 +1730,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                         top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
                         ${timeLimitParam ? expandToNode`timeLimit: ${durationExpression},` : ""}
                         title: "${title}",
-                        content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                        promptKey: "${promptKey}",
+                        documentUuid: context.object.uuid,
                     }, {recipients: [ownerId]});
                 });
             `;
@@ -1849,7 +1775,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
                     type: "prompt",
                     userId: game.user.id,
                     title: "${title}",
-                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
+                    promptKey: "${promptKey}",
+                    documentUuid: context.object.uuid,
                     ${widthParam ? expandToNode`width: ${widthParam.value},` : ""}
                     ${heightParam ? expandToNode`height: ${heightParam.value},` : ""}
                     ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
