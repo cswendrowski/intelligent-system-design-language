@@ -26,15 +26,17 @@ import {
     isTableImageParam,
     isTimeExp,
     isTrackerExp, Layout, Property,
-    isVisibilityParam, isMethodBlock,
+    isVisibilityParam, isMethodBlock, isWhereParam,
+    Entry,
     StandardFieldParams,
     TableField, TableFieldsParam, TableImageParam,
-    VisibilityParam, VisibilityValue
+    VisibilityParam, VisibilityValue, WhereParam
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getSystemPath} from '../utils.js';
+import {translateExpression} from '../method-generator.js';
 import {AstUtils, Reference} from 'langium';
 
-export function generateVuetifyDatatableComponent(id: string, document: Document, pageName: string, table: TableField, destination: string) {
+export function generateVuetifyDatatableComponent(entry: Entry, id: string, document: Document, pageName: string, table: TableField, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "datatables");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${pageName}${table.name}VuetifyDatatable.vue`);
@@ -278,6 +280,13 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
         return undefined;
     }
 
+    // Optional `where:` filter -- translates to a JS predicate over each item (the iteration
+    // variable is `item`, matching ItemAccess's `item.system.<field>` translation). Note: choice
+    // fields are stored as {value,...} objects, so `where: item.SomeChoice equals "X"` won't match
+    // (it compares the object); use plain string/number/boolean fields in where clauses.
+    const whereParam = table.params.find(x => isWhereParam(x)) as WhereParam | undefined;
+    const whereClause = whereParam ? translateExpression(entry, id, whereParam.value) : undefined;
+
     let tableDocBody = table.document.ref?.body ?? [];
     const actions = getAllOfType<Action>(tableDocBody, isAction, false);
 
@@ -326,7 +335,9 @@ export function generateVuetifyDatatableComponent(id: string, document: Document
                     }
                 }
                 return plain;
-            });
+            })${whereClause ? expandToNode`.filter(item => {
+                return ${whereClause};
+            })` : ''};
         });
 
         // Create a map of item _id to item for drag operations

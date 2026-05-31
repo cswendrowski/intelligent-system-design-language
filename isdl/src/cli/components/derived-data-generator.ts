@@ -32,9 +32,11 @@ import {
     isNumberParamMax,
     isNumberParamValue,
     isNumberParamMin,
+    isNumberParamInitial,
     isWhereParam,
     isDocument,
 } from "../../language/generated/ast.js"
+import { NumberExp, NumberParamInitial as NumberParamInitialType } from "../../language/generated/ast.js";
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -1176,6 +1178,60 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             `.appendNewLineIfNotEmpty().appendNewLine();
         }
 
+        // Number fields whose `initial:` is an expression (method block) can't be a static schema
+        // default -- they reference derived data that only exists after construction. Apply them
+        // once in _preCreate (derived data is available there, it runs only on the initiating
+        // client, and updateSource is a single atomic write). Only set the field when it wasn't
+        // explicitly provided in the creation data, so `initial` keeps its "default when absent"
+        // meaning and never clobbers an explicit value on duplicate/import.
+        function generateExpressionInitials(): CompositeGeneratorNode {
+            function documentInitials(document: Document): CompositeGeneratorNode | undefined {
+                const exprInitialFields = getAllOfType<NumberExp>(document.body, isNumberExp).filter(f => {
+                    const initParam = f.params.find(p => isNumberParamInitial(p)) as NumberParamInitialType | undefined;
+                    return initParam !== undefined && isMethodBlock(initParam.value);
+                });
+                if (exprInitialFields.length === 0) return undefined;
+                return expandToNode`
+                    case "${document.name.toLowerCase()}": {
+                        ${joinToNode(exprInitialFields, f => {
+                            const initParam = f.params.find(p => isNumberParamInitial(p)) as NumberParamInitialType;
+                            const field = f.name.toLowerCase();
+                            return expandToNode`
+                            // ${f.name} expression initial
+                            if (foundry.utils.getProperty(data, "system.${field}") === undefined) {
+                                const ${field}InitialFunc = (system) => {
+                                    const context = { object: this };
+                                    ${translateExpression(entry, id, initParam.value, true, f)}
+                                };
+                                const ${field}Initial = ${field}InitialFunc(this.system);
+                                if (typeof ${field}Initial === "number" && !isNaN(${field}Initial)) {
+                                    initialUpdates["system.${field}"] = ${field}Initial;
+                                }
+                            }
+                            `;
+                        }, { appendNewLineIfNotEmpty: true })}
+                        break;
+                    }
+                `.appendNewLineIfNotEmpty();
+            }
+            const cases = entry.documents
+                .filter(d => type == "Actor" ? isActor(d) : isItem(d))
+                .map(d => documentInitials(d))
+                .filter((x): x is CompositeGeneratorNode => x !== undefined);
+            if (cases.length === 0) return expandToNode``;
+            return expandToNode`
+                /** @override */
+                async _preCreate(data, options, user) {
+                    await super._preCreate(data, options, user);
+                    const initialUpdates = {};
+                    switch ( this.type ) {
+                        ${joinToNode(cases, c => c, { appendNewLineIfNotEmpty: true })}
+                    }
+                    if (Object.keys(initialUpdates).length > 0) this.updateSource(initialUpdates);
+                }
+            `.appendNewLineIfNotEmpty();
+        }
+
         const fileNode = expandToNode`
             export default class ${entry.config.name}${type} extends ${type} {
                 /** @override */
@@ -1184,6 +1240,10 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         ${joinToNode(entry.documents.filter(d => type == "Actor" ? isActor(d) : isItem(d)), document => `case "${document.name.toLowerCase()}": return this._prepare${document.name}DerivedData();`, { appendNewLineIfNotEmpty: true })}
                     }
                 }
+
+                /* -------------------------------------------- */
+
+                ${generateExpressionInitials()}
 
                 /* -------------------------------------------- */
 

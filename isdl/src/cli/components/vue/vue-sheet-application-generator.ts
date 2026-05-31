@@ -129,7 +129,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function importDataTable2(table: TableField): CompositeGeneratorNode {
         const page = AstUtils.getContainerOfType<Page>(table, isPage);
         const pageName = page ? page.name : document.name;
-        generateVuetifyDatatableComponent(id, document, pageName, table, destination);
+        generateVuetifyDatatableComponent(entry, id, document, pageName, table, destination);
         return expandToNode`
         import ${document.name}${pageName}${table.name}VuetifyDatatable from './components/datatables/${document.name.toLowerCase()}${pageName}${table.name}VuetifyDatatable.vue';
         `;
@@ -1764,10 +1764,16 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
             if (isNumberExp(element)) {
                 const valueParam = element.params.find(x => isNumberParamValue(x)) as NumberParamValue;
+                const minParam = element.params.find(x => isNumberParamMin(x)) as NumberParamMin | undefined;
                 const maxParam = element.params.find(x => isNumberParamMax(x)) as NumberParamMax | undefined;
                 const calculatorParam = element.params.find(x => isNumberParamCalculator(x)) as NumberParamCalculator | undefined;
 
-                // Determine if max value is a number (not a MethodBlock)
+                // Determine if min/max are literal numbers (not MethodBlocks). Literal bounds are
+                // bound onto the widget so it clamps input at entry, matching the schema's clamp.
+                let minValue = undefined;
+                if (minParam && typeof minParam.value === 'number') {
+                    minValue = minParam.value;
+                }
                 let maxValue = undefined;
                 if (maxParam && typeof maxParam.value === 'number') {
                     maxValue = maxParam.value;
@@ -1783,6 +1789,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     :editMode="editModeRef"
                     :primaryColor="primaryColor"
                     :secondaryColor="secondaryColor"
+                    ${minValue !== undefined ? `:min="${minValue}"` : ''}
                     ${maxValue !== undefined ? `:max="${maxValue}"` : ''}
                     ${calculatorParam !== undefined ? `:calculator="${calculatorParam.value}"` : ''}
                     ${standardParamsFragment}>
