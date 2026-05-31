@@ -49,7 +49,7 @@ fragment ClassBlock:
     "{" body+=(ClassExpression | Layout)* "}";
 
 Layout:
-    (Section | Page | Row | Column | Tab);
+    (Section | Page | Row | Column);
 
 Section:
     "section" name=ID "{" body+=(ClassExpression|Row|Column)* "}";
@@ -59,8 +59,6 @@ Column:
     "column" "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Page:
     "page" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
-Tab:
-    "tab" name=ID ("(" params+=(IconParam|LabelParam) ("," params+=(IconParam|LabelParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
 
 ClassExpression:
     (Property | MethodContainer | InitiativeProperty | StatusProperty);

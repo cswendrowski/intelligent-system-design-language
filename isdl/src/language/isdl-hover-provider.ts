@@ -57,7 +57,6 @@ const FIELD_DOCS: Record<string, string> = {
     Keywords:               '**keywords** — Defines named keywords that appear as tags in chat cards and rich text. Each keyword can have a `summary`, `color`, and `icon`.',
     Section:                '**section** — Groups related fields under a named heading on the sheet.',
     Page:                   '**page** — Adds a separate tab to the document sheet. Supports `icon` and `background`.',
-    Tab:                    '**tab** — A sub-tab inside a page. Supports `icon` and `label`.',
     Row:                    '**row** — Arranges child fields horizontally side by side.',
     Column:                 '**column** — Stacks child fields vertically within a row.',
 
