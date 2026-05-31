@@ -5,6 +5,8 @@ import { IntelligentSystemDesignLanguageValidator, registerValidationChecks } fr
 import { IsdlScopeProvider } from './isdl-scope-provider.js';
 import { IsdlFormatter } from './intelligent-system-design-language-formatter.js';
 import { IsdlHoverProvider } from './isdl-hover-provider.js';
+import { IsdlParserErrorMessageProvider } from './isdl-parser-error-message-provider.js';
+import { IsdlDocumentValidator } from './isdl-document-validator.js';
 
 /**
  * Declaration of custom services - add your own service classes here.
@@ -28,7 +30,11 @@ export type IntelligentSystemDesignLanguageServices = LangiumServices & Intellig
  */
 export const IntelligentSystemDesignLanguageModule: Module<IntelligentSystemDesignLanguageServices, PartialLangiumServices & IntelligentSystemDesignLanguageAddedServices> = {
     validation: {
-        IntelligentSystemDesignLanguageValidator: () => new IntelligentSystemDesignLanguageValidator()
+        IntelligentSystemDesignLanguageValidator: () => new IntelligentSystemDesignLanguageValidator(),
+        DocumentValidator: (services) => new IsdlDocumentValidator(services)
+    },
+    parser: {
+        ParserErrorMessageProvider: () => new IsdlParserErrorMessageProvider()
     },
     references: {
         ScopeProvider: (services) => new IsdlScopeProvider(services)
