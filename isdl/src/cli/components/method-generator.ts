@@ -35,7 +35,7 @@ import {
     NumberRange,
     TargetAccess,
     TargetAssignment, PlayAudioFile, PlayAudioVolume, Each, TimeLimitParam, DieChoicesParam, RollParam, isRollParam,
-    isTypeParam, TypeParam,
+    isTypeParam, TypeParam, Document, Property,
 } from '../../language/generated/ast.js';
 import {
     isReturnExpression,
@@ -118,10 +118,14 @@ import {
     isMacroExecute,
     isMeasuredTemplateField,
     isStringChoiceField,
+    isDamageTypeChoiceField,
     isDiceField,
     isDieChoicesParam,
     isDocumentChoicesExp,
-    isDocumentChoiceExp
+    isDocumentChoiceExp,
+    isTableField,
+    isInventoryField,
+    isProperty
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -830,9 +834,29 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
     if (isItemAccess(expression)) {
-        let path = `item.system.${expression.property?.toLowerCase()}`;
+        const itemPropName = expression.property?.toLowerCase();
+        let path = `item.system.${itemPropName}`;
         if (expression.subProperty != undefined) {
             path = `${path}.${expression.subProperty}`;
+        }
+        else {
+            // `item.X` inside a where: clause iterates over the container's referenced document.
+            // Choice fields are stored as {value,...} objects, so resolve the field and compare by
+            // its .value rather than the whole object (e.g. `where: item.Type equals "Armor"`).
+            const whereContainer =
+                AstUtils.getContainerOfType(expression, isTableField) ??
+                AstUtils.getContainerOfType(expression, isDocumentChoiceExp) ??
+                AstUtils.getContainerOfType(expression, isDocumentChoicesExp) ??
+                AstUtils.getContainerOfType(expression, isInventoryField);
+            const refDoc = (whereContainer as any)?.document?.ref as Document | undefined;
+            if (refDoc) {
+                const prop = AstUtils.streamAllContents(refDoc).find(
+                    n => isProperty(n) && (n as Property).name.toLowerCase() === itemPropName
+                ) as Property | undefined;
+                if (prop && (isStringChoiceField(prop) || isDamageTypeChoiceField(prop))) {
+                    path = `${path}.value`;
+                }
+            }
         }
         return expandToNode`
             ${path}

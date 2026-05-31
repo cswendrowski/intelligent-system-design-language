@@ -129,7 +129,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function importDataTable2(table: TableField): CompositeGeneratorNode {
         const page = AstUtils.getContainerOfType<Page>(table, isPage);
         const pageName = page ? page.name : document.name;
-        generateVuetifyDatatableComponent(id, document, pageName, table, destination);
+        generateVuetifyDatatableComponent(entry, id, document, pageName, table, destination);
         return expandToNode`
         import ${document.name}${pageName}${table.name}VuetifyDatatable from './components/datatables/${document.name.toLowerCase()}${pageName}${table.name}VuetifyDatatable.vue';
         `;
