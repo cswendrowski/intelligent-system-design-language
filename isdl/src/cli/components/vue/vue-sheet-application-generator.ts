@@ -1738,7 +1738,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 // Wrap in a drop zone so drag-drop works for pinned tables inside a
                 // row/column (same reason as regular tables above).
                 return expandToNode`
-                <div class="datatable-drop-zone">
+                <div class="datatable-drop-zone" v-if="!isHidden('${element.name.toLowerCase()}')">
                     <${componentName}
                         :context="context"
                         label="${label}"
@@ -2078,7 +2078,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 // wrapper they have no drop target. The wrapper only exists in the layout
                 // case (never nested inside a .tabs-container), so no double drop binding.
                 return expandToNode`
-                    <div class="datatable-drop-zone">
+                    <div class="datatable-drop-zone" v-if="!isHidden('${element.name.toLowerCase()}')">
                         <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
                     </div>
                 `.appendNewLine();
@@ -2172,6 +2172,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
                 return expandToNode`
                     <i-inventory
+                        v-if="!isHidden('${element.name.toLowerCase()}')"
                         label="${label}"
                         systemPath="${systemPath}"
                         :context="context"

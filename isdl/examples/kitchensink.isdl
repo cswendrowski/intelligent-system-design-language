@@ -19,7 +19,22 @@ config KitchenSink {
 
 actor BasicHero {
     // Name and Description are automatically part of every Document
-    health resource HP(max: 20)
+    attribute Brawn(min: 0, max: 30)
+    number HealthModifier
+    row {
+        health resource HP(max: { return self.Brawn + self.HealthModifier })
+    }
+
+      action GetUserChoice {
+        fleeting userInput = prompt(
+        label: "Choose Your Action",
+        width: 400,
+        height: 300
+    ) {
+            choice<string> ActionType(choices: ["Attack", "Defend", "Cast Spell"])
+            number PowerLevel(min: 1, max: 10, value: 5)
+        }
+    }
 
     action Heal {
         fleeting amount = roll(1d8)
@@ -76,6 +91,28 @@ actor Superhero(width: 900, height: 700) {
             }) {
                 self.Experience -= 10
                 self.Level++
+            }
+        }
+
+        action CheckDifficulty {
+            fleeting check = roll(d20 + 1)
+            if (check >= 20) {
+                chat difficultyResult {
+                    check
+                    "Critical Success!"
+                }
+            }
+            else if (check >= 10) {
+                chat difficultyResult {
+                    check
+                    "Success!"
+                }
+            }
+            else {
+                chat difficultyResult {
+                    check
+                    "Failure!"
+                }
             }
         }
     }
@@ -206,6 +243,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
 
         section DocumentLinks {
             table<Skill> SkillsTable
+            // QA: visibility on a table rendered inline in a layout (not as a tab)
+            gmOnly table<Skill> InlineGmTable
             Skill SingleDocumentField
 
             row {
