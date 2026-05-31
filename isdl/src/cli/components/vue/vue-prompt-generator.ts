@@ -82,8 +82,8 @@ export function generatePromptApp(name: string, entry: Entry, id: string, docume
                 <v-container class="topography" fluid style="padding: 1rem; height: 100%;">
                     ${joinToNode(prompt.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
                     <v-row class="flexrow">
-                        <v-btn @click="console.log('Clicked ${name}')" color="primary" class="ma-1 action-btn">Submit</v-btn>
-                        <v-btn @click="console.log('Clicked ${name}')" color="error" class="ma-1 action-btn">Cancel</v-btn>
+                        <v-btn @click="context.promptSubmit && context.promptSubmit()" color="primary" class="ma-1 action-btn">Submit</v-btn>
+                        <v-btn @click="context.promptCancel && context.promptCancel()" color="error" class="ma-1 action-btn">Cancel</v-btn>
                     </v-row>
                 </v-container>                
             </v-main>

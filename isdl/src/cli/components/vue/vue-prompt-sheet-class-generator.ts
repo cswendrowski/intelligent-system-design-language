@@ -1,11 +1,17 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
-import { Document, Entry, isActor, Prompt } from '../../../language/generated/ast.js';
+import { AstUtils } from 'langium';
+import { Document, Entry, isActor, isVariableExpression, Prompt } from '../../../language/generated/ast.js';
 import { titleize } from 'inflection';
 
 export function generatePromptSheetClass(name: string, entry: Entry, id: string,  document: Document, prompt: Prompt, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
+
+    // The prompt's fields are stored under system.<action><variable> (e.g. getuserchoiceuserinput),
+    // matching the v-model paths in the generated Vue prompt component.
+    const promptVariable = AstUtils.getContainerOfType(prompt, isVariableExpression);
+    const promptPath = `${name.toLowerCase()}${promptVariable?.name.toLowerCase() ?? ''}`;
     const generatedFileDir = path.join(destination, "system", "sheets", "vue", type, "prompts");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}-${name}-prompt-app.mjs`);
 
@@ -22,10 +28,40 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
         export default class ${document.name}${name}PromptApp extends VueRenderingMixin(foundry.applications.api.ApplicationV2) {
             
             document;
+            promptResolve;
+            #promptResolved = false;
             constructor(document, options = {}) {
                 super(options);
                 this.#dragDrop = this.#createDragDropHandlers();
                 this.document = document;
+                this.promptResolve = options.promptResolve;
+            }
+
+            // Resolve the awaiting action with the user's input, harvested from the in-memory
+            // document.system where the Vue v-models wrote it. Shape matches the legacy dialog
+            // path: { ...fields, system: { ...fields } } so userInput.X access is unchanged.
+            _resolvePrompt() {
+                if (this.#promptResolved) return;
+                this.#promptResolved = true;
+                const data = foundry.utils.deepClone(foundry.utils.getProperty(this.document.system, "${promptPath}")) ?? {};
+                this.promptResolve?.({ ...data, system: data });
+                this.close();
+            }
+
+            _cancelPrompt() {
+                if (this.#promptResolved) return;
+                this.#promptResolved = true;
+                this.promptResolve?.({});
+                this.close();
+            }
+
+            async close(options = {}) {
+                // If closed without an explicit submit/cancel, don't leave the action hanging.
+                if (!this.#promptResolved) {
+                    this.#promptResolved = true;
+                    this.promptResolve?.({});
+                }
+                return super.close(options);
             }
 
             vueParts = {
@@ -61,8 +97,8 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                 ],
                 form: {
                     submitOnChange: false,
-                    submitOnClose: true,
-                    closeOnSubmit: true,
+                    submitOnClose: false,
+                    closeOnSubmit: false,
                 }
             };
 
@@ -96,6 +132,10 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
                     fields: this.document.schema.fields,
                     systemFields: this.document.system.schema.fields
                 };
+
+                // Callbacks the Vue Submit/Cancel buttons invoke.
+                context.promptSubmit = () => this._resolvePrompt();
+                context.promptCancel = () => this._cancelPrompt();
 
                 return context;
             }

@@ -92,6 +92,7 @@ import {
     isVisibilityValue,
     isFunctionCall,
     isAction,
+    isDocument,
     isIncrementDecrementAssignment,
     isQuickModifyAssignment,
     isVariableIncrementDecrementAssignment,
@@ -1637,6 +1638,11 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const targetParam = expression.params.find(x => isTargetParam(x)) as TargetParam | undefined;
         const target = targetParam?.value ?? "self";
 
+        // Registry key for the generated Vue prompt app (game.system.prompts.<doc><action>).
+        const promptAction = AstUtils.getContainerOfType(expression, isAction);
+        const promptDocument = AstUtils.getContainerOfType(expression, isDocument);
+        const promptKey = `${promptDocument?.name.toLowerCase() ?? ''}${promptAction?.name ?? ''}`;
+
         const locationParam = expression.params.find(x => isLocationParam(x)) as LocationParam | undefined;
         const widthParam = expression.params.find(x => isWidthParam(x)) as WidthParam | undefined;
         const heightParam = expression.params.find(x => isHeightParam(x)) as HeightParam | undefined;
@@ -1851,59 +1857,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
         }
 
+        // Self-target: open the generated Vue prompt app (game.system.prompts.<doc><action>).
+        // The app resolves this promise with the user's input (or {} on cancel/close).
         return expandToNode`
             await new Promise(async (resolve, reject) => {
-                let uuid = foundry.utils.randomID();
-                ${timeLimitParam ? expandToNode`
-                    setTimeout(() => {
-                        console.warn("Prompt timed out:", uuid);
-                        // Find the window from ui.windows with the uuid
-                        const dialog = Object.values(ui.windows).find(w => w.options.classes.includes("dialog") && w.options.classes.includes("prompt") && w.options.classes.includes(uuid));
-                        if (dialog) {
-                            dialog.close();
-                        }
-                        resolve({});
-                    }, ${durationExpression});
-                }
-                ` : ""}
-
-                Dialog.prompt({
-                    title: "${title}",
-                    content: \`<form>${joinToNode(expression.body, translateDialogBody)}</form>\`,
-                    callback: (html, event) => {
-                        // Grab the form data
-                        const formData = new FormDataExtended(html[0].querySelector("form"));
-                        const data = { system: {} };
-                        for (const [key, value] of formData.entries()) {
-                            // Translate values to more helpful ones, such as booleans and numbers
-                            if (value === "true") {
-                                data[key] = true;
-                                data.system[key] = true;
-                            }
-                            else if (value === "false") {
-                                data[key] = false;
-                                data.system[key] = false;
-                            }
-                            else if (!isNaN(value)) {
-                                data[key] = parseInt(value);
-                                data.system[key] = parseInt(value);
-                            }
-                            else {
-                                data[key] = value;
-                                data.system[key] = value;
-                            }
-                        }
-                        resolve(data);
-                        return data;
-                    },
-                    options: {
-                        classes: ["${id}", "dialog", "prompt", uuid],
-                        ${widthParam ? `width: ${widthParam.value},` : ""}
-                        ${heightParam ? `height: ${heightParam.value},` : ""}
-                        ${locationParam ? expandToNode`left: ${translateExpression(entry, id, locationParam.x, false, generatingProperty)},
-                        top: ${translateExpression(entry, id, locationParam.y, false, generatingProperty)},` : ""}
-                    }
-                });
+                const promptApp = new game.system.prompts.${promptKey}(context.object, { promptResolve: resolve });
+                promptApp.render(true);
             });
         `;
     }
