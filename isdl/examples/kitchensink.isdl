@@ -209,6 +209,31 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         fleeting rollResult = roll(d6 + self.Fight + mod)
         return rollResult.total
     }
+
+    // QA / regression: a NO-ARG function that reads self.* and is invoked via self.Fn().
+    // Before the no-param context fix, the generated function_ method received the caller's context
+    // as its first arg but rebuilt context = {object: thatContext}, so self.NumberField resolved to
+    // undefined (and threw). Calling DoubleNumber() must return 2x the field's value.
+    function DoubleNumber returns number {
+        return self.NumberField * 2
+    }
+    action TestNoArgFunction {
+        fleeting doubled = self.DoubleNumber()
+        chat NoArgFnResult {
+            flavor "DoubleNumber() returned " + doubled
+        }
+    }
+
+    // QA: no-arg function used as an attribute `function:` click handler. Exercises full control
+    // (custom flavor + a self field update) so the generated handler's action-style flush is tested.
+    function BrawlAttack {
+        fleeting attackRoll = roll(d20 + self.Fight)
+        self.NumberField += 1
+        chat BrawlAttackCard {
+            flavor "Brawl Attack! (used " + self.NumberField + " times)"
+            attackRoll
+        }
+    }
     // QA: assigning to a self attribute must write .value, not the derived .mod
     action DrainFight {
         self.Fight -= 1
@@ -499,6 +524,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
                 return (self.Persuade - 10) / 2
             })
             attribute Grit(min: 1, max: 6, style: plain, roll: roll(d20 + self.Grit))
+            // QA: attribute `function:` click handler (mutually exclusive with roll:)
+            attribute Brawl(min: 1, max: 30, style: plain, icon: "fa-solid fa-hand-fist", function: BrawlAttack)
         }
 
         section PlainAttributes {
@@ -746,7 +773,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     icon: "fa-solid fa-flask-round-potion"
 )
     table<Spell> Spells(fields: [Type, Class])
-    table<Skill> Skills(fields: [Ability, Trained, SkillMod])
+    // QA: clicking the row image runs the item's named action (scoped to the image cell, not the whole row)
+    table<Skill> Skills(fields: [Ability, Trained, SkillMod], imageAction: Roll)
     table<Spell> VuetifySpells
     // QA: table-level visibility — modifier form hides the whole tab for non-GMs
     gmOnly table<Spell> GmOnlyTable
@@ -793,7 +821,7 @@ item Skill {
         return 0 + self.SkillMod
     })
 
-    action Roll {
+    action Roll(icon: "fa-solid fa-dice-d20") {
         fleeting skill = 0
         fleeting answer = prompt(label: "Bonus", target: user, width: 1000, location: 250, 250) {
             number Bonus

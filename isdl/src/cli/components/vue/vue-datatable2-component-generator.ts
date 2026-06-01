@@ -24,6 +24,8 @@ import {
     isStringExp,
     isTableFieldsParam,
     isTableImageParam,
+    isTableImageActionParam,
+    TableImageActionParam,
     isTimeExp,
     isTrackerExp, Layout, Property,
     isVisibilityParam, isMethodBlock, isWhereParam,
@@ -50,6 +52,14 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
     // Image column is configurable; defaults to visible unless `image: false` is set in the table definition.
     const imageParam = table.params.find(p => isTableImageParam(p)) as TableImageParam | undefined;
     const imageDefaultVisible = imageParam ? imageParam.value : true;
+
+    // `imageAction:` makes the row's image clickable, running the named action on that item.
+    // Kept scoped to the image cell so it never collides with the row's other controls.
+    const imageActionParam = table.params.find(p => isTableImageActionParam(p)) as TableImageActionParam | undefined;
+    const imageActionName = imageActionParam?.action.ref?.name.toLowerCase();
+    // Reveal the action's own icon (mirroring the attribute roll overlay) on image hover.
+    const imageActionIcon = (imageActionParam?.action.ref?.params.find(p => isIconParam(p)) as IconParam | undefined)?.value ?? "fa-solid fa-bolt";
+    const imageActionColor = (imageActionParam?.action.ref?.params.find(p => isColorParam(p)) as ColorParam | undefined)?.value ?? "primary";
 
     // Resolve the static visibility of a column from its `visibility:` param (preferred) or its modifier.
     // Method-block visibility can't be resolved at build time, so we fall back to the modifier / default.
@@ -813,9 +823,20 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             >
                 <!-- Image slot -->
                 <template v-slot:item.img="{ item }">
-                    <v-avatar size="40" rounded="0">
+                    ${imageActionName
+                        ? expandToNode`<div class="isdl-image-action" @click.stop="customItemAction(item, '${imageActionName}')" :data-tooltip="game.i18n.localize('${table.document.ref?.name}.${imageActionParam!.action.ref!.name}')">
+                        <v-avatar size="40" rounded="0">
+                            <v-img :src="item.img" :alt="item.name" cover></v-img>
+                        </v-avatar>
+                        <div class="isdl-image-action-overlay">
+                            <v-btn icon size="x-small" color="${imageActionColor}" variant="elevated" elevation="4" class="isdl-image-action-btn">
+                                <v-icon size="small">${imageActionIcon}</v-icon>
+                            </v-btn>
+                        </div>
+                    </div>`
+                        : expandToNode`<v-avatar size="40" rounded="0">
                         <v-img :src="item.img" :alt="item.name" cover></v-img>
-                    </v-avatar>
+                    </v-avatar>`}
                 </template>
 
                 <!-- Name slot with description tooltip -->

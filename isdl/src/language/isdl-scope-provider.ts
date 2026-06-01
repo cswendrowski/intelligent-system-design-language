@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Document, FunctionDefinition, IfStatement, isAccess, isAssignment, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
+import { Action, Document, FunctionDefinition, IfStatement, isAccess, isAction, isAssignment, isAttributeFunctionParam, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isTableField, isTableImageActionParam, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -39,6 +39,22 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         // Inventory money parameter - look for money fields in the current document
         if (isInventoryMoneyParam(context.container)) {
             return this.getInventoryMoneyScope(context);
+        }
+
+        // Attribute `function:` parameter - only functions defined on the same document are valid
+        if (isAttributeFunctionParam(context.container)) {
+            const document = AstUtils.getContainerOfType(context.container, isDocument);
+            if (!document) return new MapScope([]);
+            const functionDefinitions = getAllOfType<FunctionDefinition>(document.body, isFunctionDefinition, false);
+            return new MapScope(functionDefinitions.map(f => this.astNodeDescriptionProvider.createDescription(f, f.name)));
+        }
+
+        // Table `imageAction:` parameter - only actions on the table's referenced item type are valid
+        if (isTableImageActionParam(context.container)) {
+            const tableField = AstUtils.getContainerOfType(context.container, isTableField);
+            if (!tableField || !tableField.document.ref) return new MapScope([]);
+            const actions = getAllOfType<Action>(tableField.document.ref.body, isAction, false);
+            return new MapScope(actions.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
         }
 
         // if (isFleetingAccess(context.container) || isRef(context.container)) {

@@ -26,6 +26,7 @@ import {
     Prompt,
     isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue, isStringChoiceField,
     StringParamValue, isAttributeParamMod, AttributeParamMod,
+    isAttributeRollParam, isAttributeFunctionParam, AttributeFunctionParam,
     MethodBlock, isMethodBlock, isAccess,
     InventoryField, isInventorySlotsParam, isInventoryRowsParam,
     isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
@@ -363,6 +364,29 @@ export class IntelligentSystemDesignLanguageValidator {
         // Check mod parameter for type mismatches
         if (modParam && isMethodBlock(modParam.method)) {
             this.validateNumericExpression(modParam.method.body, accept);
+        }
+
+        // `roll:` and `function:` are two ways to hang click behavior on an attribute - allow one, not both.
+        const rollParam = field.params.find(isAttributeRollParam);
+        const functionParam = field.params.find(isAttributeFunctionParam) as AttributeFunctionParam | undefined;
+        if (rollParam && functionParam) {
+            accept('error',
+                `An attribute can have either a 'roll:' or a 'function:' on click, but not both. ` +
+                `Use 'roll:' for a simple roll that posts a standard card, or 'function:' for full control over the result.`,
+                { node: functionParam });
+        }
+
+        // The click invokes the function with no arguments, so any required (non-defaulted) parameter
+        // would be undefined at call time. Require the referenced function to take no required params.
+        if (functionParam?.function.ref) {
+            const requiredParams = functionParam.function.ref.params.filter(p => p.defaultValue === undefined);
+            if (requiredParams.length > 0) {
+                accept('error',
+                    `The function '${functionParam.function.ref.name}' cannot be used as an attribute click handler ` +
+                    `because it requires parameter(s): ${requiredParams.map(p => p.param.name).join(', ')}. ` +
+                    `A click handler is called with no arguments - use a function with no parameters (or give every parameter a default).`,
+                    { node: functionParam });
+            }
         }
     }
 

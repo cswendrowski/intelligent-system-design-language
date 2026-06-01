@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, isAction, isActor, isFunctionDefinition, isHeightParam, isHtmlExp, isWidthParam } from "../../../language/generated/ast.js";
+import { Action, AttributeExp, AttributeFunctionParam, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, isAction, isActor, isAttributeExp, isAttributeFunctionParam, isFunctionDefinition, isHeightParam, isHtmlExp, isWidthParam } from "../../../language/generated/ast.js";
 import { humanize, titleize } from 'inflection';
 import { getAllOfType, toMachineIdentifier } from '../utils.js';
 import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
@@ -29,6 +29,12 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
     let actions = getAllOfType<Action>(document.body, isAction);
 
     const functions = getAllOfType<FunctionDefinition>(document.body, isFunctionDefinition, false);
+
+    // Attributes with a `function:` click handler. The referenced function runs as if it were an
+    // action on click (same update/flush semantics), so the author gets full control over the result.
+    const attributeFunctions = getAllOfType<AttributeExp>(document.body, isAttributeExp, false)
+        .map(attr => ({ attr, param: attr.params.find(isAttributeFunctionParam) as AttributeFunctionParam | undefined }))
+        .filter((x): x is { attr: AttributeExp, param: AttributeFunctionParam } => x.param?.function.ref != undefined);
     function generateFunctionDefinition(functionDef: FunctionDefinition): CompositeGeneratorNode {
         const functionName = toMachineIdentifier(functionDef.name);
         console.log(`Generating function ${functionName} for ${document.name} Vue sheet.`);
@@ -41,12 +47,12 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
             }
             `.appendNewLine();
         }
+        // No-arg functions take the caller's `context` as their first argument too (the call site
+        // passes context regardless of arity). Deriving `system` from it — mirroring the param
+        // branch — keeps `self.*` (which compiles to `system.*`) and `context.object` both valid.
         return expandToNode`
-        async function_${functionName}(system, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate) {
-            const context = {
-                object: system,
-                target: game.user.getTargetOrNothing()
-            };
+        async function_${functionName}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate) {
+            let system = context.object.system;
             ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, false, functionDef)}
         }
         `.appendNewLine();
@@ -428,6 +434,11 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
 
             /* -------------------------------------------- */
 
+            // Attribute click handlers (function: param)
+            ${joinToNode(attributeFunctions, generateAttributeFunctionMethod, { appendNewLineIfNotEmpty: true })}
+
+            /* -------------------------------------------- */
+
             // User defined methods
             ${joinToNode(functions, generateFunctionDefinition, { appendNewLineIfNotEmpty: true })}
         }
@@ -464,6 +475,73 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                     context.actor = document;
                 }
                 ${translateExpression(entry, id, action.method, false, action)}
+                if (!selfDeleted && Object.keys(update).length > 0) {
+                    await this.document.update(update);
+                    rerender = true;
+                }
+                if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
+                    for (let key of Object.keys(embeddedUpdate)) {
+                        await this.document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
+                    }
+                    rerender = true;
+                }
+                if (Object.keys(parentUpdate).length > 0) {
+                    await this.document.parent.update(parentUpdate);
+                    rerender = true;
+                }
+                if (Object.keys(parentEmbeddedUpdate).length > 0) {
+                    for (let key of Object.keys(parentEmbeddedUpdate)) {
+                        await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                    }
+                }
+                if (Object.keys(targetUpdate).length > 0) {
+                    await context.target.update(targetUpdate);
+                }
+                if (Object.keys(targetEmbeddedUpdate).length > 0) {
+                    for (let key of Object.keys(targetEmbeddedUpdate)) {
+                        await context.target.updateEmbeddedDocuments("Item", targetEmbeddedUpdate[key]);
+                    }
+                }
+                if (rerender) {
+                    this.render();
+                }
+            }
+        `;
+    }
+
+    // Generates a sheet method that runs an attribute's `function:` body with the same update/flush
+    // semantics as an action. The function body is inlined here (rather than calling the generated
+    // function_<name> helper) so it runs with a correctly-shaped context regardless of arity.
+    function generateAttributeFunctionMethod({ attr, param }: { attr: AttributeExp, param: AttributeFunctionParam }): CompositeGeneratorNode {
+        const functionDef = param.function.ref!;
+        console.log(`Generating attribute function handler ${attr.name} -> ${functionDef.name} for ${document.name} Vue sheet.`);
+        return expandToNode`
+
+            /* -------------------------------------------- */
+
+            async _on${attr.name}AttributeFunction(event) {
+                if (event?.preventDefault) event.preventDefault();
+                let update = {};
+                let embeddedUpdate = {};
+                let parentUpdate = {};
+                let parentEmbeddedUpdate = {};
+                let targetUpdate = {};
+                let targetEmbeddedUpdate = {};
+                let selfDeleted = false;
+                let rerender = false;
+                let document = this.document;
+                const context = {
+                    object: this.document,
+                    target: game.user.getTargetOrNothing()
+                };
+                // If this is an item, attach the parent
+                if (document.documentName === "Item" && document.parent) {
+                    context.actor = document.parent;
+                }
+                else {
+                    context.actor = document;
+                }
+                ${translateExpression(entry, id, functionDef.method, false, functionDef)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.document.update(update);
                     rerender = true;

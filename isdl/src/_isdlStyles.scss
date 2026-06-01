@@ -639,6 +639,41 @@
     position: relative;
   }
 
+  // Image-cell action affordance: reveal a circular action button over the row image on hover,
+  // mirroring the attribute roll overlay. Pure CSS hover so it works per-row in a data table.
+  .isdl-image-action {
+    position: relative;
+    display: inline-flex;
+    cursor: pointer;
+    border-radius: 4px;
+
+    .isdl-image-action-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(2px);
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.15s ease-in-out;
+      z-index: 10;
+    }
+
+    .isdl-image-action-btn {
+      transition: transform 0.2s ease-in-out;
+    }
+
+    &:hover .isdl-image-action-overlay {
+      opacity: 1;
+    }
+
+    &:hover .isdl-image-action-btn {
+      transform: scale(1.1);
+    }
+  }
+
   .isdl-paperdoll {
     min-width: 307px;
     width: 307px;

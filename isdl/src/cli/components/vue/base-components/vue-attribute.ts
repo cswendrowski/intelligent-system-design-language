@@ -28,7 +28,10 @@ export default function generateAttributeComponent(destination: string) {
             editMode: Boolean,
             attributeStyle: String, // plain or box
             roll: Function,
-            hasRoll: Boolean
+            hasRoll: Boolean,
+            // Icon shown in the click overlay. Defaults to a die for roll: handlers; function: handlers
+            // pass the attribute's own icon so the affordance matches what the click actually does.
+            clickIcon: { type: String, default: "fa-solid fa-dice" }
         });
 
         const document = inject("rawDocument");
@@ -114,7 +117,7 @@ export default function generateAttributeComponent(destination: string) {
                     variant="elevated"
                     elevation="4"
                   >
-                    <v-icon size="small">fa-solid fa-dice</v-icon>
+                    <v-icon size="small" :icon="clickIcon"></v-icon>
                   </v-btn>
                 </div>
             </div>
@@ -139,7 +142,7 @@ export default function generateAttributeComponent(destination: string) {
                     variant="elevated"
                     elevation="4"
                   >
-                    <v-icon>fa-solid fa-dice</v-icon>
+                    <v-icon :icon="clickIcon"></v-icon>
                   </v-btn>
                 </div>
             </v-container>
