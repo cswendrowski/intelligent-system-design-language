@@ -434,8 +434,28 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 const variable = AstUtils.getContainerOfType(prompt?.$container, isVariableExpression);
                 const action = AstUtils.getContainerOfType(prompt?.$container, isAction);
                 const promptPath = `${action?.name.toLowerCase() ?? ""}${variable?.name.toLowerCase() ?? ""}`;
-                let key = expression.property?.ref?.name?.toLowerCase() ?? "";
-                let dataPath = `context.system.${promptPath}.${key}`;
+                const ref = expression.property?.ref;
+                const fieldName = ref?.name?.toLowerCase() ?? "";
+                const base = `context.system.${promptPath}.${fieldName}`;
+                const hasSub = (expression.subProperties?.length ?? 0) > 0;
+
+                // A dice prompt input is stored as {die, number} (its `.value` formula is derived
+                // data, which a prompt doesn't compute). Build the "<number><die>" formula string
+                // so it drops into the roll as e.g. "2d6"; reading both keeps it reactive.
+                if (isDiceField(ref) && !hasSub) {
+                    return expandToNode`
+                        "${fieldName}": \`\${${base}.number}\${${base}.die}\`
+                    `;
+                }
+                // A die prompt input is stored as the die string itself (e.g. "d8").
+                if (isDieField(ref) && !hasSub) {
+                    return expandToNode`
+                        "${fieldName}": ${base}
+                    `;
+                }
+
+                let key = fieldName;
+                let dataPath = base;
                 for (const subProperty of expression.subProperties ?? []) {
                     key = `${key}.${subProperty}`;
                     dataPath = `${dataPath}.${subProperty.toLowerCase()}`;

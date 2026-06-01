@@ -103,6 +103,12 @@ describe('parser diagnostics', () => {
         expect(diags).toHaveLength(0);
     });
 
+    it('allows input.X referencing dice, die, and number prompt inputs', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting o = prompt(label: "T") {\n            dice DamageDice\n            die BonusDie\n            number FlatBonus\n            rollVisualizer Preview(value: input.DamageDice + input.BonusDie + input.FlatBonus)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
     it('rejects input.X used outside a prompt', async () => {
         const src = `${CONFIG}\n\nactor A {\n    number Boons\n    rollVisualizer Preview(value: 2d6 + input.Boons)\n}`;
         const diags = await errors(src);

@@ -52,7 +52,7 @@ actor BasicHero {
     action VuePromptTest {
         fleeting first = prompt(label: "First Prompt") {
             string Title
-            number Amount(value: 3)
+            number Amount(initial: 3)
             number Doubled(value: { return self.HealthModifier + 10 })
             string StaticNote(value: "Computed note")
             boolean Confirmed
@@ -88,6 +88,18 @@ actor BasicHero {
             "ChosenSkill: " + first.ChosenSkill
             "ManySkills: " + first.ManySkills
             "Bonus: " + second.Bonus
+        }
+    }
+
+    // QA: dedicated live-preview prompt -- a dice pool, a single die, and a flat number
+    // input all feed one rollVisualizer that recomputes as the user edits them. Additive
+    // formula -> exact convolution. Demonstrates input.X across dice/die/number types.
+    action RollBuilder(icon: "fa-solid fa-dice-d20") {
+        fleeting build = prompt(label: "Roll Builder") {
+            dice DamageDice
+            die BonusDie
+            number FlatBonus
+            rollVisualizer Preview(value: input.DamageDice + input.BonusDie + input.FlatBonus, label: "Expected Result", color: #38a169)
         }
     }
 
