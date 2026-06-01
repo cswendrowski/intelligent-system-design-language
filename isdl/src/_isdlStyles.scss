@@ -945,6 +945,51 @@
       }
     }
   }
+
+  /* Roll Visualizer -- compact distribution preview for a dice formula */
+  .isdl-roll-visualizer {
+    padding: 6px 10px;
+
+    .isdl-roll-visualizer__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .isdl-roll-visualizer__label {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .isdl-roll-visualizer__avg {
+      font-weight: 700;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .v-sparkline {
+      width: 100%;
+    }
+
+    .isdl-roll-visualizer__empty {
+      opacity: 0.7;
+      padding: 8px 0;
+    }
+
+    .isdl-roll-visualizer__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      opacity: 0.85;
+      gap: 8px;
+    }
+
+    .isdl-roll-visualizer__approx {
+      opacity: 0.7;
+      font-style: italic;
+    }
+  }
 }
 
 /* Keyword References */

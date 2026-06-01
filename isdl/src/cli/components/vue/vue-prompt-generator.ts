@@ -50,9 +50,11 @@ import {
     isDieNoneParam,
     isSelfPropertyRefExp,
     DieChoicesParam,
-    DieNoneParam
+    DieNoneParam,
+    isRollVisualizerField, isIconParam, isColorParam, IconParam, ColorParam
 } from "../../../language/generated/ast.js";
 import { getDocument, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
+import { compileVisualizerFormula } from '../method-generator.js';
 import { AstUtils } from 'langium';
 
 
@@ -102,11 +104,6 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
         if (isHookHandler(element)) return expandToNode``;
         if (element.modifier == "hidden") return expandToNode``;
 
-        if (element.name == "RollVisualizer") {
-            return expandToNode`
-            <i-roll-visualizer :context="context"></i-roll-visualizer>
-            `;
-        }
         let disabled = element.modifier == "readonly" || element.modifier == "locked"; // TODO: Edit mode
         if (element.modifier == "unlocked") disabled = false;
 
@@ -116,6 +113,26 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
         const label = `${document.name}.${element.name}`;
         const labelFragment = `:label="game.i18n.localize('${label}')"`;
         const systemPath = `system.${action?.name.toLowerCase()}${variable?.name.toLowerCase()}.${element.name.toLowerCase()}`;
+
+        if (isRollVisualizerField(element)) {
+            // Phase 1: static preview on prompts -- the formula resolves against the
+            // document's data (context.object.system). It does not yet react to sibling
+            // prompt inputs as the user types (see the roll-visualizer design spec).
+            const { formula, data } = compileVisualizerFormula(entry, id, element);
+            const iconParam = element.params.find(p => isIconParam(p)) as IconParam | undefined;
+            const colorParam = element.params.find(p => isColorParam(p)) as ColorParam | undefined;
+            return expandToNode`
+            <i-roll-visualizer
+                :context="context"
+                label="${label}"
+                ${iconParam ? `icon="${iconParam.value}"` : ``}
+                ${colorParam ? `color="${colorParam.value}"` : ``}
+                systemPath="${systemPath}"
+                :formula='${formula}'
+                :rollData='${data}'>
+            </i-roll-visualizer>
+            `;
+        }
 
         if (isParentPropertyRefExp(element)) {
             let allChoices: Property[] = [];

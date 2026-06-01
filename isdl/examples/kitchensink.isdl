@@ -31,6 +31,12 @@ actor BasicHero {
     number MaxStamina(value: { return self.HealthModifier + 5 })
     number ReserveStamina(initial: { return self.MaxStamina })
 
+    // QA: rollVisualizer -- charts a dice formula's distribution + average. Additive formula
+    // (dice + field reference) takes the exact convolution path and reacts to HealthModifier.
+    rollVisualizer DamagePreview(value: 2d6 + self.HealthModifier, label: "Expected Damage")
+    // QA: keep-highest modifier forces the Monte Carlo simulation fallback path.
+    rollVisualizer CritPreview(value: 2d20kh1 + self.HealthModifier, color: #a586c0)
+
       action GetUserChoice {
         fleeting userInput = prompt(
         label: "Choose Your Action",
@@ -58,6 +64,8 @@ actor BasicHero {
             self<attribute> Stat
             choice<Skill> ChosenSkill
             choices<Skill> ManySkills
+            // QA: rollVisualizer inside a prompt -- Phase 1 static preview, resolves against the document.
+            rollVisualizer Preview(value: 2d6 + self.HealthModifier)
         }
         fleeting second = prompt(label: "Second Prompt") {
             number Bonus

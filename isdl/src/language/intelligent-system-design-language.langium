@@ -74,7 +74,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField);
+    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField | RollVisualizerField);
 WipFields:
     (DamageTrackExp);
 DateTimeFields:
@@ -215,6 +215,19 @@ MoneyDenominationValueParam:
 
 PinnedField:
     ExpressionModifier "pinned" name=ID StandardFieldParamsFrag;
+
+// Roll Visualizer -------------
+// Charts the probability distribution of a dice formula (exact via convolution
+// for additive formulas, Monte Carlo fallback otherwise) plus its average and
+// min/max. The value: expression uses the same roll-expression syntax as
+// attribute roll:, so it can reference other fields and recompute reactively.
+
+RollVisualizerField:
+    ExpressionModifier "rollVisualizer" name=ID ("(" params+=RollVisualizerParameter ("," params+=RollVisualizerParameter)* ")")?;
+RollVisualizerParameter:
+    (StandardFieldParams | RollVisualizerValueParam);
+RollVisualizerValueParam:
+    "value:" value=(MethodBlock | Expression);
 
 // Tracker -------------
 

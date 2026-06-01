@@ -73,6 +73,30 @@ describe('parser diagnostics', () => {
         expect(diags.some(d => /calculated value/.test(d.message))).toBe(true);
     });
 
+    it('accepts a rollVisualizer with a literal dice value', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    rollVisualizer Preview(value: 2d6 + 3)\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('accepts a rollVisualizer whose value references another field', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number Bonus\n    rollVisualizer Preview(value: 2d6 + self.Bonus, label: "Expected")\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('rejects a rollVisualizer with no value: param', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    rollVisualizer Preview(label: "Expected")\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /requires a value:/.test(d.message))).toBe(true);
+    });
+
+    it('allows a rollVisualizer inside a prompt', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting x = prompt(label: "T") {\n            number Amount\n            rollVisualizer Preview(value: 2d6 + 1)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
     it('rejects a function that mutates self (++/+=) inside a calculated value', async () => {
         // self.X++ is an IncrementDecrementAssignment (a grammar union member) — a document write,
         // not pure. Guard-based detection must catch it, not just literal "Assignment" $type.

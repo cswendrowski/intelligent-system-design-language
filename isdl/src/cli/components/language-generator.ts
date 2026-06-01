@@ -135,6 +135,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             DamageApplicationChatCardHint: 'Controls when to send chat cards summarizing damage/healing applications with revert functionality.',
             DamageApplicationChatCard: { None: "Don't send", Public: 'Send to All (public message)', GM: 'Send to GM (GM-only message)' }
         },
+        ROLLVISUALIZER: { Min: 'Min', Max: 'Max', Average: 'Average', Simulations: 'simulations', NoFormula: 'No roll to visualize' },
         CONTEXT: { ApplyChanges: 'Apply', ApplyDamage: 'As Damage', ApplyHealing: 'As Healing', ApplyTemp: 'As Temporary' },
         NOTIFICATIONS: { NoTokenSelected: 'No Token is currently selected', NoTokenTargeted: 'No Token is currently targeted' },
         TYPES: {
