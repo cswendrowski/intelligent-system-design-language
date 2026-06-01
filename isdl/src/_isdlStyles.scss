@@ -948,6 +948,8 @@
 
   /* Roll Visualizer -- compact distribution preview for a dice formula */
   .isdl-roll-visualizer {
+    display: flex;
+    flex-direction: column;
     margin: 8px 4px;
     padding: 6px 10px;
     /* Solid surface so the preview reads as a panel rather than blending into the
@@ -955,6 +957,7 @@
     background-color: rgb(var(--v-theme-surface));
 
     .isdl-roll-visualizer__header {
+      flex: 0 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: baseline;
@@ -972,16 +975,24 @@
       line-height: 1;
     }
 
-    .v-sparkline {
+    /* The sparkline svg renders as a direct child (no .v-sparkline class). Let it grow
+       to fill any extra card height -- e.g. when stretched to match a taller sibling --
+       rather than sitting at a fixed small height. preserveAspectRatio="none" on the
+       sparkline lets it stretch vertically instead of letterboxing. */
+    > svg {
+      flex: 1 1 auto;
       width: 100%;
+      min-height: 48px;
     }
 
     .isdl-roll-visualizer__empty {
+      flex: 1 1 auto;
       opacity: 0.7;
       padding: 8px 0;
     }
 
     .isdl-roll-visualizer__footer {
+      flex: 0 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;

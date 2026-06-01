@@ -240,6 +240,7 @@ export default function generateRollVisualizerComponent(destination: string) {
                 smooth="6"
                 :label-size="5"
                 auto-draw
+                preserveAspectRatio="none"
             ></v-sparkline>
             <div v-else class="isdl-roll-visualizer__empty text-caption">
                 {{ game.i18n.localize("ROLLVISUALIZER.NoFormula") }}
