@@ -86,6 +86,13 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
             if (initialParam && typeof(initialParam.value) === 'number') {
                 options += `, initial: ${initialParam.value}`;
             }
+            else {
+                // Always give a number a concrete initial (its min, or 0) so it's never undefined.
+                // An undefined number breaks arithmetic -- e.g. a prompt field left blank yields
+                // undefined, and `undefined - undefined` is NaN, which a roll then rejects with
+                // "Unresolved StringTerm NaN". (null would coerce to 0; undefined does not.)
+                options += `, initial: ${(minParam && typeof(minParam.value) === 'number') ? minParam.value : 0}`;
+            }
             if (minParam && typeof(minParam.value) === 'number') {
                 options += `, min: ${minParam.value}`;
             }

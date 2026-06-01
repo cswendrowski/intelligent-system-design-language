@@ -130,6 +130,22 @@ actor BasicHero {
             }
         }
     }
+
+    // QA: prompt subproperty used in arithmetic, a runtime-sized dice pool, and a flavor line
+    // (regression: opts.Boons resolved to undefined -> pool NaN -> "Unresolved StringTerm NaN").
+    action StrikePoolTest(icon: "fa-solid fa-khanda") {
+        fleeting opts = prompt(label: "Strike Roll") {
+            number Boons(min: 0)
+            number Banes(min: 0)
+        }
+        fleeting net = opts.Boons - opts.Banes
+        fleeting pool = 1 + Math.abs(net)
+        fleeting strikeRoll = roll((pool)d6kh1)
+        chat StrikePoolResult {
+            flavor self.Name + " strikes with " + opts.Boons + " boon(s), " + opts.Banes + " bane(s)"
+            strikeRoll
+        }
+    }
 }
 
 // QA: custom default sheet size (width/height params on the document)

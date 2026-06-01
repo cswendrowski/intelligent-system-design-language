@@ -507,22 +507,21 @@ function generateContextMenu2(entry: Entry, id: string, destination: string) {
             this.element.on(this.eventName, this.selector, event => {
                 event.preventDefault();
                 event.stopPropagation();
-                let parent = $(event.currentTarget),
-                    menu = this.menu;
-        
+                let parent = $(event.currentTarget);
+
                 if (this.selector == ".message") return;
-        
+
                 // Remove existing context UI
                 $('.context').removeClass("context");
-        
-                // Close the current context
-                if ( $.contains(parent[0], menu[0]) ) this.close();
-        
-                // If the new target element is different
-                else {
+
+                // The menu mounts on <body> (not inside the target), so a fresh right-click can't
+                // rely on DOM containment to toggle. Tear down any open menu immediately to avoid
+                // duplicates/animation races, then open a fresh one anchored to this target.
+                $("#context-menu2").stop(true, true).remove();
+                if ( ui.context ) delete ui.context;
+
                 this.render(parent);
                 ui.context = this;
-                }
             })
         }
     
@@ -561,7 +560,9 @@ function generateContextMenu2(entry: Entry, id: string, destination: string) {
          * @param target
          */
         render(target) {
-            let html = $("#context-menu2").length ? $("#context-menu2") : $('<nav id="context-menu2" data-mod="1"></nav>');
+            // Always a fresh node -- bind() removed any prior menu, so appending h2/items here
+            // can't accumulate onto a reused element.
+            let html = $('<nav id="context-menu2" data-mod="1"></nav>');
             let ol = $('<ol class="context-items"></ol>');
             html.append($(\`<h2>\${game.i18n.localize('CONTEXT.ApplyChanges')}</h2>\`));
             html.append(ol);
@@ -629,25 +630,29 @@ function generateContextMenu2(entry: Entry, id: string, destination: string) {
          */
         _setPosition(html, target) {
             const targetRect = target[0].getBoundingClientRect();
-            const parentRect = target[0].parentElement.getBoundingClientRect();
-        
-            // Append to target and get the context bounds
-            target.css('position', 'relative');
-            html.css("visibility", "hidden");
-            target.append(html);
-            const contextRect = html[0].getBoundingClientRect();
-        
-            // Determine whether to expand down or expand up
-            const bottomHalf = targetRect.bottom > (window.innerHeight / 2);
-            this._expandUp = bottomHalf && ((parentRect.bottom - targetRect.bottom) < contextRect.height);
 
-            // Shift left if needed to avoid overflowing
-            const horizontalOverflow = parentRect.right - contextRect.right;
-            if (horizontalOverflow < 0) {
-                html.css("left", Math.floor(horizontalOverflow));
-            }
-        
+            // Mount on <body> with fixed positioning so the menu escapes the chat log's overflow
+            // clipping (#chat-log is overflow-x:hidden / overflow-y:auto) and any transformed sheet
+            // ancestor. We then place it explicitly in viewport coordinates.
+            html.css("visibility", "hidden");
+            document.body.appendChild(html[0]);
+            const contextRect = html[0].getBoundingClientRect();
+
+            // Expand upward only when there isn't room below the target but there is above it.
+            const roomBelow = window.innerHeight - targetRect.bottom;
+            this._expandUp = (roomBelow < contextRect.height) && (targetRect.top > contextRect.height);
+            const top = this._expandUp
+                ? targetRect.top - contextRect.height - 2
+                : targetRect.bottom + 2;
+
+            // Align to the target's left edge, clamped to stay within the viewport.
+            let left = targetRect.left;
+            const maxLeft = window.innerWidth - contextRect.width - 4;
+            if (left > maxLeft) left = maxLeft;
+            if (left < 4) left = 4;
+
             // Display the menu
+            html.css({ top: Math.round(top) + "px", left: Math.round(left) + "px" });
             html.addClass(this._expandUp ? "expand-up" : "expand-down");
             html.css("visibility", "");
             target.addClass("context");

@@ -38,6 +38,7 @@ import {
     isTypeParam, TypeParam, Document, Property,
 } from '../../language/generated/ast.js';
 import {
+    FleetingAccess,
     isReturnExpression,
     isAssignment,
     isBinaryExpression,
@@ -142,6 +143,16 @@ function humanize(string: string | undefined) {
     // Ensure first letter of the string is capitalized
     string = string.charAt(0).toUpperCase() + string.slice(1);
     return string.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+// Build the subproperty key for a fleeting access (e.g. `opts.Boons` -> "Boons" / "boons").
+// Prompt results are resolved with lowercased field-name keys (the datamodel stores prompt
+// fields lowercased), so subproperty access on a prompt-backed fleeting must lowercase to
+// match -- otherwise `opts.Boons` reads `undefined`. Other fleetings (rolls, etc.) expose
+// real JS properties whose case must be preserved (e.g. `amount.total`), so the gate matters.
+function fleetingSubProperty(expression: FleetingAccess): string | undefined {
+    if (expression.subProperty == undefined) return undefined;
+    return isPrompt(expression.variable.ref?.value) ? expression.subProperty.toLowerCase() : expression.subProperty;
 }
 
         export function translateDiceParts(expression: Expression, noLabels: boolean = false): CompositeGeneratorNode | undefined {
@@ -295,7 +306,7 @@ function humanize(string: string | undefined) {
                 let path = expression.variable.ref?.name ?? "";
                 let label = humanize(expression.variable.ref?.name ?? "");
                 if (expression.subProperty != undefined) {
-                    path = `${path}.${expression.subProperty}`;
+                    path = `${path}.${fleetingSubProperty(expression)}`;
                     label = `${label} ${humanize(expression.subProperty)}`;
                 }
                 const fleetingLabelSuffix = noLabels ? "" : `[${label}]`;
@@ -518,15 +529,18 @@ function humanize(string: string | undefined) {
                 }
 
                 let path = expression.variable.ref?.name;
+                // The roll-data key must match the formula's `@`-reference, which collapses the
+                // dotted path and lowercases it (see translateDiceParts: `@answer.bonus` -> `@answerbonus`).
+                let label = expression.variable.ref?.name?.toLowerCase() ?? "";
                 if (expression.subProperty != undefined) {
-                    path = `${path}.${expression.subProperty}`;
+                    path = `${path}.${fleetingSubProperty(expression)}`;
+                    label = `${label}${expression.subProperty.toLowerCase()}`;
                 }
                 if (expression.arrayAccess != undefined) {
                     console.log("Array Access:", expression.arrayAccess.$type);
                     let accessExp = translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty);
                     path = `${path}[${accessExp?.contents?.toString()}]`;
                 }
-                const label = expression.variable.ref?.name.toLowerCase() ?? "";
                 console.log(label, path);
                 return expandToNode`
                     "${label}": ${path} ?? 0
@@ -1341,7 +1355,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isFleetingAccess(expression)) {
         let accessPath = expression.variable.ref?.name;
         if (expression.subProperty != undefined) {
-            accessPath = `${accessPath}.${expression.subProperty}`;
+            accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
         }
         else if (expression.arrayAccess != undefined) {
             accessPath = `${accessPath}[${translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty)}]`;
@@ -1427,7 +1441,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if ( isFleetingAccess(expression) ) {
                 let accessPath = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
-                    accessPath = `${accessPath}.${expression.subProperty}`;
+                    accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
                 }
 
                 let roll = false;
@@ -1500,7 +1514,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if ( isFleetingAccess(expression) ) {
                 let accessPath = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
-                    accessPath = `${accessPath}.${expression.subProperty}`;
+                    accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
                 }
                 return expandToNode`
                     ${accessPath}
