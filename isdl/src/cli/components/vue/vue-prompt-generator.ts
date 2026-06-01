@@ -86,7 +86,7 @@ export function generatePromptApp(name: string, entry: Entry, id: string, docume
                     <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
                         ${joinToNode(prompt.body, element => generateElement(element), { appendNewLineIfNotEmpty: true })}
                     </div>
-                    <v-row class="flexrow" style="flex: 0 0 auto; margin: 0;">
+                    <v-row class="flexrow isdl-prompt-footer" style="flex: 0 0 auto; margin: 0;">
                         <v-btn @click="context.promptSubmit && context.promptSubmit()" color="primary" class="ma-1 action-btn">Submit</v-btn>
                         <v-btn @click="context.promptCancel && context.promptCancel()" color="error" class="ma-1 action-btn">Cancel</v-btn>
                     </v-row>
