@@ -659,7 +659,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const resetColors = () => {
             primaryColor.value = '#1565c0';
             secondaryColor.value = '#4db6ac';
-            teritaryColor.value = '#ffb74d';
+            tertiaryColor.value = '#ffb74d';
             setupColors();
         };
 
@@ -1043,7 +1043,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         let componentName = `${document.name}${pageName}${element.name}VuetifyDatatable`;
         return expandToNode`
         <v-tabs-window-item v-if="!isHidden('${element.name.toLowerCase()}')" value="${element.name.toLowerCase()}" data-tab="${element.name.toLowerCase()}" data-type="table" class="tabs-container">
-            <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+            <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"></${componentName}>
         </v-tabs-window-item>
         `.appendNewLine();
     }
@@ -1157,7 +1157,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 summary="${summary}"
                 :primaryColor="primaryColor"
                 :secondaryColor="secondaryColor"
-                :teritaryColor="teritaryColor"
+                :tertiaryColor="tertiaryColor"
             />
         </v-tabs-window-item>
         `.appendNewLine();
@@ -1759,7 +1759,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         label="${label}"
                         icon="${iconParam?.value}"
                         systemPath="${systemPath}"
-                        :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor">
+                        :primaryColor="primaryColor" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor">
                     </${componentName}>
                 </div>
                 `;
@@ -2111,7 +2111,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 // case (never nested inside a .tabs-container), so no double drop binding.
                 return expandToNode`
                     <div class="datatable-drop-zone" v-if="!isHidden('${element.name.toLowerCase()}')">
-                        <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :teritaryColor="teritaryColor"></${componentName}>
+                        <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"></${componentName}>
                     </div>
                 `.appendNewLine();
             }
@@ -2229,7 +2229,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         summary="${summary}"
                         :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor"
-                        :teritaryColor="teritaryColor"
+                        :tertiaryColor="tertiaryColor"
                     />
                 `.appendNewLine();
             }

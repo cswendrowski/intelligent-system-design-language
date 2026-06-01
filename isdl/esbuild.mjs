@@ -41,8 +41,6 @@ async function copyAssets(outDir) {
 
     // Copy vendored static assets used by the generator at runtime
     const libs = [
-        'datatables.min.css',
-        'datatables.min.js',
         'progressbar.min.js',
         'isdl.png',
         'paperdoll_default.png',

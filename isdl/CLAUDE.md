@@ -167,7 +167,7 @@ export default function generateYourFieldComponent(destination: string, entry?: 
 - All fields should be applied with either the single-wide field (most common) or double-wide if it needs extra space
 - Style classes should use the .isdl-fieldname as a scope in SCSS, and focus on being compact
 - Editable inputs should have a `name="${systemPath}"`. For complex fields with multiple subproperties, this might be `name="${systemPath}.subproperty"` instead.
-- If you need more than one color, you can bind `secondaryColor`, and `teritaryColor`
+- If you need more than one color, you can bind `secondaryColor`, and `tertiaryColor`
 - Human readable text (labels, messages, etc) need to be localized with `game.i18n.localize(<text>)` and have an entry in the localization file
 
 ### 3. Base Components Generator (`src/cli/components/vue/vue-base-components-generator.ts`)
