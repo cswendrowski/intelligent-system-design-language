@@ -39,7 +39,8 @@ import {
     ParentAccess, ParentAssignment, IfStatement,
     isIfStatement, isParentTypeCheckExpression,
     TargetAccess, TargetAssignment, isTargetTypeCheckExpression,
-    RollVisualizerField, isRollVisualizerValueParam
+    RollVisualizerField, isRollVisualizerValueParam,
+    PromptInputAccess, isPrompt, isRollVisualizerField
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType, functionIsDerivedSafe } from '../cli/components/utils.js';
@@ -72,6 +73,7 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         TargetAssignment: validator.validateTargetAccess,
         Prompt: validator.validatePrompt,
         RollVisualizerField: validator.validateRollVisualizerField,
+        PromptInputAccess: validator.validatePromptInputAccess,
         FunctionCall: validator.validateDerivedFunctionCall
     };
     registry.register(checks, validator);
@@ -119,6 +121,21 @@ export class IntelligentSystemDesignLanguageValidator {
         else if (valueParams.length > 1) {
             accept('error', `rollVisualizer '${field.name}' has more than one value: parameter.`,
                 { node: field, property: 'name' });
+        }
+    }
+
+    // `input.X` names a sibling prompt input. It only makes sense inside a prompt, and
+    // for now reactive resolution is only wired for rollVisualizer (other prompt fields
+    // are seeded once at prep time and would not react), so restrict it there.
+    validatePromptInputAccess(access: PromptInputAccess, accept: ValidationAcceptor): void {
+        const prompt = AstUtils.getContainerOfType(access, isPrompt);
+        if (!prompt) {
+            accept('error', "'input.' can only be used inside a prompt.", { node: access });
+            return;
+        }
+        const visualizer = AstUtils.getContainerOfType(access, isRollVisualizerField);
+        if (!visualizer) {
+            accept('error', "'input.' references are currently only supported inside a rollVisualizer's value.", { node: access });
         }
     }
 

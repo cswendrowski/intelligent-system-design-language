@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Action, Document, FunctionDefinition, IfStatement, isAccess, isAction, isAssignment, isAttributeFunctionParam, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isRef, isStatusProperty, isTableField, isTableImageActionParam, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
+import { Action, Document, FunctionDefinition, IfStatement, isAccess, isAction, isAssignment, isAttributeFunctionParam, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isPrompt, isPromptInputAccess, isRef, isStatusProperty, isTableField, isTableImageActionParam, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -23,6 +23,11 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         ) {
 
             return this.getPropertyAccessScope(context);
+        }
+
+        // `input.X` inside a prompt resolves to the prompt's sibling input fields.
+        if (isPromptInputAccess(context.container)) {
+            return this.getPromptInputScope(context);
         }
 
         if (isVariableAccess(context.container) || isRef(context.container) || isVariableAssignment(context.container)) {
@@ -130,6 +135,16 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         // }
 
         return new MapScope(descriptions);
+    }
+
+    // `input.X` resolves against the fields of the prompt that contains it.
+    private getPromptInputScope(context: ReferenceInfo): Scope {
+        const prompt = AstUtils.getContainerOfType(context.container, isPrompt);
+        if (prompt == undefined) {
+            return new MapScope([]);
+        }
+        const properties = getAllOfType<Property>(prompt.body, isProperty, false);
+        return new MapScope(properties.map(p => this.astNodeDescriptionProvider.createDescription(p, p.name)));
     }
 
     private getScopesForDocument(document: Document | undefined): AstNodeDescription[] {

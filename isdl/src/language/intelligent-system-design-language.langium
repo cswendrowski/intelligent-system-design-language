@@ -510,6 +510,14 @@ QuickModifyAssignment:
     Self term=("+="|"-="|"*="|"/=") exp=Expression;
 
 
+// Prompt Input Access ---------------------------------------------------------------
+// Inside a prompt, `input.X` references a sibling prompt input field (resolved against
+// the containing prompt's body). Distinct from `self.X` (the document). Used by
+// rollVisualizer to chart a formula that reacts to the user's prompt inputs live.
+
+PromptInputAccess:
+    "input." property=[Property:ID] ("." subProperties+=("Name" | "number" | "die" | ID))*;
+
 // Parent Access / Modification ------------------------------------------------------
 
 fragment Parent:
@@ -695,7 +703,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
+    Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=" | "has" | "excludes" | "startsWith" | "endsWith") e2=Expression;
 ShorthandComparisonExpression:

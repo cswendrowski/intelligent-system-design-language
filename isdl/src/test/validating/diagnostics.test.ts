@@ -97,6 +97,24 @@ describe('parser diagnostics', () => {
         expect(diags).toHaveLength(0);
     });
 
+    it('allows a prompt rollVisualizer to reference a sibling input via input.X', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number WeaponBonus\n    action P {\n        fleeting o = prompt(label: "T") {\n            number Boons(min: 0)\n            rollVisualizer Preview(value: 2d6 + input.Boons + self.WeaponBonus)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('rejects input.X used outside a prompt', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number Boons\n    rollVisualizer Preview(value: 2d6 + input.Boons)\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /can only be used inside a prompt/.test(d.message))).toBe(true);
+    });
+
+    it('rejects input.X used outside a rollVisualizer', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting o = prompt(label: "T") {\n            number Boons\n            number Bad(value: { return input.Boons + 1 })\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /only supported inside a rollVisualizer/.test(d.message))).toBe(true);
+    });
+
     it('rejects a function that mutates self (++/+=) inside a calculated value', async () => {
         // self.X++ is an IncrementDecrementAssignment (a grammar union member) — a document write,
         // not pure. Guard-based detection must catch it, not just literal "Assignment" $type.

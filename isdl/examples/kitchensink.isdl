@@ -64,8 +64,11 @@ actor BasicHero {
             self<attribute> Stat
             choice<Skill> ChosenSkill
             choices<Skill> ManySkills
-            // QA: rollVisualizer inside a prompt -- Phase 1 static preview, resolves against the document.
+            // QA: rollVisualizer inside a prompt -- static preview, resolves against the document.
             rollVisualizer Preview(value: 2d6 + self.HealthModifier)
+            // QA Phase 2: input.X references a sibling prompt input (Amount); the chart updates
+            // live as the user edits Amount. Convolution path (additive), so the average is exact.
+            rollVisualizer LivePreview(value: 2d6 + input.Amount, label: "Live Preview", color: #38a169)
         }
         fleeting second = prompt(label: "Second Prompt") {
             number Bonus

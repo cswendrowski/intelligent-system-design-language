@@ -127,7 +127,8 @@ import {
     isTableField,
     isInventoryField,
     isProperty,
-    RollVisualizerField, isRollVisualizerValueParam, RollVisualizerValueParam
+    RollVisualizerField, isRollVisualizerValueParam, RollVisualizerValueParam,
+    isPromptInputAccess
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -249,6 +250,17 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 const targetLabelSuffix = noLabels ? "" : `[${label}]`;
                 return expandToNode`
                     \`@${path.replaceAll(".", "").toLowerCase()}${targetLabelSuffix}\`
+                `;
+            }
+            if (isPromptInputAccess(expression)) {
+                // `input.X` inside a prompt -> @<field> ref token (resolved at runtime from
+                // the live reactive prompt data, see translateDiceData).
+                let key = expression.property?.ref?.name?.toLowerCase() ?? "";
+                for (const subProperty of expression.subProperties ?? []) {
+                    key = `${key}.${subProperty}`;
+                }
+                return expandToNode`
+                    \`@${key.replaceAll(".", "").toLowerCase()}\`
                 `;
             }
             if (isAccess(expression)) {
@@ -412,6 +424,24 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
 
                 return expandToNode`
                     "${label.replaceAll(".", "").toLowerCase()}": ${path}
+                `;
+            }
+            if (isPromptInputAccess(expression)) {
+                // Resolve `input.X` to the LIVE reactive prompt path the input writes to:
+                // context.system.<action><variable>.<field>. Editing the input recomputes
+                // any binding that reads this (the rollVisualizer's :rollData).
+                const prompt = AstUtils.getContainerOfType(expression, isPrompt);
+                const variable = AstUtils.getContainerOfType(prompt?.$container, isVariableExpression);
+                const action = AstUtils.getContainerOfType(prompt?.$container, isAction);
+                const promptPath = `${action?.name.toLowerCase() ?? ""}${variable?.name.toLowerCase() ?? ""}`;
+                let key = expression.property?.ref?.name?.toLowerCase() ?? "";
+                let dataPath = `context.system.${promptPath}.${key}`;
+                for (const subProperty of expression.subProperties ?? []) {
+                    key = `${key}.${subProperty}`;
+                    dataPath = `${dataPath}.${subProperty.toLowerCase()}`;
+                }
+                return expandToNode`
+                    "${key.replaceAll(".", "").toLowerCase()}": ${dataPath} ?? 0
                 `;
             }
             if (isAccess(expression)) {
