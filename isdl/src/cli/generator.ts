@@ -20,8 +20,6 @@ import { generateDocumentDataModel, generateUuidDocumentField, generateUuidDocum
 import { fileURLToPath } from 'url';
 import { generateActiveEffectHandlebars, generateBaseActiveEffectBaseSheet as generateActiveEffectBaseSheet } from './components/active-effect-sheet-generator.js';
 import { generateChatCardClass, generateStandardChatCardTemplate } from './components/chat-card-generator.js';
-import { generateBaseDocumentSheet } from './components/base-sheet-generator.js';
-import { generateBaseActorSheet } from './components/base-actor-sheet-generator.js';
 import { getAllOfType } from './components/utils.js';
 import { generateCanvasToken, generateTokenDocument } from './components/token-generator.js';
 import { generateVue, runViteBuild } from './components/vue/vue-generator.js';
@@ -44,7 +42,6 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     }
 
     // Libraries
-    copyDataTableFiles(data.destination);
     copyProgressBarJs(data.destination);
 
     // Images
@@ -63,8 +60,6 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateSystemJson(entry, id, data.destination);
     generateLanguageJson(entry, id, data.destination);
     generateTemplateJson(entry, id, data.destination);
-    generateBaseDocumentSheet(entry, id, data.destination);
-    generateBaseActorSheet(entry, id, data.destination);
     generateExtendedDocumentClasses(entry, id, data.destination);
     generateMeasuredTemplatePreview(data.destination);
     generateEntryMjs(entry, id, data.destination);
@@ -96,30 +91,6 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     console.log("Vite build complete");
 
     return data.destination;
-}
-
-function copyDataTableFiles(destination: string) {
-
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-
-    // Make the scripts and css directories
-    const cssDir = path.join(destination, "css");
-    const jsDir = path.join(destination, "scripts");
-
-    if (!fs.existsSync(cssDir)) {
-        fs.mkdirSync(cssDir, { recursive: true });
-    }
-    if (!fs.existsSync(jsDir)) {
-        fs.mkdirSync(jsDir, { recursive: true });
-    }
-
-    // Copy the files
-    const cssFilePath = path.join(destination, "css", "datatables.min.css");
-    const jsFilePath = path.join(destination, "scripts", "datatables.min.js");
-
-    fs.copyFileSync(path.join(__dirname, "../datatables.min.css"), cssFilePath);
-    fs.copyFileSync(path.join(__dirname, "../datatables.min.js"), jsFilePath);
 }
 
 function copyProgressBarJs(destination: string) {
@@ -189,14 +160,12 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
                 }
             ],
             "scripts": [
-                "scripts/datatables.min.js"
             ],
             "esmodules": [
                 "system/${id}-main.mjs",
                 "system/${id}-custom.mjs"
             ],
             "styles": [
-                "css/datatables.min.css",
                 "css/materialdesignicons.min.css",
                 "css/${id}.css",
                 "css/${id}-custom.css"

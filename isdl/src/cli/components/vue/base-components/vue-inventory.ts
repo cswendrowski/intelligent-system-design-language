@@ -63,7 +63,7 @@ export default function generateInventoryComponent(destination: string, entry?: 
             },
             primaryColor: String,
             secondaryColor: String,
-            teritaryColor: String
+            tertiaryColor: String
         });
 
         const document = inject('rawDocument');

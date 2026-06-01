@@ -367,7 +367,7 @@ export default function generateTrackerComponent(destination: string) {
                                 </g>
                             </svg>
 
-                            <v-number-input v-if="trackerStyle == 'plain'" :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }" :name="systemPath" :min="min" :max="max" :disabled="disabled" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
+                            <v-number-input v-if="trackerStyle == 'plain'" :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }" :name="systemPath" :min="min" :max="max" :disabled="isDisabled('value') || disableValue" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
                         </div>
                         <v-expand-transition>
                             <div v-show="expanded" style="margin-top: 1rem;">

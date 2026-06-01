@@ -20,6 +20,7 @@ export default function generateMacroChoiceComponent(destination: string) {
             context: Object,
             visibility: String,
             editMode: Boolean,
+            disabled: Boolean,
             primaryColor: String,
             secondaryColor: String,
             icon: String

@@ -32,6 +32,7 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
         const props = defineProps({
             context: Object,
             editMode: Boolean,
+            disabled: Boolean,
             primaryColor: String,
             secondaryColor: String
         });
