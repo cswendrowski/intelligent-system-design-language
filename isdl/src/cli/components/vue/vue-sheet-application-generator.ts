@@ -19,7 +19,7 @@ import {
     isAction,
     isActor,
     isAttributeExp,
-    isAttributeParamMod, isAttributeRollParam,
+    isAttributeParamMod, isAttributeRollParam, isAttributeFunctionParam,
     isAttributeStyleParam,
     isBackgroundParam,
     isBooleanExp,
@@ -613,6 +613,20 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         return expandToNode``;
     }
 
+    // Attributes with a `function:` param delegate their click to a sheet method that runs the
+    // referenced function with action-style update/flush semantics (see vue-sheet-class-generator).
+    function generateAttributeFunctionMethod(attribute: AttributeExp): CompositeGeneratorNode {
+        const functionParam = attribute.params.find(isAttributeFunctionParam);
+        if (functionParam) {
+            return expandToNode`
+            const on${attribute.name}AttributeFunction = async (event) => {
+                await document.sheet._on${attribute.name}AttributeFunction(event);
+            };
+            `;
+        }
+        return expandToNode``;
+    }
+
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
@@ -830,6 +844,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         
         // Attribute roll methods
         ${joinToNode(attributes, generateAttributeRollMethod, {appendNewLineIfNotEmpty: true})}
+        ${joinToNode(attributes, generateAttributeFunctionMethod, {appendNewLineIfNotEmpty: true})}
     </script>
     <style>
     </style>
@@ -1850,23 +1865,33 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 const style = styleParam?.style ?? "box";
 
                 const rollParam = element.params.find(x => isAttributeRollParam(x)) as AttributeRollParam | undefined;
+                const functionParam = element.params.find(x => isAttributeFunctionParam(x));
+                // Both `roll:` and `function:` drive the attribute's click overlay. Validation forbids
+                // setting both, so at most one of these is defined.
+                const clickHandler = rollParam
+                    ? expandToNode`on${element.name}AttributeRoll`
+                    : (functionParam ? expandToNode`on${element.name}AttributeFunction` : expandToNode`undefined`);
+                // roll: keeps the die icon; function: shows the attribute's own icon (or a generic
+                // action bolt) so the overlay reflects what the click actually triggers.
+                const clickIcon = functionParam ? (iconParam?.value ?? "fa-solid fa-bolt") : "fa-solid fa-dice";
 
                 return expandToNode`
-                    <i-attribute 
+                    <i-attribute
                         label="${label}"
                         icon="${iconParam?.value}"
                         attributeStyle="${style}"
                         :editMode="editModeRef"
-                        :hasMod="${hasMod}" 
+                        :hasMod="${hasMod}"
                         :mod="context.${modSystemPath}"
-                        systemPath="${valueSystemPath}" 
-                        :context="context" 
-                        :min="${min}" 
+                        systemPath="${valueSystemPath}"
+                        :context="context"
+                        :min="${min}"
                         ${standardParamsFragment}
-                        :primaryColor="primaryColor" 
+                        :primaryColor="primaryColor"
                         :secondaryColor="secondaryColor"
-                        :roll="${rollParam ? expandToNode`on${element.name}AttributeRoll` : expandToNode`undefined`}"
-                        :hasRoll="${rollParam != undefined}"
+                        :roll="${clickHandler}"
+                        :hasRoll="${rollParam != undefined || functionParam != undefined}"
+                        clickIcon="${clickIcon}"
                         >
                     </i-attribute>
                 `;

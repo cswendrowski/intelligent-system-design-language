@@ -18,7 +18,7 @@ const FIELD_DOCS: Record<string, string> = {
     // Complex fields
     ResourceExp:            '**resource** — A current/max bar (HP, Mana, etc.). Tag with `health` or `wounds` to mark as the primary pool. Supports `style`, `segments`, `min`, and `max`.',
     TrackerExp:             '**tracker** — A visual progress tracker. Styles: `bar`, `dial`, `icons`, `slashes`, `segmented`, `clock`, `plain`.',
-    AttributeExp:           '**attribute** — A stat with an optional derived `mod` and an optional `roll` expression. Styles: `plain`, `box`.',
+    AttributeExp:           '**attribute** — A stat with an optional derived `mod`. Make it clickable with `roll:` (posts a standard roll card) or `function:` (calls a no-arg function on this document for full control over the result). Styles: `plain`, `box`.',
     MeasuredTemplateField:  '**measuredTemplate** — A Foundry VTT measured template reference (AoE shapes like circles, cones, rays).',
     DamageBonusesField:     '**bonuses** — Displays aggregated active-effect damage bonuses by type.',
     DamageResistancesField: '**resistances** — Displays aggregated active-effect damage resistances by type.',

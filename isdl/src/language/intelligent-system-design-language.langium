@@ -235,13 +235,15 @@ AttributeExp:
 fragment AttributeParameters:
     ("(" params+=AttributeParameter* ("," params+=AttributeParameter)* ")")?;
 AttributeParameter:
-    (StandardFieldParams | NumberFieldParams | AttributeParamMod | AttributeStyleParam | AttributeRollParam);
+    (StandardFieldParams | NumberFieldParams | AttributeParamMod | AttributeStyleParam | AttributeRollParam | AttributeFunctionParam);
 AttributeParamMod:
     "mod:" method=MethodBlock;
 AttributeStyleParam:
     "style:" style=("plain" | "box");
 AttributeRollParam:
     "roll:" roll=(MethodBlock | Expression);
+AttributeFunctionParam:
+    "function:" function=[FunctionDefinition:ID];
 
 
 
@@ -268,7 +270,7 @@ MacroExecute:
 TableField:
     ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
 TableParams:
-    (StandardFieldParams | WhereParam | TableFieldsParam | TableImageParam);
+    (StandardFieldParams | WhereParam | TableFieldsParam | TableImageParam | TableImageActionParam);
 SingleDocumentExp:
     ExpressionModifier document=[Document:ID] name=ID StandardFieldParamsFrag;
 DocumentChoiceExp:
@@ -281,6 +283,8 @@ TableFieldsParam:
     "fields:" "[" fields+=ID ("," fields+=ID)* "]";
 TableImageParam:
     "image:" value=BOOLEAN;
+TableImageActionParam:
+    "imageAction:" action=[Action:ID];
 
 // Inventory -------------
 
