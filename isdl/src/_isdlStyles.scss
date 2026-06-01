@@ -950,6 +950,9 @@
   .isdl-roll-visualizer {
     display: flex;
     flex-direction: column;
+    /* Floor so the graph is always meaningfully visible; can still grow taller to
+       fill a stretched cell (see the svg flex rule below). */
+    min-height: 140px;
     margin: 8px 4px;
     padding: 6px 10px;
     /* Solid surface so the preview reads as a panel rather than blending into the

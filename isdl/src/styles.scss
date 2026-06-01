@@ -104,6 +104,10 @@
 
   &.isdl-prompt {
 
+    // Cap prompt windows at 80% of the viewport (overrides the base max-height: 100%);
+    // taller prompts scroll their field list with the footer pinned.
+    max-height: 80vh;
+
     // Prompts pin a Submit/Cancel footer below a scrolling field list. For that
     // the height must cascade down to the inner scroller, so the outer window must
     // not scroll and the Vuetify layout must be allowed to shrink to the window.

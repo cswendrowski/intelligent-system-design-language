@@ -11,6 +11,13 @@ export default function generateRollVisualizerComponent(destination: string) {
     }
 
     const fileNode = expandToNode`
+    <script>
+        // Module-scoped cache (shared across all roll-visualizer instances for the page
+        // session, and surviving sheet re-renders/re-opens). Keyed by the RESOLVED formula
+        // (after @refs are substituted), so the same dice math -- especially the expensive
+        // simulation path -- is only computed once. Cleared on page reload.
+        const __rollVisualizerCache = new Map();
+    </script>
     <script setup>
         import { ref, watch, computed, inject } from "vue";
 
@@ -122,15 +129,6 @@ export default function generateRollVisualizerComponent(destination: string) {
             return acc;
         };
 
-        // Reduce a sample array (simulation fallback) to a PMF.
-        const samplesToDist = (samples) => {
-            const counts = new Map();
-            for (const s of samples) counts.set(s, (counts.get(s) || 0) + 1);
-            const dist = new Map();
-            for (const [v, c] of counts) dist.set(v, c / samples.length);
-            return dist;
-        };
-
         // Derive the display payload (average, min, max, chart series) from a PMF.
         const summarize = (dist, approximate) => {
             const entries = [...dist.entries()].sort((a, b) => a[0] - b[0]);
@@ -162,19 +160,32 @@ export default function generateRollVisualizerComponent(destination: string) {
         const iterations = ref(0);
         let runToken = 0;
 
-        const runSimulation = async (formula, token) => {
-            // Accumulate batches into one running sample set instead of discarding the
-            // first pass, and re-render after each batch so the curve sharpens in place.
-            const batches = [2000, 8000, 20000];
-            let samples = [];
-            for (const batch of batches) {
+        // Monte Carlo fallback. Roll.simulate builds a full Roll per sample (~0.2ms each),
+        // so a large batch blocks the main thread for seconds and freezes the sheet on
+        // render. Instead, sample a modest target in small chunks and yield to the event
+        // loop between each, refining the curve in place. The sheet stays responsive and
+        // the chart fills in progressively.
+        const SIM_TARGET = 2000;
+        const SIM_CHUNK = 200;
+        const runSimulation = async (formula, token, cacheKey) => {
+            const counts = new Map();
+            let done = 0;
+            while (done < SIM_TARGET) {
                 if (token !== runToken) return; // a newer run superseded us
-                const next = await Roll.simulate(formula, batch);
-                samples = samples.concat(next);
+                const n = Math.min(SIM_CHUNK, SIM_TARGET - done);
+                const batch = await Roll.simulate(formula, n);
                 if (token !== runToken) return;
-                iterations.value = samples.length;
-                result.value = summarize(samplesToDist(samples), true);
+                for (const v of batch) counts.set(v, (counts.get(v) || 0) + 1);
+                done += n;
+                const dist = new Map();
+                for (const [v, c] of counts) dist.set(v, c / done);
+                result.value = summarize(dist, true);
+                iterations.value = done;
+                // Yield so the browser can paint and handle input between chunks.
+                await new Promise(r => setTimeout(r, 0));
             }
+            // Cache the completed estimate so this formula isn't re-simulated later.
+            __rollVisualizerCache.set(cacheKey, result.value);
         };
 
         const recompute = () => {
@@ -192,15 +203,25 @@ export default function generateRollVisualizerComponent(destination: string) {
                 result.value = { average: 0, min: 0, max: 0, labels: [], values: [], approximate: false, hasData: false };
                 return;
             }
+            // Cache hit on the resolved formula -> reuse the result, no recompute.
+            const cacheKey = roll.formula;
+            const cached = __rollVisualizerCache.get(cacheKey);
+            if (cached) {
+                result.value = cached;
+                iterations.value = cached.approximate ? SIM_TARGET : 0;
+                return;
+            }
             // After construction Foundry has substituted @refs into the terms.
             const terms = roll.terms || [];
             if (canConvolve(terms)) {
                 iterations.value = 0;
-                result.value = summarize(convolveTerms(terms), false);
+                const summary = summarize(convolveTerms(terms), false);
+                __rollVisualizerCache.set(cacheKey, summary);
+                result.value = summary;
             }
             else {
                 // Simulate against the resolved formula (no @refs remain in roll.formula).
-                runSimulation(roll.formula, token);
+                runSimulation(roll.formula, token, cacheKey);
             }
         };
 
