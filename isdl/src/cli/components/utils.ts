@@ -14,6 +14,7 @@ import {
     TargetAccess,
     TargetTypeCheckExpression,
     VariableExpression,
+    FunctionDefinition,
 } from '../../language/generated/ast.js';
 import {
     isResourceExp,
@@ -28,6 +29,9 @@ import {
     isTargetTypeCheckExpression,
     Layout,
     isLayout, isStringChoiceField, isTargetAccess, isDocumentChoiceExp, Access, isDiceField,
+    isRoll, isDamageRoll, isChatCard, isUpdate, isPrompt, isWait,
+    isPlayAudio, isMacroExecute, isAssignment, isParentAssignment,
+    isTargetAssignment, isCombat, isUser, isFunctionCall,
 } from "../../language/generated/ast.js"
 
 // --- Prompt identity helpers -------------------------------------------------
@@ -253,4 +257,34 @@ export function getTargetDocument(targetAccess: TargetAccess): Document | undefi
 export function getDocument(property: Property): Document | undefined {
     const document = AstUtils.getContainerOfType(property.$container, isDocument);
     return document;
+}
+
+// Constructs that compile to asynchronous / side-effecting code: rolls, chat, document writes
+// (self/parent/target assignments — including ++/--/+=), prompts, audio, macros, combat/user ops.
+// A function containing any of these cannot run during synchronous data prep, so it can't be used
+// in a calculated `value:` (or other derived) context. Note: these are GUARD functions, not $type
+// string checks — Assignment/ParentAssignment/TargetAssignment are grammar UNIONS whose concrete
+// nodes are e.g. IncrementDecrementAssignment, so only the reflection-based guards match them.
+// Local variable reassignment (isVariableAssignment) is intentionally excluded — it's pure.
+const IMPURE_NODE_GUARDS: ((node: AstNode) => boolean)[] = [
+    isRoll, isDamageRoll, isChatCard, isUpdate, isPrompt, isWait,
+    isPlayAudio, isMacroExecute, isAssignment, isParentAssignment,
+    isTargetAssignment, isCombat, isUser,
+];
+
+/**
+ * True if a function can be safely invoked from a derived/calculated context (data prep): its body
+ * is synchronous and side-effect free, transitively (functions it calls must also be derived-safe).
+ */
+export function functionIsDerivedSafe(func: FunctionDefinition, visited: Set<FunctionDefinition> = new Set()): boolean {
+    if (visited.has(func)) return true; // cycle guard
+    visited.add(func);
+    for (const node of AstUtils.streamAllContents(func.method)) {
+        if (IMPURE_NODE_GUARDS.some(guard => guard(node))) return false;
+        if (isFunctionCall(node)) {
+            const callee = node.method?.ref;
+            if (callee && !functionIsDerivedSafe(callee, visited)) return false;
+        }
+    }
+    return true;
 }

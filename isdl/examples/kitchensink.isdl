@@ -247,6 +247,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         section Basic {
             string StringField
             number NumberField
+            // QA: calculated value calling a pure no-arg function (regression for the derived-data
+            // function-call bug). DoubleNumber() returns NumberField*2, so this = NumberField*3.
+            readonly number ComputedViaFn(value: { return self.NumberField + self.DoubleNumber() })
             number CalculatorField(calculator: true)
             boolean BooleanField
             html HtmlField

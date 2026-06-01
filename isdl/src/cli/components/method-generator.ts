@@ -1885,6 +1885,15 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return translateExpression(entry, id, arg, preDerived, generatingProperty)
         }, { separator: ", " });
 
+        // In a derived/calculated context (data prep), functions are emitted as local synchronous
+        // closures in the _prepare<Doc>DerivedData scope (see derived-data-generator). They take the
+        // in-scope `system` and no update/await — derived values run synchronously and must be pure.
+        if (preDerived) {
+            return expandToNode`
+                function_${expression.method.ref?.name}(system${expression.params.length ? ", " : ""}${args})
+            `;
+        }
+
         let accessPath = "this";
 
         if (isTrackerExp(generatingProperty)) {

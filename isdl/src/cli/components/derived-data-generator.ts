@@ -35,13 +35,15 @@ import {
     isNumberParamInitial,
     isWhereParam,
     isDocument,
+    isFunctionDefinition,
 } from "../../language/generated/ast.js"
+import { FunctionDefinition } from "../../language/generated/ast.js";
 import { NumberExp, NumberParamInitial as NumberParamInitialType } from "../../language/generated/ast.js";
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { translateBodyExpressionToJavascript, translateExpression } from './method-generator.js';
-import { getAllOfType } from './utils.js';
+import { getAllOfType, functionIsDerivedSafe } from './utils.js';
 
 export function generateExtendedDocumentClasses(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, "system", "documents");
@@ -740,9 +742,30 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 console.warn(`Dependency cycles detected in ${document.name}:`, cycles);
             }
 
+            // User functions are exposed as local sync closures so calculated `value:` fields can call
+            // them during data prep (e.g. `value: { return self.Power + self.GetPowerBonuses() }`).
+            // They're scoped to this document's prepare method, so names never collide across types.
+            // Only pure (synchronous, side-effect-free) functions can be defined in the sync data-prep
+            // scope. Impure ones (rolls/chat/updates) would inject `await` into a sync arrow — a syntax
+            // error that breaks the whole document module. Calling an impure function from a value: is
+            // caught by validation; here we simply don't emit a derived closure for it.
+            const derivedFunctions = getAllOfType<FunctionDefinition>(document.body, isFunctionDefinition, false)
+                .filter(f => functionIsDerivedSafe(f));
+            function generateDerivedFunction(functionDef: FunctionDefinition): CompositeGeneratorNode {
+                const params = functionDef.params.map(p => p.param.name);
+                return expandToNode`
+                    const function_${functionDef.name} = (system${params.length ? ", " + params.join(", ") : ""}) => {
+                        const context = { object: this };
+                        ${translateBodyExpressionToJavascript(entry, id, functionDef.method.body, true, functionDef)}
+                    };
+                `;
+            }
+
             return expandToNode`
                 async _prepare${document.name}DerivedData() {
                     const editMode = this.flags["${id}"]?.["edit-mode"] ?? true;
+
+                    ${joinToNode(derivedFunctions, generateDerivedFunction, { appendNewLineIfNotEmpty: true })}
 
                     ${cycles.length > 0 ? expandToNode`
                         // WARNING: Dependency cycles detected: ${cycles.map(cycle => cycle.join(' -> ')).join(', ')}

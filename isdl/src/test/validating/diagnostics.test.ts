@@ -60,4 +60,24 @@ describe('parser diagnostics', () => {
         const diags = await errors(src);
         expect(diags).toHaveLength(0);
     });
+
+    it('allows a pure function call inside a calculated value', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    function Bonus() returns number {\n        return 5\n    }\n    number Power\n    readonly number Total(value: { return self.Power + self.Bonus() })\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('rejects an impure (rolling) function call inside a calculated value', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    function Bonus() returns number {\n        fleeting r = roll(d6)\n        return r.total\n    }\n    number Power\n    readonly number Total(value: { return self.Power + self.Bonus() })\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /calculated value/.test(d.message))).toBe(true);
+    });
+
+    it('rejects a function that mutates self (++/+=) inside a calculated value', async () => {
+        // self.X++ is an IncrementDecrementAssignment (a grammar union member) — a document write,
+        // not pure. Guard-based detection must catch it, not just literal "Assignment" $type.
+        const src = `${CONFIG}\n\nactor A {\n    number Counter\n    function Bonus() returns number {\n        self.Counter++\n        return 1\n    }\n    number Power\n    readonly number Total(value: { return self.Power + self.Bonus() })\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /calculated value/.test(d.message))).toBe(true);
+    });
 });

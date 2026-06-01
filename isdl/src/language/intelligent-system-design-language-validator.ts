@@ -27,6 +27,7 @@ import {
     isAttributeExp, isResourceExp, isTrackerExp, isStringParamValue, isStringChoiceField,
     StringParamValue, isAttributeParamMod, AttributeParamMod,
     isAttributeRollParam, isAttributeFunctionParam, AttributeFunctionParam,
+    FunctionCall, isNumberParamInitial,
     MethodBlock, isMethodBlock, isAccess,
     InventoryField, isInventorySlotsParam, isInventoryRowsParam,
     isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
@@ -40,7 +41,7 @@ import {
     TargetAccess, TargetAssignment, isTargetTypeCheckExpression
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
-import { getAllOfType } from '../cli/components/utils.js';
+import { getAllOfType, functionIsDerivedSafe } from '../cli/components/utils.js';
 import { DiagnosticTag } from 'vscode-languageserver';
 import { AstUtils, type AstNode } from 'langium';
 
@@ -68,7 +69,8 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         ParentAssignment: validator.validateParentAccess,
         TargetAccess: validator.validateTargetAccess,
         TargetAssignment: validator.validateTargetAccess,
-        Prompt: validator.validatePrompt
+        Prompt: validator.validatePrompt,
+        FunctionCall: validator.validateDerivedFunctionCall
     };
     registry.register(checks, validator);
 }
@@ -355,6 +357,33 @@ export class IntelligentSystemDesignLanguageValidator {
         // Check max parameter for type mismatches
         if (maxParam && isMethodBlock(maxParam.value)) {
             this.validateNumericExpression(maxParam.value.body, accept);
+        }
+    }
+
+    // Calculated values (value:/min:/max:/initial: and attribute mod:) are computed during data
+    // preparation, which is synchronous and side-effect free. A function used there must be pure —
+    // no rolls, chat, updates, or prompts — or it would inject `await` into a sync context and break
+    // the whole document. Catch it at authoring time with a clear message instead of a dead sheet.
+    validateDerivedFunctionCall(node: FunctionCall, accept: ValidationAcceptor): void {
+        const fn = node.method?.ref;
+        if (!fn) return;
+
+        const inDerivedContext =
+            AstUtils.getContainerOfType(node as AstNode, isNumberParamValue) ||
+            AstUtils.getContainerOfType(node as AstNode, isNumberParamMin) ||
+            AstUtils.getContainerOfType(node as AstNode, isNumberParamMax) ||
+            AstUtils.getContainerOfType(node as AstNode, isNumberParamInitial) ||
+            AstUtils.getContainerOfType(node as AstNode, isStringParamValue) ||
+            AstUtils.getContainerOfType(node as AstNode, isAttributeParamMod);
+        if (!inDerivedContext) return;
+
+        if (!functionIsDerivedSafe(fn)) {
+            accept('error',
+                `'${fn.name}' can't be called from a calculated value. Calculated values (value:, min:, ` +
+                `max:, initial:, mod:) are computed during data preparation, which must be synchronous — ` +
+                `so the function can't roll dice, post chat, update documents, or prompt. Make '${fn.name}' ` +
+                `a pure function that only reads fields and returns a result, or move that logic into an action.`,
+                { node });
         }
     }
 
