@@ -948,7 +948,11 @@
 
   /* Roll Visualizer -- compact distribution preview for a dice formula */
   .isdl-roll-visualizer {
+    margin: 8px 4px;
     padding: 6px 10px;
+    /* Solid surface so the preview reads as a panel rather than blending into the
+       textured sheet background. */
+    background-color: rgb(var(--v-theme-surface));
 
     .isdl-roll-visualizer__header {
       display: flex;
