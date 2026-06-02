@@ -40,7 +40,9 @@ import {
     isIfStatement, isParentTypeCheckExpression,
     TargetAccess, TargetAssignment, isTargetTypeCheckExpression,
     RollVisualizerField, isRollVisualizerValueParam,
-    PromptInputAccess, isPrompt, isRollVisualizerField
+    PromptInputAccess, isPrompt, isRollVisualizerField,
+    Ref, FleetingAccess, RollResultAccess, Roll,
+    isRoll, isVariableExpression, isCritParam, isFumbleParam, isSuccessParam
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType, functionIsDerivedSafe } from '../cli/components/utils.js';
@@ -74,7 +76,10 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         Prompt: validator.validatePrompt,
         RollVisualizerField: validator.validateRollVisualizerField,
         PromptInputAccess: validator.validatePromptInputAccess,
-        FunctionCall: validator.validateDerivedFunctionCall
+        FunctionCall: validator.validateDerivedFunctionCall,
+        Ref: validator.validateRollAccessorRef,
+        FleetingAccess: validator.validateRollAccessorFleeting,
+        RollResultAccess: validator.validateRollResultAccess
     };
     registry.register(checks, validator);
 }
@@ -136,6 +141,51 @@ export class IntelligentSystemDesignLanguageValidator {
         const visualizer = AstUtils.getContainerOfType(access, isRollVisualizerField);
         if (!visualizer) {
             accept('error', "'input.' references are currently only supported inside a rollVisualizer's value.", { node: access });
+        }
+    }
+
+    // Property-style roll accessors (r.crit, r.fumble, r.successes, r.highest, r.lowest, r.dice)
+    // parse as a Ref/FleetingAccess against a roll variable. Validate the accessor name and that
+    // detection accessors have their matching roll parameter. (count/contains are RollResultAccess.)
+    validateRollAccessorRef(ref: Ref, accept: ValidationAcceptor): void {
+        const target = ref.val.ref;
+        if (!isVariableExpression(target) || !isRoll(target.value)) return;
+        this.checkRollAccessor(target.value, target.name, ref.subProperties?.[0], ref, accept);
+    }
+
+    validateRollAccessorFleeting(access: FleetingAccess, accept: ValidationAcceptor): void {
+        const target = access.variable.ref;
+        if (!isVariableExpression(target) || !isRoll(target.value)) return;
+        this.checkRollAccessor(target.value, target.name, access.subProperty, access, accept);
+    }
+
+    private checkRollAccessor(roll: Roll, name: string, accessor: string | undefined, node: AstNode, accept: ValidationAcceptor): void {
+        if (!accessor) return;
+        // The detection accessors (.crit/.fumble/.successes) are ISDL-specific and only make
+        // sense when their parameter is configured -- accessing them otherwise is a mistake.
+        // Every other property (total, highest, lowest, dice, and raw Foundry Roll members like
+        // result/formula/_total) is allowed to pass through untouched.
+        const lower = accessor.toLowerCase();
+        if (lower === 'crit' && !roll.params.some(isCritParam)) {
+            accept('error', `'.crit' requires a 'crit:' parameter on roll '${name}'.`, { node });
+        }
+        else if (lower === 'fumble' && !roll.params.some(isFumbleParam)) {
+            accept('error', `'.fumble' requires a 'fumble:' parameter on roll '${name}'.`, { node });
+        }
+        else if (lower === 'successes' && !roll.params.some(isSuccessParam)) {
+            accept('error', `'.successes' requires a 'success:' parameter on roll '${name}'.`, { node });
+        }
+    }
+
+    // Method-style roll accessors: r.count(...) / r.contains(...). Only valid on roll variables.
+    validateRollResultAccess(access: RollResultAccess, accept: ValidationAcceptor): void {
+        const target = access.variable.ref;
+        if (target && !isRoll(target.value)) {
+            accept('error', `Roll method '.${access.method}(...)' is only valid on roll variables.`, { node: access });
+            return;
+        }
+        if (access.method !== 'count' && access.method !== 'contains') {
+            accept('error', `Unknown roll method '${access.method}'. Valid methods: count, contains.`, { node: access });
         }
     }
 

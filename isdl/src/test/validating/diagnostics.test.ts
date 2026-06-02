@@ -129,3 +129,72 @@ describe('parser diagnostics', () => {
         expect(diags.some(d => /calculated value/.test(d.message))).toBe(true);
     });
 });
+
+describe('roll result accessors (crit/fumble/dice inspection)', () => {
+
+    // ---- Parsing ----
+
+    it('parses crit/fumble params in bare and range forms', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number Brawn\n    action X {\n        fleeting a = roll(d20 + self.Brawn, crit: 20, fumble: 1)\n        fleeting b = roll(d20, crit: >= 19, fumble: <= 2)\n        fleeting c = roll(5d6, success: >= 5, failure: 1)\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('keeps lowercase "total" usable as an identifier (not reserved)', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting total = 0\n        total += 5\n        fleeting r = roll(total)\n        log("Result: " + r.total)\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('allows raw Foundry Roll properties (e.g. .result) to pass through', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number Resolve\n    action X {\n        fleeting r = roll(d20)\n        self.Resolve += r.result\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('parses count/contains with a face value and a predicate', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(4d6)\n        fleeting a = r.count(6)\n        fleeting b = r.contains(1)\n        fleeting c = r.contains(face => face >= 3)\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    // ---- Linking ----
+
+    it('resolves the predicate parameter inside count/contains bodies', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(4d6)\n        fleeting c = r.count(face => face >= 3)\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /Could not resolve reference/.test(d.message))).toBe(false);
+    });
+
+    it('iterates a roll dice array with each', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(4d6)\n        each face in r.dice {\n            log("Die: " + face)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    // ---- Validation ----
+
+    it('rejects .crit without a crit: parameter', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(d20)\n        fleeting c = r.crit\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /requires a 'crit:' parameter/.test(d.message))).toBe(true);
+    });
+
+    it('rejects .successes without a success: parameter', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(5d6)\n        fleeting c = r.successes\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /requires a 'success:' parameter/.test(d.message))).toBe(true);
+    });
+
+    it('accepts .crit when a crit: parameter is present', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(d20, crit: 20)\n        fleeting c = r.crit\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('rejects a roll method used on a non-roll variable', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting g = 5\n        fleeting y = g.count(1)\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /only valid on roll variables/.test(d.message))).toBe(true);
+    });
+});

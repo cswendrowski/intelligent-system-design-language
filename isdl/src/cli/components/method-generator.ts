@@ -128,7 +128,9 @@ import {
     isInventoryField,
     isProperty,
     RollVisualizerField, isRollVisualizerValueParam, RollVisualizerValueParam,
-    isPromptInputAccess
+    isPromptInputAccess,
+    isRollResultAccess,
+    isCritParam, isFumbleParam, isSuccessParam, isFailureParam,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -998,12 +1000,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
             }
         }
 
+        const refTargetIsRoll = isVariableExpression(expression.val.ref) && isRoll(expression.val.ref.value);
         for (const subProperty of expression.subProperties ?? []) {
-            if (subProperty.toLowerCase() == "name") {
+            const lowerSub = subProperty.toLowerCase();
+            if (lowerSub == "name") {
                 accessPath = `${expression.val.ref?.name}.name`;
             }
+            else if (refTargetIsRoll && lowerSub == "dice") {
+                // Foundry's Roll#dice returns DiceTerms; the face-value array lives on diceFaces.
+                accessPath = `${accessPath}.diceFaces`;
+            }
             else {
-                accessPath = `${accessPath}.${subProperty.toLowerCase()}`;
+                accessPath = `${accessPath}.${lowerSub}`;
             }
         }
 
@@ -1402,10 +1410,24 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isWhenExpressions(expression)) {
         return translateComparisonExpression(expression as WhenExpressions);
     }
+    if (isRollResultAccess(expression)) {
+        const target = expression.variable.ref?.name;
+        const jsMethod = expression.method === "count" ? "countDice"
+            : expression.method === "contains" ? "containsDie"
+            : expression.method;
+        const arg = expression.arg;
+        const argJs = arg.param != undefined
+            ? expandToNode`(${arg.param.name}) => ${translateExpression(entry, id, arg.body!, preDerived, generatingProperty)}`
+            : translateExpression(entry, id, arg.value!, preDerived, generatingProperty);
+        return expandToNode`${target}.${jsMethod}(${argJs})`;
+    }
     if (isFleetingAccess(expression)) {
         let accessPath = expression.variable.ref?.name;
         if (expression.subProperty != undefined) {
-            accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
+            // Foundry's Roll#dice returns DiceTerms; remap r.dice to the face-value getter.
+            const isRollDice = (isRoll(expression.variable.ref?.value) || isDamageRoll(expression.variable.ref?.value))
+                && expression.subProperty.toLowerCase() === "dice";
+            accessPath = `${accessPath}.${isRollDice ? "diceFaces" : fleetingSubProperty(expression)}`;
         }
         else if (expression.arrayAccess != undefined) {
             accessPath = `${accessPath}[${translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty)}]`;
@@ -1644,12 +1666,30 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const displayFormula = displayFormulaParts.every(p => p != null)
             ? displayFormulaParts.join("")
             : undefined;
+
+        // Build the detection-config options (crit/fumble/success/failure) passed as the
+        // Roll constructor's 3rd arg, so getters can read them off this.options after .roll().
+        const critParam = expression.params.find(isCritParam);
+        const fumbleParam = expression.params.find(isFumbleParam);
+        const successParam = expression.params.find(isSuccessParam);
+        const failureParam = expression.params.find(isFailureParam);
+        const optionEntries: CompositeGeneratorNode[] = [];
+        const thresholdEntry = (key: string, p: { op?: string, value: Expression }) =>
+            expandToNode`${key}: { op: "${p.op ?? '=='}", value: ${translateExpression(entry, id, p.value, preDerived, generatingProperty)} }`;
+        if (critParam) optionEntries.push(thresholdEntry("crit", critParam));
+        if (fumbleParam) optionEntries.push(thresholdEntry("fumble", fumbleParam));
+        if (successParam) optionEntries.push(thresholdEntry("success", successParam));
+        if (failureParam) optionEntries.push(thresholdEntry("failure", failureParam));
+        const rollOptions = optionEntries.length > 0
+            ? expandToNode`, { ${joinToNode(optionEntries, e => e, { separator: ", " })} }`
+            : undefined;
+
         return expandToNode`
             Object.assign(await new ${entry.config.name}Roll(${joinToNode(rollParts, (e, idx) => {
                 const nextPart = rollParts[idx + 1];
                 const nextIsDice = nextPart != null && isLiteral(nextPart) && typeof nextPart.val === 'string' && IntelligentSystemDesignLanguageTerminals.DICE.test(nextPart.val);
                 return translateDiceParts(e, nextIsDice);
-            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e, entry, id, preDerived, generatingProperty), {separator: ", "})}}).roll(), ${displayFormula != null ? `{_displayFormula: "${displayFormula}"}` : '{}'})
+            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e, entry, id, preDerived, generatingProperty), {separator: ", "})}}${rollOptions ?? ''}).roll(), ${displayFormula != null ? `{_displayFormula: "${displayFormula}"}` : '{}'})
         `;
     }
 

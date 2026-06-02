@@ -633,9 +633,9 @@ export function generateStandardChatCardTemplate(destination: string) {
                                     </div>
                                 </div>
                             {{else}}
-                                <div class="dice-roll wide">
+                                <div class="dice-roll wide{{#if this.value.crit}} roll--crit{{/if}}{{#if this.value.fumble}} roll--fumble{{/if}}">
                                     <div class="dice-result">
-                                        <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{#if this.value._displayFormula}}{{this.value._displayFormula}}{{else}}{{this.value.cleanFormula}}{{/if}}</span></span> <span class="result">{{this.value._total}}</span></h4>
+                                        <h4 class="dice-total">{{#if this.value.crit}}<i class="fa-solid fa-trophy roll-flag-icon roll-flag-crit" data-tooltip="{{localize 'ROLL.Critical'}}"></i> {{else if this.value.fumble}}<i class="fa-solid fa-skull roll-flag-icon roll-flag-fumble" data-tooltip="{{localize 'ROLL.Fumble'}}"></i> {{else}}<i class="fa-solid fa-dice-d20"></i>{{/if}} <span class="dice-info" data-tooltip="{{this.value.cleanFormula}}"><span class="label">{{this.label}}:</span> <span class="formula">{{#if this.value._displayFormula}}{{this.value._displayFormula}}{{else}}{{this.value.cleanFormula}}{{/if}}</span></span> <span class="result">{{this.value._total}}</span></h4>
                                         {{{this.tooltip}}}
                                     </div>
                                 </div>

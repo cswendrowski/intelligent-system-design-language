@@ -1,7 +1,9 @@
 # Roll Results — crit/fumble flags & dice inspection — Design
 
 **Date:** 2026-06-01
-**Status:** Approved for implementation
+**Status:** Implemented (both phases). Note: the modified-total crit form and the
+unknown-accessor whitelist were dropped during implementation — see the relevant
+sections for why.
 **Issues:** #10 (`crit`/`fumble` on `roll`), #80 (inspect individual dice results)
 
 ## Summary
@@ -18,7 +20,7 @@ Two related capabilities:
 - **#80 dice inspection** — read aggregate dice data from a pool:
   `myRoll.successes`, `myRoll.highest` / `myRoll.lowest`, `myRoll.dice` (face
   array, iterable in `each`), and `myRoll.count(n)` / `myRoll.contains(n)` with
-  number **or** predicate args (`myRoll.contains(die => die >= 3)`).
+  number **or** predicate args (`myRoll.contains(face => face >= 3)`).
 
 Today a roll reference resolves only to its numeric `.total`; there is no
 member-access surface on rolls at all, which is exactly why the issue examples
@@ -45,19 +47,22 @@ None can be expressed with `.total` alone.
 ```isdl
 roll(d20 + self.STR, crit: 20, fumble: 1)        // natural-face thresholds
 roll(d20 + self.STR, crit: >= 19)                // natural-face range
-roll(d20 + self.STR, crit: total >= 25)          // modified-total form
 roll(5d10, success: >= 8)                        // success counting (#80)
 roll(5d10, success: >= 8, failure: 1)            // 1s subtract from successes
 ```
 
 Detection config is **opt-in**: if no `crit:`/`fumble:`/`success:` param is
-present, nothing is evaluated and the corresponding accessor is unavailable
-(see Validation).
+present, nothing is evaluated and the corresponding accessor errors (see
+Validation).
 
-`crit:`/`fumble:` default to **natural-face** comparison against the **first
-`DiceTerm`** in the roll. The `total` keyword switches to comparison against the
-modified total. A bare value (`crit: 20`) means equality (`== 20`); an operator
-form (`crit: >= 19`) uses that operator.
+`crit:`/`fumble:` compare the **natural face** of the **first `DiceTerm`** in the
+roll. A bare value (`crit: 20`) means equality (`== 20`); an operator form
+(`crit: >= 19`) uses that operator.
+
+**No modified-total form.** An earlier draft used `crit: total >= 25`, but a bare
+`total` keyword reserves the word language-wide and breaks existing systems that
+use `total` as an identifier (confirmed: `fleeting total = 0` in `e33.isdl`,
+`fireemblem.isdl`). Total-based crit is left to a manual branch on `r.total`.
 
 ### Result accessors
 
@@ -72,7 +77,7 @@ form (`crit: >= 19`) uses that operator.
 
 `count`/`contains` `arg` is **either** a face value (`count(1)` → faces equal to
 1) **or** a single-parameter predicate over a die face
-(`contains(die => die >= 3)`).
+(`contains(face => face >= 3)`).
 
 A bare roll reference (`r` used in arithmetic/comparison) still resolves to
 `.total`, unchanged.
@@ -84,30 +89,35 @@ Roll:
     "roll" "(" parts+=Expression* ("," params+=RollParameter ("," params+=RollParameter)*)? ")";
 RollParameter:
     CritParam | FumbleParam | SuccessParam | FailureParam;
-CritParam:
-    "crit:" (mode?="total")? (op=RollCompareOp)? value=Expression;
-FumbleParam:
-    "fumble:" (mode?="total")? (op=RollCompareOp)? value=Expression;
-SuccessParam:
-    "success:" (op=RollCompareOp)? value=Expression;
-FailureParam:
-    "failure:" (op=RollCompareOp)? value=Expression;
+CritParam:    "crit:"    (op=RollCompareOp)? value=Expression;
+FumbleParam:  "fumble:"  (op=RollCompareOp)? value=Expression;
+SuccessParam: "success:" (op=RollCompareOp)? value=Expression;
+FailureParam: "failure:" (op=RollCompareOp)? value=Expression;
 RollCompareOp returns string:
-    "<" | "<=" | ">" | ">=" | "==" | "!=";
+    "<=" | ">=" | "==" | "!=" | "<" | ">";
 
+// Only the method-call forms need grammar; the param keywords are colon-suffixed
+// (`crit:` etc.), which reserves nothing, and the property accessors flow through
+// Ref/FleetingAccess + getters.
 RollResultAccess:
-    variable=[VariableExpression:ID] "." (
-        accessor=("crit" | "fumble" | "successes" | "highest" | "lowest" | "dice")
-      | method=("count" | "contains") "(" arg=RollPredicateArg ")"
-    );
+    variable=[VariableExpression:ID] "." method=ID "(" arg=RollPredicateArg ")";
 RollPredicateArg:
     (param=Parameter "=>" body=Expression) | value=Expression;
 ```
 
+Property accessors (`crit`, `fumble`, `successes`, `highest`, `lowest`, `dice`)
+are **not** their own grammar rule — they parse as ordinary `Ref`/`FleetingAccess`
+subproperties and resolve to getters on the generated Roll class. Two wrinkles,
+both because `dice` is already a keyword (the `dice` field type): `"dice"` is added
+to the `Ref`/`FleetingAccess` subproperty keyword lists so `r.dice` parses, and the
+predicate/loop variable can't be named `die` (also a reserved field-type keyword) —
+use a plain identifier like `face`.
+
 - `RollResultAccess` is added to `PrimitiveExpression` **before** `Ref` (so
-  `r.count(1)` parses — `Ref` would consume `r.count` then choke on `(1)`).
-- `RollResultAccess` is added to the `each` collection list (line ~598) so
-  `each die in r.dice { ... }` parses.
+  `r.count(1)` parses — `Ref` would consume `r.count` then choke on `(1)`). The
+  method name (`count`/`contains`) is validated, not reserved as a keyword.
+- `each face in r.dice { ... }` needs no `each`-rule change: `r.dice` already
+  parses as a `FleetingAccess`, which is in the `each` collection list.
 - Risk: changing `Roll`'s `parts+=Expression*` to allow a trailing comma-param
   list. Parts are whitespace-separated expressions (no top-level commas), so the
   first `,` unambiguously begins params. Watch for Chevrotain ambiguity/lookahead
@@ -126,7 +136,7 @@ The roll currently compiles to
 `this.options` before any getter runs:
 
 ```js
-new <Config>Roll(formula, data, { crit: {mode, op, value}, fumble: {...}, success: {op, value, failure: {...}} }).roll()
+new <Config>Roll(formula, data, { crit: {op, value}, fumble: {op, value}, success: {op, value}, failure: {op, value} }).roll()
 ```
 
 `value` for crit/fumble/success params is itself a translated expression (may
@@ -145,10 +155,11 @@ name (name-mapping avoids the Foundry `Roll#dice` collision):
 | `r.lowest` | `r.lowest` |
 | `r.dice` | `r.diceFaces` |
 | `r.count(1)` | `r.countDice(1)` |
-| `r.contains(die => die >= 3)` | `r.containsDie((die) => die >= 3)` |
+| `r.contains(face => face >= 3)` | `r.containsDie((face) => face >= 3)` |
 
-For the predicate form, `param` is registered like an `each` loop variable so
-the `body` expression resolves `die` to the JS arrow parameter.
+For the predicate form, `param` is registered like an `each` loop variable (via the
+scope provider) so the `body` expression resolves the parameter to the JS arrow
+parameter.
 
 The existing `.total` auto-resolution for bare roll refs (Ref path ~1018, Fleeting
 path ~1413) is untouched — both already only append `.total` when there is no
@@ -182,14 +193,18 @@ countDice(arg)   { return this._allResults.filter(this._predicate(arg)).length; 
 containsDie(arg) { return this._allResults.some(this._predicate(arg)); }
 ```
 
+`_allResults` filters out only the pre-reroll value of a rerolled die
+(`!r.rerolled`); it **keeps** faces dropped by keep/drop modifiers, so
+`contains(1)` on `Nd6kh1` still sees a 1 on a discarded die (the EZD6 case).
+
 Internal helpers (also on the class):
 - `_cmp(a, op, b)` — apply a `RollCompareOp` string; bare value (no op) ⇒ `==`.
 - `_predicate(arg)` — if `arg` is a function, use it; else `r => r === arg`.
-- `_evalCondition(cfg)` — returns `false` when `cfg` is absent. If
-  `cfg.mode === 'total'`, compare `this.total` via `_cmp(total, cfg.op, cfg.value)`;
-  else compare the **first `DiceTerm`'s** natural total (sum of `this.dice[0]`'s
-  active results) the same way. A bare value (no `op`) compares with `==`
-  (`crit: 20` ⇒ first die `== 20`).
+- `_firstDieTotal` — sum of the **first `DiceTerm`'s** active results (the die's
+  final standing value).
+- `_evalCondition(cfg)` — returns `false` when `cfg` is absent; otherwise
+  `_cmp(this._firstDieTotal, cfg.op, cfg.value)`. A bare value (no `op`) compares
+  with `==` (`crit: 20` ⇒ first die `== 20`).
 
 ## Chat card auto-styling (#10)
 
@@ -203,17 +218,21 @@ confirmed during Phase 1 implementation.
 
 ## Validation (`src/language/intelligent-system-design-language-validator.ts`)
 
-- `RollResultAccess` whose `variable` is not a roll-typed `VariableExpression`
-  → error "Roll accessors are only valid on roll variables."
-- `r.crit` / `r.fumble` without a `crit:` / `fumble:` param on the referenced
-  roll → error "`.crit` requires a `crit:` parameter on the roll."
-- `r.successes` without a `success:` param → error "`.successes` requires a
-  `success:` parameter on the roll."
-- (Unknown accessors like `r.crot` do not match `RollResultAccess`; they fall to
-  `Ref`. A roll `Ref` carrying a subproperty that is not a known accessor →
-  error listing the valid accessors.)
+- `RollResultAccess` (`r.count(...)` / `r.contains(...)`) whose `variable` is not a
+  roll → error "Roll method '.…(...)' is only valid on roll variables." Method name
+  must be `count`/`contains`.
+- `r.crit` / `r.fumble` without a `crit:` / `fumble:` param → error.
+- `r.successes` without a `success:` param → error.
 
-Strings shown to users are localized per project convention.
+**No unknown-accessor whitelist.** An earlier draft errored on any roll
+subproperty outside the known set, but real systems read raw Foundry Roll members
+(`.result`, `.formula`, `._total`; confirmed `Roll.result` in `wrm.isdl`). Only the
+three ISDL-specific detection accessors (which never exist on a plain Foundry Roll)
+are checked; everything else passes through. The cost is that a typo like `r.crot`
+is not caught — an acceptable trade vs. breaking legitimate raw access.
+
+User-facing chat strings (`ROLL.Critical`/`ROLL.Fumble`) are localized; validator
+messages are dev-facing IDE diagnostics and stay inline like the existing ones.
 
 ## Phasing
 

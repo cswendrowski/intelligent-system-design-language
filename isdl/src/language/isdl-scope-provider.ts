@@ -1,5 +1,5 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
-import { Action, Document, FunctionDefinition, IfStatement, isAccess, isAction, isAssignment, isAttributeFunctionParam, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isPrompt, isPromptInputAccess, isRef, isStatusProperty, isTableField, isTableImageActionParam, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
+import { Action, Document, FunctionDefinition, IfStatement, isAccess, isAction, isAssignment, isAttributeFunctionParam, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isPrompt, isPromptInputAccess, isRef, isRollPredicateArg, isStatusProperty, isTableField, isTableImageActionParam, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
 import { getAllOfType } from "../cli/components/utils.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
@@ -178,6 +178,13 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         const functionDefinition = AstUtils.getContainerOfType(context.container, isFunctionDefinition);
         if (functionDefinition != undefined) {
             additionalDescriptions.push(...functionDefinition.params.map(a => this.astNodeDescriptionProvider.createDescription(a, a.param.name)));
+        }
+
+        // Inside a roll predicate (r.contains(die => die >= 3)), the predicate parameter
+        // is in scope for the predicate body.
+        const predicateArg = AstUtils.getContainerOfType(context.container, isRollPredicateArg);
+        if (predicateArg?.param != undefined) {
+            additionalDescriptions.push(this.astNodeDescriptionProvider.createDescription(predicateArg.param, predicateArg.param.name));
         }
 
         additionalDescriptions.push(...scope.getAllElements().toArray());

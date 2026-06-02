@@ -553,7 +553,7 @@ TargetQuickModifyAssignment:
 // Variable Access / Modification ------------------------------------------------------
 
 FleetingAccess:
-    variable=[VariableExpression] (("." subProperty=("Name" | ID))? | ("[" arrayAccess=Expression "]")?);
+    variable=[VariableExpression] (("." subProperty=("Name" | "dice" | ID))? | ("[" arrayAccess=Expression "]")?);
 VariableAccess:
     (VariableExpression | Parameter);
 VariableAssignment:
@@ -568,6 +568,15 @@ VariableQuickModifyAssignment:
     VariableAccessFrag term=("+="|"-="|"*="|"/=") exp=Expression;
 ItemAccess:
     "item" "." property=ID ("." subProperty=("Name" | ID))?;
+
+// Roll result method access: r.count(1) / r.contains(die => die >= 3).
+// Property accessors (r.crit, r.successes, r.dice, ...) flow through Ref/FleetingAccess
+// plus getters on the generated Roll class; only the method-call forms need grammar.
+// The method name is validated (must be count/contains) rather than reserved as a keyword.
+RollResultAccess:
+    variable=[VariableExpression:ID] "." method=ID "(" arg=RollPredicateArg ")";
+RollPredicateArg:
+    (param=Parameter "=>" body=Expression) | value=Expression;
 
 
 // Actions ------------------------------------------------------
@@ -615,7 +624,23 @@ VariableExpression:
 ReturnExpression:
     "return" value=Expression;
 Roll:
-    "roll" "(" parts+=(Expression)* ")";
+    "roll" "(" parts+=(Expression)* ("," params+=RollParameter ("," params+=RollParameter)*)? ")";
+RollParameter:
+    CritParam | FumbleParam | SuccessParam | FailureParam;
+// crit/fumble compare the natural face of the first die term. Bare value (crit: 20) means
+// equality; an operator form (crit: >= 19) uses that operator. For total-based crit, branch
+// manually on the roll's .total.
+CritParam:
+    "crit:" (op=RollCompareOp)? value=Expression;
+FumbleParam:
+    "fumble:" (op=RollCompareOp)? value=Expression;
+// success/failure: per-die natural-face comparison. failure: subtracts from the success count.
+SuccessParam:
+    "success:" (op=RollCompareOp)? value=Expression;
+FailureParam:
+    "failure:" (op=RollCompareOp)? value=Expression;
+RollCompareOp returns string:
+    "<=" | ">=" | "==" | "!=" | "<" | ">";
 DamageRoll:
     "damage" "(" params+=DamageRollParam ("," params+=DamageRollParam)* ")";
 DamageRollParam:
@@ -703,7 +728,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
+    Literal | RollResultAccess | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=" | "has" | "excludes" | "startsWith" | "endsWith") e2=Expression;
 ShorthandComparisonExpression:
@@ -730,7 +755,7 @@ Literal:
     val=(INT|STRING|DICE|NOTHING|BOOLEAN);
 // cross-reference to a parameter
 Ref:
-    val=[VariableAccess:ID] ("." subProperties+=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects" | ID))*;
+    val=[VariableAccess:ID] ("." subProperties+=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects" | "dice" | ID))*;
 // grouped expression with parentheses
 Group:
     '(' ge=Expression ')';

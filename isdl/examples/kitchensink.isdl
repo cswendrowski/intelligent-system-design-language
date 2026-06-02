@@ -156,9 +156,90 @@ actor BasicHero {
         fleeting net = opts.Boons - opts.Banes
         fleeting pool = 1 + Math.abs(net)
         fleeting strikeRoll = roll((pool)d6kh1)
-        chat StrikePoolResult {
-            flavor self.Name + " strikes with " + opts.Boons + " boon(s), " + opts.Banes + " bane(s)"
-            strikeRoll
+        // QA (#80): keep-highest pool + contains(1) -- the dropped dice must still be visible,
+        // so a 1 on a discarded die fizzles the strike (the literal EZD6 case).
+        if (strikeRoll.contains(1)) {
+            chat StrikeFizzle {
+                strikeRoll
+                "The strike fizzles -- a 1 was rolled!"
+            }
+        }
+        else {
+            chat StrikePoolResult {
+                flavor self.Name + " strikes with " + opts.Boons + " boon(s), " + opts.Banes + " bane(s)"
+                strikeRoll
+            }
+        }
+    }
+
+    // QA (#10): crit/fumble flags + auto-styled chat card (natural-face thresholds).
+    action CritAttack(icon: "fa-solid fa-burst") {
+        fleeting atk = roll(d20 + self.Brawn, crit: 20, fumble: 1)
+        if (atk.crit) {
+            chat CritAttackCard {
+                atk
+                "A critical hit!"
+            }
+        }
+        else if (atk.fumble) {
+            chat CritAttackCard {
+                atk
+                "A fumble!"
+            }
+        }
+        else {
+            chat CritAttackCard {
+                atk
+                "A solid hit."
+            }
+        }
+    }
+
+    // QA (#10): crit range (>= 19) and a fumble range (<= 2), both natural-face.
+    action PowerStrike(icon: "fa-solid fa-hand-fist") {
+        fleeting strike = roll(d20 + self.Brawn, crit: >= 19, fumble: <= 2)
+        if (strike.crit) {
+            log("Devastating blow!")
+        }
+        if (strike.fumble) {
+            log("Botched the strike!")
+        }
+        chat PowerStrikeCard {
+            strike
+        }
+    }
+
+    // QA (#80): success counting with failures subtracting, plus highest/lowest.
+    action StoryPool(icon: "fa-solid fa-dice") {
+        fleeting pool = roll(5d6, success: >= 5, failure: 1)
+        chat StoryPoolCard {
+            pool
+            "Successes: " + pool.successes
+            "Highest die: " + pool.highest
+            "Lowest die: " + pool.lowest
+        }
+    }
+
+    // QA (#80): face count/contains (number + predicate) and walking the dice array.
+    action SpellCast(icon: "fa-solid fa-wand-sparkles") {
+        fleeting cast = roll(4d6)
+        fleeting sixes = cast.count(6)
+        fleeting bigDice = cast.count(face => face >= 5)
+        if (cast.contains(1)) {
+            chat SpellFizzle {
+                cast
+                "The spell fizzles -- a 1 was rolled!"
+            }
+        }
+        else {
+            chat SpellCastCard {
+                cast
+                "Sixes: " + sixes
+                "Dice 5+: " + bigDice
+            }
+        }
+        each face in cast.dice {
+            log("Die showed " + face)
         }
     }
 }

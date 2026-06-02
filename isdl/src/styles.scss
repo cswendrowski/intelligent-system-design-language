@@ -548,6 +548,30 @@
           }
 
         }
+
+        // Crit / fumble result highlighting (issue #10). The roll exposes
+        // crit/fumble booleans; the chat card adds these modifier classes.
+        &.roll--crit {
+          .dice-total,
+          .dice-total > .result {
+            color: #b8860b;
+            text-shadow: 0 0 6px rgba(255, 215, 0, 0.75);
+          }
+          .roll-flag-crit {
+            color: #ffd000;
+          }
+        }
+
+        &.roll--fumble {
+          .dice-total,
+          .dice-total > .result {
+            color: #b01818;
+            text-shadow: 0 0 6px rgba(220, 40, 40, 0.6);
+          }
+          .roll-flag-fumble {
+            color: #d62828;
+          }
+        }
       }
 
       .measured-template {
