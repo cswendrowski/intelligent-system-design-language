@@ -68,7 +68,7 @@ use `total` as an identifier (confirmed: `fleeting total = 0` in `e33.isdl`,
 
 | Accessor | Returns | Phase | Notes |
 |---|---|---|---|
-| `r.crit` / `r.fumble` | boolean | 1 | Requires `crit:`/`fumble:` param. Single boolean: did the condition trigger at all. Multiple crits in one pool are not separately counted — walk `r.dice` for that. |
+| `r.crit` / `r.fumble` | boolean (read/write) | 1 | Auto-set by the `crit:`/`fumble:` param, or **assigned manually** (`r.crit = true`) for rules a threshold can't express. A manual value wins over the param. Single boolean. |
 | `r.successes` | number | 2 | Requires `success:` param. Counts faces matching `success:`, minus faces matching `failure:`. |
 | `r.highest` / `r.lowest` | number | 2 | Max/min face across all dice in the roll. |
 | `r.dice` | number[] | 2 | Flat array of face values, iterable in `each`. Compiles to a custom getter (not Foundry's `Roll#dice`, which returns `DiceTerm`s). |
@@ -206,15 +206,37 @@ Internal helpers (also on the class):
   `_cmp(this._firstDieTotal, cfg.op, cfg.value)`. A bare value (no `op`) compares
   with `==` (`crit: 20` ⇒ first die `== 20`).
 
+## Manual crit/fumble marking (#10 follow-up)
+
+For rules a `crit:`/`fumble:` threshold can't express, `crit`/`fumble` are
+writable: the generated Roll class exposes get/set pairs backed by
+`_critForced`/`_fumbleForced` (start `undefined`). The getter is
+`this._critForced ?? this._evalCondition(this.options.crit)` — a manual value
+(even `false`) wins; `??` only falls through to the param eval when unset.
+
+No grammar or codegen work: `r.crit = true` already parses as a
+`VariableExpressionAssignment` and compiles to `r.crit = true;`, hitting the
+setter. The validator's `.crit`/`.fumble` "requires param" checks were therefore
+**dropped** (a manual mark is a valid reason to read them with no param);
+`.successes` still requires `success:` (it can't be set manually).
+
 ## Chat card auto-styling (#10)
 
-The roll part object built for the chat card gains `crit` / `fumble` booleans
-(read from the Roll instance). `standard-card.hbs` adds `roll--crit` /
-`roll--fumble` modifier classes on the roll row when set. `_isdlStyles.scss`
-defines a gold glow for `.roll--crit` and a red glow for `.roll--fumble`.
-Applies wherever a roll is rendered to chat (explicit `chat { roll1 }` and the
-auto roll-to-chat from attribute `roll:`); the exact part-construction sites are
-confirmed during Phase 1 implementation.
+The roll part object built for the chat card carries the live Roll (`this.value`).
+`standard-card.hbs` adds `roll--crit` / `roll--fumble` modifier classes from
+`this.value.crit` / `this.value.fumble`, and swaps the leading icon (gold trophy /
+red skull). `_isdlStyles.scss` gives `.roll--crit` a gold glow and `.roll--fumble`
+a red glow.
+
+**Rare crit-fumble.** Manual marking makes "both true" reachable (auto-eval can't
+— one die isn't both a max and a 1). Both classes apply, so a combined
+`.roll--crit.roll--fumble` selector (higher specificity) overrides the single-flag
+styles with a gold→crimson shimmer (animated `background-position`) and a pulsing
+`fa-yin-yang` icon (`ROLL.CritFumble` tooltip). The icon uses nested `{{#if}}` so
+the both-case shows the yin-yang, not the trophy.
+
+Applies wherever a roll renders to chat (explicit `chat { roll1 }` and the auto
+roll-to-chat from attribute `roll:`).
 
 ## Validation (`src/language/intelligent-system-design-language-validator.ts`)
 

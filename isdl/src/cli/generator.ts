@@ -472,8 +472,13 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
                 return this._cmp(this._firstDieTotal, cfg.op, cfg.value);
             }
 
-            get crit()   { return this._evalCondition(this.options.crit); }
-            get fumble() { return this._evalCondition(this.options.fumble); }
+            // crit/fumble may be set manually (e.g. for game-specific rules that a crit:/fumble:
+            // threshold can't express). A manually-assigned value wins over the param evaluation;
+            // ?? only falls through when no manual value has been set (undefined).
+            get crit()   { return this._critForced ?? this._evalCondition(this.options.crit); }
+            set crit(v)  { this._critForced = v; }
+            get fumble()  { return this._fumbleForced ?? this._evalCondition(this.options.fumble); }
+            set fumble(v) { this._fumbleForced = v; }
 
             // Every standing face result across all DiceTerms in the roll. Keeps faces dropped
             // by keep/drop modifiers (so 'any die shows a 1' works on Nd6kh1) but excludes the

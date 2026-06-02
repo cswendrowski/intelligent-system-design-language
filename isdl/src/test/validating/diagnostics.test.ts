@@ -174,10 +174,10 @@ describe('roll result accessors (crit/fumble/dice inspection)', () => {
 
     // ---- Validation ----
 
-    it('rejects .crit without a crit: parameter', async () => {
-        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(d20)\n        fleeting c = r.crit\n    }\n}`;
+    it('allows .crit/.fumble without a param (manual marking permitted)', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action X {\n        fleeting r = roll(d20)\n        if (r.contains(20)) { r.crit = true }\n        if (r.crit) { log("crit!") }\n    }\n}`;
         const diags = await errors(src);
-        expect(diags.some(d => /requires a 'crit:' parameter/.test(d.message))).toBe(true);
+        expect(diags).toHaveLength(0);
     });
 
     it('rejects .successes without a success: parameter', async () => {

@@ -242,6 +242,21 @@ actor BasicHero {
             log("Die showed " + face)
         }
     }
+
+    // QA (#10 manual marking): set crit/fumble from custom dice logic with no crit:/fumble:
+    // param. A 6 marks crit, a 1 marks fumble -- rolling both hits the rare crit-fumble card.
+    action WildDice(icon: "fa-solid fa-dice") {
+        fleeting wild = roll(2d6)
+        if (wild.contains(6)) {
+            wild.crit = true
+        }
+        if (wild.contains(1)) {
+            wild.fumble = true
+        }
+        chat WildDiceCard {
+            wild
+        }
+    }
 }
 
 // QA: custom default sheet size (width/height params on the document)

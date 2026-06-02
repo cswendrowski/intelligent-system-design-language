@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ISDL roll flag preview</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  body {
+    background: #16131a;
+    color: #ddd;
+    font-family: "Signika", "Segoe UI", sans-serif;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+    max-width: 460px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1rem; opacity: .6; font-weight: normal; }
+
+  /* --- lifted verbatim from styles.scss .dice-roll --- */
+  .dice-roll { position: relative; }
+  .dice-roll .dice-total {
+    height: 35px; line-height: 35px; margin: 0; font-weight: normal;
+    font-size: 16px; text-align: left; position: relative;
+    background: rgba(0,0,0,.25); border: 1px solid #555; border-radius: 4px;
+    padding: 0 .5rem;
+  }
+  .dice-roll .dice-total > i:first-child { padding-right: .25rem; }
+  .dice-roll .dice-total > .label { font-weight: bold; }
+  .dice-roll .dice-total > .result {
+    font-size: 20px; font-weight: bold; right: 10px; position: absolute;
+    border-left: 1px solid gray; padding-left: 10px; line-height: 33px;
+  }
+
+  .roll--crit .dice-total,
+  .roll--crit .dice-total > .result { color: #b8860b; text-shadow: 0 0 6px rgba(255,215,0,.75); }
+  .roll--crit .roll-flag-crit { color: #ffd000; }
+
+  .roll--fumble .dice-total,
+  .roll--fumble .dice-total > .result { color: #b01818; text-shadow: 0 0 6px rgba(220,40,40,.6); }
+  .roll--fumble .roll-flag-fumble { color: #d62828; }
+
+  /* rare crit-fumble: both classes -> combined selector wins */
+  .roll--crit.roll--fumble .dice-total,
+  .roll--crit.roll--fumble .dice-total > .result {
+    background: linear-gradient(100deg, #ffd000 0%, #ff8c00 30%, #d62828 50%, #ff8c00 70%, #ffd000 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    filter: drop-shadow(0 0 4px rgba(255,140,40,.7));
+    animation: isdl-crit-fumble-shimmer 3s linear infinite;
+  }
+  .roll--crit.roll--fumble .roll-flag-crit-fumble {
+    color: #ff8c00;
+    filter: drop-shadow(0 0 3px #ffd000) drop-shadow(0 0 5px #d62828);
+    animation: isdl-crit-fumble-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes isdl-crit-fumble-shimmer { from { background-position: 0% center; } to { background-position: 200% center; } }
+  @keyframes isdl-crit-fumble-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+</style>
+</head>
+<body>
+  <h1>ISDL roll flag styling — crit / fumble / crit-fumble</h1>
+
+  <div class="dice-roll">
+    <div class="dice-result">
+      <h4 class="dice-total"><i class="fa-solid fa-dice-d20"></i> <span class="label">Attack:</span> <span class="formula">d20 + 5</span> <span class="result">17</span></h4>
+    </div>
+  </div>
+
+  <div class="dice-roll roll--crit">
+    <div class="dice-result">
+      <h4 class="dice-total"><i class="fa-solid fa-trophy roll-flag-icon roll-flag-crit"></i> <span class="label">Attack:</span> <span class="formula">d20 + 5</span> <span class="result">25</span></h4>
+    </div>
+  </div>
+
+  <div class="dice-roll roll--fumble">
+    <div class="dice-result">
+      <h4 class="dice-total"><i class="fa-solid fa-skull roll-flag-icon roll-flag-fumble"></i> <span class="label">Attack:</span> <span class="formula">d20 + 5</span> <span class="result">6</span></h4>
+    </div>
+  </div>
+
+  <div class="dice-roll roll--crit roll--fumble">
+    <div class="dice-result">
+      <h4 class="dice-total"><i class="fa-solid fa-yin-yang roll-flag-icon roll-flag-crit-fumble"></i> <span class="label">Wild Dice:</span> <span class="formula">2d6</span> <span class="result">7</span></h4>
+    </div>
+  </div>
+</body>
+</html>

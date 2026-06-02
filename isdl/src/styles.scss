@@ -572,6 +572,39 @@
             color: #d62828;
           }
         }
+
+        // Rare "crit-fumble" -- a roll flagged BOTH crit and fumble (only really
+        // reachable via manual marking). Both modifier classes apply, so this
+        // combined selector (specificity 0,2,0) overrides the single-flag styling
+        // above. Gold->crimson shimmer on the total, pulsing dual-glow yin-yang icon.
+        &.roll--crit.roll--fumble {
+          .dice-total,
+          .dice-total > .result {
+            background: linear-gradient(100deg, #ffd000 0%, #ff8c00 30%, #d62828 50%, #ff8c00 70%, #ffd000 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            filter: drop-shadow(0 0 4px rgba(255, 140, 40, 0.7));
+            animation: isdl-crit-fumble-shimmer 3s linear infinite;
+          }
+          .roll-flag-crit-fumble {
+            color: #ff8c00;
+            filter: drop-shadow(0 0 3px #ffd000) drop-shadow(0 0 5px #d62828);
+            animation: isdl-crit-fumble-pulse 1.2s ease-in-out infinite;
+          }
+        }
+      }
+
+      @keyframes isdl-crit-fumble-shimmer {
+        from { background-position: 0% center; }
+        to   { background-position: 200% center; }
+      }
+
+      @keyframes isdl-crit-fumble-pulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.18); }
       }
 
       .measured-template {

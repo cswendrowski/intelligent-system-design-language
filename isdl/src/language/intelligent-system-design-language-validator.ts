@@ -42,7 +42,7 @@ import {
     RollVisualizerField, isRollVisualizerValueParam,
     PromptInputAccess, isPrompt, isRollVisualizerField,
     Ref, FleetingAccess, RollResultAccess, Roll,
-    isRoll, isVariableExpression, isCritParam, isFumbleParam, isSuccessParam
+    isRoll, isVariableExpression, isSuccessParam
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType, functionIsDerivedSafe } from '../cli/components/utils.js';
@@ -161,18 +161,12 @@ export class IntelligentSystemDesignLanguageValidator {
 
     private checkRollAccessor(roll: Roll, name: string, accessor: string | undefined, node: AstNode, accept: ValidationAcceptor): void {
         if (!accessor) return;
-        // The detection accessors (.crit/.fumble/.successes) are ISDL-specific and only make
-        // sense when their parameter is configured -- accessing them otherwise is a mistake.
-        // Every other property (total, highest, lowest, dice, and raw Foundry Roll members like
-        // result/formula/_total) is allowed to pass through untouched.
-        const lower = accessor.toLowerCase();
-        if (lower === 'crit' && !roll.params.some(isCritParam)) {
-            accept('error', `'.crit' requires a 'crit:' parameter on roll '${name}'.`, { node });
-        }
-        else if (lower === 'fumble' && !roll.params.some(isFumbleParam)) {
-            accept('error', `'.fumble' requires a 'fumble:' parameter on roll '${name}'.`, { node });
-        }
-        else if (lower === 'successes' && !roll.params.some(isSuccessParam)) {
+        // `.successes` only makes sense with a `success:` parameter -- it can't be set manually.
+        // `.crit`/`.fumble` are NOT required to have a param: they can be marked manually
+        // (roll.crit = true) for rules a threshold can't express, so a bare read just defaults
+        // to false. Every other property (total/highest/lowest/dice and raw Foundry Roll members
+        // like result/formula/_total) passes through untouched.
+        if (accessor.toLowerCase() === 'successes' && !roll.params.some(isSuccessParam)) {
             accept('error', `'.successes' requires a 'success:' parameter on roll '${name}'.`, { node });
         }
     }

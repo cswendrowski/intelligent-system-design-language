@@ -136,7 +136,7 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             DamageApplicationChatCard: { None: "Don't send", Public: 'Send to All (public message)', GM: 'Send to GM (GM-only message)' }
         },
         ROLLVISUALIZER: { Min: 'Min', Max: 'Max', Average: 'Average', Simulations: 'simulations', NoFormula: 'No roll to visualize' },
-        ROLL: { Critical: 'Critical!', Fumble: 'Fumble!' },
+        ROLL: { Critical: 'Critical!', Fumble: 'Fumble!', CritFumble: 'Critical Fumble!' },
         CONTEXT: { ApplyChanges: 'Apply', ApplyDamage: 'As Damage', ApplyHealing: 'As Healing', ApplyTemp: 'As Temporary' },
         NOTIFICATIONS: { NoTokenSelected: 'No Token is currently selected', NoTokenTargeted: 'No Token is currently targeted' },
         TYPES: {
