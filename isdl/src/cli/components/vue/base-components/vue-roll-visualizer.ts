@@ -268,7 +268,7 @@ export default function generateRollVisualizerComponent(destination: string) {
                 line-width="2"
                 padding="8"
                 smooth="6"
-                :label-size="5"
+                :label-size="10"
                 auto-draw
                 preserveAspectRatio="none"
             >
