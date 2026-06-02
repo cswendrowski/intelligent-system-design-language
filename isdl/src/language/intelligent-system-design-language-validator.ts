@@ -42,10 +42,13 @@ import {
     RollVisualizerField, isRollVisualizerValueParam,
     PromptInputAccess, isPrompt, isRollVisualizerField,
     Ref, FleetingAccess, RollResultAccess, Roll,
-    isRoll, isVariableExpression, isSuccessParam
+    isRoll, isVariableExpression, isSuccessParam,
+    SettingField, SettingInitial, SettingChoices, SystemSettingAssignment,
+    isSettingInitial, isSettingChoices, isBooleanSetting, isNumberSetting,
+    isStringSetting, isStringChoiceSetting, isShorthandComparisonExpression, isUserProperty,
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
-import { getAllOfType, functionIsDerivedSafe } from '../cli/components/utils.js';
+import { getAllOfType, functionIsDerivedSafe, getSettingScope } from '../cli/components/utils.js';
 import { DiagnosticTag } from 'vscode-languageserver';
 import { AstUtils, type AstNode } from 'langium';
 
@@ -79,7 +82,9 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         FunctionCall: validator.validateDerivedFunctionCall,
         Ref: validator.validateRollAccessorRef,
         FleetingAccess: validator.validateRollAccessorFleeting,
-        RollResultAccess: validator.validateRollResultAccess
+        RollResultAccess: validator.validateRollResultAccess,
+        SettingField: validator.validateSettingField,
+        SystemSettingAssignment: validator.validateSystemSettingAssignment
     };
     registry.register(checks, validator);
 }
@@ -113,6 +118,79 @@ export class IntelligentSystemDesignLanguageValidator {
                     { node: field });
             }
         }
+    }
+
+    // A declared setting's initial value must match its keyword's type, and a
+    // choice<string> setting must list its choices (with a valid initial, if any).
+    validateSettingField(setting: SettingField, accept: ValidationAcceptor): void {
+        const initial = setting.params.find(p => isSettingInitial(p)) as SettingInitial | undefined;
+        const choicesParam = setting.params.find(p => isSettingChoices(p)) as SettingChoices | undefined;
+
+        if (initial !== undefined) {
+            const value = initial.value;
+            if (isBooleanSetting(setting) && typeof value !== 'boolean') {
+                accept('error', `Boolean setting '${setting.name}' must have a true/false initial value.`, { node: initial });
+            }
+            else if (isNumberSetting(setting) && typeof value !== 'number') {
+                accept('error', `Number setting '${setting.name}' must have a numeric initial value.`, { node: initial });
+            }
+            else if ((isStringSetting(setting) || isStringChoiceSetting(setting)) && typeof value !== 'string') {
+                accept('error', `Setting '${setting.name}' must have a string initial value.`, { node: initial });
+            }
+        }
+
+        if (choicesParam !== undefined && !isStringChoiceSetting(setting)) {
+            accept('error', `'choices:' is only valid on a choice<string> setting.`, { node: choicesParam });
+        }
+
+        if (isStringChoiceSetting(setting)) {
+            if (choicesParam === undefined || choicesParam.choices.length === 0) {
+                accept('error', `choice<string> setting '${setting.name}' requires a non-empty 'choices:' list.`, { node: setting, property: 'name' });
+            }
+            else if (initial !== undefined && typeof initial.value === 'string' && !choicesParam.choices.includes(initial.value)) {
+                accept('error', `Initial value "${initial.value}" is not one of the listed choices for '${setting.name}'.`, { node: initial });
+            }
+        }
+    }
+
+    // Writing a world-scoped setting only succeeds for a GM at runtime, so the
+    // write must sit inside an `if (User.isGM)` block. Client-scoped writes are
+    // unrestricted.
+    // v1 limitation: only a bare `if (User.isGM)` condition is recognized; a
+    // compound condition like `if (User.isGM and ...)` is not, and would still
+    // flag this as an error.
+    validateSystemSettingAssignment(assignment: SystemSettingAssignment, accept: ValidationAcceptor): void {
+        const setting = assignment.setting.ref;
+        if (!setting) return;
+        if (getSettingScope(setting) !== 'world') return;
+
+        const conditionIsUserIsGM = (expr: AstNode | undefined): boolean => {
+            if (expr && isShorthandComparisonExpression(expr) && expr.term === undefined) {
+                return isUserProperty(expr.e1) && expr.e1.property === 'isGM';
+            }
+            return false;
+        };
+
+        const isDescendantOf = (node: AstNode, ancestor: AstNode): boolean => {
+            let c: AstNode | undefined = node.$container;
+            while (c) {
+                if (c === ancestor) return true;
+                c = c.$container;
+            }
+            return false;
+        };
+
+        let ifStmt: IfStatement | undefined = AstUtils.getContainerOfType(assignment, isIfStatement);
+        while (ifStmt) {
+            if (conditionIsUserIsGM(ifStmt.expression) && isDescendantOf(assignment, ifStmt.method)) {
+                return;
+            }
+            ifStmt = ifStmt.$container ? AstUtils.getContainerOfType(ifStmt.$container, isIfStatement) : undefined;
+        }
+
+        accept('error',
+            `Writing world-scoped setting '${setting.name}' only succeeds for a GM. Wrap it in 'if (User.isGM) { ... }'.`,
+            { node: assignment });
     }
 
     // A rollVisualizer charts the distribution of its value: expression, so the

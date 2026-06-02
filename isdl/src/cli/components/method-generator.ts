@@ -116,6 +116,10 @@ import {
     isCombatMethods,
     isCombatProperty,
     isUserProperty,
+    isSystemSettingAccess,
+    isSystemSettingAssignment,
+    SystemSettingAccess,
+    SystemSettingAssignment,
     isMacroExecute,
     isMeasuredTemplateField,
     isStringChoiceField,
@@ -2124,6 +2128,18 @@ export function translateExpression(entry: Entry, id: string, expression: string
         if (property == "name") {
             return expandToNode`game.user.name`;
         }
+    }
+
+    if (isSystemSettingAccess(expression)) {
+        const setting = (expression as SystemSettingAccess).setting.ref;
+        return expandToNode`game.settings.get('${id}', '${setting?.name.toLowerCase()}')`;
+    }
+
+    if (isSystemSettingAssignment(expression)) {
+        const assignment = expression as SystemSettingAssignment;
+        const setting = assignment.setting.ref;
+        const value = translateExpression(entry, id, assignment.exp, preDerived, generatingProperty);
+        return expandToNode`await game.settings.set('${id}', '${setting?.name.toLowerCase()}', ${value})`;
     }
 
     if (isMacroExecute(expression)) {

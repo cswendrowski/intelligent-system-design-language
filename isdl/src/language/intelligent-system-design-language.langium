@@ -5,13 +5,48 @@ entry Entry:
 // Config ------------------------------------------------------
 
 Config:
-    "config" name=ID "{" body+=(ConfigExpression | Keywords)* "}";
+    "config" name=ID "{" body+=(ConfigExpression | Keywords | Settings)* "}";
 
 ConfigExpression:
     type=("label" | "id" | "author" | "description") "=" value=STRING;
 
 Keywords:
     "keywords" "{" body+=Keyword* "}";
+
+// System Settings ------------------------------------------------------
+// Declarative game.settings.register entries, grouped by Foundry scope. Reuses
+// the field type keywords with a small, setting-specific param set (initial /
+// choices / label / hint). Distinct AST nodes keep settings out of the document
+// datamodel/sheet/localization generators.
+
+Settings:
+    "settings" "{" groups+=SettingScope* "}";
+SettingScope:
+    scope=("world" | "client") "{" settings+=SettingField* "}";
+SettingField:
+    (BooleanSetting | NumberSetting | StringSetting | StringChoiceSetting);
+
+fragment SettingParamsFrag:
+    ("(" params+=SettingParam ("," params+=SettingParam)* ")")?;
+SettingParam:
+    (SettingInitial | SettingChoices | LabelParam | SettingHint);
+// initial is a static literal (Foundry evaluates default once at init); the
+// literal type is validated against the setting keyword.
+SettingInitial:
+    "initial:" value=(BOOLEAN | INT | STRING);
+SettingChoices:
+    "choices:" "[" (choices+=STRING ("," choices+=STRING)*)? "]";
+SettingHint:
+    "hint:" value=STRING;
+
+BooleanSetting:
+    "boolean" name=ID SettingParamsFrag;
+NumberSetting:
+    "number" name=ID SettingParamsFrag;
+StringSetting:
+    "string" name=ID SettingParamsFrag;
+StringChoiceSetting:
+    "choice" "<" "string" ">" name=ID SettingParamsFrag;
 
 Keyword:
     name=ID ("(" params+=KeywordParam ("," params+=KeywordParam)* ")")?;
@@ -613,7 +648,7 @@ NumberRange:
 MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
-    (MacroExecute | VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | ReturnExpression |
+    (MacroExecute | VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | SystemSettingAssignment | ReturnExpression |
      IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall  | PlayAudio | Combat | User );
 JS:
     js=JS_LINE;
@@ -675,6 +710,16 @@ UserProperty:
     "User." property=("isGM" | "name");
 
 
+// System Settings access --------
+// `System.X` reads a declared setting; `System.X = expr` writes it
+// (await game.settings.set). World-scoped writes must be GM-gated (validated).
+
+SystemSettingAccess:
+    "System" "." setting=[SettingField:ID];
+SystemSettingAssignment:
+    "System" "." setting=[SettingField:ID] "=" exp=Expression;
+
+
 // Combat
 
 Combat:
@@ -728,7 +773,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | RollResultAccess | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
+    Literal | RollResultAccess | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty | SystemSettingAccess;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=" | "has" | "excludes" | "startsWith" | "endsWith") e2=Expression;
 ShorthandComparisonExpression:
