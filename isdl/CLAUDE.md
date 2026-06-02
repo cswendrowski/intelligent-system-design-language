@@ -69,6 +69,23 @@ The extension includes comprehensive GitHub publishing features:
 - Documentation and build script generation
 - Status bar integration and repository wizards
 
+## Release Notes
+
+GitHub releases follow a consistent, terse style. When drafting notes (e.g. via
+`gh release view <tag>` to read past ones), match it:
+
+- **Plain bullet list** of user-facing changes — no headers, no preamble, no
+  "What's Changed" boilerplate. Each release body is just `* ` bullets.
+- **One change per bullet**, lead with the verb: "Added a new `rollVisualizer`
+  field for…", "Removed an old dependency on…", "Added support for…".
+- **Backtick ISDL keywords/fields/params** (`roll()`, `crit:`, `attribute`,
+  `function`, `.successes`) and show a tiny inline example where it clarifies.
+- **Author-focused**, not implementation-focused — describe what a system author
+  can now do, not how the codegen works. Skip issue numbers and internal refs.
+- **Optionally attach a screenshot** of a notable UI/chat-card feature (as 0.3.22
+  did for `rollVisualizer`).
+- Keep it short: most releases are 2–3 bullets.
+
 ## Testing
 
 - Uses Vitest for testing
