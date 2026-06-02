@@ -16,7 +16,7 @@ Two related capabilities:
 
 - **#10 crit/fumble** — `roll(d20 + self.STR, crit: 20, fumble: 1)` exposes
   `myRoll.crit` / `myRoll.fumble` booleans to branch on, and auto-styles the
-  chat card (gold for crit, red for fumble).
+  chat card (green for crit, red for fumble).
 - **#80 dice inspection** — read aggregate dice data from a pool:
   `myRoll.successes`, `myRoll.highest` / `myRoll.lowest`, `myRoll.dice` (face
   array, iterable in `each`), and `myRoll.count(n)` / `myRoll.contains(n)` with
@@ -224,16 +224,17 @@ setter. The validator's `.crit`/`.fumble` "requires param" checks were therefore
 
 The roll part object built for the chat card carries the live Roll (`this.value`).
 `standard-card.hbs` adds `roll--crit` / `roll--fumble` modifier classes from
-`this.value.crit` / `this.value.fumble`, and swaps the leading icon (gold trophy /
-red skull). `_isdlStyles.scss` gives `.roll--crit` a gold glow and `.roll--fumble`
-a red glow.
+`this.value.crit` / `this.value.fumble`, and swaps the leading icon (green trophy /
+red skull). `_isdlStyles.scss` gives `.roll--crit` a green glow and `.roll--fumble`
+a red glow, with tight (3px) shadows so the text stays crisp.
 
 **Rare crit-fumble.** Manual marking makes "both true" reachable (auto-eval can't
 — one die isn't both a max and a 1). Both classes apply, so a combined
 `.roll--crit.roll--fumble` selector (higher specificity) overrides the single-flag
-styles with a gold→crimson shimmer (animated `background-position`) and a pulsing
-`fa-yin-yang` icon (`ROLL.CritFumble` tooltip). The icon uses nested `{{#if}}` so
-the both-case shows the yin-yang, not the trophy.
+styles with a green→red shimmer (animated `background-position`, no blur filter so
+the gradient text stays crisp) and a pulsing `fa-yin-yang` icon (`ROLL.CritFumble`
+tooltip). The icon uses nested `{{#if}}` so the both-case shows the yin-yang, not
+the trophy.
 
 Applies wherever a roll renders to chat (explicit `chat { roll1 }` and the auto
 roll-to-chat from attribute `roll:`).

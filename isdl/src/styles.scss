@@ -551,47 +551,48 @@
 
         // Crit / fumble result highlighting (issue #10). The roll exposes
         // crit/fumble booleans; the chat card adds these modifier classes.
+        // Crit is green, fumble red; keep the glow tight so the text stays crisp.
         &.roll--crit {
           .dice-total,
           .dice-total > .result {
-            color: #b8860b;
-            text-shadow: 0 0 6px rgba(255, 215, 0, 0.75);
+            color: #2f9e44;
+            text-shadow: 0 0 3px rgba(56, 161, 105, 0.55);
           }
           .roll-flag-crit {
-            color: #ffd000;
+            color: #40c057;
           }
         }
 
         &.roll--fumble {
           .dice-total,
           .dice-total > .result {
-            color: #b01818;
-            text-shadow: 0 0 6px rgba(220, 40, 40, 0.6);
+            color: #c92a2a;
+            text-shadow: 0 0 3px rgba(220, 40, 40, 0.5);
           }
           .roll-flag-fumble {
-            color: #d62828;
+            color: #e03131;
           }
         }
 
         // Rare "crit-fumble" -- a roll flagged BOTH crit and fumble (only really
         // reachable via manual marking). Both modifier classes apply, so this
         // combined selector (specificity 0,2,0) overrides the single-flag styling
-        // above. Gold->crimson shimmer on the total, pulsing dual-glow yin-yang icon.
+        // above. Green->red shimmer on the total (no blur filter -- gradient text
+        // stays crisp), pulsing dual-glow yin-yang icon.
         &.roll--crit.roll--fumble {
           .dice-total,
           .dice-total > .result {
-            background: linear-gradient(100deg, #ffd000 0%, #ff8c00 30%, #d62828 50%, #ff8c00 70%, #ffd000 100%);
+            background: linear-gradient(100deg, #40c057 0%, #2f9e44 25%, #c92a2a 50%, #2f9e44 75%, #40c057 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             color: transparent;
-            filter: drop-shadow(0 0 4px rgba(255, 140, 40, 0.7));
             animation: isdl-crit-fumble-shimmer 3s linear infinite;
           }
           .roll-flag-crit-fumble {
-            color: #ff8c00;
-            filter: drop-shadow(0 0 3px #ffd000) drop-shadow(0 0 5px #d62828);
+            color: #2f9e44;
+            filter: drop-shadow(0 0 2px #40c057) drop-shadow(0 0 3px #e03131);
             animation: isdl-crit-fumble-pulse 1.2s ease-in-out infinite;
           }
         }

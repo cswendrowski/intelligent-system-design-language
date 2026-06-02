@@ -35,26 +35,26 @@
   }
 
   .roll--crit .dice-total,
-  .roll--crit .dice-total > .result { color: #b8860b; text-shadow: 0 0 6px rgba(255,215,0,.75); }
-  .roll--crit .roll-flag-crit { color: #ffd000; }
+  .roll--crit .dice-total > .result { color: #2f9e44; text-shadow: 0 0 3px rgba(56,161,105,.55); }
+  .roll--crit .roll-flag-crit { color: #40c057; }
 
   .roll--fumble .dice-total,
-  .roll--fumble .dice-total > .result { color: #b01818; text-shadow: 0 0 6px rgba(220,40,40,.6); }
-  .roll--fumble .roll-flag-fumble { color: #d62828; }
+  .roll--fumble .dice-total > .result { color: #c92a2a; text-shadow: 0 0 3px rgba(220,40,40,.5); }
+  .roll--fumble .roll-flag-fumble { color: #e03131; }
 
-  /* rare crit-fumble: both classes -> combined selector wins */
+  /* rare crit-fumble: both classes -> combined selector wins. Green<->red shimmer,
+     no blur filter so the gradient text stays crisp. */
   .roll--crit.roll--fumble .dice-total,
   .roll--crit.roll--fumble .dice-total > .result {
-    background: linear-gradient(100deg, #ffd000 0%, #ff8c00 30%, #d62828 50%, #ff8c00 70%, #ffd000 100%);
+    background: linear-gradient(100deg, #40c057 0%, #2f9e44 25%, #c92a2a 50%, #2f9e44 75%, #40c057 100%);
     background-size: 200% auto;
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; color: transparent;
-    filter: drop-shadow(0 0 4px rgba(255,140,40,.7));
     animation: isdl-crit-fumble-shimmer 3s linear infinite;
   }
   .roll--crit.roll--fumble .roll-flag-crit-fumble {
-    color: #ff8c00;
-    filter: drop-shadow(0 0 3px #ffd000) drop-shadow(0 0 5px #d62828);
+    color: #2f9e44;
+    filter: drop-shadow(0 0 2px #40c057) drop-shadow(0 0 3px #e03131);
     animation: isdl-crit-fumble-pulse 1.2s ease-in-out infinite;
   }
   @keyframes isdl-crit-fumble-shimmer { from { background-position: 0% center; } to { background-position: 200% center; } }
