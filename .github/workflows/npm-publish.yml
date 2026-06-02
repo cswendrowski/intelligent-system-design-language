@@ -5,8 +5,31 @@ on:
     types: [published]
 
 jobs:
-  publish:
-    runs-on: windows-latest
+  # Package & publish a platform-specific VSIX per target. The generator runs Vite, whose
+  # rollup/esbuild dependencies load a native binary that must match the user's OS/arch.
+  # A single Windows-built VSIX only carried the win32 binary, so Linux/macOS users hit
+  # "Cannot find module @rollup/rollup-linux-x64-gnu" when generating. Building each target
+  # on its own native runner means `npm ci` installs exactly the right native binaries, and
+  # `vsce --target` produces a platform-specific VSIX that the Marketplace serves per user.
+  package:
+    name: Package & publish (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win32-x64
+          - os: ubuntu-latest
+            target: linux-x64
+          # Requires GitHub-hosted Arm Linux runners (GA for public repositories). Remove
+          # this entry if your repo can't schedule arm64 runners.
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+          - os: macos-13        # Intel runner -> darwin-x64 binaries
+            target: darwin-x64
+          - os: macos-latest    # Apple Silicon runner -> darwin-arm64 binaries
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
 
@@ -18,7 +41,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        registry-url: 'https://registry.npmjs.org'
 
     - name: Install dependencies
       run: npm ci
@@ -40,30 +62,60 @@ jobs:
       run: npm run build
       working-directory: ./isdl
 
-    - name: Install vsce
-      run: npm install -g @vscode/vsce
-
-    - name: Package extension
+    - name: Package extension (${{ matrix.target }})
       working-directory: ./isdl
-      run: vsce package
+      run: npx --yes @vscode/vsce package --target ${{ matrix.target }} -o "isdl-${{ matrix.target }}.vsix"
 
     - name: Publish to VS Code Marketplace
       working-directory: ./isdl
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      run: vsce publish -p "${{ secrets.VSCE_PAT }}"
+      run: npx --yes @vscode/vsce publish --packagePath "isdl-${{ matrix.target }}.vsix"
 
     - name: Upload VSIX to release
       working-directory: ./isdl
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload "${{ github.event.release.tag_name }}" *.vsix
+      run: gh release upload "${{ github.event.release.tag_name }}" "isdl-${{ matrix.target }}.vsix" --clobber
+
+  # The CLI is platform-independent, so it's published once from a single job. npm resolves
+  # the correct native binaries per-platform at install time, so no matrix is needed here.
+  publish-cli:
+    name: Publish CLI to npm
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: ./isdl
+
+    - name: Generate Langium
+      run: npm run langium:generate
+      working-directory: ./isdl
+
+    - name: Set version from release tag
+      working-directory: ./isdl
+      run: npm version "${{ github.event.release.tag_name }}" --no-git-tag-version --allow-same-version
+
+    - name: Build
+      run: npm run build
+      working-directory: ./isdl
 
     # The package.json name stays "isdl" for the VS Code Marketplace identity
     # (IronMooseDevelopment.isdl). npm rejects "isdl" as too similar to existing
-    # packages, so rename to the npm package name for the publish only. This runs
-    # AFTER vsce publish, so the VSIX is unaffected. The bin commands
-    # (isdl / isdl-lsp) are independent of the package name and stay the same.
+    # packages, so rename to the npm package name for the publish only. The
+    # Marketplace VSIXs are built in the separate `package` job, so this rename
+    # doesn't affect them. The bin commands (isdl / isdl-lsp) are independent of
+    # the package name and stay the same.
     - name: Publish CLI to npm
       working-directory: ./isdl
       env:
