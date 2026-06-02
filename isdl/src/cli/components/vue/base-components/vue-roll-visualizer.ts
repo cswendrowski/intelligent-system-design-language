@@ -138,17 +138,26 @@ export default function generateRollVisualizerComponent(destination: string) {
                 if (v < min) min = v;
                 if (v > max) max = v;
             }
-            let labels = entries.map(([v]) => v);
-            let values = entries.map(([, p]) => +(p * 100).toFixed(2));
-            // Keep the sparkline legible: thin labels (not data) when there are many buckets.
-            const labelStride = Math.ceil(labels.length / 20);
-            const displayLabels = labelStride > 1 ? labels.map((l, i) => (i % labelStride === 0 ? l : "")) : labels;
+            const outcomeValues = entries.map(([v]) => v);
+            const values = entries.map(([, p]) => +(p * 100).toFixed(2));
+            // Thin the x-axis labels so they don't cluster/overlap: pick a "nice" step
+            // (1, 2, 5, 10, ...) targeting ~8 labels, and only label outcomes that land on
+            // a multiple of it -- so the axis reads in round numbers (5, 10, 15, 20 ...).
+            const lo = outcomeValues.length ? outcomeValues[0] : 0;
+            const hi = outcomeValues.length ? outcomeValues[outcomeValues.length - 1] : 0;
+            const span = Math.max(1, hi - lo);
+            const rawStep = span / 8;
+            const pow = Math.pow(10, Math.floor(Math.log10(rawStep)));
+            const norm = rawStep / pow;
+            const niceStep = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * pow;
+            const step = Math.max(1, Math.round(niceStep));
             return {
                 average: +average.toFixed(2),
                 min: entries.length ? min : 0,
                 max: entries.length ? max : 0,
-                labels: displayLabels,
+                labels: outcomeValues,
                 values,
+                step,
                 approximate,
                 hasData: entries.length > 0
             };
@@ -156,7 +165,7 @@ export default function generateRollVisualizerComponent(destination: string) {
 
         // ----- Reactive computation --------------------------------------------------
 
-        const result = ref({ average: 0, min: 0, max: 0, labels: [], values: [], approximate: false, hasData: false });
+        const result = ref({ average: 0, min: 0, max: 0, labels: [], values: [], step: 1, approximate: false, hasData: false });
         const iterations = ref(0);
         let runToken = 0;
 
@@ -192,7 +201,7 @@ export default function generateRollVisualizerComponent(destination: string) {
             const token = ++runToken;
             const raw = (props.formula || "").trim();
             if (!raw) {
-                result.value = { average: 0, min: 0, max: 0, labels: [], values: [], approximate: false, hasData: false };
+                result.value = { average: 0, min: 0, max: 0, labels: [], values: [], step: 1, approximate: false, hasData: false };
                 return;
             }
             let roll;
@@ -200,7 +209,7 @@ export default function generateRollVisualizerComponent(destination: string) {
                 roll = new Roll(raw, props.rollData || {});
             }
             catch (e) {
-                result.value = { average: 0, min: 0, max: 0, labels: [], values: [], approximate: false, hasData: false };
+                result.value = { average: 0, min: 0, max: 0, labels: [], values: [], step: 1, approximate: false, hasData: false };
                 return;
             }
             // Cache hit on the resolved formula -> reuse the result, no recompute.
@@ -262,7 +271,13 @@ export default function generateRollVisualizerComponent(destination: string) {
                 :label-size="5"
                 auto-draw
                 preserveAspectRatio="none"
-            ></v-sparkline>
+            >
+                <!-- Render a label only on "nice" round outcomes; blank elsewhere so the
+                     axis doesn't cluster and never falls back to showing the raw value. -->
+                <template #label="item">
+                    {{ Number(item.value) % result.step === 0 ? item.value : "" }}
+                </template>
+            </v-sparkline>
             <div v-else class="isdl-roll-visualizer__empty text-caption">
                 {{ game.i18n.localize("ROLLVISUALIZER.NoFormula") }}
             </div>
