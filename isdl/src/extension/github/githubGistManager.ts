@@ -31,12 +31,13 @@ export class GitHubGistManager {
         if (this.octokit) return true;
 
         try {
-            const session = await this._authProvider.getCurrentSession();
+            // getAccessToken covers both the built-in provider and the PAT fallback.
+            const token = await this._authProvider.getAccessToken();
 
-            if (!session) return false;
+            if (!token) return false;
 
             this.octokit = new Octokit({
-                auth: session.accessToken,
+                auth: token,
                 userAgent: 'ISDL-VSCode-Extension'
             });
 

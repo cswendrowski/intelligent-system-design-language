@@ -1650,14 +1650,16 @@ For installation instructions, usage guides, and troubleshooting:
 
     // Private helper methods
     private async initializeOctokit(): Promise<boolean> {
-        const session = await this.authProvider.getCurrentSession();
-        if (!session) {
+        // getAccessToken covers both the built-in provider and the PAT fallback, prompting
+        // for a token if needed (VSCodium / OSS builds with no built-in GitHub sign-in).
+        const token = await this.authProvider.getAccessToken(true);
+        if (!token) {
             vscode.window.showErrorMessage('GitHub authentication required.');
             return false;
         }
 
         this.octokit = new Octokit({
-            auth: session.accessToken,
+            auth: token,
             userAgent: 'ISDL-VSCode-Extension'
         });
 

@@ -38,6 +38,7 @@ import {
     isTypeParam, TypeParam, Document, Property,
 } from '../../language/generated/ast.js';
 import {
+    FleetingAccess,
     isReturnExpression,
     isAssignment,
     isBinaryExpression,
@@ -125,11 +126,544 @@ import {
     isDocumentChoiceExp,
     isTableField,
     isInventoryField,
-    isProperty
+    isProperty,
+    RollVisualizerField, isRollVisualizerValueParam, RollVisualizerValueParam,
+    isPromptInputAccess
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
+
+// Module-scoped copy used by the lifted translateDiceParts/translateDiceData.
+// (translateExpression keeps its own identical nested humanize for its other call sites.)
+function humanize(string: string | undefined) {
+    if (string == undefined) {
+        return "";
+    }
+    // Turn TitleCase into Title Case
+    // Ensure first letter of the string is capitalized
+    string = string.charAt(0).toUpperCase() + string.slice(1);
+    return string.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+// Build the subproperty key for a fleeting access (e.g. `opts.Boons` -> "Boons" / "boons").
+// Prompt results are resolved with lowercased field-name keys (the datamodel stores prompt
+// fields lowercased), so subproperty access on a prompt-backed fleeting must lowercase to
+// match -- otherwise `opts.Boons` reads `undefined`. Other fleetings (rolls, etc.) expose
+// real JS properties whose case must be preserved (e.g. `amount.total`), so the gate matters.
+function fleetingSubProperty(expression: FleetingAccess): string | undefined {
+    if (expression.subProperty == undefined) return undefined;
+    return isPrompt(expression.variable.ref?.value) ? expression.subProperty.toLowerCase() : expression.subProperty;
+}
+
+        export function translateDiceParts(expression: Expression, noLabels: boolean = false): CompositeGeneratorNode | undefined {
+
+            console.log("Translating Dice Part: ", expression.$type);
+
+            if (isLiteral(expression)) {
+                if (typeof expression.val == "string") {
+                    return expandToNode`
+                        "${expression.val}"
+                    `;
+                }
+                return expandToNode`
+                    "${expression.val}"
+                `;
+            }
+            if (isRef(expression)) {
+
+                // If string or number, return the value
+                if (typeof expression.val == "string" || typeof expression.val == "number") {
+                    return expandToNode`
+                        "${expression.val}"
+                    `;
+                }
+                if (expression.val.ref == undefined) {
+                    return;
+                }
+                if (expression.subProperties != undefined  && expression.subProperties.length > 0) {
+                    const subLabel = noLabels ? "" : `[${humanize(expression.subProperties[0])}]`;
+                    return expandToNode`
+                        "@${expression.val.ref?.name}${expression.subProperties[0].toLowerCase()}${subLabel}"
+                    `;
+                }
+
+                console.log("Ref:", `${expression.val.$refText}`);
+                if (IntelligentSystemDesignLanguageTerminals.DICE.test(`${expression.val}`)) {
+                    return expandToNode`
+                        "${expression.val}"
+                    `;
+                }
+
+                const refLabel = noLabels ? "" : `[${humanize(expression.val.ref?.name ?? expression.val.$refText)}]`;
+                return expandToNode`
+                    "@${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}${refLabel}"
+                `;
+            }
+            if (isParentAccess(expression)) {
+                let path = expression.property?.ref?.name ?? ""
+                let label = humanize(expression.property?.ref?.name ?? "");
+                const document = getParentDocument(expression as ParentAccess);
+                if ( document != undefined ) {
+                    path = `${document.name.toLowerCase()}${path}`;
+                    label = `${humanize(document.name)} ${label}`;
+                }
+                // else if ( expression.propertyLookup != undefined ) {
+                //     path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
+                //     label = `${label} \${context.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
+                // }
+                else {
+                    path = `${path}${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${label} ${humanize(expression.property?.ref?.name ?? "")}`;
+                }
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
+                }
+                label = label.trim();
+                const parentLabelSuffix = noLabels ? "" : `[${label}]`;
+                return expandToNode`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${parentLabelSuffix}\`
+                `;
+            }
+            if (isTargetAccess(expression)) {
+                let path = expression.property?.ref?.name ?? ""
+                let label = humanize(expression.property?.ref?.name ?? "");
+                const document = getTargetDocument(expression as TargetAccess);
+                if ( document != undefined ) {
+                    path = `${document.name.toLowerCase()}${path}`;
+                    label = `${humanize(document.name)} ${label}`;
+                }
+                // else if ( expression.propertyLookup != undefined ) {
+                //     path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
+                //     label = `${label} \${context.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
+                // }
+                else {
+                    path = `${path}${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${label} ${humanize(expression.property?.ref?.name ?? "")}`;
+                }
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
+                }
+                label = label.trim();
+                const targetLabelSuffix = noLabels ? "" : `[${label}]`;
+                return expandToNode`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${targetLabelSuffix}\`
+                `;
+            }
+            if (isPromptInputAccess(expression)) {
+                // `input.X` inside a prompt -> @<field> ref token (resolved at runtime from
+                // the live reactive prompt data, see translateDiceData).
+                let key = expression.property?.ref?.name?.toLowerCase() ?? "";
+                for (const subProperty of expression.subProperties ?? []) {
+                    key = `${key}.${subProperty}`;
+                }
+                return expandToNode`
+                    \`@${key.replaceAll(".", "").toLowerCase()}\`
+                `;
+            }
+            if (isAccess(expression)) {
+                let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
+                let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
+
+                // if (isDieField(expression.property?.ref)) {
+                //     return expandToNode`
+                //         \'@${path.replaceAll(".", "")}\'
+                //     `;
+                // }
+
+                // Special handling for document choices - expand into individual terms
+                if (expression.property && isDocumentChoicesExp(expression.property.ref) && expression.subProperties && expression.subProperties.length > 0) {
+                    const choicesFieldName = expression.property.ref.name.toLowerCase();
+                    const subPropertyName = expression.subProperties[0].toLowerCase();
+                    const subPropertyLabel = humanize(expression.subProperties[0]);
+
+                    // Generate dynamic expansion for each document in the choices array
+                    return expandToNode`
+                        context.object.system.${choicesFieldName}.map((doc, index) => {
+                            if (!doc || !doc.system) return '';
+                            return '@' + doc.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '${subPropertyName}[' + doc.name + ' ${subPropertyLabel}]';
+                        }).filter(Boolean).join(' + ')
+                    `;
+                }
+
+                if (isParentPropertyRefExp(expression.property?.ref)) {
+                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
+                }
+                else if (isSelfPropertyRefExp(expression.property?.ref)) {
+                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
+                }
+                else {
+                    for (const subProperty of expression.subProperties ?? []) {
+                        path = `${path}.${subProperty}`;
+                        label = `${label} ${humanize(subProperty)}`;
+                    }
+                }
+                console.log("Access:", path, label);
+                const accessLabelSuffix = noLabels ? "" : `[${label}]`;
+                return expandToNode`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${accessLabelSuffix}\`
+                `;
+            }
+            if (isFleetingAccess(expression)) {
+
+                // If this is a roll expression, just output it directly
+                if (isRoll(expression.variable.ref?.value)) {
+                    return expandToNode`
+                        ${expression.variable.ref?.name}
+                    `;
+                }
+
+                let path = expression.variable.ref?.name ?? "";
+                let label = humanize(expression.variable.ref?.name ?? "");
+                if (expression.subProperty != undefined) {
+                    path = `${path}.${fleetingSubProperty(expression)}`;
+                    label = `${label} ${humanize(expression.subProperty)}`;
+                }
+                const fleetingLabelSuffix = noLabels ? "" : `[${label}]`;
+                return expandToNode`
+                    \`@${path.replaceAll(".", "").toLowerCase()}${fleetingLabelSuffix}\`
+                `;
+            }
+            if (isBinaryExpression(expression)) {
+                return expandToNode`
+                    ${translateDiceParts(expression.e1, noLabels)} + "${expression.op}" + ${translateDiceParts(expression.e2, noLabels)}
+                `;
+            }
+
+            if (isGroup(expression)) {
+                return expandToNode`
+                    "(" + ${translateDiceParts(expression.ge, noLabels)} + ")"
+                `;
+            }
+
+            return;
+        }
+
+        function translateDisplayFormula(expression: Expression): string | undefined {
+            if (isLiteral(expression)) {
+                return `${expression.val}`;
+            }
+            if (isGroup(expression)) {
+                const inner = translateDisplayFormula(expression.ge);
+                return inner != null ? `(${inner})` : undefined;
+            }
+            if (isBinaryExpression(expression)) {
+                const left = translateDisplayFormula(expression.e1);
+                const right = translateDisplayFormula(expression.e2);
+                return left != null && right != null ? `${left} ${expression.op} ${right}` : undefined;
+            }
+            if (isAccess(expression)) {
+                if (isParentPropertyRefExp(expression.property?.ref) || isSelfPropertyRefExp(expression.property?.ref)) {
+                    return undefined;
+                }
+                let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
+                for (const sub of expression.subProperties ?? []) {
+                    label += ` ${humanize(sub)}`;
+                }
+                return label.trim();
+            }
+            if (isParentAccess(expression)) {
+                return humanize(expression.property?.ref?.name ?? "");
+            }
+            if (isTargetAccess(expression)) {
+                return humanize(expression.property?.ref?.name ?? "");
+            }
+            if (isFleetingAccess(expression)) {
+                return humanize(expression.variable.ref?.name ?? "");
+            }
+            return undefined;
+        }
+
+        export function translateDiceData(expression: Expression | VariableAccess, entry: Entry, id: string, preDerived: boolean, generatingProperty: ClassExpression | undefined): CompositeGeneratorNode | undefined {
+            console.log("Translating Dice Data: ", expression.$type);
+            if (isParentAccess(expression)) {
+                let path = "context.object.parent.system";
+                let label = expression.property?.ref?.name ?? "";
+
+                console.log("Parent Access:", expression.property?.ref?.name);
+
+                const document = getParentDocument(expression as ParentAccess);
+                if ( document != undefined ) {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${humanize(document.name)}.${label}`;
+                }
+                else {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${label}.${expression.property}`;
+                }
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label}.${subProperty}`;
+                }
+
+                return expandToNode`
+                    "${label.replaceAll(".", "").toLowerCase()}": ${path}
+                `;
+            }
+            if (isTargetAccess(expression)) {
+                let path = "context.target.system";
+                let label = expression.property?.ref?.name ?? "";
+
+                console.log("Target Access:", expression.property?.ref?.name);
+
+                const document = getTargetDocument(expression as TargetAccess);
+                if ( document != undefined ) {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${humanize(document.name)}.${label}`;
+                }
+                else {
+                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
+                    label = `${label}.${expression.property}`;
+                }
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label}.${subProperty}`;
+                }
+
+                return expandToNode`
+                    "${label.replaceAll(".", "").toLowerCase()}": ${path}
+                `;
+            }
+            if (isPromptInputAccess(expression)) {
+                // Resolve `input.X` to the LIVE reactive prompt path the input writes to:
+                // context.system.<action><variable>.<field>. Editing the input recomputes
+                // any binding that reads this (the rollVisualizer's :rollData).
+                const prompt = AstUtils.getContainerOfType(expression, isPrompt);
+                const variable = AstUtils.getContainerOfType(prompt?.$container, isVariableExpression);
+                const action = AstUtils.getContainerOfType(prompt?.$container, isAction);
+                const promptPath = `${action?.name.toLowerCase() ?? ""}${variable?.name.toLowerCase() ?? ""}`;
+                const ref = expression.property?.ref;
+                const fieldName = ref?.name?.toLowerCase() ?? "";
+                const base = `context.system.${promptPath}.${fieldName}`;
+                const hasSub = (expression.subProperties?.length ?? 0) > 0;
+
+                // A dice prompt input is stored as {die, number} (its `.value` formula is derived
+                // data, which a prompt doesn't compute). Build the "<number><die>" formula string
+                // so it drops into the roll as e.g. "2d6"; reading both keeps it reactive.
+                if (isDiceField(ref) && !hasSub) {
+                    return expandToNode`
+                        "${fieldName}": \`\${${base}.number}\${${base}.die}\`
+                    `;
+                }
+                // A die prompt input is stored as the die string itself (e.g. "d8").
+                if (isDieField(ref) && !hasSub) {
+                    return expandToNode`
+                        "${fieldName}": ${base}
+                    `;
+                }
+
+                let key = fieldName;
+                let dataPath = base;
+                for (const subProperty of expression.subProperties ?? []) {
+                    key = `${key}.${subProperty}`;
+                    dataPath = `${dataPath}.${subProperty.toLowerCase()}`;
+                }
+                return expandToNode`
+                    "${key.replaceAll(".", "").toLowerCase()}": ${dataPath} ?? 0
+                `;
+            }
+            if (isAccess(expression)) {
+                let path = "context.object.system";
+                let label = "";
+
+                console.log("Access:", expression.property?.ref?.name, expression.propertyLookup?.ref?.name);
+
+                if (expression.propertyLookup != undefined) {
+                    path = `${path}[context.object.${getSystemPath(expression.propertyLookup.ref)}.toLowerCase()]`;
+                    label = `${expression.propertyLookup.ref?.name}`;
+                }
+                else if (isParentPropertyRefExp(expression.property?.ref)) {
+                    path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${expression.property?.ref?.name}`;
+                    let subProperty = "";
+
+                    if (expression.property?.ref.propertyType == "resource" || expression.property?.ref.propertyType == "tracker" || expression.property?.ref.propertyType == "choice"
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                        subProperty = "?.value";
+                    }
+                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        subProperty = "?.mod";
+                    }
+
+                    console.log(label, path);
+                    return expandToNode`
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path}.toLowerCase())${subProperty}
+                    `;
+                }
+                else if (isSelfPropertyRefExp(expression.property?.ref)) {
+                    // For self property references, we dynamically resolve the property path
+                    let selfPropertyPath = `context.object.system.${expression.property?.ref?.name.toLowerCase()}`;
+                    let subProperty = "";
+                    label = `${expression.property?.ref?.name}`;
+
+                    if (expression.property?.ref.propertyType == "resource" || expression.property?.ref.propertyType == "tracker" || expression.property?.ref.propertyType == "choice"
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
+                        subProperty = "?.value";
+                    }
+                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        subProperty = "?.mod";
+                    }
+
+                    console.log(label, selfPropertyPath);
+                    return expandToNode`
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, "system." + ${selfPropertyPath}.toLowerCase())${subProperty}
+                    `;
+                }
+                else {
+                    // Special handling for document choices - expand into individual data entries
+                    if (expression.property && isDocumentChoicesExp(expression.property.ref) && expression.subProperties && expression.subProperties.length > 0) {
+                        const choicesFieldName = expression.property.ref.name.toLowerCase();
+                        const subPropertyName = expression.subProperties[0].toLowerCase();
+
+                        // Generate data for each document in the choices array
+                        return expandToNode`
+                            ...Object.fromEntries(context.object.system.${choicesFieldName}.map((doc, index) => {
+                                if (!doc || !doc.system) return null;
+                                
+                                // Determine the accessor based on property type
+                                let accessor = '.${subPropertyName}';
+                                ${isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) ? `
+                                if (doc.system.${subPropertyName} && typeof doc.system.${subPropertyName} === 'object' && 'value' in doc.system.${subPropertyName}) {
+                                    accessor = '.${subPropertyName}.value';
+                                }` : ''}
+                                ${isAttributeExp(expression.property?.ref) ? `
+                                if (doc.system.${subPropertyName} && typeof doc.system.${subPropertyName} === 'object' && 'mod' in doc.system.${subPropertyName}) {
+                                    accessor = '.${subPropertyName}.mod';
+                                }` : ''}
+                                
+                                const key = doc.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '${subPropertyName}';
+                                const value = foundry.utils.getProperty(doc, 'system' + accessor) ?? 0;
+                                return [key, value];
+                            }).filter(Boolean))
+                        `;
+                    }
+
+                    path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
+                    label = `${expression.property?.ref?.name}`;
+
+                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
+                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "value")) {
+                        path = `${path}.value`;
+                    }
+                    if (isDiceField(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0)) {
+                        // For dice fields without subproperties, use the dice value
+                        path = `${path}.value`;
+                    }
+                    if (isDieField(expression.property?.ref)) {
+                        // For die fields, the value is just the die size (e.g., "d6"), we want to use the field name as label
+                        // Don't change the path, just ensure the label is the field name
+                    }
+                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
+                        path = `${path}.mod`;
+                    }
+                }
+
+                for (const subProperty of expression.subProperties ?? []) {
+                    path = `${path}.${subProperty}`;
+                    label = `${label} ${humanize(subProperty)}`;
+                }
+                console.log(label, path);
+                return expandToNode`
+                    "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": ${path} ?? 0
+                `;
+            }
+            if (isFleetingAccess(expression)) {
+
+                console.log("Fleeting Access:", expression.variable.ref?.name);
+
+                // If this is a roll expression, just skip it
+                if (isRoll(expression.variable.ref?.value)) {
+                    return;
+                }
+
+                let path = expression.variable.ref?.name;
+                // The roll-data key must match the formula's `@`-reference, which collapses the
+                // dotted path and lowercases it (see translateDiceParts: `@answer.bonus` -> `@answerbonus`).
+                let label = expression.variable.ref?.name?.toLowerCase() ?? "";
+                if (expression.subProperty != undefined) {
+                    path = `${path}.${fleetingSubProperty(expression)}`;
+                    label = `${label}${expression.subProperty.toLowerCase()}`;
+                }
+                if (expression.arrayAccess != undefined) {
+                    console.log("Array Access:", expression.arrayAccess.$type);
+                    let accessExp = translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty);
+                    path = `${path}[${accessExp?.contents?.toString()}]`;
+                }
+                console.log(label, path);
+                return expandToNode`
+                    "${label}": ${path} ?? 0
+                `;
+            }
+
+            // if (isVariableAccess(expression)) {
+            //     console.log("Variable Access:", expression.name);
+
+            //     if (isParameter(expression)) {
+            //         console.log("Parameter:", expression.name);
+            //         return expandToNode`
+            //             "${expression.name}": ${expression.name}
+            //         `;
+            //     }
+
+            //     if (isVariableExpression(expression)) {
+            //         console.log("Variable Expression:", expression.name);
+            //         if (isExpression(expression.value)) {
+            //             console.log("Expression:", expression.name);
+            //             return translateDiceData(expression.value);
+            //         }
+            //         if (isPrompt(expression.value)) {
+            //             console.log("Prompt:", expression.name);
+            //             return expandToNode`
+            //                 "${expression.name}": ${expression.name}
+            //             `;
+            //         }
+            //     }
+
+            //     throw new Error("Variable Access not implemented");
+            // }
+
+            if (isRef(expression)) {
+
+                console.log("Ref:", expression.val.ref?.name);
+
+                // If string or number, return the value
+                if (typeof expression.val == "string" || typeof expression.val == "number") {
+                    console.log(expression.val);
+                    return expandToNode`
+                        "${expression.val}": ${expression.val}
+                    `;
+                }
+                if (expression.val.ref == undefined) {
+                    return;
+                }
+                if (expression.subProperties != undefined && expression.subProperties.length > 0) {
+                    return expandToNode`
+                        "${expression.val.ref?.name.toLowerCase()}${expression.subProperties[0].toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperties[0].toLowerCase()} ?? 0
+                    `;
+                }
+                console.log(expression.val.ref?.name, expression.val.ref?.$type);
+                return expandToNode`
+                    "${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}": ${expression.val.ref?.name ?? expression.val.$refText} ?? 0
+                `;
+            }
+
+            if (isBinaryExpression(expression)) {
+                const expressions = [expression.e1, expression.e2];
+                return expandToNode`
+                    ${joinToNode(expressions, e => translateDiceData(e, entry, id, preDerived, generatingProperty), {separator: ", "})}
+                `;
+            }
+
+            if (isGroup(expression)) {
+                return expandToNode`
+                    ${translateDiceData(expression.ge, entry, id, preDerived, generatingProperty)}
+                `;
+            }
+
+            return undefined;
+        }
 
 export function translateExpression(entry: Entry, id: string, expression: string | MethodBlock | WhenExpressions | MethodBlockExpression | Expression | Assignment | VariableExpression | ReturnExpression | ComparisonExpression | Roll | number | Parameter | Prompt | InitiativeProperty | NumberRange, preDerived: boolean = false, generatingProperty: ClassExpression | undefined = undefined): CompositeGeneratorNode | undefined {
 
@@ -871,7 +1405,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isFleetingAccess(expression)) {
         let accessPath = expression.variable.ref?.name;
         if (expression.subProperty != undefined) {
-            accessPath = `${accessPath}.${expression.subProperty}`;
+            accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
         }
         else if (expression.arrayAccess != undefined) {
             accessPath = `${accessPath}[${translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty)}]`;
@@ -957,7 +1491,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if ( isFleetingAccess(expression) ) {
                 let accessPath = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
-                    accessPath = `${accessPath}.${expression.subProperty}`;
+                    accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
                 }
 
                 let roll = false;
@@ -1030,7 +1564,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if ( isFleetingAccess(expression) ) {
                 let accessPath = expression.variable.ref?.name;
                 if (expression.subProperty != undefined) {
-                    accessPath = `${accessPath}.${expression.subProperty}`;
+                    accessPath = `${accessPath}.${fleetingSubProperty(expression)}`;
                 }
                 return expandToNode`
                     ${accessPath}
@@ -1080,462 +1614,6 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isRoll(expression) || isDamageRoll(expression)) {
         console.log("Translating Roll Expression");
 
-        function translateDiceParts(expression: Expression, noLabels: boolean = false): CompositeGeneratorNode | undefined {
-
-            console.log("Translating Dice Part: ", expression.$type);
-
-            if (isLiteral(expression)) {
-                if (typeof expression.val == "string") {
-                    return expandToNode`
-                        "${expression.val}"
-                    `;
-                }
-                return expandToNode`
-                    "${expression.val}"
-                `;
-            }
-            if (isRef(expression)) {
-
-                // If string or number, return the value
-                if (typeof expression.val == "string" || typeof expression.val == "number") {
-                    return expandToNode`
-                        "${expression.val}"
-                    `;
-                }
-                if (expression.val.ref == undefined) {
-                    return;
-                }
-                if (expression.subProperties != undefined  && expression.subProperties.length > 0) {
-                    const subLabel = noLabels ? "" : `[${humanize(expression.subProperties[0])}]`;
-                    return expandToNode`
-                        "@${expression.val.ref?.name}${expression.subProperties[0].toLowerCase()}${subLabel}"
-                    `;
-                }
-
-                console.log("Ref:", `${expression.val.$refText}`);
-                if (IntelligentSystemDesignLanguageTerminals.DICE.test(`${expression.val}`)) {
-                    return expandToNode`
-                        "${expression.val}"
-                    `;
-                }
-
-                const refLabel = noLabels ? "" : `[${humanize(expression.val.ref?.name ?? expression.val.$refText)}]`;
-                return expandToNode`
-                    "@${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}${refLabel}"
-                `;
-            }
-            if (isParentAccess(expression)) {
-                let path = expression.property?.ref?.name ?? ""
-                let label = humanize(expression.property?.ref?.name ?? "");
-                const document = getParentDocument(expression as ParentAccess);
-                if ( document != undefined ) {
-                    path = `${document.name.toLowerCase()}${path}`;
-                    label = `${humanize(document.name)} ${label}`;
-                }
-                // else if ( expression.propertyLookup != undefined ) {
-                //     path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
-                //     label = `${label} \${context.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
-                // }
-                else {
-                    path = `${path}${expression.property?.ref?.name.toLowerCase()}`;
-                    label = `${label} ${humanize(expression.property?.ref?.name ?? "")}`;
-                }
-                for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}${subProperty}`;
-                    label = `${label} ${humanize(subProperty)}`;
-                }
-                label = label.trim();
-                const parentLabelSuffix = noLabels ? "" : `[${label}]`;
-                return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}${parentLabelSuffix}\`
-                `;
-            }
-            if (isTargetAccess(expression)) {
-                let path = expression.property?.ref?.name ?? ""
-                let label = humanize(expression.property?.ref?.name ?? "");
-                const document = getTargetDocument(expression as TargetAccess);
-                if ( document != undefined ) {
-                    path = `${document.name.toLowerCase()}${path}`;
-                    label = `${humanize(document.name)} ${label}`;
-                }
-                // else if ( expression.propertyLookup != undefined ) {
-                //     path = `${path}${expression.propertyLookup.ref?.name.toLowerCase()}`;
-                //     label = `${label} \${context.object.system.${expression.propertyLookup.ref?.name.toLowerCase()}\}`;
-                // }
-                else {
-                    path = `${path}${expression.property?.ref?.name.toLowerCase()}`;
-                    label = `${label} ${humanize(expression.property?.ref?.name ?? "")}`;
-                }
-                for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}${subProperty}`;
-                    label = `${label} ${humanize(subProperty)}`;
-                }
-                label = label.trim();
-                const targetLabelSuffix = noLabels ? "" : `[${label}]`;
-                return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}${targetLabelSuffix}\`
-                `;
-            }
-            if (isAccess(expression)) {
-                let path = expression.property?.ref?.name?.toLowerCase() ?? expression.propertyLookup?.ref?.name?.toLowerCase() ?? "";
-                let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
-
-                // if (isDieField(expression.property?.ref)) {
-                //     return expandToNode`
-                //         \'@${path.replaceAll(".", "")}\'
-                //     `;
-                // }
-
-                // Special handling for document choices - expand into individual terms
-                if (expression.property && isDocumentChoicesExp(expression.property.ref) && expression.subProperties && expression.subProperties.length > 0) {
-                    const choicesFieldName = expression.property.ref.name.toLowerCase();
-                    const subPropertyName = expression.subProperties[0].toLowerCase();
-                    const subPropertyLabel = humanize(expression.subProperties[0]);
-
-                    // Generate dynamic expansion for each document in the choices array
-                    return expandToNode`
-                        context.object.system.${choicesFieldName}.map((doc, index) => {
-                            if (!doc || !doc.system) return '';
-                            return '@' + doc.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '${subPropertyName}[' + doc.name + ' ${subPropertyLabel}]';
-                        }).filter(Boolean).join(' + ')
-                    `;
-                }
-
-                if (isParentPropertyRefExp(expression.property?.ref)) {
-                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
-                }
-                else if (isSelfPropertyRefExp(expression.property?.ref)) {
-                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
-                }
-                else {
-                    for (const subProperty of expression.subProperties ?? []) {
-                        path = `${path}.${subProperty}`;
-                        label = `${label} ${humanize(subProperty)}`;
-                    }
-                }
-                console.log("Access:", path, label);
-                const accessLabelSuffix = noLabels ? "" : `[${label}]`;
-                return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}${accessLabelSuffix}\`
-                `;
-            }
-            if (isFleetingAccess(expression)) {
-
-                // If this is a roll expression, just output it directly
-                if (isRoll(expression.variable.ref?.value)) {
-                    return expandToNode`
-                        ${expression.variable.ref?.name}
-                    `;
-                }
-
-                let path = expression.variable.ref?.name ?? "";
-                let label = humanize(expression.variable.ref?.name ?? "");
-                if (expression.subProperty != undefined) {
-                    path = `${path}.${expression.subProperty}`;
-                    label = `${label} ${humanize(expression.subProperty)}`;
-                }
-                const fleetingLabelSuffix = noLabels ? "" : `[${label}]`;
-                return expandToNode`
-                    \`@${path.replaceAll(".", "").toLowerCase()}${fleetingLabelSuffix}\`
-                `;
-            }
-            if (isBinaryExpression(expression)) {
-                return expandToNode`
-                    ${translateDiceParts(expression.e1, noLabels)} + "${expression.op}" + ${translateDiceParts(expression.e2, noLabels)}
-                `;
-            }
-
-            if (isGroup(expression)) {
-                return expandToNode`
-                    "(" + ${translateDiceParts(expression.ge, noLabels)} + ")"
-                `;
-            }
-
-            return;
-        }
-
-        function translateDisplayFormula(expression: Expression): string | undefined {
-            if (isLiteral(expression)) {
-                return `${expression.val}`;
-            }
-            if (isGroup(expression)) {
-                const inner = translateDisplayFormula(expression.ge);
-                return inner != null ? `(${inner})` : undefined;
-            }
-            if (isBinaryExpression(expression)) {
-                const left = translateDisplayFormula(expression.e1);
-                const right = translateDisplayFormula(expression.e2);
-                return left != null && right != null ? `${left} ${expression.op} ${right}` : undefined;
-            }
-            if (isAccess(expression)) {
-                if (isParentPropertyRefExp(expression.property?.ref) || isSelfPropertyRefExp(expression.property?.ref)) {
-                    return undefined;
-                }
-                let label = humanize(expression.property?.ref?.name ?? expression.propertyLookup?.ref?.name ?? "");
-                for (const sub of expression.subProperties ?? []) {
-                    label += ` ${humanize(sub)}`;
-                }
-                return label.trim();
-            }
-            if (isParentAccess(expression)) {
-                return humanize(expression.property?.ref?.name ?? "");
-            }
-            if (isTargetAccess(expression)) {
-                return humanize(expression.property?.ref?.name ?? "");
-            }
-            if (isFleetingAccess(expression)) {
-                return humanize(expression.variable.ref?.name ?? "");
-            }
-            return undefined;
-        }
-
-        function translateDiceData(expression: Expression | VariableAccess): CompositeGeneratorNode | undefined {
-            console.log("Translating Dice Data: ", expression.$type);
-            if (isParentAccess(expression)) {
-                let path = "context.object.parent.system";
-                let label = expression.property?.ref?.name ?? "";
-
-                console.log("Parent Access:", expression.property?.ref?.name);
-
-                const document = getParentDocument(expression as ParentAccess);
-                if ( document != undefined ) {
-                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
-                    label = `${humanize(document.name)}.${label}`;
-                }
-                else {
-                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
-                    label = `${label}.${expression.property}`;
-                }
-                for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}.${subProperty}`;
-                    label = `${label}.${subProperty}`;
-                }
-
-                return expandToNode`
-                    "${label.replaceAll(".", "").toLowerCase()}": ${path}
-                `;
-            }
-            if (isTargetAccess(expression)) {
-                let path = "context.target.system";
-                let label = expression.property?.ref?.name ?? "";
-
-                console.log("Target Access:", expression.property?.ref?.name);
-
-                const document = getTargetDocument(expression as TargetAccess);
-                if ( document != undefined ) {
-                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
-                    label = `${humanize(document.name)}.${label}`;
-                }
-                else {
-                    path = `${path}.${expression.property?.ref?.name?.toLowerCase()}`;
-                    label = `${label}.${expression.property}`;
-                }
-                for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}.${subProperty}`;
-                    label = `${label}.${subProperty}`;
-                }
-
-                return expandToNode`
-                    "${label.replaceAll(".", "").toLowerCase()}": ${path}
-                `;
-            }
-            if (isAccess(expression)) {
-                let path = "context.object.system";
-                let label = "";
-
-                console.log("Access:", expression.property?.ref?.name, expression.propertyLookup?.ref?.name);
-
-                if (expression.propertyLookup != undefined) {
-                    path = `${path}[context.object.${getSystemPath(expression.propertyLookup.ref)}.toLowerCase()]`;
-                    label = `${expression.propertyLookup.ref?.name}`;
-                }
-                else if (isParentPropertyRefExp(expression.property?.ref)) {
-                    path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
-                    label = `${expression.property?.ref?.name}`;
-                    let subProperty = "";
-
-                    if (expression.property?.ref.propertyType == "resource" || expression.property?.ref.propertyType == "tracker" || expression.property?.ref.propertyType == "choice"
-                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
-                        subProperty = "?.value";
-                    }
-                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
-                        subProperty = "?.mod";
-                    }
-
-                    console.log(label, path);
-                    return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path}.toLowerCase())${subProperty}
-                    `;
-                }
-                else if (isSelfPropertyRefExp(expression.property?.ref)) {
-                    // For self property references, we dynamically resolve the property path
-                    let selfPropertyPath = `context.object.system.${expression.property?.ref?.name.toLowerCase()}`;
-                    let subProperty = "";
-                    label = `${expression.property?.ref?.name}`;
-
-                    if (expression.property?.ref.propertyType == "resource" || expression.property?.ref.propertyType == "tracker" || expression.property?.ref.propertyType == "choice"
-                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "value")) {
-                        subProperty = "?.value";
-                    }
-                    if (expression.property?.ref.propertyType == "attribute" && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
-                        subProperty = "?.mod";
-                    }
-
-                    console.log(label, selfPropertyPath);
-                    return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, "system." + ${selfPropertyPath}.toLowerCase())${subProperty}
-                    `;
-                }
-                else {
-                    // Special handling for document choices - expand into individual data entries
-                    if (expression.property && isDocumentChoicesExp(expression.property.ref) && expression.subProperties && expression.subProperties.length > 0) {
-                        const choicesFieldName = expression.property.ref.name.toLowerCase();
-                        const subPropertyName = expression.subProperties[0].toLowerCase();
-
-                        // Generate data for each document in the choices array
-                        return expandToNode`
-                            ...Object.fromEntries(context.object.system.${choicesFieldName}.map((doc, index) => {
-                                if (!doc || !doc.system) return null;
-                                
-                                // Determine the accessor based on property type
-                                let accessor = '.${subPropertyName}';
-                                ${isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) ? `
-                                if (doc.system.${subPropertyName} && typeof doc.system.${subPropertyName} === 'object' && 'value' in doc.system.${subPropertyName}) {
-                                    accessor = '.${subPropertyName}.value';
-                                }` : ''}
-                                ${isAttributeExp(expression.property?.ref) ? `
-                                if (doc.system.${subPropertyName} && typeof doc.system.${subPropertyName} === 'object' && 'mod' in doc.system.${subPropertyName}) {
-                                    accessor = '.${subPropertyName}.mod';
-                                }` : ''}
-                                
-                                const key = doc.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '${subPropertyName}';
-                                const value = foundry.utils.getProperty(doc, 'system' + accessor) ?? 0;
-                                return [key, value];
-                            }).filter(Boolean))
-                        `;
-                    }
-
-                    path = `${path}.${expression.property?.ref?.name.toLowerCase()}`;
-                    label = `${expression.property?.ref?.name}`;
-
-                    if ((isResourceExp(expression.property?.ref) || isTrackerExp(expression.property?.ref) || isStringChoiceField(expression.property?.ref))
-                        && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] == "value")) {
-                        path = `${path}.value`;
-                    }
-                    if (isDiceField(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0)) {
-                        // For dice fields without subproperties, use the dice value
-                        path = `${path}.value`;
-                    }
-                    if (isDieField(expression.property?.ref)) {
-                        // For die fields, the value is just the die size (e.g., "d6"), we want to use the field name as label
-                        // Don't change the path, just ensure the label is the field name
-                    }
-                    if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
-                        path = `${path}.mod`;
-                    }
-                }
-
-                for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}.${subProperty}`;
-                    label = `${label} ${humanize(subProperty)}`;
-                }
-                console.log(label, path);
-                return expandToNode`
-                    "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": ${path} ?? 0
-                `;
-            }
-            if (isFleetingAccess(expression)) {
-
-                console.log("Fleeting Access:", expression.variable.ref?.name);
-
-                // If this is a roll expression, just skip it
-                if (isRoll(expression.variable.ref?.value)) {
-                    return;
-                }
-
-                let path = expression.variable.ref?.name;
-                if (expression.subProperty != undefined) {
-                    path = `${path}.${expression.subProperty}`;
-                }
-                if (expression.arrayAccess != undefined) {
-                    console.log("Array Access:", expression.arrayAccess.$type);
-                    let accessExp = translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty);
-                    path = `${path}[${accessExp?.contents?.toString()}]`;
-                }
-                const label = expression.variable.ref?.name.toLowerCase() ?? "";
-                console.log(label, path);
-                return expandToNode`
-                    "${label}": ${path} ?? 0
-                `;
-            }
-
-            // if (isVariableAccess(expression)) {
-            //     console.log("Variable Access:", expression.name);
-
-            //     if (isParameter(expression)) {
-            //         console.log("Parameter:", expression.name);
-            //         return expandToNode`
-            //             "${expression.name}": ${expression.name}
-            //         `;
-            //     }
-
-            //     if (isVariableExpression(expression)) {
-            //         console.log("Variable Expression:", expression.name);
-            //         if (isExpression(expression.value)) {
-            //             console.log("Expression:", expression.name);
-            //             return translateDiceData(expression.value);
-            //         }
-            //         if (isPrompt(expression.value)) {
-            //             console.log("Prompt:", expression.name);
-            //             return expandToNode`
-            //                 "${expression.name}": ${expression.name}
-            //             `;
-            //         }
-            //     }
-
-            //     throw new Error("Variable Access not implemented");
-            // }
-
-            if (isRef(expression)) {
-
-                console.log("Ref:", expression.val.ref?.name);
-
-                // If string or number, return the value
-                if (typeof expression.val == "string" || typeof expression.val == "number") {
-                    console.log(expression.val);
-                    return expandToNode`
-                        "${expression.val}": ${expression.val}
-                    `;
-                }
-                if (expression.val.ref == undefined) {
-                    return;
-                }
-                if (expression.subProperties != undefined && expression.subProperties.length > 0) {
-                    return expandToNode`
-                        "${expression.val.ref?.name.toLowerCase()}${expression.subProperties[0].toLowerCase()}": ${expression.val.ref?.name}.${expression.subProperties[0].toLowerCase()} ?? 0
-                    `;
-                }
-                console.log(expression.val.ref?.name, expression.val.ref?.$type);
-                return expandToNode`
-                    "${expression.val.ref?.name?.toLowerCase() ?? expression.val.$refText}": ${expression.val.ref?.name ?? expression.val.$refText} ?? 0
-                `;
-            }
-
-            if (isBinaryExpression(expression)) {
-                const expressions = [expression.e1, expression.e2];
-                return expandToNode`
-                    ${joinToNode(expressions, e => translateDiceData(e), {separator: ", "})}
-                `;
-            }
-
-            if (isGroup(expression)) {
-                return expandToNode`
-                    ${translateDiceData(expression.ge)}
-                `;
-            }
-
-            return undefined;
-        }
 
 
         if (isDamageRoll(expression)) {
@@ -1554,7 +1632,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
             return expandToNode`
                 await new ${entry.config.name}DamageRoll(
                     ${joinToNode(rollExpression.parts, e => translateDiceParts(e), {separator: " + "})},
-                     {${joinToNode(rollExpression.parts, e => translateDiceData(e), {separator: ", "})}, 
+                     {${joinToNode(rollExpression.parts, e => translateDiceData(e, entry, id, preDerived, generatingProperty), {separator: ", "})},
                      actor: context.actor},
                      { type: ${damageTypeDataAccess} }
                 ).roll()
@@ -1571,7 +1649,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 const nextPart = rollParts[idx + 1];
                 const nextIsDice = nextPart != null && isLiteral(nextPart) && typeof nextPart.val === 'string' && IntelligentSystemDesignLanguageTerminals.DICE.test(nextPart.val);
                 return translateDiceParts(e, nextIsDice);
-            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e), {separator: ", "})}}).roll(), ${displayFormula != null ? `{_displayFormula: "${displayFormula}"}` : '{}'})
+            }, {separator: " + "})}, {${joinToNode(rollParts, e => translateDiceData(e, entry, id, preDerived, generatingProperty), {separator: ", "})}}).roll(), ${displayFormula != null ? `{_displayFormula: "${displayFormula}"}` : '{}'})
         `;
     }
 
@@ -2076,4 +2154,27 @@ export function translateBodyExpressionToJavascript(entry: Entry, id: string, bo
 
 
     return joinToNode(body, (expression) => translateExpression(entry, id, expression, preDerived, generatingProperty), { appendNewLineIfNotEmpty: true });
+}
+
+// Compile a rollVisualizer field's value: expression into a Foundry roll formula
+// string (containing @refs) plus the data object that resolves those refs from the
+// live, reactive document/prompt context. This mirrors the roll() codegen path but
+// returns the two pieces separately, so the visualizer component can ANALYZE the
+// formula (convolve / simulate) rather than evaluate it as a roll.
+//
+// Phase 1 supports Expression values (including an explicit roll(...) node). A
+// MethodBlock value yields an empty formula -- there is nothing to visualize from a
+// statically-unknown computed string -- and the component renders its empty state.
+export function compileVisualizerFormula(entry: Entry, id: string, field: RollVisualizerField): { formula: CompositeGeneratorNode, data: CompositeGeneratorNode } {
+    const valueParam = field.params.find(isRollVisualizerValueParam) as RollVisualizerValueParam | undefined;
+    const value = valueParam?.value;
+
+    if (!value || isMethodBlock(value)) {
+        return { formula: expandToNode`""`, data: expandToNode`{}` };
+    }
+
+    const parts: Expression[] = isRoll(value) ? value.parts : [value as Expression];
+    const formula = expandToNode`${joinToNode(parts, e => translateDiceParts(e, true), { separator: " + " })}`;
+    const data = expandToNode`{${joinToNode(parts, e => translateDiceData(e, entry, id, false, undefined), { separator: ", " })}}`;
+    return { formula, data };
 }

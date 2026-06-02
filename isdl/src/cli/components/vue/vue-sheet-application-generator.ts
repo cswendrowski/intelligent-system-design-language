@@ -33,7 +33,7 @@ import {
     isEntry,
     isHtmlExp,
     isIconParam,
-    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField, isDamageTrackExp, isDamageTrackTypesParam, DamageTrackTypesParam,
+    isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField, isDamageTrackExp, isDamageTrackTypesParam, DamageTrackTypesParam, isRollVisualizerField,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -88,7 +88,7 @@ import {generateActionComponent} from './vue-action-component-generator.js';
 import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-component-generator.js';
 // import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
 import {generateDocumentChoicesComponent} from './base-components/vue-document-choices.js';
-import {translateBodyExpressionToJavascript, translateExpression} from '../method-generator.js';
+import {translateBodyExpressionToJavascript, translateExpression, compileVisualizerFormula} from '../method-generator.js';
 import {humanize} from "inflection";
 import {generateVuetifyDatatableComponent} from "./vue-datatable2-component-generator.js";
 import {generateDocumentChoiceComponent} from "./base-components/vue-document-choice.js";
@@ -1250,12 +1250,6 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         if (isProperty(element)) {
             if (element.modifier == "hidden") return expandToNode``;
 
-            if (element.name == "RollVisualizer") {
-                return expandToNode`
-                <i-roll-visualizer :context="context"></i-roll-visualizer>
-                `;
-            }
-
             const standardParams = element.params as StandardFieldParams[];
             const iconParam = standardParams.find(p => isIconParam(p)) as IconParam | undefined;
 
@@ -1266,6 +1260,22 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const systemPath = getSystemPath(element, [], undefined, false);
 
             const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;
+
+            if (isRollVisualizerField(element)) {
+                const { formula, data } = compileVisualizerFormula(entry, id, element);
+                return expandToNode`
+                <i-roll-visualizer
+                    :context="context"
+                    label="${label}"
+                    ${iconParam ? `icon="${iconParam.value}"` : ``}
+                    ${colorParam ? `color="${colorParam.value}"` : ``}
+                    systemPath="${systemPath}"
+                    :formula='${formula}'
+                    :rollData='${data}'
+                    v-if="!isHidden('${element.name.toLowerCase()}')">
+                </i-roll-visualizer>
+                `;
+            }
 
             if (isParentPropertyRefExp(element)) {
                 const choicesParam = element.params.find(p => isParentPropertyRefChoiceParam(p)) as ParentPropertyRefChoiceParam | undefined;

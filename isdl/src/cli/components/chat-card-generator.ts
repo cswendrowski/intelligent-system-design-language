@@ -198,7 +198,8 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                     }
 
                     async function apply(element, event, type) {
-                        const menu = element.find('#context-menu2')?.[0];
+                        // The menu is mounted on <body>, not inside the roll element, so look it up by id.
+                        const menu = $('#context-menu2')?.[0];
                         const applyTargetType = menu?.dataset?.target ?? 'selected';
                         const applyMod = menu?.dataset?.mod ? Number(menu.dataset.mod) : 1;
                         const bonusDamage = menu?.dataset?.bonus ? Number(menu.dataset.bonus) : 0;
@@ -401,11 +402,12 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                             callback: (inlineRoll, event) => {
                                 const button = event?.target ?? event?.currentTarget;
                                 if (button?.dataset?.target) {
-                                    // Deactivate the other target type.
-                                    const activeButtons = inlineRoll.find('button[data-target].active');
-                                    activeButtons.removeClass('active');
+                                    // Deactivate the other target type. The menu lives on <body>,
+                                    // so scope lookups to the menu element rather than the roll.
+                                    const menuEl = $('#context-menu2');
+                                    menuEl.find('button[data-target].active').removeClass('active');
                                     // Set the target type on the menu for later reference.
-                                    const menu = inlineRoll.find('#context-menu2')[0];
+                                    const menu = menuEl[0];
                                     if (menu) {
                                         menu.dataset.target = button.dataset.target;
                                     }
@@ -435,12 +437,13 @@ export function generateChatCardClass(entry: Entry, destination: string) {
                         callback: (inlineRoll, event) => {
                             const button = event?.target ?? event?.currentTarget;
                             if (button?.dataset?.mod) {
-                                // Deactivate the other target type.
-                                const activeButtons = inlineRoll.find('button[data-mod].active');
-                                activeButtons.removeClass('active');
+                                // Deactivate the other multiplier. The menu lives on <body>, so
+                                // scope lookups to the menu element rather than the roll.
+                                const menuEl = $('#context-menu2');
+                                menuEl.find('button[data-mod].active').removeClass('active');
 
-                                // Set the target type on the menu for later reference.
-                                const menu = inlineRoll.find('#context-menu2')[0];
+                                // Set the multiplier on the menu for later reference.
+                                const menu = menuEl[0];
                                 if (menu) {
                                     menu.dataset.mod = button.dataset.mod;
                                 }

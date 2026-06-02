@@ -38,7 +38,9 @@ import {
     DamageTrackExp,
     ParentAccess, ParentAssignment, IfStatement,
     isIfStatement, isParentTypeCheckExpression,
-    TargetAccess, TargetAssignment, isTargetTypeCheckExpression
+    TargetAccess, TargetAssignment, isTargetTypeCheckExpression,
+    RollVisualizerField, isRollVisualizerValueParam,
+    PromptInputAccess, isPrompt, isRollVisualizerField
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType, functionIsDerivedSafe } from '../cli/components/utils.js';
@@ -70,6 +72,8 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         TargetAccess: validator.validateTargetAccess,
         TargetAssignment: validator.validateTargetAccess,
         Prompt: validator.validatePrompt,
+        RollVisualizerField: validator.validateRollVisualizerField,
+        PromptInputAccess: validator.validatePromptInputAccess,
         FunctionCall: validator.validateDerivedFunctionCall
     };
     registry.register(checks, validator);
@@ -90,7 +94,10 @@ export class IntelligentSystemDesignLanguageValidator {
             'DocumentChoiceExp', 'DocumentChoicesExp', 'SingleDocumentExp',
             'ParentPropertyRefExp', 'SelfPropertyRefExp',
             'DieField', 'DiceField',
-            'DateExp', 'TimeExp', 'DateTimeExp'
+            'DateExp', 'TimeExp', 'DateTimeExp',
+            // Read-only display field: previews a roll's distribution. Allowed in
+            // prompts as a static preview (resolved against prep-time values).
+            'RollVisualizerField'
         ]);
         for (const field of prompt.body) {
             if (!allowed.has(field.$type)) {
@@ -100,6 +107,35 @@ export class IntelligentSystemDesignLanguageValidator {
                     + `choice/choices (string, damageType, or document), parent/self references, die, dice, and date/time/datetime.`,
                     { node: field });
             }
+        }
+    }
+
+    // A rollVisualizer charts the distribution of its value: expression, so the
+    // value: param is required -- without it there is nothing to visualize.
+    validateRollVisualizerField(field: RollVisualizerField, accept: ValidationAcceptor): void {
+        const valueParams = field.params.filter(isRollVisualizerValueParam);
+        if (valueParams.length === 0) {
+            accept('error', `rollVisualizer '${field.name}' requires a value: dice expression to visualize.`,
+                { node: field, property: 'name' });
+        }
+        else if (valueParams.length > 1) {
+            accept('error', `rollVisualizer '${field.name}' has more than one value: parameter.`,
+                { node: field, property: 'name' });
+        }
+    }
+
+    // `input.X` names a sibling prompt input. It only makes sense inside a prompt, and
+    // for now reactive resolution is only wired for rollVisualizer (other prompt fields
+    // are seeded once at prep time and would not react), so restrict it there.
+    validatePromptInputAccess(access: PromptInputAccess, accept: ValidationAcceptor): void {
+        const prompt = AstUtils.getContainerOfType(access, isPrompt);
+        if (!prompt) {
+            accept('error', "'input.' can only be used inside a prompt.", { node: access });
+            return;
+        }
+        const visualizer = AstUtils.getContainerOfType(access, isRollVisualizerField);
+        if (!visualizer) {
+            accept('error', "'input.' references are currently only supported inside a rollVisualizer's value.", { node: access });
         }
     }
 

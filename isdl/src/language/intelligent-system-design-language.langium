@@ -74,7 +74,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField);
+    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField | RollVisualizerField);
 WipFields:
     (DamageTrackExp);
 DateTimeFields:
@@ -215,6 +215,19 @@ MoneyDenominationValueParam:
 
 PinnedField:
     ExpressionModifier "pinned" name=ID StandardFieldParamsFrag;
+
+// Roll Visualizer -------------
+// Charts the probability distribution of a dice formula (exact via convolution
+// for additive formulas, Monte Carlo fallback otherwise) plus its average and
+// min/max. The value: expression uses the same roll-expression syntax as
+// attribute roll:, so it can reference other fields and recompute reactively.
+
+RollVisualizerField:
+    ExpressionModifier "rollVisualizer" name=ID ("(" params+=RollVisualizerParameter ("," params+=RollVisualizerParameter)* ")")?;
+RollVisualizerParameter:
+    (StandardFieldParams | RollVisualizerValueParam);
+RollVisualizerValueParam:
+    "value:" value=(MethodBlock | Expression);
 
 // Tracker -------------
 
@@ -497,6 +510,14 @@ QuickModifyAssignment:
     Self term=("+="|"-="|"*="|"/=") exp=Expression;
 
 
+// Prompt Input Access ---------------------------------------------------------------
+// Inside a prompt, `input.X` references a sibling prompt input field (resolved against
+// the containing prompt's body). Distinct from `self.X` (the document). Used by
+// rollVisualizer to chart a formula that reacts to the user's prompt inputs live.
+
+PromptInputAccess:
+    "input." property=[Property:ID] ("." subProperties+=("Name" | "number" | "die" | ID))*;
+
 // Parent Access / Modification ------------------------------------------------------
 
 fragment Parent:
@@ -682,7 +703,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
+    Literal | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=" | "has" | "excludes" | "startsWith" | "endsWith") e2=Expression;
 ShorthandComparisonExpression:

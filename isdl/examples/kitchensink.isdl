@@ -31,6 +31,12 @@ actor BasicHero {
     number MaxStamina(value: { return self.HealthModifier + 5 })
     number ReserveStamina(initial: { return self.MaxStamina })
 
+    // QA: rollVisualizer -- charts a dice formula's distribution + average. Additive formula
+    // (dice + field reference) takes the exact convolution path and reacts to HealthModifier.
+    rollVisualizer DamagePreview(value: 2d6 + self.HealthModifier, label: "Expected Damage")
+    // QA: keep-highest modifier forces the Monte Carlo simulation fallback path.
+    rollVisualizer CritPreview(value: 2d20kh1 + self.HealthModifier, color: #a586c0)
+
       action GetUserChoice {
         fleeting userInput = prompt(
         label: "Choose Your Action",
@@ -46,7 +52,7 @@ actor BasicHero {
     action VuePromptTest {
         fleeting first = prompt(label: "First Prompt") {
             string Title
-            number Amount(value: 3)
+            number Amount(initial: 3)
             number Doubled(value: { return self.HealthModifier + 10 })
             string StaticNote(value: "Computed note")
             boolean Confirmed
@@ -58,6 +64,11 @@ actor BasicHero {
             self<attribute> Stat
             choice<Skill> ChosenSkill
             choices<Skill> ManySkills
+            // QA: rollVisualizer inside a prompt -- static preview, resolves against the document.
+            rollVisualizer Preview(value: 2d6 + self.HealthModifier)
+            // QA Phase 2: input.X references a sibling prompt input (Amount); the chart updates
+            // live as the user edits Amount. Convolution path (additive), so the average is exact.
+            rollVisualizer LivePreview(value: 2d6 + input.Amount, label: "Live Preview", color: #38a169)
         }
         fleeting second = prompt(label: "Second Prompt") {
             number Bonus
@@ -77,6 +88,18 @@ actor BasicHero {
             "ChosenSkill: " + first.ChosenSkill
             "ManySkills: " + first.ManySkills
             "Bonus: " + second.Bonus
+        }
+    }
+
+    // QA: dedicated live-preview prompt -- a dice pool, a single die, and a flat number
+    // input all feed one rollVisualizer that recomputes as the user edits them. Additive
+    // formula -> exact convolution. Demonstrates input.X across dice/die/number types.
+    action RollBuilder(icon: "fa-solid fa-dice-d20") {
+        fleeting build = prompt(label: "Roll Builder") {
+            dice DamageDice
+            die BonusDie
+            number FlatBonus
+            rollVisualizer Preview(value: input.DamageDice + input.BonusDie + input.FlatBonus, label: "Expected Result", color: #38a169)
         }
     }
 
@@ -120,6 +143,22 @@ actor BasicHero {
                 check
                 "Failure!"
             }
+        }
+    }
+
+    // QA: prompt subproperty used in arithmetic, a runtime-sized dice pool, and a flavor line
+    // (regression: opts.Boons resolved to undefined -> pool NaN -> "Unresolved StringTerm NaN").
+    action StrikePoolTest(icon: "fa-solid fa-khanda") {
+        fleeting opts = prompt(label: "Strike Roll") {
+            number Boons(min: 0)
+            number Banes(min: 0)
+        }
+        fleeting net = opts.Boons - opts.Banes
+        fleeting pool = 1 + Math.abs(net)
+        fleeting strikeRoll = roll((pool)d6kh1)
+        chat StrikePoolResult {
+            flavor self.Name + " strikes with " + opts.Boons + " boon(s), " + opts.Banes + " bane(s)"
+            strikeRoll
         }
     }
 }

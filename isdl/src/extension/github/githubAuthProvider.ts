@@ -26,23 +26,17 @@ export class GitHubAuthProvider {
                 title: "Connecting to GitHub...",
                 cancellable: true
             }, async (progress) => {
-                // Use VS Code's built-in GitHub authentication
-                const session = await vscode.authentication.getSession(
-                    GitHubAuthProvider.GITHUB_AUTH_PROVIDER_ID,
-                    GitHubAuthProvider.SCOPES,
-                    { createIfNone: true }
-                );
+                // Use the editor's built-in GitHub provider, falling back to a Personal
+                // Access Token on builds that don't ship it (e.g. VSCodium / OSS builds).
+                const token = await this.getAccessToken(true);
 
-                if (!session) {
+                if (!token) {
                     vscode.window.showErrorMessage('Failed to authenticate with GitHub');
                     return undefined;
                 }
 
-                // Store the session information securely
-                await this.storeGitHubSession(session);
-
                 // Get user information
-                const userInfo = await this.getUserInfo(session.accessToken);
+                const userInfo = await this.getUserInfo(token);
 
                 if (userInfo) {
                     await this.storeUserInfo(userInfo);
@@ -66,34 +60,92 @@ export class GitHubAuthProvider {
     }
 
     /**
-     * Check if user is currently authenticated
+     * Central access-token accessor and the single choke point for obtaining GitHub
+     * credentials. Tries the editor's built-in 'github' authentication provider first; if
+     * that provider is entirely absent (common on VSCodium and other non-Microsoft builds,
+     * where getSession throws) or has no session, falls back to a stored Personal Access
+     * Token -- prompting for one when `interactive` is true. Returns undefined if no token
+     * can be obtained.
      */
-    async isAuthenticated(): Promise<boolean> {
-        try {
-            const session = await vscode.authentication.getSession(
-                GitHubAuthProvider.GITHUB_AUTH_PROVIDER_ID,
-                GitHubAuthProvider.SCOPES,
-                { silent: true }
-            );
-            return !!session;
-        } catch {
-            return false;
+    async getAccessToken(interactive: boolean = false): Promise<string | undefined> {
+        const session = await this.getNativeSession(interactive);
+        if (session) {
+            return session.accessToken;
         }
+
+        const storedPat = await this.context.secrets.get('github.pat');
+        if (storedPat) {
+            return storedPat;
+        }
+
+        if (interactive) {
+            return await this.promptForPat();
+        }
+        return undefined;
     }
 
     /**
-     * Get current GitHub session
+     * getSession wrapper that tolerates the 'github' provider being unregistered (in which
+     * case getSession throws rather than returning null) and never surfaces UI when silent.
      */
-    async getCurrentSession(): Promise<vscode.AuthenticationSession | undefined> {
+    private async getNativeSession(interactive: boolean): Promise<vscode.AuthenticationSession | undefined> {
         try {
             return await vscode.authentication.getSession(
                 GitHubAuthProvider.GITHUB_AUTH_PROVIDER_ID,
                 GitHubAuthProvider.SCOPES,
-                { silent: true }
+                interactive ? { createIfNone: true } : { silent: true }
             );
         } catch {
+            // No built-in GitHub authentication provider available on this build.
             return undefined;
         }
+    }
+
+    /**
+     * Prompt for, validate, and store a GitHub Personal Access Token. Used when the editor
+     * has no built-in GitHub sign-in. The scope guidance must match SCOPES so the token can
+     * actually perform repo creation, publishing, workflow and gist operations.
+     */
+    private async promptForPat(): Promise<string | undefined> {
+        const token = await vscode.window.showInputBox({
+            title: 'Connect to GitHub with a Personal Access Token',
+            prompt: "This editor has no built-in GitHub sign-in (common on VSCodium and other OSS builds). Create a classic token at github.com/settings/tokens with scopes: repo, workflow, gist, user:email -- then paste it here.",
+            placeHolder: 'ghp_xxxxxxxxxxxxxxxxxxxxxxxx',
+            password: true,
+            ignoreFocusOut: true,
+            validateInput: (value) => (value && value.trim().length > 0) ? undefined : 'Token cannot be empty'
+        });
+        if (!token) {
+            return undefined;
+        }
+
+        const trimmed = token.trim();
+        // Validate before storing so a bad/under-scoped token fails here rather than mid-publish.
+        const userInfo = await this.getUserInfo(trimmed);
+        if (!userInfo) {
+            vscode.window.showErrorMessage('That GitHub token could not be validated. Make sure it is a classic token with the repo, workflow, gist and user:email scopes.');
+            return undefined;
+        }
+
+        await this.context.secrets.store('github.pat', trimmed);
+        await this.storeUserInfo(userInfo);
+        return trimmed;
+    }
+
+    /**
+     * Check if user is currently authenticated (native session or stored PAT).
+     */
+    async isAuthenticated(): Promise<boolean> {
+        return !!(await this.getAccessToken(false));
+    }
+
+    /**
+     * Get current GitHub session from the built-in provider, if any. Returns undefined when
+     * the provider is absent or only a PAT is configured -- callers needing a token for API
+     * calls should use getAccessToken() instead, which also covers the PAT path.
+     */
+    async getCurrentSession(): Promise<vscode.AuthenticationSession | undefined> {
+        return await this.getNativeSession(false);
     }
 
     /**
@@ -123,9 +175,10 @@ export class GitHubAuthProvider {
                 );
             }
 
-            // Clear stored information
+            // Clear stored information (native session cache + PAT fallback)
             await this.context.secrets.delete('github.userInfo');
             await this.context.secrets.delete('github.session');
+            await this.context.secrets.delete('github.pat');
 
             vscode.window.showInformationMessage('Successfully signed out from GitHub');
         } catch (error) {
@@ -157,19 +210,6 @@ export class GitHubAuthProvider {
             console.error('Failed to get user info:', error);
             return undefined;
         }
-    }
-
-    /**
-     * Store GitHub session securely
-     */
-    private async storeGitHubSession(session: vscode.AuthenticationSession): Promise<void> {
-        const sessionData = {
-            accessToken: session.accessToken,
-            account: session.account,
-            id: session.id,
-            scopes: session.scopes
-        };
-        await this.context.secrets.store('github.session', JSON.stringify(sessionData));
     }
 
     /**

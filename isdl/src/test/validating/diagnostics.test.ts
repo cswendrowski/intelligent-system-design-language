@@ -73,6 +73,54 @@ describe('parser diagnostics', () => {
         expect(diags.some(d => /calculated value/.test(d.message))).toBe(true);
     });
 
+    it('accepts a rollVisualizer with a literal dice value', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    rollVisualizer Preview(value: 2d6 + 3)\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('accepts a rollVisualizer whose value references another field', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number Bonus\n    rollVisualizer Preview(value: 2d6 + self.Bonus, label: "Expected")\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('rejects a rollVisualizer with no value: param', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    rollVisualizer Preview(label: "Expected")\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /requires a value:/.test(d.message))).toBe(true);
+    });
+
+    it('allows a rollVisualizer inside a prompt', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting x = prompt(label: "T") {\n            number Amount\n            rollVisualizer Preview(value: 2d6 + 1)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('allows a prompt rollVisualizer to reference a sibling input via input.X', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number WeaponBonus\n    action P {\n        fleeting o = prompt(label: "T") {\n            number Boons(min: 0)\n            rollVisualizer Preview(value: 2d6 + input.Boons + self.WeaponBonus)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('allows input.X referencing dice, die, and number prompt inputs', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting o = prompt(label: "T") {\n            dice DamageDice\n            die BonusDie\n            number FlatBonus\n            rollVisualizer Preview(value: input.DamageDice + input.BonusDie + input.FlatBonus)\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags).toHaveLength(0);
+    });
+
+    it('rejects input.X used outside a prompt', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    number Boons\n    rollVisualizer Preview(value: 2d6 + input.Boons)\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /can only be used inside a prompt/.test(d.message))).toBe(true);
+    });
+
+    it('rejects input.X used outside a rollVisualizer', async () => {
+        const src = `${CONFIG}\n\nactor A {\n    action P {\n        fleeting o = prompt(label: "T") {\n            number Boons\n            number Bad(value: { return input.Boons + 1 })\n        }\n    }\n}`;
+        const diags = await errors(src);
+        expect(diags.some(d => /only supported inside a rollVisualizer/.test(d.message))).toBe(true);
+    });
+
     it('rejects a function that mutates self (++/+=) inside a calculated value', async () => {
         // self.X++ is an IncrementDecrementAssignment (a grammar union member) — a document write,
         // not pure. Guard-based detection must catch it, not just literal "Assignment" $type.

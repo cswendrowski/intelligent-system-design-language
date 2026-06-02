@@ -104,11 +104,25 @@
 
   &.isdl-prompt {
 
-    // Prompts pin a Submit/Cancel footer below a scrolling field list. For that
-    // the height must cascade down to the inner scroller, so the outer window must
-    // not scroll and the Vuetify layout must be allowed to shrink to the window.
+    // Cap prompt windows at 80% of the viewport (overrides the base max-height: 100%).
+    max-height: 80vh;
+
+    // When a prompt exceeds the cap, scroll the content. We scroll at .window-content
+    // rather than an inner field-list scroller because the window is height:auto and
+    // max-height is NOT a definite height, so a percentage/flex height cascade can't
+    // bound an inner scroller. window-content has a real used height, so it scrolls
+    // reliably; the Submit/Cancel footer stays visible via position: sticky.
     .window-content {
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .isdl-prompt-footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      background: rgb(var(--v-theme-surface));
+      border-top: 1px solid rgba(0, 0, 0, 0.12);
     }
 
     .v-application__wrap {
@@ -657,18 +671,19 @@
 /*  Context Dropdown Menu
 /* ----------------------------------------- */
 #context-menu2 {
-  width: 100%;
+  width: max-content;
   height: max-content;
   min-width: 200px;
   max-width: 360px;
-  position: absolute;
-  left: 0;
+  // Rendered to <body> with explicit viewport coordinates (see ContextMenu2._setPosition) so
+  // the menu escapes the chat log's overflow clipping and any transformed sheet ancestor.
+  position: fixed;
   background: linear-gradient(180deg, rgba(24, 23, 20, 0.8) 0%, rgba(35, 34, 29, 0.8) 100%);
   border: 1px solid #000;
   box-shadow: 0 0 20px -2px #000;
   border-radius: 5px;
   color: #EEE;
-  z-index: 31;
+  z-index: 100000;
 
   h2 {
     font-family: 'warnock-pro', sans-serif;
@@ -679,12 +694,14 @@
   }
 }
 
+// Positioning is set inline from the target's viewport rect (ContextMenu2._setPosition);
+// these classes remain only as open-direction markers for the slide animation.
 #context-menu2.expand-down {
-  top: calc(100% + 2px);
+  transform-origin: top;
 }
 
 #context-menu2.expand-up {
-  bottom: calc(100% + 2px);
+  transform-origin: bottom;
 }
 
 #context-menu2 ol.context-items {
@@ -708,11 +725,9 @@
   margin-right: 5px;
 }
 
-.window-app #context-menu2 {
-  z-index: 101;
-}
-
-#chat-log #context-menu2 {
+// The menu now mounts on <body>, so its damage-apply buttons/modifiers (which only exist in
+// the chat context) are styled by id alone rather than via a #chat-log ancestor selector.
+#context-menu2 {
   button {
     font-size: 12px;
     background: transparent;
