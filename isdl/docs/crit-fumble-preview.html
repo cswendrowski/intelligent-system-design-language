@@ -53,9 +53,13 @@
     animation: isdl-crit-fumble-shimmer 3s linear infinite;
   }
   .roll--crit.roll--fumble .roll-flag-crit-fumble {
-    color: #2f9e44;
-    filter: drop-shadow(0 0 2px #40c057) drop-shadow(0 0 3px #e03131);
     animation: isdl-crit-fumble-pulse 1.2s ease-in-out infinite;
+  }
+  /* gradient on ::before (wraps the glyph exactly) so the right edge isn't clipped */
+  .roll--crit.roll--fumble .roll-flag-crit-fumble::before {
+    background: linear-gradient(135deg, #40c057 0%, #2f9e44 45%, #c92a2a 55%, #e03131 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
   }
   @keyframes isdl-crit-fumble-shimmer { from { background-position: 0% center; } to { background-position: 200% center; } }
   @keyframes isdl-crit-fumble-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
