@@ -32,6 +32,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
+    # Surfaced as an env var so the Open VSX step can no-op when the secret is unset
+    # (e.g. on forks) -- secrets can't be referenced directly in a step `if:`.
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
     steps:
     - name: Checkout repository
@@ -71,6 +75,14 @@ jobs:
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
       run: npx --yes @vscode/vsce publish --packagePath "isdl-${{ matrix.target }}.vsix"
+
+    # Open VSX is the registry VSCodium and other OSS editors install from. ovsx reads the
+    # OVSX_PAT env var and infers the platform target from the packaged VSIX. Requires the
+    # publisher namespace to exist on open-vsx.org with this token's account as a member.
+    - name: Publish to Open VSX
+      if: ${{ env.OVSX_PAT != '' }}
+      working-directory: ./isdl
+      run: npx --yes ovsx publish "isdl-${{ matrix.target }}.vsix"
 
     - name: Upload VSIX to release
       working-directory: ./isdl
