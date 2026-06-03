@@ -33,7 +33,17 @@ export function deactivate(): Thenable<void> | undefined {
 
 function registerCommands(context: vscode.ExtensionContext) {
 
-    function generate(sourceFilePath: string, destinationPath: string) {
+    async function generate(sourceFilePath: string, destinationPath: string) {
+        // Generation parses the file from disk, so flush any unsaved editor buffer first.
+        // VS Code's auto-save is off by default; without this a dirty (or freshly created,
+        // never-saved) file would generate from stale/empty content on disk.
+        const openDoc = vscode.workspace.textDocuments.find(
+            d => d.uri.fsPath === sourceFilePath && d.isDirty
+        );
+        if (openDoc) {
+            await openDoc.save();
+        }
+
         const cliPath = path.resolve(context.extensionPath, 'bin', 'cli.js');
         const fileName = path.basename(sourceFilePath);
 
@@ -136,7 +146,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         const destinationPath = destinationFolderUri[0].fsPath;
         await context.globalState.update('lastSelectedFolder', destinationPath);
 
-        generate(sourceFilePath, destinationPath);
+        await generate(sourceFilePath, destinationPath);
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('isdl.regenerate', async () => {
@@ -148,7 +158,7 @@ function registerCommands(context: vscode.ExtensionContext) {
             return;
         }
 
-        generate(lastSelectedFile, lastSelectedFolder);
+        await generate(lastSelectedFile, lastSelectedFolder);
     }));
 }
 
