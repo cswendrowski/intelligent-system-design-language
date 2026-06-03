@@ -11,19 +11,32 @@ import { LangiumParserErrorMessageProvider } from 'langium';
  */
 export class IsdlParserErrorMessageProvider extends LangiumParserErrorMessageProvider {
     override buildMismatchTokenMessage(options: any): string {
-        const friendly = this.friendlyMessage(options?.actual, options?.previous, options?.ruleName);
+        const friendly = this.friendlyMessage(options?.expected, options?.actual, options?.previous, options?.ruleName);
         return friendly ?? super.buildMismatchTokenMessage(options);
     }
 
     override buildNoViableAltMessage(options: any): string {
         const actual = Array.isArray(options?.actual) ? options.actual[0] : options?.actual;
-        const friendly = this.friendlyMessage(actual, options?.previous, options?.ruleName);
+        const friendly = this.friendlyMessage(undefined, actual, options?.previous, options?.ruleName);
         return friendly ?? super.buildNoViableAltMessage(options);
     }
 
-    private friendlyMessage(_actual: any, _previous: any, _rawRuleName: string | undefined): string | undefined {
-        // Extension point for plain-English rewrites of common parser mistakes. Add a detector here
-        // (keyed conservatively on ruleName + previous/actual tokens) when a recurring confusing
+    private friendlyMessage(expected: any, actual: any, previous: any, _rawRuleName: string | undefined): string | undefined {
+        // Spaces in a name. Writing `section Physical Attributes {` (or `actor My Hero {`, etc.)
+        // parses the first word as the name, then expects the body's `{` but hits the second word.
+        // The default "Expecting token of type '{' but found `Attributes`" is opaque to newcomers.
+        // Detect conservatively: the parser wanted `{` and got an identifier where the name should
+        // have ended. The two adjacent words are the likely intended single-word name.
+        if (expected?.name === '{' && actual?.tokenType?.name === 'ID') {
+            const combined = `${previous?.image ?? ''}${actual.image}`;
+            const suggestion = previous?.tokenType?.name === 'ID' && previous?.image ? `, e.g. \`${combined}\`` : '';
+            return `Expected '{' to open the body, but found \`${actual.image}\`. `
+                + `This usually means a name has a space in it — names must be a single word `
+                + `(letters, numbers, and underscores only)${suggestion}.`;
+        }
+
+        // Extension point for further plain-English rewrites. Add a detector here (keyed
+        // conservatively on expected/previous/actual tokens or ruleName) when a recurring confusing
         // error is identified; unrecognized cases fall back to the default Langium message.
         //
         // Rule names carry a trailing zero-width space (U+200B) -- strip non-letters before comparing:
