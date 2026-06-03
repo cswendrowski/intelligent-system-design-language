@@ -574,15 +574,32 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function generateAttributeRollMethod(attribute: AttributeExp): CompositeGeneratorNode {
         const rollParam = attribute.params.find(isAttributeRollParam) as AttributeRollParam | undefined;
         if (rollParam) {
+            // A block-style `roll: { ... }` is a method body: it declares its own variables, runs its
+            // own logic, and creates its own `chat` cards. Emit those statements directly. An
+            // expression-style `roll: roll(...)` produces a single Roll value we wrap in a chat card.
+            // `system` is provided in scope so `self.X` (which compiles to bare `system.x`) and
+            // `success:` thresholds resolve, matching the function/action handler convention.
+            if (isMethodBlock(rollParam.roll)) {
+                return expandToNode`
+                const on${toMachineIdentifier(attribute.name)}AttributeRoll = async () => {
+                    const context = {
+                        object: document
+                    };
+                    let system = context.object.system;
+                    ${translateExpression(entry, id, rollParam.roll, false, attribute)}
+                };
+                `;
+            }
             return expandToNode`
             const on${toMachineIdentifier(attribute.name)}AttributeRoll = async () => {
                 const context = {
                     object: document
                 };
+                let system = context.object.system;
                 const roll = ${translateExpression(entry, id, rollParam.roll, false, attribute)};
                 // Create the chat message
                 const ${attribute.name}Description = context.object.description ?? context.object.system.description;
-                const ${attribute.name}Context = { 
+                const ${attribute.name}Context = {
                     cssClass: "${id} ${toMachineIdentifier(attribute.name)}",
                     document: context.object,
                     description: ${attribute.name}Description,
@@ -592,7 +609,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
                             label: "${humanize(attribute.name)} Attribute Roll",
                             value: roll,
                             isRoll: true,
-                            wide: true, 
+                            wide: true,
                             tooltip: await roll.getTooltip()
                         }
                     ],

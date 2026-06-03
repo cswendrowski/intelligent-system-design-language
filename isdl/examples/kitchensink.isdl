@@ -688,6 +688,23 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             attribute Grit(min: 1, max: 6, style: plain, roll: roll(d20 + self.Grit))
             // QA: attribute `function:` click handler (mutually exclusive with roll:)
             attribute Brawl(min: 1, max: 30, style: plain, icon: "fa-solid fa-hand-fist", function: BrawlAttack)
+            // QA: roll-under with `success: <= self.X` (self.X threshold must resolve in scope)
+            attribute RollUnder(min: 0, max: 100, initial: 40, roll: roll(d100, success: <= self.RollUnder))
+            // QA: block-style `roll: { ... }` (emits its own statements + chat cards, not a wrapped Roll)
+            attribute BlockRoll(min: 0, max: 100, initial: 40, roll: {
+                fleeting result = roll(d100)
+                if (result <= self.BlockRoll) {
+                    chat Roll {
+                        flavor "Success!"
+                        result
+                    }
+                } else {
+                    chat Roll {
+                        flavor "Failure!"
+                        result
+                    }
+                }
+            })
         }
 
         section PlainAttributes {
