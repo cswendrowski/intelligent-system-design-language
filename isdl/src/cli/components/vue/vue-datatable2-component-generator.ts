@@ -25,7 +25,11 @@ import {
     isTableFieldsParam,
     isTableImageParam,
     isTableImageActionParam,
+    isTableSortableParam,
+    isTableSearchableParam,
+    isTablePinnableParam,
     TableImageActionParam,
+    TableSortableParam, TableSearchableParam, TablePinnableParam,
     isTimeExp,
     isTrackerExp, Layout, Property,
     isVisibilityParam, isMethodBlock, isWhereParam,
@@ -61,10 +65,17 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
     const imageActionIcon = (imageActionParam?.action.ref?.params.find(p => isIconParam(p)) as IconParam | undefined)?.value ?? "fa-solid fa-bolt";
     const imageActionColor = (imageActionParam?.action.ref?.params.find(p => isColorParam(p)) as ColorParam | undefined)?.value ?? "primary";
 
-    // `readonly` (or `locked`) tables render as static, display-only summaries: all interactive
-    // chrome -- search, Add, the column-config gear/dialog, the Actions column, the pin column,
-    // and column sorting -- is stripped. Data, image, name, and field columns still render.
+    // `readonly` (or `locked`) controls EDITING only: it hides the Add button and the Actions
+    // column (edit/duplicate/delete/send-to-chat). It does NOT affect sort, search, the pin
+    // column, or the column-config gear/dialog -- those are view preferences governed by the
+    // independent `sortable:`/`searchable:`/`pinnable:` params (default true / current behavior).
     const isReadonly = table.modifier === 'readonly' || table.modifier === 'locked';
+
+    // View-preference params, independent of `readonly` and of each other. Absent = enabled.
+    // BOOLEAN is a real boolean (grammar), so `?? true` preserves an explicit `false`.
+    const isSortable = (table.params.find(p => isTableSortableParam(p)) as TableSortableParam | undefined)?.value ?? true;
+    const isSearchable = (table.params.find(p => isTableSearchableParam(p)) as TableSearchableParam | undefined)?.value ?? true;
+    const isPinnable = (table.params.find(p => isTablePinnableParam(p)) as TablePinnableParam | undefined)?.value ?? true;
 
     // Resolve the static visibility of a column from its `visibility:` param (preferred) or its modifier.
     // Method-block visibility can't be resolved at build time, so we fall back to the modifier / default.
@@ -100,7 +111,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             if (visibility === "hidden") return undefined;
 
             let systemPath = getSystemPath(property, [], undefined, false);
-            let sortable = !isReadonly;
+            let sortable = isSortable;
 
             if (isResourceExp(property) || isTrackerExp(property) || isDiceField(property) || isMeasuredTemplateField(property)) {
                 sortable = false;
@@ -372,7 +383,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
         const customHeaders = [
             // Image and Name are configurable columns like any other. Image is ordered first by default.
             { title: game.i18n.localize("Image"), key: 'img', sortable: false, width: '50px', maxWidth: '50px' },
-            { title: game.i18n.localize("Name"), key: 'name', sortable: ${!isReadonly}, minWidth: '120px', locked: true },
+            { title: game.i18n.localize("Name"), key: 'name', sortable: ${isSortable}, minWidth: '120px', locked: true },
             ${joinToNode(table.document.ref!.body, p => generateDataTableHeader(table.document, p), { appendNewLineIfNotEmpty: true })}
         ];
 
@@ -418,14 +429,14 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
 
         const visibleHeaders = computed(() => {
             const baseHeaders = [
-                ${isReadonly ? '' : expandToNode`{
+                ${isPinnable ? expandToNode`{
                     title: "",
                     key: 'system.pinned',
                     sortable: false,
                     width: '40px',
                     maxWidth: '40px',
                     align: 'center'
-                }`}
+                }` : ''}
             ];
 
             let customHeadersToShow = orderedHeaders.value.filter(header => header && isColumnVisible(header.key) && passesVisibility(header));
@@ -777,7 +788,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 <v-icon icon="fa-solid ${iconParam ? iconParam.value : 'fa-table'}" size="small" />
                 &nbsp; {{ game.i18n.localize("${document.name}.${table.name}") }}
                 <v-spacer></v-spacer>
-                ${isReadonly ? '' : expandToNode`<v-text-field
+                ${isSearchable ? expandToNode`<v-text-field
                         v-model="search"
                         density="compact"
                         label="Search"
@@ -788,7 +799,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                         single-line
                         clearable
                         style="margin: 0; margin-right: 8px;"
-                ></v-text-field>
+                ></v-text-field>` : ''}
                 <v-btn
                     icon="fa-solid fa-columns"
                     size="small"
@@ -799,7 +810,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                     <v-icon>fa-solid fa-columns</v-icon>
                     <v-tooltip activator="parent" location="top">Configure Columns</v-tooltip>
                 </v-btn>
-                <v-btn
+                ${isReadonly ? '' : expandToNode`<v-btn
                     :color="primaryColor || 'primary'"
                     prepend-icon="fa-solid fa-plus"
                     rounded="0"
@@ -814,10 +825,10 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             <v-divider></v-divider>
             
             <v-data-table
-                ${isReadonly ? '' : expandToNode`v-model:search="search"`}
+                ${isSearchable ? expandToNode`v-model:search="search"` : ''}
                 :headers="visibleHeaders"
                 :items="data"
-                ${isReadonly ? '' : expandToNode`:search="search"`}
+                ${isSearchable ? expandToNode`:search="search"` : ''}
                 hover
                 density="compact"
                 hide-default-footer
@@ -853,7 +864,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 </template>
 
                 <!-- Pinned slot -->
-                ${isReadonly ? '' : expandToNode`<template v-slot:item.system.pinned="{ item }">
+                ${isPinnable ? expandToNode`<template v-slot:item.system.pinned="{ item }">
                     <div class="d-flex justify-center">
                         <v-btn
                             icon
@@ -869,7 +880,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                             ></v-icon>
                         </v-btn>
                     </div>
-                </template>`}
+                </template>` : ''}
 
                 <!-- Custom field slots -->
                 ${joinToNode(table.document.ref!.body, p => generateSlotTemplate(table.document, p), { appendNewLineIfNotEmpty: true })}
@@ -961,8 +972,8 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             </v-data-table>
         </v-card>
 
-        <!-- Column Configuration Dialog -->
-        ${isReadonly ? '' : expandToNode`<v-dialog v-model="showColumnDialog" max-width="600px">
+        <!-- Column Configuration Dialog (always available; a view preference, not editing) -->
+        <v-dialog v-model="showColumnDialog" max-width="600px">
             <v-card>
                 <v-card-title class="d-flex align-center">
                     <v-icon class="me-2">fa-solid fa-columns</v-icon>
@@ -1024,7 +1035,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                     </v-btn>
                 </v-card-actions>
             </v-card>
-        </v-dialog>`}
+        </v-dialog>
     </template>
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));

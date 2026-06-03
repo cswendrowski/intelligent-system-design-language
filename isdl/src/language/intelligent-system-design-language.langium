@@ -318,7 +318,8 @@ MacroExecute:
 TableField:
     ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
 TableParams:
-    (StandardFieldParams | WhereParam | TableFieldsParam | TableImageParam | TableImageActionParam);
+    (StandardFieldParams | WhereParam | TableFieldsParam | TableImageParam | TableImageActionParam
+     | TableSortableParam | TableSearchableParam | TablePinnableParam);
 SingleDocumentExp:
     ExpressionModifier document=[Document:ID] name=ID StandardFieldParamsFrag;
 DocumentChoiceExp:
@@ -333,6 +334,12 @@ TableImageParam:
     "image:" value=BOOLEAN;
 TableImageActionParam:
     "imageAction:" action=[Action:ID];
+TableSortableParam:
+    "sortable:" value=BOOLEAN;
+TableSearchableParam:
+    "searchable:" value=BOOLEAN;
+TablePinnableParam:
+    "pinnable:" value=BOOLEAN;
 
 // Inventory -------------
 

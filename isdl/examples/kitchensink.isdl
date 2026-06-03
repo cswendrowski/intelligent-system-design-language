@@ -944,8 +944,10 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     table<Spell> SecretParamTable(visibility: Visibility.gmOnly)
     // QA: image column hidden by default via the image param
     table<Spell> NoImageTable(image: false)
-    // QA: readonly table renders a static, display-only summary -- no search/Add/gear/Actions/pin chrome, columns not sortable
+    // QA: readonly = EDITING only -- no Add button, no Actions column; search/sort/pin/gear all STILL present
     readonly table<Spell> ReadonlySpells
+    // QA: view-preference params, independent of readonly -- sort/search/pin chrome gone, but Add/Actions still present
+    table<Spell> ViewOnlySpells(sortable: false, searchable: false, pinnable: false)
 }
 
 actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp") {
