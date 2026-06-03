@@ -107,7 +107,11 @@ export async function runViteBuild(destination: string) {
         await build(config);
     }
     catch (e) {
+        // Surface the real Vite/Rollup error and re-throw so the caller's
+        // `await runViteBuild` rejects. generator.ts -> main.ts then exits
+        // non-zero, instead of silently reporting success on a broken build.
         console.error(e);
+        throw e;
     }
 }
 
