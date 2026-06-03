@@ -6,12 +6,14 @@ import {
     isDocumentSvgParam, isIconParam, isItem, isPrompt,
     isResourceExp, isStatusParamWhen, isStatusProperty, isVariableExpression, IconParam, Item,
     ResourceExp,
-    StatusProperty, VariableExpression
+    StatusProperty, VariableExpression,
+    SettingField, SettingInitial, SettingChoices,
+    isBooleanSetting, isNumberSetting, isSettingInitial, isSettingChoices, isSettingHint,
 } from "../../language/generated/ast.js";
 import path from "node:path";
 import fs from "node:fs";
 import {CompositeGeneratorNode, expandToNode, joinToNode, toString} from "langium/generate";
-import {getAllOfType, getPromptIdentity} from "./utils.js";
+import {getAllOfType, getAllSettings, getSettingScope, settingChoiceKey, getPromptIdentity} from "./utils.js";
 import {collectAllKeywords} from "./keywords-generator.js";
 
 export function generateInitHookMjs(entry: Entry, id: string, destination: string) {
@@ -69,6 +71,51 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
             }`,
             { separator: ',\n        ' }
         ) || expandToNode``;
+    }
+
+    function generateCustomSettings(): CompositeGeneratorNode {
+        const settings = getAllSettings(entry);
+        if (settings.length === 0) return expandToNode``;
+
+        function settingType(setting: SettingField): string {
+            if (isBooleanSetting(setting)) return 'Boolean';
+            if (isNumberSetting(setting)) return 'Number';
+            return 'String';
+        }
+
+        function settingDefault(setting: SettingField): string {
+            const initial = setting.params.find(p => isSettingInitial(p)) as SettingInitial | undefined;
+            if (isBooleanSetting(setting)) return initial ? `${initial.value}` : 'false';
+            if (isNumberSetting(setting)) return initial ? `${initial.value}` : '0';
+            return initial ? `"${initial.value}"` : '""';
+        }
+
+        return joinToNode(settings, setting => {
+            const name = setting.name.toLowerCase();
+            const scope = getSettingScope(setting);
+
+            const hintLine = setting.params.some(p => isSettingHint(p))
+                ? `\n                hint: game.i18n.localize("SETTINGS.${setting.name}Hint"),`
+                : '';
+
+            const choicesParam = setting.params.find(p => isSettingChoices(p)) as SettingChoices | undefined;
+            const choicesBlock = choicesParam
+                ? `,\n                choices: {\n`
+                    + choicesParam.choices.map(c =>
+                        `                    "${c}": game.i18n.localize("${settingChoiceKey(setting, c)}")`).join(',\n')
+                    + `\n                }`
+                : '';
+
+            return expandToNode`
+                game.settings.register('${id}', '${name}', {
+                    name: game.i18n.localize("SETTINGS.${setting.name}Name"),${hintLine}
+                    scope: '${scope}',
+                    config: true,
+                    default: ${settingDefault(setting)},
+                    type: ${settingType(setting)}${choicesBlock}
+                });
+            `;
+        }, { appendNewLineIfNotEmpty: true }) || expandToNode``;
     }
 
     function generateMacroActionConfig(entry: Entry): CompositeGeneratorNode {
@@ -283,6 +330,9 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
                 default: {},
                 type: Object
             });
+
+            // Author-declared settings (config { settings { ... } })
+            ${generateCustomSettings()}
         }
         
         /* -------------------------------------------- */

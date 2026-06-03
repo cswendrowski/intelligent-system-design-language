@@ -32,6 +32,7 @@ import {
     isRoll, isDamageRoll, isChatCard, isUpdate, isPrompt, isWait,
     isPlayAudio, isMacroExecute, isAssignment, isParentAssignment,
     isTargetAssignment, isCombat, isUser, isFunctionCall,
+    SettingField, isSettings,
 } from "../../language/generated/ast.js"
 
 // --- Prompt identity helpers -------------------------------------------------
@@ -42,6 +43,43 @@ import {
 
 export function getPromptVariable(prompt: Prompt): VariableExpression | undefined {
     return AstUtils.getContainerOfType(prompt, isVariableExpression);
+}
+
+// --- System settings helpers -------------------------------------------------
+// Settings live in the `config { settings { <scope> { ... } } }` block. All
+// consumers (scope provider, validator, init-hook/localization generators)
+// resolve them through here so the traversal stays in one place.
+
+/** All declared settings across every scope group, flattened. */
+export function getAllSettings(entry: Entry): SettingField[] {
+    const result: SettingField[] = [];
+    for (const member of entry.config.body) {
+        if (isSettings(member)) {
+            for (const group of member.groups) {
+                result.push(...group.settings);
+            }
+        }
+    }
+    return result;
+}
+
+/** The Foundry scope ("world" | "client") a setting was declared under. */
+export function getSettingScope(setting: SettingField): 'world' | 'client' {
+    const group = setting.$container; // SettingScope
+    return group.scope;
+}
+
+/**
+ * Localization key for one choice value of a choice<string> setting. Shared by
+ * the init-hook generator (which references it) and the localization generator
+ * (which defines it) so they always agree. Non-alphanumerics are stripped to
+ * keep the key segment valid.
+ */
+export function settingChoiceKeySegment(choiceValue: string): string {
+    return choiceValue.replace(/[^a-zA-Z0-9]/g, '');
+}
+export function settingChoiceKey(setting: SettingField, choiceValue: string): string {
+    return `SETTINGS.${setting.name}.${settingChoiceKeySegment(choiceValue)}`;
 }
 
 /** PascalCase-ish identity used for class/file/component names, e.g. "GetUserChoiceuserInput". */

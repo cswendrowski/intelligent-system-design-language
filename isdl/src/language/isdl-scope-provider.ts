@@ -1,6 +1,7 @@
 import { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstUtils, DefaultScopeProvider, LangiumCoreServices, MapScope, ReferenceInfo, Scope } from "langium";
 import { Action, Document, FunctionDefinition, IfStatement, isAccess, isAction, isAssignment, isAttributeFunctionParam, isDocument, isEntry, isFunctionDefinition, isHookHandler, isIfStatement, isInventoryField, isInventoryMoneyParam, isInventoryQuantityParam, isInventorySortParam, isInventorySumProperties, isMoneyField, isParentAccess, isParentAssignment, isParentPropertyRefChoice, isParentTypeCheckExpression, isProperty, isPrompt, isPromptInputAccess, isRef, isRollPredicateArg, isStatusProperty, isTableField, isTableImageActionParam, isTargetAccess, isTargetAssignment, isTargetTypeCheckExpression, isVariableAccess, isVariableAssignment, MoneyField, ParentPropertyRefChoice, ParentTypeCheckExpression, Property, StatusProperty, TargetTypeCheckExpression } from "./generated/ast.js";
-import { getAllOfType } from "../cli/components/utils.js";
+import { getAllOfType, getAllSettings } from "../cli/components/utils.js";
+import { isSystemSettingAccess, isSystemSettingAssignment } from "./generated/ast.js";
 
 export class IsdlScopeProvider extends DefaultScopeProvider {
 
@@ -28,6 +29,15 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         // `input.X` inside a prompt resolves to the prompt's sibling input fields.
         if (isPromptInputAccess(context.container)) {
             return this.getPromptInputScope(context);
+        }
+
+        // `System.X` (read or write) resolves to a setting declared in the
+        // config's `settings {}` block, never a document property.
+        if (isSystemSettingAccess(context.container) || isSystemSettingAssignment(context.container)) {
+            const entry = AstUtils.getContainerOfType(context.container, isEntry);
+            if (entry == undefined) return new MapScope([]);
+            const settings = getAllSettings(entry);
+            return new MapScope(settings.map(s => this.astNodeDescriptionProvider.createDescription(s, s.name)));
         }
 
         if (isVariableAccess(context.container) || isRef(context.container) || isVariableAssignment(context.container)) {

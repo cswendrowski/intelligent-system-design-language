@@ -15,6 +15,17 @@ config KitchenSink {
         Flanking(summary: "Attack from an advantageous position")
         Inspiration(summary: "Divine or heroic motivation")
     }
+    // QA: declarative game settings, grouped by Foundry scope. Exercises boolean/number/choice
+    // registration + localization, and is read/written from logic (see BasicHero.AdjustKarma).
+    settings {
+        client {
+            boolean ShowToHit(initial: true, hint: "Show the to-hit number on character sheets")
+        }
+        world {
+            number StartingKarma(initial: 3)
+            choice<string> KarmaInChat(choices: ["Never", "GM Only", "Everyone"], initial: "GM Only")
+        }
+    }
 }
 
 actor BasicHero {
@@ -36,6 +47,19 @@ actor BasicHero {
     rollVisualizer DamagePreview(value: 2d6 + self.HealthModifier, label: "Expected Damage")
     // QA: keep-highest modifier forces the Monte Carlo simulation fallback path.
     rollVisualizer CritPreview(value: 2d20kh1 + self.HealthModifier, color: #a586c0)
+
+    // QA: system settings in logic -- read a client boolean + world number, GM-gate a world
+    // write (await game.settings.set), and freely write the client setting.
+    action AdjustKarma {
+        if (System.ShowToHit) {
+            log("To-hit display is enabled")
+        }
+        fleeting current = System.StartingKarma
+        if (User.isGM) {
+            System.StartingKarma = current + 1
+        }
+        System.ShowToHit = false
+    }
 
       action GetUserChoice {
         fleeting userInput = prompt(

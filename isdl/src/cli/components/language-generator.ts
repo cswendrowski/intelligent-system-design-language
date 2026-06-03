@@ -18,11 +18,12 @@ import {
     isHookHandler,
     isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField,
     isVariableExpression, isPrompt,
+    isSettingHint, isSettingChoices,
 } from "../../language/generated/ast.js"
-import { Prompt, VariableExpression } from '../../language/generated/ast.js';
+import { Prompt, VariableExpression, SettingHint, SettingChoices } from '../../language/generated/ast.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import {toMachineIdentifier} from "./utils.js";
+import {toMachineIdentifier, getAllSettings, settingChoiceKeySegment} from "./utils.js";
 
 export function generateLanguageJson(entry: Entry, id: string, destination: string) {
     const generatedFileDir = path.join(destination, `lang`);
@@ -117,6 +118,24 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
         };
     }
 
+    // Author-declared settings: Name + (optional) Hint, plus a nested label map
+    // for choice<string> settings. Keys mirror those referenced by the init hook.
+    const customSettingEntries: Record<string, any> = {};
+    for (const setting of getAllSettings(entry)) {
+        const labelParam = setting.params.find(x => isLabelParam(x)) as LabelParam | undefined;
+        customSettingEntries[`${setting.name}Name`] = labelParam ? labelParam.value : humanize(setting.name);
+
+        const hintParam = setting.params.find(x => isSettingHint(x)) as SettingHint | undefined;
+        if (hintParam) customSettingEntries[`${setting.name}Hint`] = hintParam.value;
+
+        const choicesParam = setting.params.find(x => isSettingChoices(x)) as SettingChoices | undefined;
+        if (choicesParam) {
+            customSettingEntries[setting.name] = Object.fromEntries(
+                choicesParam.choices.map(c => [settingChoiceKeySegment(c), c])
+            );
+        }
+    }
+
     const actors = entry.documents.filter(d => isActor(d));
     const items = entry.documents.filter(d => isItem(d));
 
@@ -133,7 +152,8 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
             AllowTargetDamageApplicationHint: 'Whether or not to allow damage and healing on chat messages to be applied to targeted tokens in addition to selected tokens. Targeting does not require permissions, so this can allow players and GMs to apply damage to ANY token they can see.',
             DamageApplicationChatCardName: 'Damage Application Summary',
             DamageApplicationChatCardHint: 'Controls when to send chat cards summarizing damage/healing applications with revert functionality.',
-            DamageApplicationChatCard: { None: "Don't send", Public: 'Send to All (public message)', GM: 'Send to GM (GM-only message)' }
+            DamageApplicationChatCard: { None: "Don't send", Public: 'Send to All (public message)', GM: 'Send to GM (GM-only message)' },
+            ...customSettingEntries
         },
         ROLLVISUALIZER: { Min: 'Min', Max: 'Max', Average: 'Average', Simulations: 'simulations', NoFormula: 'No roll to visualize' },
         ROLL: { Critical: 'Critical!', Fumble: 'Fumble!', CritFumble: 'Critical Fumble!' },
