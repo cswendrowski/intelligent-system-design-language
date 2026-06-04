@@ -9,17 +9,28 @@
   // default look, so a field is unchanged unless a theme value is set for it.
   .isdl-field {
     border-radius: var(--isdl-radius, 0);
-    // Optional hairline from the `border` token, plus an accent left-edge. The left
-    // edge reads `--isdl-accent` on the field's own wrapper, so a per-field accent
-    // override visibly recolors just that field's edge.
-    border: 1px solid var(--isdl-border, transparent);
-    border-left: 3px solid var(--isdl-accent, transparent);
+    // Optional hairline from the `border { }` group (color + width), plus a `primary`
+    // left-edge. The left edge reads `--isdl-primary` on the field's own wrapper, so a
+    // per-field primary override visibly recolors just that field's edge. Fallbacks are
+    // transparent / 1px, so an unthemed field has no visible edge — default look preserved.
+    border: var(--isdl-border-width, 1px) solid var(--isdl-border, transparent);
+    border-left: 3px solid var(--isdl-primary, transparent);
+    // Sizing from the `width { min, max }` / `height { min, max }` groups. Fallbacks are
+    // auto/none (no constraint), so an unthemed field is unchanged.
+    min-width: var(--isdl-width-min, auto);
+    max-width: var(--isdl-width-max, none);
+    min-height: var(--isdl-height-min, auto);
+    max-height: var(--isdl-height-max, none);
   }
 
-  // Heading font token (falls back to the body font, then inherit).
+  // Heading tokens from `heading { }`: font, color, size, transform. Each falls back so an
+  // unthemed heading is unchanged (font -> body font -> inherit; the rest -> inherit/unset).
   .v-card-title,
   .document-name input {
     font-family: var(--isdl-heading-font, var(--isdl-font, inherit));
+    color: var(--isdl-heading-color, inherit);
+    font-size: var(--isdl-heading-size, inherit);
+    text-transform: var(--isdl-heading-transform, none);
   }
 
   &.isdl-prompt,

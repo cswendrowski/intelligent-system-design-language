@@ -1,0 +1,11 @@
+// Global sidecar for the Kitchen Sink system.
+// Referenced from kitchensink.isdl via `globalStyles = "kitchensink-global.scss"`. The
+// generator compiles this through SASS and scopes every rule under the SYSTEM class
+// (.kitchen-sink) — not just the Vue sheets — so it reaches non-sheet surfaces like chat
+// cards and dialogs as well. Use this for things that aren't part of a character sheet.
+
+// Give this system's chat cards a subtle accent rule (chat cards carry the .kitchen-sink
+// class). Scoped to .kitchen-sink so it can't leak into other systems' chat messages.
+.chat-card {
+    border-left: 3px solid #6750A4;
+}

@@ -4,12 +4,28 @@ config KitchenSink {
     description = "An dump of all the features"
     author = "Cody Swendrowski"
     // QA: declarative global theme tokens -> --isdl-* custom properties on the system root.
+    // Exercises every codegen path: flat palette roots + the grouped component blocks.
+    // primary/secondary/tertiary seed the per-document color pickers AND emit CSS vars;
+    // primary additionally paints the .isdl-field highlight edge.
     theme {
-        accent: #6750A4
-        radius: 6
+        // flat palette roots
+        primary: #6750A4,
+        secondary: #4db6ac,
+        tertiary: #ffb74d,
+        background: #fffdf7,
+        text: #2b2b2b,
+
+        // grouped component blocks (CSS sub-property names inside; sizes are px)
+        border   { color: #6750A4, width: 2, radius: 6 },
+        font     { family: "Roboto", size: 14 },
+        heading  { color: #4a3a78, size: 20, transform: "uppercase" },
+        disabledText { color: #555555, size: 13 }   // play-mode (read-only) field text
     }
-    // QA: sidecar SCSS authored next to this .isdl, compiled + auto-scoped to the system.
-    styles = "kitchensink.scss"
+    // QA: sidecar SCSS authored next to this .isdl, compiled + auto-scoped. `sheetStyles`
+    // scopes under the Vue sheets (.kitchen-sink.vue-application); `globalStyles` scopes under
+    // the system class (.kitchen-sink) so it also reaches chat cards, dialogs, etc.
+    sheetStyles = "kitchensink.scss"
+    globalStyles = "kitchensink-global.scss"
     keywords {
         Advantage(summary: "Roll twice and take the higher result", color: #00FF00, icon: "fa-solid fa-dice-d20")
         Disadvantage(summary: "Roll twice and take the lower result", color: #FF0000, icon: "fa-solid fa-dice-d20")
@@ -430,11 +446,15 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
 
     page PlainFields {
 
-        section Basic {
+        // QA: section-level `theme:` -> inline CSS on the section's <v-card> (NOT --isdl-* vars,
+        // which would inherit into children). Sections accept sizing + box chrome (border, bg, text).
+        section Basic(theme: { border: { color: #FF5722, width: 2px, radius: 12px }, background: #1a1410, text: #f0e6d2, width: { max: 640px } }) {
             string StringField
-            // QA: per-field theme override (differs from the global theme) -> emitted on the
-            // .isdl-field-numberfield wrapper; should beat the global accent/radius for THIS field only.
-            number NumberField(accent: #FF5722, radius: 16)
+            // QA: per-field theme override using the SAME grouped vocabulary as the global theme,
+            // wrapped in a `theme:` param -> emitted on the .isdl-field-numberfield wrapper; beats
+            // the global primary/border/width for THIS field only. Uses the optional colon-before-
+            // group form (`border: { }`) and px units to prove that affordance still parses.
+            number NumberField(theme: { primary: #FF5722, border: { color: #FF5722, width: 3px, radius: 16px }, width: { min: 120px, max: 240px }, height: { min: 40px } })
             // QA: calculated value calling a pure no-arg function (regression for the derived-data
             // function-call bug). DoubleNumber() returns NumberField*2, so this = NumberField*3.
             readonly number ComputedViaFn(value: { return self.NumberField + self.DoubleNumber() })
@@ -736,11 +756,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             boolean Dazed
         }
 
-        row {
+        // QA: row-level `theme:` -> inline sizing only (rows reject border/bg/text via validator).
+        row(theme: { width: { max: 800px }, height: { min: 120px } }) {
 
             section Counter {
 
-                column {
+                // QA: column-level `theme:` -> inline sizing only. Nested children must NOT inherit
+                // this sizing (inline CSS doesn't cascade), which is the whole reason for inline.
+                column(theme: { width: { min: 80px, max: 160px } }) {
                     readonly number Count
 
                     action Reset {

@@ -18,6 +18,13 @@ import {
     isAccess,
     isAction,
     isActor,
+    isConfigFlag,
+    isTheme,
+    isThemeFieldParam,
+    ThemeFieldParam,
+    isThemePrimaryParam,
+    isThemeSecondaryParam,
+    isThemeTertiaryParam,
     isAttributeExp,
     isAttributeParamMod, isAttributeRollParam, isAttributeFunctionParam,
     isAttributeStyleParam,
@@ -89,9 +96,38 @@ import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-co
 // import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
 import {generateDocumentChoicesComponent} from './base-components/vue-document-choices.js';
 import {translateBodyExpressionToJavascript, translateExpression, compileVisualizerFormula} from '../method-generator.js';
+import {themeBlockToInlineStyle} from '../css-generator.js';
 import {humanize} from "inflection";
 import {generateVuetifyDatatableComponent} from "./vue-datatable2-component-generator.js";
 import {generateDocumentChoiceComponent} from "./base-components/vue-document-choice.js";
+
+// --- Theme-derived color defaults -------------------------------------------
+// The per-document primary/secondary/tertiary color pickers default to the
+// system theme (`config { theme { primary/secondary/tertiary } }`) when set,
+// otherwise to the built-in palette. `userColors = false` in config hides the
+// picker entirely (art-directed systems whose look is fixed by the theme).
+const DEFAULT_PRIMARY = '#1565c0';
+const DEFAULT_SECONDARY = '#4db6ac';
+const DEFAULT_TERTIARY = '#ffb74d';
+
+function getThemeColorDefaults(entry: Entry): { primary: string; secondary: string; tertiary: string } {
+    const theme = entry.config.body.find(isTheme);
+    let primary = DEFAULT_PRIMARY, secondary = DEFAULT_SECONDARY, tertiary = DEFAULT_TERTIARY;
+    if (theme) {
+        for (const param of theme.params) {
+            if (isThemePrimaryParam(param)) primary = param.value;
+            else if (isThemeSecondaryParam(param)) secondary = param.value;
+            else if (isThemeTertiaryParam(param)) tertiary = param.value;
+        }
+    }
+    return { primary, secondary, tertiary };
+}
+
+// `userColors = false` disables the per-document color pickers. Default is true.
+function getUserColorsEnabled(entry: Entry): boolean {
+    const flag = entry.config.body.find(x => isConfigFlag(x) && x.type === 'userColors');
+    return flag ? (flag as any).value : true;
+}
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
@@ -631,6 +667,9 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         return expandToNode``;
     }
 
+    const themeColors = getThemeColorDefaults(entry);
+    const userColorsEnabled = getUserColorsEnabled(entry);
+
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
@@ -647,10 +686,37 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const props = defineProps(['context']);
 
         // Colors
+        // Defaults come from the system theme (theme primary/secondary/tertiary tokens);
+        // when the theme doesn't set them they fall back to the built-in palette. These feed
+        // the Vuetify :color props on fields. userColorsEnabled mirrors the userColors config.
+        const userColorsEnabled = ${userColorsEnabled};
+        const defaultPrimaryColor = '${themeColors.primary}';
+        const defaultSecondaryColor = '${themeColors.secondary}';
+        const defaultTertiaryColor = '${themeColors.tertiary}';
+
         let storedColors = game.settings.get('${id}', 'documentColorThemes');
-        const primaryColor = ref(storedColors[document.uuid]?.primary ?? '#1565c0');
-        const secondaryColor = ref(storedColors[document.uuid]?.secondary ?? '#4db6ac');
-        const tertiaryColor = ref(storedColors[document.uuid]?.tertiary ?? '#ffb74d');
+        const documentColors = userColorsEnabled ? (storedColors[document.uuid] ?? {}) : {};
+        const primaryColor = ref(documentColors.primary ?? defaultPrimaryColor);
+        const secondaryColor = ref(documentColors.secondary ?? defaultSecondaryColor);
+        const tertiaryColor = ref(documentColors.tertiary ?? defaultTertiaryColor);
+
+        // Track which colors the user has explicitly chosen. Only an explicit choice is
+        // emitted as a CSS variable (below) so it can override the theme default; the ref
+        // defaults must NOT leak to --isdl-* or an unthemed sheet would gain a colored edge.
+        const primarySet = ref(documentColors.primary != null);
+        const secondarySet = ref(documentColors.secondary != null);
+        const tertiarySet = ref(documentColors.tertiary != null);
+
+        // User-chosen colors override the theme's --isdl-primary/secondary/tertiary for this
+        // document. Bound inline on <v-app>, which sits inside .${id}.vue-application, so it wins
+        // over the theme.css defaults for every descendant field. Keys are omitted unless chosen.
+        const userColorVars = computed(() => {
+            const vars = {};
+            if (primarySet.value) vars['--isdl-primary'] = primaryColor.value;
+            if (secondarySet.value) vars['--isdl-secondary'] = secondaryColor.value;
+            if (tertiarySet.value) vars['--isdl-tertiary'] = tertiaryColor.value;
+            return vars;
+        });
 
         const setupColors = () => {
             const colors = {
@@ -661,19 +727,28 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             game.settings.set('${id}', 'documentColorThemes', { ...storedColors, [document.uuid]: colors });
         };
         const resetColors = () => {
-            primaryColor.value = '#1565c0';
-            secondaryColor.value = '#4db6ac';
-            tertiaryColor.value = '#ffb74d';
-            setupColors();
+            primaryColor.value = defaultPrimaryColor;
+            secondaryColor.value = defaultSecondaryColor;
+            tertiaryColor.value = defaultTertiaryColor;
+            primarySet.value = false;
+            secondarySet.value = false;
+            tertiarySet.value = false;
+            let updated = { ...storedColors };
+            delete updated[document.uuid];
+            storedColors = updated;
+            game.settings.set('${id}', 'documentColorThemes', updated);
         };
 
         watch(primaryColor, () => {
+            primarySet.value = true;
             setupColors();
         });
         watch(secondaryColor, () => {
+            secondarySet.value = true;
             setupColors();
         });
         watch(tertiaryColor, () => {
+            tertiarySet.value = true;
             setupColors();
         });
 
@@ -860,9 +935,10 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     const firstPageTables = document.body.filter(isTableField); // We explicitly only want top-level tables
     const firstPagePinned = document.body.filter(isPinnedField); // We explicitly only want top-level pinned fields
     const firstPageInventories = document.body.filter(isInventoryField); // We explicitly only want top-level inventories
+    const userColorsEnabled = getUserColorsEnabled(entry);
     return expandToNode`
     <template>
-        <v-app>
+        <v-app :style="userColorVars">
             <!-- App Bar -->
             <v-app-bar :color="editModeRef ? 'amber-accent-3' : primaryColor" density="comfortable">
                 <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
@@ -892,7 +968,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     ${joinToNode(pages, generateNavListItem, {appendNewLineIfNotEmpty: true})}
                 </v-tabs>
                 <template v-slot:append>
-                    <div class="pa-2">
+                    <div class="pa-2" ${userColorsEnabled ? '' : 'v-if="false"'}>
                         <v-btn block @click="setupColors" :color="secondaryColor" prepend-icon="fa-solid fa-palette">
                         Setup Colors
 
@@ -1196,10 +1272,18 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
     function generateElement(element: Page | ClassExpression | Layout, isTopLevel = false): CompositeGeneratorNode {
 
+        // A layout container's `theme: { ... }` compiles to an inline `style="..."` of ACTUAL
+        // CSS (not `--isdl-*` vars, which would inherit and leak sizing into nested children).
+        // Section paints the inner <v-card> (border/bg/text live there); row/col paint themselves.
+        const layoutStyle = themeBlockToInlineStyle(
+            (element as any).params?.find(isThemeFieldParam) as ThemeFieldParam | undefined
+        );
+        const styleAttr = layoutStyle.length > 0 ? ` style="${layoutStyle}"` : '';
+
         if (isSection(element)) {
             return expandToNode`
-            <v-col class="section">
-                <v-card variant="outlined" elevation="4">
+            <v-col class="section isdl-section isdl-section-${element.name.toLowerCase()}">
+                <v-card variant="outlined" elevation="4"${styleAttr}>
                     <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 
                     <v-card-text>
@@ -1214,7 +1298,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
         if (isRow(element)) {
             return expandToNode`
-            <v-row dense>
+            <v-row dense class="isdl-row"${styleAttr}>
                 ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
             </v-row>
             `;
@@ -1222,7 +1306,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
         if (isColumn(element)) {
             return expandToNode`
-            <v-col>
+            <v-col class="isdl-column"${styleAttr}>
                 ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
             </v-col>
             `;

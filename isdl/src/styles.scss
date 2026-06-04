@@ -35,12 +35,26 @@
 // Copy of Foundry app styles for vue apps
 .#{$dynamic-id}.vue-application {
 
+  // Theme token defaults. These color tokens have a single, consistent fallback across all
+  // consumers, so we declare them here (= their default value) instead of leaving them
+  // undeclared. That keeps them always-defined for sidecar / custom.css authors and devtools,
+  // while the generated theme.css (loaded AFTER this file) overrides them when the author sets
+  // the token. Tokens NOT declared here (border/background/heading-color/sizes) intentionally
+  // stay undeclared: their consumers use DIFFERENT fallbacks (e.g. border = transparent on the
+  // field wrapper but --color-cool-4 for input borders), or an `inherit`/`auto`/`none` fallback
+  // that only resolves correctly at the consuming element — a single root default would break them.
+  --isdl-primary: transparent;
+  --isdl-text: var(--color-light-2);
+  // Disabled (play-mode) field text. Form fields keep a light fill regardless of theme, so
+  // the default is a dark on-field color — NOT the sheet body text (light on dark themes).
+  --isdl-disabled-color: var(--color-text-dark-primary);
+
   // Theme tokens feed the existing cascade variables (fallback = default look, so
-  // unthemed systems are unchanged). Setting `text`/`accent`/`font`/`surface` in
+  // unthemed systems are unchanged). Setting `text`/`border { }`/`font { }`/`background` in
   // `config { theme { } }` propagates through every component that reads these.
   --color-text-primary: var(--isdl-text, var(--color-light-2));
   --color-header-background: rgba(0, 0, 0, 0.5);
-  --color-border: var(--isdl-accent, var(--color-cool-4));
+  --color-border: var(--isdl-border, var(--color-cool-4));
   --color-fieldset-border: var(--color-light-6);
   --color-form-hint: var(--color-light-5);
   --color-form-hint-hover: var(--color-light-4);
@@ -58,7 +72,7 @@
 
     --color-text-primary: var(--isdl-text, var(--color-light-2));
     --color-header-background: rgba(0, 0, 0, 0.5);
-    --color-border: var(--isdl-accent, var(--color-cool-4));
+    --color-border: var(--isdl-border, var(--color-cool-4));
     --color-fieldset-border: var(--color-light-6);
     --color-form-hint: var(--color-light-5);
     --color-form-hint-hover: var(--color-light-4);
@@ -68,7 +82,16 @@
     --v-theme-overlay-multiplier: 1;
     --v-disabled-opacity: 0.7;
     font-family: var(--isdl-font, inherit);
-    background-color: var(--isdl-surface, transparent);
+    font-size: var(--isdl-font-size, inherit);
+    background-color: var(--isdl-background, transparent);
+
+    // Vuetify's <v-app> paints its own theme background (white in the light theme) ON TOP
+    // of .window-content, which would bury the `background` token. When the token is set,
+    // paint the v-app with it; when unset, fall back to Vuetify's own theme background so
+    // an unthemed sheet is unchanged.
+    .v-application {
+      background: var(--isdl-background, rgb(var(--v-theme-background)));
+    }
 
     overflow-y: scroll;
 

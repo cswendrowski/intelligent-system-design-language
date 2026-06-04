@@ -53,14 +53,14 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateSystemCss(entry, id, data.destination);
     generateThemeCss(entry, id, data.destination);
     // Sidecar SCSS lives next to the source .isdl; resolve relative to it.
-    const hasSidecar = compileSidecarScss(entry, id, path.dirname(filePath), data.destination);
+    const sidecars = compileSidecarScss(entry, id, path.dirname(filePath), data.destination);
     generateCustomCss(entry, id, data.destination);
     generateUuidDocumentField(data.destination);
     generateUuidDocumentArrayField(data.destination);
 
     generateActiveEffectBaseSheet(entry, id, data.destination);
     generateActiveEffectHandlebars(id, entry, data.destination);
-    generateSystemJson(entry, id, data.destination, hasSidecar);
+    generateSystemJson(entry, id, data.destination, sidecars);
     generateLanguageJson(entry, id, data.destination);
     generateTemplateJson(entry, id, data.destination);
     generateExtendedDocumentClasses(entry, id, data.destination);
@@ -141,7 +141,7 @@ function getExtensionVersion(): string | undefined {
     return packageJson.version;
 }
 
-function generateSystemJson(entry: Entry, id: string, destination: string, hasSidecar: boolean = false) {
+function generateSystemJson(entry: Entry, id: string, destination: string, sidecars: { sheet: boolean; global: boolean } = { sheet: false, global: false }) {
     const generatedFilePath = path.join(destination, `system.json`);
 
     // Get the version of the extension
@@ -172,7 +172,8 @@ function generateSystemJson(entry: Entry, id: string, destination: string, hasSi
                 "css/materialdesignicons.min.css",
                 "css/${id}.css",
                 "css/${id}-theme.css",
-                ${hasSidecar ? `"css/${id}-styles.css",` : ''}
+                ${sidecars.global ? `"css/${id}-global-styles.css",` : ''}
+                ${sidecars.sheet ? `"css/${id}-sheet-styles.css",` : ''}
                 "css/${id}-custom.css"
             ],
             "license": "LICENSE",

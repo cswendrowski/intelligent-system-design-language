@@ -5,45 +5,119 @@ entry Entry:
 // Config ------------------------------------------------------
 
 Config:
-    "config" name=ID "{" body+=(ConfigExpression | Keywords | Settings | Theme)* "}";
+    "config" name=ID "{" body+=(ConfigExpression | ConfigFlag | Keywords | Settings | Theme)* "}";
 
 ConfigExpression:
-    type=("label" | "id" | "author" | "description" | "styles") "=" value=STRING;
+    type=("label" | "id" | "author" | "description" | "globalStyles" | "sheetStyles") "=" value=STRING;
+
+// Boolean system-level switches. `userColors` toggles the per-document
+// primary/secondary/tertiary color pickers on the sheet (default on); set it
+// false for an art-directed system whose look is fixed by the theme.
+ConfigFlag:
+    type=("userColors") "=" value=BOOLEAN;
 
 // Theme ------------------------------------------------------
-// A small, shared vocabulary of declarative style tokens. The SAME ThemeParam
-// rules are used in two scopes: the global `theme { }` block here (system-wide
-// defaults) and inline field params via StandardFieldParams (per-field overrides).
-// Each token compiles to an `--isdl-*` CSS custom property; only the selector
-// scope differs (system root vs the field's wrapper), so per-field overrides
-// cascade over the global defaults for free.
+// A small vocabulary of declarative style tokens, structured as a HYBRID:
+//   - flat PALETTE roots (`primary`/`secondary`/`tertiary`/`background`/`text`) — the
+//     colors used across the whole sheet; the per-field-capable subset overlaps here.
+//   - grouped COMPONENT blocks (`border { }`, `font { }`, `heading { }`) — a coherent
+//     set of CSS sub-properties on one target, named with the plain CSS sub-prop name.
+// Every token compiles to an `--isdl-*` CSS custom property. The theme block sets them
+// on the system root; per-field params set them on that field's wrapper (cascade beats
+// the root for free). Per-field params stay FLAT and curated (`borderColor:` maps onto
+// the same var as global `border { color }`), since nesting a block inside `( … )` is ugly.
+
+// The theme vocabulary is shared by BOTH scopes via one fragment:
+//   - global  `config { theme { … } }`        -> defaults on the system root
+//   - per-field `attribute Luck(theme: { … })` -> override on that field's wrapper
+// Same grouped syntax in both; only the wrapper differs (`theme { }` vs the `theme:` param).
+// Entries are COMMA-SEPARATED, like every other param list in the grammar (no trailing comma).
+// A group may still be written `border { … }` or `border: { … }` (the colon before the brace
+// is optional) — that JSON-ish affordance is independent of the entry separator.
+fragment ThemeBodyFrag:
+    (params+=ThemeBodyParam ("," params+=ThemeBodyParam)*)?;
+
+ThemeBodyParam:
+    (ThemePaletteParam | ThemeBorderGroup | ThemeFontGroup | ThemeHeadingGroup | ThemeDisabledGroup | ThemeWidthGroup | ThemeHeightGroup);
 
 Theme:
-    "theme" "{" params+=ThemeParam* "}";
+    "theme" "{" ThemeBodyFrag "}";
 
-ThemeParam:
-    (ThemeAccentParam | ThemeRadiusParam | ThemeSurfaceParam | ThemeTextParam | ThemeFontParam | ThemeBorderParam | ThemeHeadingFontParam);
+// Per-field override: the SAME body, wrapped in a `theme:` param on a field's `( … )`.
+ThemeFieldParam:
+    "theme:" "{" ThemeBodyFrag "}";
 
-ThemeAccentParam:
-    "accent:" value=HEX_COLOR;
+// Flat palette roots (colors used across the whole sheet / the field).
+ThemePaletteParam:
+    (ThemePrimaryParam | ThemeSecondaryParam | ThemeTertiaryParam | ThemeBackgroundParam | ThemeTextParam);
 
-ThemeRadiusParam:
-    "radius:" value=INT;
+// `primary` is the system's lead color: it paints the field highlight edge and is the
+// default for the per-document primary picker. Per-field, it recolors just that edge.
+ThemePrimaryParam:
+    "primary:" value=HEX_COLOR;
 
-ThemeSurfaceParam:
-    "surface:" value=HEX_COLOR;
+// `secondary`/`tertiary` seed the per-document color pickers (a whole-sheet concept). They
+// are accepted per-field for symmetry but only the GLOBAL values seed the picker.
+ThemeSecondaryParam:
+    "secondary:" value=HEX_COLOR;
+
+ThemeTertiaryParam:
+    "tertiary:" value=HEX_COLOR;
+
+// `background` (was `surface`) paints the surface; `text` the body text color.
+ThemeBackgroundParam:
+    "background:" value=HEX_COLOR;
 
 ThemeTextParam:
     "text:" value=HEX_COLOR;
 
-ThemeFontParam:
-    "font:" value=STRING;
+// ── Grouped component blocks ──
+// Inner names are the plain CSS sub-property (`color`/`width`/`radius`/`family`/`size`/
+// `transform`/`min`/`max`); the block keyword supplies the prefix, so no `borderColor`
+// gymnastics and the `color:` collision with the per-field `color:` param is sidestepped.
+//
+// The inner props are GENERIC, reusable leaf rules (`ThemeColorProp`, `ThemeSizeProp`, …) —
+// the SAME `color:`/`size:` rule appears in several groups, and the parent group decides
+// which `--isdl-*` var it maps to (border `color` -> --isdl-border, heading `color` ->
+// --isdl-heading-color). One rule per CSS sub-property, not one per group×property.
+// Size-like props accept `42px` (a PX literal, used verbatim) or a bare `42` (px appended).
+ThemeColorProp:     "color:" value=HEX_COLOR;
+ThemeSizeProp:      "size:" value=(PX | INT);
+ThemeWidthProp:     "width:" value=(PX | INT);
+ThemeRadiusProp:    "radius:" value=(PX | INT);
+ThemeFamilyProp:    "family:" value=STRING;
+ThemeFontFaceProp:  "font:" value=STRING;
+ThemeTransformProp: "transform:" value=STRING;
+ThemeMinProp:       "min:" value=(PX | INT);
+ThemeMaxProp:       "max:" value=(PX | INT);
 
-ThemeBorderParam:
-    "border:" value=HEX_COLOR;
+// Groups accept an optional `:` before the brace (`border { }` or `border: { }`). For
+// names that are ALSO a `name:` leaf-prop keyword (`width:`/`font:`/`height:`), the lexer
+// glues the colon to the name, so those groups list the `name:` token as an explicit
+// alternative; the parser tells group from prop by context (body-level vs inside a group).
+ThemeBorderGroup:
+    "border" ":"? "{" (props+=(ThemeColorProp | ThemeWidthProp | ThemeRadiusProp) ("," props+=(ThemeColorProp | ThemeWidthProp | ThemeRadiusProp))*)? "}";
 
-ThemeHeadingFontParam:
-    "headingFont:" value=STRING;
+ThemeFontGroup:
+    ("font:" | "font") "{" (props+=(ThemeFamilyProp | ThemeSizeProp) ("," props+=(ThemeFamilyProp | ThemeSizeProp))*)? "}";
+
+ThemeHeadingGroup:
+    "heading" ":"? "{" (props+=(ThemeColorProp | ThemeFontFaceProp | ThemeSizeProp | ThemeTransformProp) ("," props+=(ThemeColorProp | ThemeFontFaceProp | ThemeSizeProp | ThemeTransformProp))*)? "}";
+
+// `width { min, max }` / `height { min, max }` constrain the field wrapper's min/max
+// width/height (sizing & density). They share the `min:`/`max:` leaf props.
+ThemeWidthGroup:
+    ("width:" | "width") "{" (props+=(ThemeMinProp | ThemeMaxProp) ("," props+=(ThemeMinProp | ThemeMaxProp))*)? "}";
+
+ThemeHeightGroup:
+    ("height:" | "height") "{" (props+=(ThemeMinProp | ThemeMaxProp) ("," props+=(ThemeMinProp | ThemeMaxProp))*)? "}";
+
+// `disabledText { }` styles the play-mode (read-only) field text. By default ISDL keeps it
+// fully readable (body text color, no fade); these tokens let an author recolor/resize it.
+// NB: the keyword is `disabledText`, not `disabled`, so `disabled` stays free as an ordinary
+// identifier (it's a very common boolean field/param name — reserving it would collide).
+ThemeDisabledGroup:
+    "disabledText" ":"? "{" (props+=(ThemeColorProp | ThemeSizeProp) ("," props+=(ThemeColorProp | ThemeSizeProp))*)? "}";
 
 Keywords:
     "keywords" "{" body+=Keyword* "}";
@@ -121,12 +195,15 @@ fragment ClassBlock:
 Layout:
     (Section | Page | Row | Column);
 
+// Layout containers can carry a `theme: { }` override like fields, but with a narrower,
+// container-specific token set enforced by validation: row/column accept only sizing
+// (`width`/`height`); section additionally accepts `border`/`background`/`text`.
 Section:
-    "section" name=ID "{" body+=(ClassExpression|Row|Column)* "}";
+    "section" name=ID ("(" params+=ThemeFieldParam ("," params+=ThemeFieldParam)* ")")? "{" body+=(ClassExpression|Row|Column)* "}";
 Row:
-    "row" "{" body+=(ClassExpression|Section|Row|Column)* "}";
+    "row" ("(" params+=ThemeFieldParam ("," params+=ThemeFieldParam)* ")")? "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Column:
-    "column" "{" body+=(ClassExpression|Section|Row|Column)* "}";
+    "column" ("(" params+=ThemeFieldParam ("," params+=ThemeFieldParam)* ")")? "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Page:
     "page" name=ID ("(" params+=(IconParam|BackgroundParam) ("," params+=(IconParam|BackgroundParam))* ")")? "{" body+=(ClassExpression | Layout)* "}";
 
@@ -158,7 +235,7 @@ ReferenceFields:
 fragment ExpressionModifier:
     (modifier=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 StandardFieldParams:
-    (VisibilityParam | IconParam | ColorParam | LabelParam | ThemeParam);
+    (VisibilityParam | IconParam | ColorParam | LabelParam | ThemeFieldParam);
 fragment StandardFieldParamsFrag:
     ("(" params+=StandardFieldParams* ("," params+=StandardFieldParams)* ")")?;
 NumberFieldParams:

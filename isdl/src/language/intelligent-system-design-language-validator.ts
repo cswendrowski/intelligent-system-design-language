@@ -46,6 +46,8 @@ import {
     SettingField, SettingInitial, SettingChoices, SystemSettingAssignment,
     isSettingInitial, isSettingChoices, isBooleanSetting, isNumberSetting,
     isStringSetting, isStringChoiceSetting, isShorthandComparisonExpression, isUserProperty,
+    Theme, ThemeFieldParam,
+    isRow, isColumn, isSection,
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType, functionIsDerivedSafe, getSettingScope } from '../cli/components/utils.js';
@@ -84,10 +86,45 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         FleetingAccess: validator.validateRollAccessorFleeting,
         RollResultAccess: validator.validateRollResultAccess,
         SettingField: validator.validateSettingField,
-        SystemSettingAssignment: validator.validateSystemSettingAssignment
+        SystemSettingAssignment: validator.validateSystemSettingAssignment,
+        Theme: validator.validateGlobalTheme,
+        ThemeFieldParam: validator.validatePerFieldThemeParam,
     };
     registry.register(checks, validator);
 }
+
+// --- Theme token scope ------------------------------------------------------
+// The `theme { }` grammar is ONE shared fragment, so it grammatically accepts every token
+// in both the global `config` theme and a field's `theme: { }` param. These tables enforce
+// the intended split: a token is field-capable only if its `--isdl-*` var is read on/inside
+// `.isdl-field`; tokens whose var is read at the sheet root are whole-sheet (config) only,
+// and the sizing groups only make sense on an individual field.
+const THEME_TOKEN_LABEL: Record<string, string> = {
+    ThemePrimaryParam: 'primary', ThemeSecondaryParam: 'secondary', ThemeTertiaryParam: 'tertiary',
+    ThemeBackgroundParam: 'background', ThemeTextParam: 'text',
+    ThemeBorderGroup: 'border', ThemeFontGroup: 'font', ThemeHeadingGroup: 'heading',
+    ThemeDisabledGroup: 'disabledText', ThemeWidthGroup: 'width', ThemeHeightGroup: 'height',
+};
+// Whole-sheet tokens (var read at the sheet root) — no per-field effect, so invalid per-field.
+const CONFIG_ONLY_THEME_TYPES = new Set([
+    'ThemeSecondaryParam', 'ThemeTertiaryParam', 'ThemeBackgroundParam', 'ThemeTextParam',
+    'ThemeFontGroup', 'ThemeHeadingGroup', 'ThemeDisabledGroup',
+]);
+// Sizing tokens that constrain one field — meaningless as a system-wide default.
+const FIELD_ONLY_THEME_TYPES = new Set(['ThemeWidthGroup', 'ThemeHeightGroup']);
+
+// A `theme: { }` on a layout container (row/column/section) compiles to an inline CSS
+// `style=""` of real declarations on the element (not `--isdl-*` vars, which inherit and
+// would leak into children). Only tokens that map cleanly to a container declaration are
+// allowed, and they differ by container:
+//   - row / column: sizing only (min/max width/height).
+//   - section: sizing PLUS the box chrome that paints its <v-card> (border, background, text).
+// Tokens not in the set for a given container have no container effect and are rejected.
+const ROW_COLUMN_THEME_TYPES = new Set(['ThemeWidthGroup', 'ThemeHeightGroup']);
+const SECTION_THEME_TYPES = new Set([
+    'ThemeWidthGroup', 'ThemeHeightGroup', 'ThemeBorderGroup',
+    'ThemeBackgroundParam', 'ThemeTextParam',
+]);
 
 /**
  * Implementation of custom validations.
@@ -116,6 +153,69 @@ export class IntelligentSystemDesignLanguageValidator {
                     `'${label}' can't be used in a prompt. Prompts only accept input fields: string, number, boolean, `
                     + `choice/choices (string, damageType, or document), parent/self references, die, dice, and date/time/datetime.`,
                     { node: field });
+            }
+        }
+    }
+
+    // Global `config { theme { } }`: reject FIELD-ONLY sizing tokens (`width`/`height`),
+    // which only constrain an individual field's wrapper and have no system-wide meaning.
+    validateGlobalTheme(theme: Theme, accept: ValidationAcceptor): void {
+        for (const param of theme.params) {
+            if (FIELD_ONLY_THEME_TYPES.has(param.$type)) {
+                const label = THEME_TOKEN_LABEL[param.$type] ?? param.$type;
+                accept('error',
+                    `'${label}' sizes an individual field, so it only works in a field's 'theme: { }' override — `
+                    + `not the global 'config' theme.`,
+                    { node: param });
+            }
+        }
+    }
+
+    // A `theme: { }` param appears in three places, each with its own legal token set:
+    //   - on a layout row/column: sizing only.
+    //   - on a layout section: sizing + box chrome (border/background/text).
+    //   - on a field (the default): field-capable tokens (primary/border/width/height) — reject
+    //     CONFIG-ONLY tokens whose CSS var is read at the sheet root (they'd emit a dead var).
+    // The grammar shares one `ThemeFieldParam` node across all three, so we dispatch on the
+    // container type and report exactly which tokens that container accepts.
+    validatePerFieldThemeParam(block: ThemeFieldParam, accept: ValidationAcceptor): void {
+        const container = block.$container;
+
+        if (isRow(container) || isColumn(container)) {
+            const where = isRow(container) ? 'row' : 'column';
+            for (const param of block.params) {
+                if (!ROW_COLUMN_THEME_TYPES.has(param.$type)) {
+                    const label = THEME_TOKEN_LABEL[param.$type] ?? param.$type;
+                    accept('error',
+                        `'${label}' can't theme a ${where} — a ${where} only accepts sizing tokens `
+                        + `('width' / 'height').`,
+                        { node: param });
+                }
+            }
+            return;
+        }
+
+        if (isSection(container)) {
+            for (const param of block.params) {
+                if (!SECTION_THEME_TYPES.has(param.$type)) {
+                    const label = THEME_TOKEN_LABEL[param.$type] ?? param.$type;
+                    accept('error',
+                        `'${label}' can't theme a section — a section accepts sizing ('width' / `
+                        + `'height'), 'border', 'background', and 'text'.`,
+                        { node: param });
+                }
+            }
+            return;
+        }
+
+        // Default: a field's `theme: { }`.
+        for (const param of block.params) {
+            if (CONFIG_ONLY_THEME_TYPES.has(param.$type)) {
+                const label = THEME_TOKEN_LABEL[param.$type] ?? param.$type;
+                accept('error',
+                    `'${label}' is a whole-sheet token with no per-field effect — set it in `
+                    + `'config { theme { } }', not in a field's 'theme: { }'.`,
+                    { node: param });
             }
         }
     }

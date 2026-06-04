@@ -11,19 +11,31 @@ config Noir {
     description = "A hardboiled noir investigation system. The city's always raining and everybody's lying."
     author = "ISDL Examples"
 
+    // This system is art-directed: the look is fixed by the theme, so turn off the
+    // per-document primary/secondary/tertiary color pickers (no rogue hot-pink sheets).
+    userColors = false
+
     // Systematic theme tokens -> --isdl-* custom properties, fed into the cascade.
+    // Flat palette roots up top; grouped component blocks below (CSS sub-prop names).
     // Font values carry their own fallback so the sheet stays legible offline.
     theme {
-        accent: #c9a227                          // sodium streetlight amber — the one warm color in the rain
-        surface: #16130f                         // wet-asphalt near-black panel
-        text: #d6cfbf                            // dim newsprint
-        border: #3a3128                          // dim warm hairline around fields
-        font: "'Special Elite', monospace"       // a beaten typewriter (body)
-        headingFont: "'Oswald', 'Impact', sans-serif" // stamped condensed (headers)
-        radius: 0                                // hardboiled: no soft corners
+        // palette roots
+        primary: #c9a227,                        // sodium streetlight amber — the lead color (field edge)
+        background: #16130f,                     // wet-asphalt near-black panel
+        text: #d6cfbf,                           // dim newsprint
+
+        // grouped component blocks
+        border  { color: #3a3128, radius: 0 },   // dim warm hairline; hardboiled square corners
+        font    { family: "'Special Elite', monospace" },           // a beaten typewriter (body)
+        heading {
+            color: #c9a227,                      // amber stamped headers
+            font: "'Oswald', 'Impact', sans-serif", // stamped condensed face
+            transform: "uppercase"               // shouted case-file labels
+        }
     }
     // Bespoke atmosphere the tokens can't express: grain, vignette, display type.
-    styles = "noir.scss"
+    // Scoped to the generated sheets (.blackwater-files.vue-application).
+    sheetStyles = "noir.scss"
 }
 
 actor Detective {
@@ -44,9 +56,10 @@ actor Detective {
             attribute Wits
             attribute Grit
             attribute Charm
-            // Per-field theme override: Luck is fickle — a blood-red accent on THIS
-            // field only, beating the global amber. Proves per-field theming.
-            attribute Luck(accent: #8b1e1e)
+            // Per-field theme override: Luck is fickle — a blood-red edge on THIS field
+            // only, beating the global amber. Per-field uses the SAME grouped vocabulary as
+            // the global theme, wrapped in a `theme:` param.
+            attribute Luck(theme: { primary: #8b1e1e })
         }
 
         // The investigation itself — a roll that leans on Wits.

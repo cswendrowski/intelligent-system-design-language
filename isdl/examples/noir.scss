@@ -5,8 +5,8 @@
 //  leading @import above the auto-scope wrapper, then nests the rest under
 //  `.blackwater-files.vue-application`, so these selectors can't leak elsewhere.
 // ============================================================================
-// Load the web fonts named by the `font:` / `headingFont:` theme tokens. (The
-// generator hoists this @import above the auto-scope wrapper.)
+// Load the web fonts named by the `font { family }` / `heading { font }` theme tokens.
+// (The generator hoists this @import above the auto-scope wrapper.)
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Special+Elite&display=swap');
 
 // Flatten the busy default page texture so the flat noir surface + grain read.
@@ -48,23 +48,21 @@
     }
 }
 
-// Dossier headers: stamped + spaced + amber with a hard rule under them.
-// (The condensed face itself comes from the `headingFont:` token; this is the
-// bespoke treatment a token shouldn't own.)
+// Dossier headers: the condensed face, amber color, and uppercase now come from the
+// `heading { font, color, transform }` tokens. What stays here is the BESPOKE treatment
+// a token shouldn't own: tight tracking, heavy weight, and the hard amber rule beneath.
 .v-card-title,
 .section .v-card-title {
-    text-transform: uppercase;
     letter-spacing: 0.18em;
     font-weight: 700;
-    color: var(--isdl-accent);
-    border-bottom: 1px solid var(--isdl-accent);
+    border-bottom: 1px solid var(--isdl-primary);
     padding-bottom: 0.25rem;
 }
 
 // Sections read as case-file cards: flat black, hard shadow, thin amber top rule.
 .section,
 .isdl-datatable {
-    border-top: 2px solid var(--isdl-accent);
+    border-top: 2px solid var(--isdl-primary);
     box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.6);
     background-color: rgba(0, 0, 0, 0.25);
 }
