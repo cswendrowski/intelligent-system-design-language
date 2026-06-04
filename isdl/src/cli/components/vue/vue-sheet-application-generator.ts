@@ -1324,9 +1324,13 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             `;
         }
 
-        // Bare row/column have no inner card: width + height ride the element itself.
-        const sizingStyle = themeSizingToInlineStyle(themeParam);
-        const styleAttr = sizingStyle.length > 0 ? ` style="${sizingStyle}"` : '';
+        // Bare row/column have no inner card, so sizing AND border ride the element itself.
+        // (background/text are section-only and rejected by the validator, so paint here only ever
+        // yields a border.) themePaintToInlineStyle was previously omitted here -- dropping borders
+        // authored on a row/column.
+        const containerStyle = [themeSizingToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
+            .filter(s => s.length > 0).join('; ');
+        const styleAttr = containerStyle.length > 0 ? ` style="${containerStyle}"` : '';
 
         if (isRow(element)) {
             return expandToNode`
