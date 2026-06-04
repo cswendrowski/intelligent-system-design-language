@@ -446,8 +446,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
 
     page PlainFields {
 
-        // QA: section-level `theme:` -> inline CSS on the section's <v-card> (NOT --isdl-* vars,
-        // which would inherit into children). Sections accept sizing + box chrome (border, bg, text).
+        // QA: section-level `theme:` -> inline CSS (NOT --isdl-* vars, which would inherit into
+        // children). The themed style is SPLIT: width rides the OUTER <v-col> (the flex item that
+        // owns layout width); height + box chrome (border, bg, text) ride the inner <v-card>.
         section Basic(theme: { border: { color: #FF5722, width: 2px, radius: 12px }, background: #1a1410, text: #f0e6d2, width: { max: 640px } }) {
             string StringField
             // QA: per-field theme override using the SAME grouped vocabulary as the global theme,
@@ -469,9 +470,23 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             ], max: 3)
         }
 
+        // QA: a section whose `width: { max }` is BELOW the hardcoded `.v-col.section`
+        // min-width floor (332px). A `max` with no explicit `min` must emit `min-width: 0`
+        // on the v-col so the column actually shrinks past the floor instead of floating a
+        // narrow card inside a full-width column (the bug etermin reported).
+        section Narrow(theme: { width: { max: 220px }, border: { color: #03A9F4, width: 2px, radius: 8px } }) {
+            string NarrowField
+        }
+
         section Complex {
             resource ResourceField
             tracker TrackerField
+            // QA: per-field theme `width: { max }` on a resource. A resource renders as
+            // `.isdl-tracker` which hardcodes `min-width: 300px; max-width: 600px`; the themed
+            // sizing must emit as DIRECT declarations on `.isdl-field-narrowbar` (not --isdl-* vars,
+            // which lose to the later equal-specificity floor) and include `min-width: 0` so the
+            // 180px max actually shrinks the bar past the 300px floor.
+            resource NarrowBar(theme: { width: { max: 180px } })
             attribute AttributeField
             measuredTemplate MeasuredTemplateField
             //damageTrack DamageTrackField
@@ -773,14 +788,15 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             boolean Dazed
         }
 
-        // QA: row-level `theme:` -> inline sizing only (rows reject border/bg/text via validator).
-        row(theme: { width: { max: 800px }, height: { min: 120px } }) {
+        // QA: row-level `theme:` -> inline sizing + border (rows/columns accept border too; bg/text
+        // stay section-only, rejected by the validator). Inline CSS, so it doesn't leak to children.
+        row(theme: { width: { max: 800px }, height: { min: 120px }, border: { color: #6750A4, width: 2px, radius: 8px } }) {
 
             section Counter {
 
-                // QA: column-level `theme:` -> inline sizing only. Nested children must NOT inherit
-                // this sizing (inline CSS doesn't cascade), which is the whole reason for inline.
-                column(theme: { width: { min: 80px, max: 160px } }) {
+                // QA: column-level `theme:` -> inline sizing + border. Nested children must NOT inherit
+                // this (inline CSS doesn't cascade), which is the whole reason for inline.
+                column(theme: { width: { min: 80px, max: 160px }, border: { color: #4db6ac, width: 1px, radius: 6px } }) {
                     readonly number Count
 
                     action Reset {
