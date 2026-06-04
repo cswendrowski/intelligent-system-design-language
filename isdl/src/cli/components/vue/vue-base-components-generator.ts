@@ -26,6 +26,7 @@ import generateStringChoicesComponent from "./base-components/vue-string-choices
 import generateMoneyComponent from "./base-components/vue-money.js";
 import generateInventoryComponent from "./base-components/vue-inventory.js";
 import generateDamageTrackComponent from "./base-components/vue-damage-track.js";
+import generateImageComponent from "./base-components/vue-image.js";
 import {Entry} from "../../../language/generated/ast.js";
 
 export function generateBaseVueComponents(destination: string, entry?: Entry) {
@@ -57,4 +58,5 @@ export function generateBaseVueComponents(destination: string, entry?: Entry) {
     generateMoneyComponent(destination, entry);
     generateInventoryComponent(destination, entry);
     generateDamageTrackComponent(destination);
+    generateImageComponent(destination, entry);
 }

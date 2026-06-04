@@ -54,7 +54,8 @@ import {
     ChoiceStringValue,
     isStringExtendedChoice,
     StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField, isMoneyField,
-    isDamageTrackTypesParam, DamageTrackTypesParam
+    isDamageTrackTypesParam, DamageTrackTypesParam,
+    isImageField, isImagePrimaryParam
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -128,6 +129,17 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
         }
 
         if (isStringExp(property)) {
+            return expandToNode`
+                ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
+            `;
+        }
+
+        if (isImageField(property)) {
+            // A `primary: true` image stores nothing of its own -- it edits the document's native
+            // `img`. A normal image stores its file path at system.<name>.
+            if (property.params.some(p => isImagePrimaryParam(p) && p.value)) {
+                return undefined;
+            }
             return expandToNode`
                 ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
             `;

@@ -48,6 +48,7 @@ import {
     isStringSetting, isStringChoiceSetting, isShorthandComparisonExpression, isUserProperty,
     Theme, ThemeFieldParam,
     isRow, isColumn, isSection,
+    ImageField, isImageField, isImagePrimaryParam,
 } from './generated/ast.js';
 import type { IntelligentSystemDesignLanguageServices } from './intelligent-system-design-language-module.js';
 import { getAllOfType, functionIsDerivedSafe, getSettingScope } from '../cli/components/utils.js';
@@ -68,7 +69,7 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         Property: validator.validateProperty,
         TrackerExp: validator.validateTrackerExpressions,
         StringChoiceField: validator.validateStringChoiceField,
-        Document: validator.validateDependencyCycles,
+        Document: [validator.validateDependencyCycles, validator.validatePrimaryImage],
         InventoryField: validator.validateInventoryField,
         NumberExp: validator.validateNumberExp,
         ResourceExp: validator.validateResourceExp,
@@ -795,6 +796,20 @@ export class IntelligentSystemDesignLanguageValidator {
         }
 
         return false;
+    }
+
+    validatePrimaryImage(document: Document, accept: ValidationAcceptor): void {
+        // At most one image field may bind the document's native `img` (the portrait). More than
+        // one is ambiguous -- which one is the portrait? -- so flag them all.
+        const primaries = getAllOfType<ImageField>(document.body, isImageField)
+            .filter(f => f.params.some(p => isImagePrimaryParam(p) && p.value));
+        if (primaries.length > 1) {
+            for (const field of primaries) {
+                accept('error',
+                    `Only one image field per document can be 'primary: true' (it binds the document portrait). Found ${primaries.length}.`,
+                    { node: field, property: 'name' });
+            }
+        }
     }
 
     validateDependencyCycles(document: Document, accept: ValidationAcceptor): void {

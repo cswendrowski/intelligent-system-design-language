@@ -221,7 +221,7 @@ Property:
 BasicFields:
     (StringExp | NumberExp | HtmlExp | BooleanExp | StringChoiceField | DamageTypeChoiceField | StringChoicesField);
 ComplexFields:
-    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField | RollVisualizerField);
+    (ResourceExp | TrackerExp | AttributeExp | MeasuredTemplateField | DamageBonusesField | DamageResistancesField | PinnedField | DocumentChoicesExp | MoneyField | RollVisualizerField | ImageField);
 WipFields:
     (DamageTrackExp);
 DateTimeFields:
@@ -321,6 +321,18 @@ ResourceParameter:
 
 MeasuredTemplateField:
     ExpressionModifier "measuredTemplate" name=ID StandardFieldParamsFrag;
+
+// Image -------------
+// A file-picker image field, placeable anywhere in the layout. By default it stores its own path
+// at system.<name>. Mark exactly one `primary: true` to bind it to the document's native `img`
+// (the token/portrait) -- placing that makes the portrait movable and auto-hides the drawer image.
+
+ImageField:
+    ExpressionModifier "image" name=ID ("(" params+=ImageFieldParam ("," params+=ImageFieldParam)* ")")?;
+ImageFieldParam:
+    (StandardFieldParams | ImagePrimaryParam);
+ImagePrimaryParam:
+    "primary:" value=BOOLEAN;
 
 // Damage Bonuses -------------
 

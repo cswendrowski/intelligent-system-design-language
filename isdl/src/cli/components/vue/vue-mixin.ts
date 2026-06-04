@@ -38,6 +38,7 @@ export function generateVueMixin(description: string) {
         "i-money": "MoneyField",
         "i-inventory": "Inventory",
         "i-damage-track": "DamageTrack",
+        "i-image": "ImageField",
     };
 
     const fileNode = expandToNode`

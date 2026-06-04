@@ -41,6 +41,7 @@ import {
     isHtmlExp,
     isIconParam,
     isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField, isDamageTrackExp, isDamageTrackTypesParam, DamageTrackTypesParam, isRollVisualizerField,
+    ImageField, isImageField, isImagePrimaryParam,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -953,6 +954,10 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     const firstPagePinned = document.body.filter(isPinnedField); // We explicitly only want top-level pinned fields
     const firstPageInventories = document.body.filter(isInventoryField); // We explicitly only want top-level inventories
     const userColorsEnabled = getUserColorsEnabled(entry);
+    // If the author placed a primary image field (one bound to the native `img`), the portrait is
+    // rendered inline in their layout -- suppress the default drawer portrait to avoid two of them.
+    const hasPrimaryImage = getAllOfType<ImageField>(document.body, isImageField)
+        .some(f => f.params.some(p => isImagePrimaryParam(p) && p.value));
     return expandToNode`
     <template>
         <v-app :style="userColorVars">
@@ -975,11 +980,11 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
             <!-- Navigation Drawer -->
             <v-navigation-drawer v-model="drawer" temporary style="background-color: #dddddd">
-                <v-img :src="context.document.img" style="background-color: lightgray" data-edit='img' data-action='onEditImage'>
+                ${hasPrimaryImage ? '' : expandToNode`<v-img :src="context.document.img" style="background-color: lightgray" data-edit='img' data-action='onEditImage'>
                     <template #error>
                         <v-img src="/systems/${id}/img/missing-character.png" data-edit='img' data-action='onEditImage'></v-img>
                     </template>
-                </v-img>
+                </v-img>`}
                 <v-tabs v-model="page" direction="vertical">
                     <v-tab value="${document.name.toLowerCase()}" prepend-icon="fa-solid fa-circle-user">${document.name}</v-tab>
                     ${joinToNode(pages, generateNavListItem, {appendNewLineIfNotEmpty: true})}
@@ -1848,6 +1853,25 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     :secondaryColor="secondaryColor"
                     ${standardParamsFragment}>
                 </i-measured-template>
+                `;
+            }
+
+            if (isImageField(element)) {
+                // A `primary: true` image binds to the document's native `img` (the movable
+                // portrait); otherwise it stores at its own system path. The edit path is
+                // document-relative ("img" vs "system.<name>") so the sheet's onEditImage handler
+                // reads/writes the right property.
+                const isPrimary = element.params.some(p => isImagePrimaryParam(p) && p.value);
+                const imagePath = isPrimary ? 'img' : systemPath;
+                return expandToNode`
+                <i-image
+                    :context="context"
+                    label="${label}"
+                    icon="${iconParam?.value}"
+                    systemPath="${imagePath}"
+                    :primary="${isPrimary}"
+                    ${standardParamsFragment}>
+                </i-image>
                 `;
             }
 

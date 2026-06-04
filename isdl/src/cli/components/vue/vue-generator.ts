@@ -279,6 +279,7 @@ function generateIndexMjs(entry: Entry, destination: string) {
     export { default as MoneyField } from "./components/money.vue";
     export { default as Inventory } from "./components/inventory.vue";
     export { default as DamageTrack } from "./components/damage-track.vue";
+    export { default as ImageField } from "./components/image.vue";
     ${joinToNode(entry.documents.map(generateExport), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDocumentPromptExports), { appendNewLineIfNotEmpty: true })}
     ${joinToNode(entry.documents.map(generateDatatableExportForDocument), { appendNewLineIfNotEmpty: true })}

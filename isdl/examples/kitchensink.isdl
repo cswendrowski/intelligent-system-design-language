@@ -492,6 +492,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             //damageTrack DamageTrackField
         }
 
+        // QA: the `image` field type. `Portrait(primary: true)` binds the document's native `img`
+        // (the movable portrait) -> this placement auto-hides the default drawer portrait. `Crest`
+        // is a normal image field stored at system.crest. Both are click-to-edit via FilePicker.
+        section Images {
+            image Portrait(primary: true)
+            image Crest(icon: "fa-solid fa-shield")
+        }
+
         section Money {
             // Simple money - single currency
             money Credits(icon: "fa-solid fa-coins", format: compact, precision: 1)
