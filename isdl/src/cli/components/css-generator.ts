@@ -185,20 +185,14 @@ function disabledGroupToCss(g: ThemeDisabledGroup): string[] {
         return '';
     }).filter(s => s.length > 0);
 }
-function widthGroupToCss(g: ThemeWidthGroup): string[] {
-    return g.props.map(p => {
-        if (isThemeMinProp(p)) return `--isdl-width-min: ${dim(p.value)};`;
-        if (isThemeMaxProp(p)) return `--isdl-width-max: ${dim(p.value)};`;
-        return '';
-    }).filter(s => s.length > 0);
-}
-function heightGroupToCss(g: ThemeHeightGroup): string[] {
-    return g.props.map(p => {
-        if (isThemeMinProp(p)) return `--isdl-height-min: ${dim(p.value)};`;
-        if (isThemeMaxProp(p)) return `--isdl-height-max: ${dim(p.value)};`;
-        return '';
-    }).filter(s => s.length > 0);
-}
+// NOTE: width/height are per-field-ONLY tokens (the validator rejects them in a global theme).
+// They are NOT emitted as `--isdl-*` vars consumed on `.isdl-field` -- that loses to later
+// per-type floors of equal specificity (e.g. `.isdl-tracker { min-width: 300px; max-width: 600px }`),
+// so a themed `max` on a resource/tracker was silently dead. Instead `generateThemeCss` emits them
+// as DIRECT `min/max-width` declarations on the per-field selector (`.<id>.vue-application
+// .isdl-field-<name>`, specificity (0,3,0)), which outranks every per-type floor for all field
+// types -- via the shared `themeWidthToInlineStyle`/`themeHeightToInlineStyle` helpers (which also
+// carry the `max`-without-`min` -> `min-width: 0` rule needed to beat those floors).
 
 // --- Inline layout-container theming ----------------------------------------
 // row/column/section carry a `theme: { ... }` too, but they CANNOT use the `--isdl-*`
@@ -216,11 +210,19 @@ function borderGroupToInlineStyle(g: ThemeBorderGroup): string[] {
     }).filter(s => s.length > 0);
 }
 function widthGroupToInlineStyle(g: ThemeWidthGroup): string[] {
-    return g.props.map(p => {
+    const decls = g.props.map(p => {
         if (isThemeMinProp(p)) return `min-width: ${dim(p.value)}`;
         if (isThemeMaxProp(p)) return `max-width: ${dim(p.value)}`;
         return '';
     }).filter(s => s.length > 0);
+    // A `max` with no explicit `min` is otherwise defeated by a hardcoded min-width floor
+    // (e.g. `.v-col.section { min-width: 332px }`) and the flexbox `min-width: auto` content
+    // floor -- min-width always beats max-width. Drop the floor to 0 so the author's max
+    // actually constrains. An explicit `min` is left untouched (it's the author's floor).
+    if (g.props.some(isThemeMaxProp) && !g.props.some(isThemeMinProp)) {
+        decls.unshift('min-width: 0');
+    }
+    return decls;
 }
 function heightGroupToInlineStyle(g: ThemeHeightGroup): string[] {
     return g.props.map(p => {
@@ -230,23 +232,50 @@ function heightGroupToInlineStyle(g: ThemeHeightGroup): string[] {
     }).filter(s => s.length > 0);
 }
 
-/**
- * Map a layout container's `theme: { ... }` body to an inline `style="..."` string (actual
- * CSS declarations, not vars). Returns '' when nothing themeable is present. Only handles the
- * tokens valid on containers (width/height/border + section's background/text); other tokens
- * are rejected by the validator before reaching here.
- */
-export function themeBlockToInlineStyle(block: { params: any[] } | undefined): string {
+// A container's themed style is split across DOM nodes by who actually owns the geometry:
+//   - WIDTH governs the flex item that lays out in the row -> the container's own `v-col`
+//     (for a section, the OUTER `v-col`, never the inner card, or the column can't shrink).
+//   - HEIGHT + PAINT (border/bg/text) belong on the visible surface -> the section's inner
+//     `v-card`; for a bare row/column there is no card, so they ride the element itself.
+// Each function returns '' when nothing applies. Tokens invalid for a container are rejected
+// by the validator before reaching here.
+
+/** Width tokens only -- for the flex item (`v-col`/`v-row`) that owns layout width. */
+export function themeWidthToInlineStyle(block: { params: any[] } | undefined): string {
     if (!block) return '';
     const decls: string[] = [];
     for (const p of block.params) {
         if (isThemeWidthGroup(p)) decls.push(...widthGroupToInlineStyle(p));
-        else if (isThemeHeightGroup(p)) decls.push(...heightGroupToInlineStyle(p));
-        else if (isThemeBorderGroup(p)) decls.push(...borderGroupToInlineStyle(p));
+    }
+    return decls.join('; ');
+}
+
+/** Height tokens only. */
+export function themeHeightToInlineStyle(block: { params: any[] } | undefined): string {
+    if (!block) return '';
+    const decls: string[] = [];
+    for (const p of block.params) {
+        if (isThemeHeightGroup(p)) decls.push(...heightGroupToInlineStyle(p));
+    }
+    return decls.join('; ');
+}
+
+/** Paint tokens (border/background/text) -- section-only, for the inner `v-card` surface. */
+export function themePaintToInlineStyle(block: { params: any[] } | undefined): string {
+    if (!block) return '';
+    const decls: string[] = [];
+    for (const p of block.params) {
+        if (isThemeBorderGroup(p)) decls.push(...borderGroupToInlineStyle(p));
         else if (isThemeBackgroundParam(p)) decls.push(`background-color: ${p.value}`);
         else if (isThemeTextParam(p)) decls.push(`color: ${p.value}`);
     }
     return decls.join('; ');
+}
+
+/** Width + height combined -- for a bare `row`/`column` (no inner card), applied to itself. */
+export function themeSizingToInlineStyle(block: { params: any[] } | undefined): string {
+    return [themeWidthToInlineStyle(block), themeHeightToInlineStyle(block)]
+        .filter(s => s.length > 0).join('; ');
 }
 
 /** A theme body (global `Theme` or per-field `ThemeFieldParam`): palette flats + groups. */
@@ -257,8 +286,9 @@ function themeBlockToCss(block: { params: any[] }): string {
         else if (isThemeFontGroup(p)) decls.push(...fontGroupToCss(p));
         else if (isThemeHeadingGroup(p)) decls.push(...headingGroupToCss(p));
         else if (isThemeDisabledGroup(p)) decls.push(...disabledGroupToCss(p));
-        else if (isThemeWidthGroup(p)) decls.push(...widthGroupToCss(p));
-        else if (isThemeHeightGroup(p)) decls.push(...heightGroupToCss(p));
+        // width/height are NOT emitted here (see note above widthGroupToCss removal) -- they ride
+        // direct min/max declarations on the per-field rule via generateThemeCss instead.
+        else if (isThemeWidthGroup(p) || isThemeHeightGroup(p)) continue;
         else decls.push(paletteLeafToCss(p));
     }
     return decls.filter(s => s.length > 0).join('\n  ');
@@ -277,15 +307,30 @@ export function generateThemeCss(entry: Entry, id: string, destination: string) 
         if (css.length > 0) blocks.push(`${root} {\n  ${css}\n}`);
     }
 
-    // Per-field overrides: any field carrying a `theme: { ... }` param. Same vocabulary
-    // and code as the global block, just emitted on the field's `.isdl-field-<name>` wrapper.
+    // Per-field overrides: any field carrying a `theme: { ... }` param, emitted on the field's
+    // `.isdl-field-<name>` wrapper. Palette/border/font/etc. ride `--isdl-*` vars (themeBlockToCss);
+    // width/height ride DIRECT min/max declarations (themeWidth/HeightToInlineStyle) so they outrank
+    // the per-type size floors (`.isdl-tracker` etc.) that a var on `.isdl-field` would lose to.
     const fields = globalGetAllOfType<Property>(entry, isProperty);
     for (const field of fields) {
         const themeBlock = ((field as any).params ?? []).find(isThemeFieldParam) as ThemeFieldParam | undefined;
         if (!themeBlock) continue;
-        const css = themeBlockToCss(themeBlock);
-        if (css.length === 0) continue;
-        blocks.push(`${root} .isdl-field-${field.name.toLowerCase()} {\n  ${css}\n}`);
+        const varCss = themeBlockToCss(themeBlock);
+        // Sizing must beat the base per-type floors, which compile DEEP-scoped -- e.g.
+        // `.<id>.vue-application .window-content .v-application .isdl-tracker { min-width: 300px }`
+        // is specificity (0,5,0), far above this per-field rule's (0,3,0). Rather than couple to
+        // that scope depth, mark the explicit author sizing `!important` (the section path wins for
+        // free via inline style; this is the rule-based equivalent). Palette/border ride `--isdl-*`
+        // vars and don't fight on the same property, so they stay normal-weight.
+        const sizing = [themeWidthToInlineStyle(themeBlock), themeHeightToInlineStyle(themeBlock)]
+            .filter(s => s.length > 0).join('; ');
+        const sizingImportant = sizing.split(';').map(s => s.trim()).filter(s => s.length > 0)
+            .map(s => `${s} !important`).join('; ');
+        const parts: string[] = [];
+        if (varCss.length > 0) parts.push(varCss);
+        if (sizingImportant.length > 0) parts.push(`${sizingImportant};`);
+        if (parts.length === 0) continue;
+        blocks.push(`${root} .isdl-field-${field.name.toLowerCase()} {\n  ${parts.join('\n  ')}\n}`);
     }
 
     if (!fs.existsSync(generatedFileDir)) {

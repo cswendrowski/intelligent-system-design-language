@@ -117,10 +117,10 @@ const FIELD_ONLY_THEME_TYPES = new Set(['ThemeWidthGroup', 'ThemeHeightGroup']);
 // `style=""` of real declarations on the element (not `--isdl-*` vars, which inherit and
 // would leak into children). Only tokens that map cleanly to a container declaration are
 // allowed, and they differ by container:
-//   - row / column: sizing only (min/max width/height).
-//   - section: sizing PLUS the box chrome that paints its <v-card> (border, background, text).
+//   - row / column: sizing + `border` (size a band of fields and box it off).
+//   - section: the above PLUS the fill that paints its <v-card> (background, text).
 // Tokens not in the set for a given container have no container effect and are rejected.
-const ROW_COLUMN_THEME_TYPES = new Set(['ThemeWidthGroup', 'ThemeHeightGroup']);
+const ROW_COLUMN_THEME_TYPES = new Set(['ThemeWidthGroup', 'ThemeHeightGroup', 'ThemeBorderGroup']);
 const SECTION_THEME_TYPES = new Set([
     'ThemeWidthGroup', 'ThemeHeightGroup', 'ThemeBorderGroup',
     'ThemeBackgroundParam', 'ThemeTextParam',
@@ -187,8 +187,8 @@ export class IntelligentSystemDesignLanguageValidator {
                 if (!ROW_COLUMN_THEME_TYPES.has(param.$type)) {
                     const label = THEME_TOKEN_LABEL[param.$type] ?? param.$type;
                     accept('error',
-                        `'${label}' can't theme a ${where} — a ${where} only accepts sizing tokens `
-                        + `('width' / 'height').`,
+                        `'${label}' can't theme a ${where} — a ${where} accepts sizing `
+                        + `('width' / 'height') and 'border'.`,
                         { node: param });
                 }
             }

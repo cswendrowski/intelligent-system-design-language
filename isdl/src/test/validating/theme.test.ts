@@ -107,22 +107,22 @@ actor A {
 
 describe('layout-container theme scope validation', () => {
 
-    it('accepts sizing on a row', async () => {
-        expect(await errors(layoutSys(`row(theme: { width: { max: 800px }, height: { min: 120px } })`))).toHaveLength(0);
+    it('accepts sizing + border on a row', async () => {
+        expect(await errors(layoutSys(`row(theme: { width: { max: 800px }, height: { min: 120px }, border: { color: #223344, width: 2px } })`))).toHaveLength(0);
     });
 
-    it('accepts sizing on a column', async () => {
-        expect(await errors(layoutSys(`column(theme: { width: { min: 80px, max: 160px } })`))).toHaveLength(0);
+    it('accepts sizing + border on a column', async () => {
+        expect(await errors(layoutSys(`column(theme: { width: { min: 80px, max: 160px }, border: { color: #223344, radius: 8px } })`))).toHaveLength(0);
     });
 
-    it('rejects border on a row (sizing-only)', async () => {
-        const errs = await errors(layoutSys(`row(theme: { border: { color: #223344 } })`));
-        expect(errs.some(e => e.message.includes("'border'") && e.message.includes('row'))).toBe(true);
+    it('rejects background on a row (fill is section-only)', async () => {
+        const errs = await errors(layoutSys(`row(theme: { background: #223344 })`));
+        expect(errs.some(e => e.message.includes("'background'") && e.message.includes('row'))).toBe(true);
     });
 
-    it('rejects background on a column (sizing-only)', async () => {
-        const errs = await errors(layoutSys(`column(theme: { background: #223344 })`));
-        expect(errs.some(e => e.message.includes("'background'") && e.message.includes('column'))).toBe(true);
+    it('rejects text on a column (fill is section-only)', async () => {
+        const errs = await errors(layoutSys(`column(theme: { text: #223344 })`));
+        expect(errs.some(e => e.message.includes("'text'") && e.message.includes('column'))).toBe(true);
     });
 
     it('accepts sizing + box chrome on a section', async () => {

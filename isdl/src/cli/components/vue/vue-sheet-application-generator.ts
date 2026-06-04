@@ -96,7 +96,7 @@ import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-co
 // import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
 import {generateDocumentChoicesComponent} from './base-components/vue-document-choices.js';
 import {translateBodyExpressionToJavascript, translateExpression, compileVisualizerFormula} from '../method-generator.js';
-import {themeBlockToInlineStyle} from '../css-generator.js';
+import {themeWidthToInlineStyle, themeHeightToInlineStyle, themePaintToInlineStyle, themeSizingToInlineStyle} from '../css-generator.js';
 import {humanize} from "inflection";
 import {generateVuetifyDatatableComponent} from "./vue-datatable2-component-generator.js";
 import {generateDocumentChoiceComponent} from "./base-components/vue-document-choice.js";
@@ -1291,16 +1291,22 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
         // A layout container's `theme: { ... }` compiles to an inline `style="..."` of ACTUAL
         // CSS (not `--isdl-*` vars, which would inherit and leak sizing into nested children).
-        // Section paints the inner <v-card> (border/bg/text live there); row/col paint themselves.
-        const layoutStyle = themeBlockToInlineStyle(
-            (element as any).params?.find(isThemeFieldParam) as ThemeFieldParam | undefined
-        );
-        const styleAttr = layoutStyle.length > 0 ? ` style="${layoutStyle}"` : '';
+        // The themed style is split by who owns the geometry: WIDTH governs the flex item that
+        // lays out in the row (the OUTER v-col/v-row), so it must ride that element -- putting it
+        // on the inner card lets the column keep its full width and the card just floats inside.
+        // HEIGHT + PAINT (border/bg/text) belong on the visible v-card surface (or the bare
+        // row/column when there is no card). See css-generator's theme*ToInlineStyle helpers.
+        const themeParam = (element as any).params?.find(isThemeFieldParam) as ThemeFieldParam | undefined;
 
         if (isSection(element)) {
+            const colStyle = themeWidthToInlineStyle(themeParam);
+            const colAttr = colStyle.length > 0 ? ` style="${colStyle}"` : '';
+            const cardStyle = [themeHeightToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
+                .filter(s => s.length > 0).join('; ');
+            const cardAttr = cardStyle.length > 0 ? ` style="${cardStyle}"` : '';
             return expandToNode`
-            <v-col class="section isdl-section isdl-section-${element.name.toLowerCase()}">
-                <v-card variant="outlined" elevation="4"${styleAttr}>
+            <v-col class="section isdl-section isdl-section-${element.name.toLowerCase()}"${colAttr}>
+                <v-card variant="outlined" elevation="4"${cardAttr}>
                     <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
 
                     <v-card-text>
@@ -1312,6 +1318,10 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             </v-col>
             `;
         }
+
+        // Bare row/column have no inner card: width + height ride the element itself.
+        const sizingStyle = themeSizingToInlineStyle(themeParam);
+        const styleAttr = sizingStyle.length > 0 ? ` style="${sizingStyle}"` : '';
 
         if (isRow(element)) {
             return expandToNode`
