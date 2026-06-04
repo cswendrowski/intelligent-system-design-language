@@ -1,10 +1,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import {
-    Action,
     Document,
     Entry,
-    isAction,
     isActor,
     isPage, isPinnedField,
     isPrompt, isTableField,
@@ -22,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import vuetify from 'vite-plugin-vuetify';
 import { generateBaseVueComponents } from './vue-base-components-generator.js';
 import { generateVueMixin } from './vue-mixin.js';
-import { getAllOfType, getPromptIdentity } from '../utils.js';
+import { getAllOfType, getDocumentPromptContainers, getPromptIdentity, PromptContainer } from '../utils.js';
 import { generateDatatableVueSheet } from './vue-datatable-sheet-class-generator.js';
 import { AstUtils } from 'langium';
 import {generateActiveEffectVueSheet} from "./vue-active-effect-sheet-generator.js";
@@ -207,16 +205,16 @@ function generateIndexMjs(entry: Entry, destination: string) {
     }
 
     function generateDocumentPromptExports(document: Document): CompositeGeneratorNode | undefined {
-        const actions = getAllOfType<Action>(document.body, isAction, false);
-        return joinToNode(actions.map(x => generatePromptExports(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+        const containers = getDocumentPromptContainers(document);
+        return joinToNode(containers.map(x => generatePromptExports(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
     }
 
-    function generatePromptExports(action: Action, document: Document): CompositeGeneratorNode | undefined {
+    function generatePromptExports(container: PromptContainer, document: Document): CompositeGeneratorNode | undefined {
         const type = isActor(document) ? 'actor' : 'item';
-        const promptVariables = (action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
+        const promptVariables = (container.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
 
         return joinToNode(promptVariables.map(v => {
-            const identity = getPromptIdentity(action, v);
+            const identity = getPromptIdentity(container, v);
             return `export { default as ${document.name}${titleize(type)}${identity}Prompt } from './${type}/${document.name.toLowerCase()}/components/prompts/${document.name.toLowerCase()}${identity}Prompt.vue';`;
         }), { appendNewLineIfNotEmpty: true });
     }

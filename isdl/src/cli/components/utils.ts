@@ -32,17 +32,35 @@ import {
     isRoll, isDamageRoll, isChatCard, isUpdate, isPrompt, isWait,
     isPlayAudio, isMacroExecute, isAssignment, isParentAssignment,
     isTargetAssignment, isCombat, isUser, isFunctionCall,
-    SettingField, isSettings,
+    SettingField, isSettings, isAction, isFunctionDefinition,
 } from "../../language/generated/ast.js"
 
 // --- Prompt identity helpers -------------------------------------------------
-// A prompt is uniquely identified by its enclosing action AND the fleeting
-// variable it's assigned to, so an action may contain multiple prompts without
-// collision. All prompt generators (app class, component, registry, index export,
-// caller) MUST derive names from these helpers to stay consistent.
+// A prompt is uniquely identified by its enclosing container (an `action` OR a
+// `function`) AND the fleeting variable it's assigned to, so a container may hold
+// multiple prompts without collision. All prompt generators (app class, component,
+// registry, index export, caller) MUST derive names from these helpers to stay
+// consistent. Both Action and FunctionDefinition expose `name` + `method.body`, so
+// the same prompt machinery works for either.
+
+/** A prompt can live inside an `action` or a `function` body. */
+export type PromptContainer = Action | FunctionDefinition;
 
 export function getPromptVariable(prompt: Prompt): VariableExpression | undefined {
     return AstUtils.getContainerOfType(prompt, isVariableExpression);
+}
+
+/** The nearest `action`/`function` enclosing a prompt (the registry/key owner). */
+export function getPromptContainer(node: AstNode): PromptContainer | undefined {
+    return AstUtils.getContainerOfType(node, (n): n is PromptContainer => isAction(n) || isFunctionDefinition(n));
+}
+
+/** Every `action` and `function` in a document that may hold prompts. */
+export function getDocumentPromptContainers(document: Document): PromptContainer[] {
+    return [
+        ...getAllOfType<Action>(document.body, isAction, false),
+        ...getAllOfType<FunctionDefinition>(document.body, isFunctionDefinition, false),
+    ];
 }
 
 // --- System settings helpers -------------------------------------------------
@@ -83,18 +101,18 @@ export function settingChoiceKey(setting: SettingField, choiceValue: string): st
 }
 
 /** PascalCase-ish identity used for class/file/component names, e.g. "GetUserChoiceuserInput". */
-export function getPromptIdentity(action: Action, variable: VariableExpression | undefined): string {
-    return `${action.name}${variable?.name ?? ''}`;
+export function getPromptIdentity(container: PromptContainer, variable: VariableExpression | undefined): string {
+    return `${container.name}${variable?.name ?? ''}`;
 }
 
 /** game.system.prompts registry key, e.g. "herogetuserchoiceuserInput". */
-export function getPromptRegistryKey(document: Document, action: Action, variable: VariableExpression | undefined): string {
-    return `${document.name.toLowerCase()}${getPromptIdentity(action, variable)}`;
+export function getPromptRegistryKey(document: Document, container: PromptContainer, variable: VariableExpression | undefined): string {
+    return `${document.name.toLowerCase()}${getPromptIdentity(container, variable)}`;
 }
 
 /** Lowercase system sub-path the prompt's fields live under, e.g. "getuserchoiceuserinput". */
-export function getPromptDataPath(action: Action, variable: VariableExpression | undefined): string {
-    return `${action.name.toLowerCase()}${(variable?.name ?? '').toLowerCase()}`;
+export function getPromptDataPath(container: PromptContainer, variable: VariableExpression | undefined): string {
+    return `${container.name.toLowerCase()}${(variable?.name ?? '').toLowerCase()}`;
 }
 
 export function toMachineIdentifier(s: string): string {

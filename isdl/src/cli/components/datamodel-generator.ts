@@ -1,5 +1,4 @@
 import type {
-    Action,
     ClassExpression, DieInitialParam,
     Document,
     Entry,
@@ -38,7 +37,6 @@ import {
     isSelfPropertyRefExp,
     isDocumentChoiceExp,
     isDocumentChoicesExp,
-    isAction,
     isVariableExpression,
     isPrompt,
     isTrackerExp,
@@ -61,7 +59,7 @@ import {
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getAllOfType, toMachineIdentifier } from './utils.js';
+import { getAllOfType, getDocumentPromptContainers, getPromptContainer, PromptContainer, toMachineIdentifier } from './utils.js';
 import { translateExpression } from './method-generator.js';
 import { AstUtils } from 'langium';
 
@@ -713,12 +711,12 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 
     function generateDocumentPromptModels(document: Document): CompositeGeneratorNode | undefined {
-        const actions = getAllOfType<Action>(document.body, isAction, false);
-        return joinToNode(actions.map(x => generatePromptModels(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+        const containers = getDocumentPromptContainers(document);
+        return joinToNode(containers.map(x => generatePromptModels(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
     }
 
-    function generatePromptModels(action: Action, document: Document): CompositeGeneratorNode | undefined {
-        const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
+    function generatePromptModels(container: PromptContainer, document: Document): CompositeGeneratorNode | undefined {
+        const variables = container.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
         const prompts = variables.filter(x => isPrompt(x.value)).map(x => x.value) as Prompt[]
 
         return joinToNode(prompts.map(p => generatePromptModel(p)), { appendNewLineIfNotEmpty: true });
@@ -726,9 +724,9 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
 
     function generatePromptModel(prompt: Prompt) {
         const variable = AstUtils.getContainerOfType(prompt.$container, isVariableExpression);
-        const action = AstUtils.getContainerOfType(prompt.$container, isAction);
+        const container = getPromptContainer(prompt);
         return expandToNode`
-            ${action?.name.toLowerCase()}${variable?.name.toLowerCase()}: new foundry.data.fields.SchemaField({
+            ${container?.name.toLowerCase()}${variable?.name.toLowerCase()}: new foundry.data.fields.SchemaField({
                 ${joinToNode(prompt.body, property => generateField(property), { appendNewLineIfNotEmpty: true })}
             }),
         `;

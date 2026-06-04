@@ -1,0 +1,22 @@
+// Sidecar stylesheet for the Kitchen Sink system.
+// Referenced from kitchensink.isdl via `styles = "kitchensink.scss"`. The generator
+// compiles this through SASS and auto-scopes every rule under the system root
+// (.kitchen-sink.vue-application), so selectors here can't leak into other systems.
+// SCSS features work — nesting, variables, math.
+
+$demo-border: 2px dashed #6750A4;
+
+// Author override using the per-field name class added by the generator.
+.isdl-field-stringfield {
+    input {
+        font-style: italic;
+    }
+}
+
+// Type-class targeting still works, and nesting compiles fine.
+.isdl-boolean {
+    .v-label {
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+}

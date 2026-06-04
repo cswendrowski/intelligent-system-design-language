@@ -13,7 +13,7 @@ import {
 import path from "node:path";
 import fs from "node:fs";
 import {CompositeGeneratorNode, expandToNode, joinToNode, toString} from "langium/generate";
-import {getAllOfType, getAllSettings, getSettingScope, settingChoiceKey, getPromptIdentity} from "./utils.js";
+import {getAllOfType, getAllSettings, getSettingScope, settingChoiceKey, getPromptIdentity, getDocumentPromptContainers, PromptContainer} from "./utils.js";
 import {collectAllKeywords} from "./keywords-generator.js";
 
 export function generateInitHookMjs(entry: Entry, id: string, destination: string) {
@@ -177,30 +177,30 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
     let itemCreatables = itemDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
 
     function generateDocumentPromptImports(document: Document): CompositeGeneratorNode | undefined {
-        const actions = getAllOfType<Action>(document.body, isAction, false);
-        return joinToNode(actions.map(x => generatePromptImports(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
+        const containers = getDocumentPromptContainers(document);
+        return joinToNode(containers.map(x => generatePromptImports(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true });
     }
 
-    function generatePromptImports(action: Action, document: Document): CompositeGeneratorNode | undefined {
+    function generatePromptImports(container: PromptContainer, document: Document): CompositeGeneratorNode | undefined {
         const type = isActor(document) ? 'actor' : 'item';
-        const promptVariables = (action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
+        const promptVariables = (container.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
 
         return joinToNode(promptVariables.map(v => {
-            const identity = getPromptIdentity(action, v);
+            const identity = getPromptIdentity(container, v);
             return `import ${document.name}${identity}PromptApp from "../sheets/vue/${type}/prompts/${document.name.toLowerCase()}-${identity}-prompt-app.mjs";`;
         }), { appendNewLineIfNotEmpty: true });
     }
 
     function generateDocumentPromptAssignment(document: Document): CompositeGeneratorNode | undefined {
-        const actions = getAllOfType<Action>(document.body, isAction, false);
-        return joinToNode(actions.map(x => generatePromptAssignments(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true, separator: ',' });
+        const containers = getDocumentPromptContainers(document);
+        return joinToNode(containers.map(x => generatePromptAssignments(x, document)).filter(x => x !== undefined).map(x => x as CompositeGeneratorNode), { appendNewLineIfNotEmpty: true, separator: ',' });
     }
 
-    function generatePromptAssignments(action: Action, document: Document): CompositeGeneratorNode | undefined {
-        const promptVariables = (action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
+    function generatePromptAssignments(container: PromptContainer, document: Document): CompositeGeneratorNode | undefined {
+        const promptVariables = (container.method.body.filter(x => isVariableExpression(x)) as VariableExpression[]).filter(x => isPrompt(x.value));
 
         return joinToNode(promptVariables.map(v => {
-            const identity = getPromptIdentity(action, v);
+            const identity = getPromptIdentity(container, v);
             return `${document.name.toLowerCase()}${identity}: ${document.name}${identity}PromptApp`;
         }), { appendNewLineIfNotEmpty: true, separator: ',' });
     }

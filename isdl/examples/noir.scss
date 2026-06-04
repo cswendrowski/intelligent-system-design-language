@@ -1,0 +1,75 @@
+// ============================================================================
+//  noir.scss — bespoke atmosphere for Blackwater Files.
+//  Everything here is the stuff a theme TOKEN can't express: a loaded web font,
+//  film grain, a vignette, hard shadows, display type. The generator hoists the
+//  leading @import above the auto-scope wrapper, then nests the rest under
+//  `.blackwater-files.vue-application`, so these selectors can't leak elsewhere.
+// ============================================================================
+// Load the web fonts named by the `font { family }` / `heading { font }` theme tokens.
+// (The generator hoists this @import above the auto-scope wrapper.)
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Special+Elite&display=swap');
+
+// Flatten the busy default page texture so the flat noir surface + grain read.
+// Scoped to the texture layer only — not a blanket background-image kill.
+.topography {
+    background-image: none !important;
+}
+
+// The sheet content becomes a rain-slicked panel: grain + a heavy vignette.
+.window-content {
+    position: relative;
+
+    // Film grain.
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.12;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    // Vignette — the dark closes in at the edges.
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.75) 100%);
+    }
+
+    // Keep real content above the overlays.
+    > * {
+        position: relative;
+        z-index: 2;
+    }
+}
+
+// Dossier headers: the condensed face, amber color, and uppercase now come from the
+// `heading { font, color, transform }` tokens. What stays here is the BESPOKE treatment
+// a token shouldn't own: tight tracking, heavy weight, and the hard amber rule beneath.
+.v-card-title,
+.section .v-card-title {
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    border-bottom: 1px solid var(--isdl-primary);
+    padding-bottom: 0.25rem;
+}
+
+// Sections read as case-file cards: flat black, hard shadow, thin amber top rule.
+.section,
+.isdl-datatable {
+    border-top: 2px solid var(--isdl-primary);
+    box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.6);
+    background-color: rgba(0, 0, 0, 0.25);
+}
+
+// The detective's name: the case headline (font is the headingFont token).
+.document-name input {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--isdl-text);
+}

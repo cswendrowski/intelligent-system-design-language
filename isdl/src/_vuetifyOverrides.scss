@@ -216,9 +216,31 @@
         border: 2px groove var(--color-border-light-highlight);
     }
     
+    // Disabled fields are how ISDL renders PLAY (read-only) mode, so their text must stay
+    // readable — the "can't edit" cue is the missing border/caret, not faded gray text. The
+    // real bug was Vuetify fading disabled fields to 38% opacity; we restore full opacity.
+    // Form fields keep a LIGHT fill regardless of the sheet's theme, so the text default is a
+    // DARK on-field color (not the sheet body color, which is light on a dark theme and would
+    // be invisible on the light field). The `disabledText { color, size }` tokens override.
+    .v-input--disabled,
+    .v-field--disabled {
+        opacity: 1;
+    }
+
+    input:disabled,
+    textarea:disabled,
+    select:disabled,
+    .v-field--disabled .v-field__input,
+    .v-field--disabled input,
+    .v-field--disabled textarea {
+        color: var(--isdl-disabled-color, var(--color-text-dark-primary));
+        font-size: var(--isdl-disabled-size, inherit);
+        opacity: 1;
+        -webkit-text-fill-color: var(--isdl-disabled-color, var(--color-text-dark-primary));
+    }
+
     input:disabled {
         border: none;
-        color: var(--color-text-dark-secondary);
     }
     
     input:disabled:hover {

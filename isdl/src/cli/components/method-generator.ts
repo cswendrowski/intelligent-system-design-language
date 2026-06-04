@@ -137,7 +137,7 @@ import {
     isCritParam, isFumbleParam, isSuccessParam, isFailureParam,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
-import { getParentDocument, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
+import { getParentDocument, getPromptContainer, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
 // Module-scoped copy used by the lifted translateDiceParts/translateDiceData.
@@ -438,8 +438,8 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 // any binding that reads this (the rollVisualizer's :rollData).
                 const prompt = AstUtils.getContainerOfType(expression, isPrompt);
                 const variable = AstUtils.getContainerOfType(prompt?.$container, isVariableExpression);
-                const action = AstUtils.getContainerOfType(prompt?.$container, isAction);
-                const promptPath = `${action?.name.toLowerCase() ?? ""}${variable?.name.toLowerCase() ?? ""}`;
+                const container = prompt ? getPromptContainer(prompt) : undefined;
+                const promptPath = `${container?.name.toLowerCase() ?? ""}${variable?.name.toLowerCase() ?? ""}`;
                 const ref = expression.property?.ref;
                 const fieldName = ref?.name?.toLowerCase() ?? "";
                 const base = `context.system.${promptPath}.${fieldName}`;
@@ -1776,12 +1776,13 @@ export function translateExpression(entry: Entry, id: string, expression: string
         const targetParam = expression.params.find(x => isTargetParam(x)) as TargetParam | undefined;
         const target = targetParam?.value ?? "self";
 
-        // Registry key for the generated Vue prompt app (game.system.prompts.<doc><action><variable>).
-        const promptAction = AstUtils.getContainerOfType(expression, isAction);
+        // Registry key for the generated Vue prompt app (game.system.prompts.<doc><container><variable>).
+        // The container is the enclosing `action` OR `function` -- prompts work inside either.
+        const promptContainer = getPromptContainer(expression);
         const promptDocument = AstUtils.getContainerOfType(expression, isDocument);
         const promptVariable = getPromptVariable(expression);
-        const promptKey = (promptDocument && promptAction)
-            ? getPromptRegistryKey(promptDocument, promptAction, promptVariable)
+        const promptKey = (promptDocument && promptContainer)
+            ? getPromptRegistryKey(promptDocument, promptContainer, promptVariable)
             : '';
 
         const locationParam = expression.params.find(x => isLocationParam(x)) as LocationParam | undefined;

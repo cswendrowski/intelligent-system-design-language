@@ -1,0 +1,94 @@
+// ============================================================================
+//  BLACKWATER FILES — a film-noir detective system.
+//  A worked example of source-side theming: the `theme { }` block carries the
+//  SYSTEMATIC tokens (color roles, font, corner style), and the referenced
+//  sidecar `noir.scss` carries the BESPOKE atmosphere (grain, vignette, display
+//  font, hard shadows) that isn't worth a first-class language node.
+// ============================================================================
+config Noir {
+    label = "Blackwater Files"
+    id = "blackwater-files"
+    description = "A hardboiled noir investigation system. The city's always raining and everybody's lying."
+    author = "ISDL Examples"
+
+    // This system is art-directed: the look is fixed by the theme, so turn off the
+    // per-document primary/secondary/tertiary color pickers (no rogue hot-pink sheets).
+    userColors = false
+
+    // Systematic theme tokens -> --isdl-* custom properties, fed into the cascade.
+    // Flat palette roots up top; grouped component blocks below (CSS sub-prop names).
+    // Font values carry their own fallback so the sheet stays legible offline.
+    theme {
+        // palette roots
+        primary: #c9a227,                        // sodium streetlight amber — the lead color (field edge)
+        background: #16130f,                     // wet-asphalt near-black panel
+        text: #d6cfbf,                           // dim newsprint
+
+        // grouped component blocks
+        border  { color: #3a3128, radius: 0 },   // dim warm hairline; hardboiled square corners
+        font    { family: "'Special Elite', monospace" },           // a beaten typewriter (body)
+        heading {
+            color: #c9a227,                      // amber stamped headers
+            font: "'Oswald', 'Impact', sans-serif", // stamped condensed face
+            transform: "uppercase"               // shouted case-file labels
+        }
+    }
+    // Bespoke atmosphere the tokens can't express: grain, vignette, display type.
+    // Scoped to the generated sheets (.blackwater-files.vue-application).
+    sheetStyles = "noir.scss"
+}
+
+actor Detective {
+    // Nerve under pressure — runs out, you crack.
+    health resource Composure(max: 10)
+    // The vice that keeps you steady. (a tracker reads as a labeled bar)
+    resource Whiskey(max: 6)
+
+    page CaseFile {
+        section Dossier {
+            string Alias
+            string Agency
+            number CasesClosed(min: 0)
+            boolean OnTheCase
+        }
+
+        section Faculties {
+            attribute Wits
+            attribute Grit
+            attribute Charm
+            // Per-field theme override: Luck is fickle — a blood-red edge on THIS field
+            // only, beating the global amber. Per-field uses the SAME grouped vocabulary as
+            // the global theme, wrapped in a `theme:` param.
+            attribute Luck(theme: { primary: #8b1e1e })
+        }
+
+        // The investigation itself — a roll that leans on Wits.
+        action Investigate {
+            fleeting hunch = roll(d20 + self.Wits)
+            chat InvestigateResult {
+                flavor self.Alias + " follows a hunch..."
+                hunch
+            }
+        }
+    }
+
+    page Evidence {
+        section Board {
+            table<Clue> Clues
+            table<Lead> Leads
+        }
+    }
+}
+
+item Clue {
+    string Source
+    number Reliability(min: 0, max: 10)
+    boolean Verified
+    html Notes
+}
+
+item Lead {
+    string Suspect
+    choice<string> Heat(choices: ["Cold", "Warm", "Hot"])
+    number Danger(min: 0, max: 5)
+}
