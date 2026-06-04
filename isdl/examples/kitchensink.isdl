@@ -3,6 +3,13 @@ config KitchenSink {
     id = "kitchen-sink"
     description = "An dump of all the features"
     author = "Cody Swendrowski"
+    // QA: declarative global theme tokens -> --isdl-* custom properties on the system root.
+    theme {
+        accent: #6750A4
+        radius: 6
+    }
+    // QA: sidecar SCSS authored next to this .isdl, compiled + auto-scoped to the system.
+    styles = "kitchensink.scss"
     keywords {
         Advantage(summary: "Roll twice and take the higher result", color: #00FF00, icon: "fa-solid fa-dice-d20")
         Disadvantage(summary: "Roll twice and take the lower result", color: #FF0000, icon: "fa-solid fa-dice-d20")
@@ -52,7 +59,9 @@ actor BasicHero {
     // write (await game.settings.set), and freely write the client setting.
     action AdjustKarma {
         if (System.ShowToHit) {
-            log("To-hit display is enabled")
+            chat ShotToHit {
+                "To-hit display is enabled"
+            }
         }
         fleeting current = System.StartingKarma
         if (User.isGM) {
@@ -393,6 +402,24 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             attackRoll
         }
     }
+    // QA / regression (#101): a prompt() INSIDE a function (not an action). The Vue-prompts rework
+    // only wired prompts living in `action` bodies, so a prompt in a function produced an empty
+    // promptKey -> `new game.system.prompts.(...)` and threw at runtime. This must register a prompt
+    // app, open a real window, and return the harvested input.
+    function PromptedBonus returns number {
+        fleeting picks = prompt(label: "Function Prompt", width: 300) {
+            number Advantage(min: 0, max: 9, value: 1)
+            number Disadvantage(min: 0, max: 9, label: "Additional Disadvantages")
+        }
+        return picks.Advantage - picks.Disadvantage
+    }
+    action TestFunctionPrompt {
+        fleeting bonus = self.PromptedBonus()
+        chat FunctionPromptResult {
+            flavor "Function prompt net bonus: " + bonus
+        }
+    }
+
     // QA: assigning to a self attribute must write .value, not the derived .mod
     action DrainFight {
         self.Fight -= 1
@@ -405,7 +432,9 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
 
         section Basic {
             string StringField
-            number NumberField
+            // QA: per-field theme override (differs from the global theme) -> emitted on the
+            // .isdl-field-numberfield wrapper; should beat the global accent/radius for THIS field only.
+            number NumberField(accent: #FF5722, radius: 16)
             // QA: calculated value calling a pure no-arg function (regression for the derived-data
             // function-call bug). DoubleNumber() returns NumberField*2, so this = NumberField*3.
             readonly number ComputedViaFn(value: { return self.NumberField + self.DoubleNumber() })

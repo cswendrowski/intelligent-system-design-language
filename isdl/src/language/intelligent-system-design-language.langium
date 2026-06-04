@@ -5,10 +5,30 @@ entry Entry:
 // Config ------------------------------------------------------
 
 Config:
-    "config" name=ID "{" body+=(ConfigExpression | Keywords | Settings)* "}";
+    "config" name=ID "{" body+=(ConfigExpression | Keywords | Settings | Theme)* "}";
 
 ConfigExpression:
-    type=("label" | "id" | "author" | "description") "=" value=STRING;
+    type=("label" | "id" | "author" | "description" | "styles") "=" value=STRING;
+
+// Theme ------------------------------------------------------
+// A small, shared vocabulary of declarative style tokens. The SAME ThemeParam
+// rules are used in two scopes: the global `theme { }` block here (system-wide
+// defaults) and inline field params via StandardFieldParams (per-field overrides).
+// Each token compiles to an `--isdl-*` CSS custom property; only the selector
+// scope differs (system root vs the field's wrapper), so per-field overrides
+// cascade over the global defaults for free.
+
+Theme:
+    "theme" "{" params+=ThemeParam* "}";
+
+ThemeParam:
+    (ThemeAccentParam | ThemeRadiusParam);
+
+ThemeAccentParam:
+    "accent:" value=HEX_COLOR;
+
+ThemeRadiusParam:
+    "radius:" value=INT;
 
 Keywords:
     "keywords" "{" body+=Keyword* "}";
@@ -123,7 +143,7 @@ ReferenceFields:
 fragment ExpressionModifier:
     (modifier=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 StandardFieldParams:
-    (VisibilityParam | IconParam | ColorParam | LabelParam);
+    (VisibilityParam | IconParam | ColorParam | LabelParam | ThemeParam);
 fragment StandardFieldParamsFrag:
     ("(" params+=StandardFieldParams* ("," params+=StandardFieldParams)* ")")?;
 NumberFieldParams:

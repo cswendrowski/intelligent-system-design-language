@@ -84,7 +84,7 @@ import {
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
 import {AstUtils} from 'langium';
-import {generateActionComponent} from './vue-action-component-generator.js';
+import {generateActionComponent, generateDocumentPromptApps} from './vue-action-component-generator.js';
 import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-component-generator.js';
 // import {generateDocumentChoiceComponent} from './vue-document-choice-component-generator.js';
 import {generateDocumentChoicesComponent} from './base-components/vue-document-choices.js';
@@ -101,6 +101,10 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, {recursive: true});
     }
+
+    // Generate prompt apps for every action AND function prompt in this document,
+    // unconditionally per document (covers documents with function-prompts but no actions).
+    generateDocumentPromptApps(entry, id, document, destination);
 
     const fileNode = expandToNode`
     ${generateVueComponentScript(entry, id, document, destination)}
@@ -1256,7 +1260,12 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const colorParam = standardParams.find(p => isColorParam(p)) as ColorParam | undefined;
 
             const label = `${document.name}.${element.name}`;
-            const standardParamsFragment = colorParam ? `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
+            // Per-field name class (`isdl-field-<name>`) sits alongside the type class (e.g.
+            // `isdl-number`) on the field wrapper via Vue attribute fallthrough, giving authors a
+            // stable per-field CSS hook (pairs with the `system.<name>` path) and the target the
+            // per-field theme override is emitted against.
+            const fieldClass = `isdl-field-${element.name.toLowerCase()}`;
+            const standardParamsFragment = colorParam ? `class="${fieldClass}" :disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `class="${fieldClass}" :disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
             const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;

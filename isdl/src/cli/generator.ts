@@ -13,7 +13,7 @@ import { expandToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extractDestinationAndName } from './cli-util.js';
-import { generateCustomCss, generateSystemCss } from './components/css-generator.js';
+import { compileSidecarScss, generateCustomCss, generateSystemCss, generateThemeCss } from './components/css-generator.js';
 import { generateLanguageJson } from './components/language-generator.js';
 import { generateExtendedDocumentClasses } from './components/derived-data-generator.js';
 import { generateDocumentDataModel, generateUuidDocumentField, generateUuidDocumentArrayField } from './components/datamodel-generator.js';
@@ -51,13 +51,16 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
 
     // Generic shared components
     generateSystemCss(entry, id, data.destination);
+    generateThemeCss(entry, id, data.destination);
+    // Sidecar SCSS lives next to the source .isdl; resolve relative to it.
+    const hasSidecar = compileSidecarScss(entry, id, path.dirname(filePath), data.destination);
     generateCustomCss(entry, id, data.destination);
     generateUuidDocumentField(data.destination);
     generateUuidDocumentArrayField(data.destination);
 
     generateActiveEffectBaseSheet(entry, id, data.destination);
     generateActiveEffectHandlebars(id, entry, data.destination);
-    generateSystemJson(entry, id, data.destination);
+    generateSystemJson(entry, id, data.destination, hasSidecar);
     generateLanguageJson(entry, id, data.destination);
     generateTemplateJson(entry, id, data.destination);
     generateExtendedDocumentClasses(entry, id, data.destination);
@@ -138,7 +141,7 @@ function getExtensionVersion(): string | undefined {
     return packageJson.version;
 }
 
-function generateSystemJson(entry: Entry, id: string, destination: string) {
+function generateSystemJson(entry: Entry, id: string, destination: string, hasSidecar: boolean = false) {
     const generatedFilePath = path.join(destination, `system.json`);
 
     // Get the version of the extension
@@ -168,6 +171,8 @@ function generateSystemJson(entry: Entry, id: string, destination: string) {
             "styles": [
                 "css/materialdesignicons.min.css",
                 "css/${id}.css",
+                "css/${id}-theme.css",
+                ${hasSidecar ? `"css/${id}-styles.css",` : ''}
                 "css/${id}-custom.css"
             ],
             "license": "LICENSE",

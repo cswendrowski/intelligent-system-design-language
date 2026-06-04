@@ -2,6 +2,19 @@
 
 @mixin isdlStyles {
 
+  // Theme tokens: field wrappers consume the `--isdl-*` custom properties set by the
+  // generated theme stylesheet (global `theme { }` on the root, per-field overrides on
+  // `.isdl-field-<name>`). Fallbacks match the default look, so a field is visually
+  // unchanged unless a theme value is set for it. Demonstrates the end-to-end path;
+  // the consumed property set will grow as the token vocabulary does.
+  .isdl-number,
+  .isdl-string-method,
+  .isdl-boolean,
+  .isdl-property {
+    border-radius: var(--isdl-radius, 0);
+    box-shadow: inset 3px 0 0 0 var(--isdl-accent, transparent);
+  }
+
   &.isdl-prompt,
   .isdl-datatable {
     .v-application__wrap {
