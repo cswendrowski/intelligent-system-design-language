@@ -22,13 +22,28 @@ Theme:
     "theme" "{" params+=ThemeParam* "}";
 
 ThemeParam:
-    (ThemeAccentParam | ThemeRadiusParam);
+    (ThemeAccentParam | ThemeRadiusParam | ThemeSurfaceParam | ThemeTextParam | ThemeFontParam | ThemeBorderParam | ThemeHeadingFontParam);
 
 ThemeAccentParam:
     "accent:" value=HEX_COLOR;
 
 ThemeRadiusParam:
     "radius:" value=INT;
+
+ThemeSurfaceParam:
+    "surface:" value=HEX_COLOR;
+
+ThemeTextParam:
+    "text:" value=HEX_COLOR;
+
+ThemeFontParam:
+    "font:" value=STRING;
+
+ThemeBorderParam:
+    "border:" value=HEX_COLOR;
+
+ThemeHeadingFontParam:
+    "headingFont:" value=STRING;
 
 Keywords:
     "keywords" "{" body+=Keyword* "}";

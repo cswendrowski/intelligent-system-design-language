@@ -2,17 +2,24 @@
 
 @mixin isdlStyles {
 
-  // Theme tokens: field wrappers consume the `--isdl-*` custom properties set by the
-  // generated theme stylesheet (global `theme { }` on the root, per-field overrides on
-  // `.isdl-field-<name>`). Fallbacks match the default look, so a field is visually
-  // unchanged unless a theme value is set for it. Demonstrates the end-to-end path;
-  // the consumed property set will grow as the token vocabulary does.
-  .isdl-number,
-  .isdl-string-method,
-  .isdl-boolean,
-  .isdl-property {
+  // Theme tokens: EVERY field wrapper carries the constant `.isdl-field` marker, so a
+  // single selector applies `radius`/`border`/accent to all field types — no per-type
+  // allowlist to drift out of sync. Globals come from `theme { }` on the root; per-field
+  // overrides land on `.isdl-field-<name>` (the same element). Fallbacks match the
+  // default look, so a field is unchanged unless a theme value is set for it.
+  .isdl-field {
     border-radius: var(--isdl-radius, 0);
-    box-shadow: inset 3px 0 0 0 var(--isdl-accent, transparent);
+    // Optional hairline from the `border` token, plus an accent left-edge. The left
+    // edge reads `--isdl-accent` on the field's own wrapper, so a per-field accent
+    // override visibly recolors just that field's edge.
+    border: 1px solid var(--isdl-border, transparent);
+    border-left: 3px solid var(--isdl-accent, transparent);
+  }
+
+  // Heading font token (falls back to the body font, then inherit).
+  .v-card-title,
+  .document-name input {
+    font-family: var(--isdl-heading-font, var(--isdl-font, inherit));
   }
 
   &.isdl-prompt,

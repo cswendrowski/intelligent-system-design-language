@@ -35,9 +35,12 @@
 // Copy of Foundry app styles for vue apps
 .#{$dynamic-id}.vue-application {
 
-  --color-text-primary: var(--color-light-2);
+  // Theme tokens feed the existing cascade variables (fallback = default look, so
+  // unthemed systems are unchanged). Setting `text`/`accent`/`font`/`surface` in
+  // `config { theme { } }` propagates through every component that reads these.
+  --color-text-primary: var(--isdl-text, var(--color-light-2));
   --color-header-background: rgba(0, 0, 0, 0.5);
-  --color-border: var(--color-cool-4);
+  --color-border: var(--isdl-accent, var(--color-cool-4));
   --color-fieldset-border: var(--color-light-6);
   --color-form-hint: var(--color-light-5);
   --color-form-hint-hover: var(--color-light-4);
@@ -46,15 +49,16 @@
   --color-select-option-bg: transparent;
   --v-theme-overlay-multiplier: 1;
   --v-disabled-opacity: 0.7;
+  font-family: var(--isdl-font, inherit);
 
 
   .window-content {
     @include vuetifyStyles.vuetifyStyles;
     @include vuetifyOverrides.vuetifyOverrides;
 
-    --color-text-primary: var(--color-light-2);
+    --color-text-primary: var(--isdl-text, var(--color-light-2));
     --color-header-background: rgba(0, 0, 0, 0.5);
-    --color-border: var(--color-cool-4);
+    --color-border: var(--isdl-accent, var(--color-cool-4));
     --color-fieldset-border: var(--color-light-6);
     --color-form-hint: var(--color-light-5);
     --color-form-hint-hover: var(--color-light-4);
@@ -63,6 +67,8 @@
     --color-select-option-bg: transparent;
     --v-theme-overlay-multiplier: 1;
     --v-disabled-opacity: 0.7;
+    font-family: var(--isdl-font, inherit);
+    background-color: var(--isdl-surface, transparent);
 
     overflow-y: scroll;
 

@@ -12,6 +12,11 @@ import {
     isThemeParam,
     isThemeAccentParam,
     isThemeRadiusParam,
+    isThemeSurfaceParam,
+    isThemeTextParam,
+    isThemeFontParam,
+    isThemeBorderParam,
+    isThemeHeadingFontParam,
 } from '../../language/generated/ast.js';
 import { expandToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -101,10 +106,23 @@ export function generateCustomCss(entry: Entry, id: string, destination: string)
 // over the global default automatically (the wrapper carries both the type class --
 // which consumes the var -- and the `.isdl-field-<name>` class that sets it).
 
+// A `font:`/`headingFont:` value is used verbatim as a font-family list. If the
+// author already wrote a stack ("'Special Elite', monospace") pass it through so the
+// fallback survives; otherwise quote the single family so a name with a space stays
+// one family when substituted into `font-family: var(--isdl-font)`.
+function cssFontValue(value: string): string {
+    return value.includes(',') ? value : `"${value}"`;
+}
+
 /** Map one theme token to its `--isdl-*` custom property declaration. */
 function themeParamToCssVar(param: ThemeParam): string {
     if (isThemeAccentParam(param)) return `--isdl-accent: ${param.value};`;
     if (isThemeRadiusParam(param)) return `--isdl-radius: ${param.value}px;`;
+    if (isThemeSurfaceParam(param)) return `--isdl-surface: ${param.value};`;
+    if (isThemeTextParam(param)) return `--isdl-text: ${param.value};`;
+    if (isThemeBorderParam(param)) return `--isdl-border: ${param.value};`;
+    if (isThemeFontParam(param)) return `--isdl-font: ${cssFontValue(param.value)};`;
+    if (isThemeHeadingFontParam(param)) return `--isdl-heading-font: ${cssFontValue(param.value)};`;
     return '';
 }
 
@@ -164,9 +182,16 @@ export function compileSidecarScss(entry: Entry, id: string, sourceDir: string, 
 
     const authorScss = fs.readFileSync(absPath, 'utf8');
     // Wrap the SCSS *source* (not the compiled output) so SCSS nesting scopes every
-    // author rule under the system root. (Top-level @use/@forward in the sidecar are
-    // not supported while wrapped -- they'd surface as a loud sass error here.)
-    const wrapped = `.${id}.vue-application {\n${authorScss}\n}`;
+    // author rule under the system root. `@use`/`@forward`/`@import` must live at the
+    // top of the file (not inside a selector), so hoist those single-line statements
+    // above the wrapper -- this is what lets a sidecar pull in web fonts.
+    const hoistPattern = /^\s*@(use|forward|import)\b[^;]*;/;
+    const head: string[] = [];
+    const body: string[] = [];
+    for (const line of authorScss.split(/\r?\n/)) {
+        (hoistPattern.test(line) ? head : body).push(line);
+    }
+    const wrapped = `${head.join('\n')}\n.${id}.vue-application {\n${body.join('\n')}\n}`;
 
     let css: string;
     try {

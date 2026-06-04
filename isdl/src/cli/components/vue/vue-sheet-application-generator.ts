@@ -1260,15 +1260,16 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const colorParam = standardParams.find(p => isColorParam(p)) as ColorParam | undefined;
 
             const label = `${document.name}.${element.name}`;
-            // Per-field name class (`isdl-field-<name>`) sits alongside the type class (e.g.
-            // `isdl-number`) on the field wrapper via Vue attribute fallthrough, giving authors a
-            // stable per-field CSS hook (pairs with the `system.<name>` path) and the target the
-            // per-field theme override is emitted against.
-            const fieldClass = `isdl-field-${element.name.toLowerCase()}`;
-            const standardParamsFragment = colorParam ? `class="${fieldClass}" :disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `class="${fieldClass}" :disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
+            const standardParamsFragment = colorParam ? `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
             const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;
+
+            // Single choke point for the theme marker: render the field by type, then stamp the
+            // universal `isdl-field` (+ per-field `isdl-field-<name>`) class onto its <i-...> root.
+            // Every field branch returns an <i-...> root, so this reaches ALL field types -- no
+            // per-branch allowlist to drift out of sync as new field types are added.
+            const fieldComponent = (() => {
 
             if (isRollVisualizerField(element)) {
                 const { formula, data } = compileVisualizerFormula(entry, id, element);
@@ -2256,10 +2257,34 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             return expandToNode`
             <v-alert text="Unknown Property ${(element as any).name}" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
             `;
+
+            })();
+            return injectFieldMarker(fieldComponent, element);
         }
 
         return expandToNode`
         <v-alert text="Unknown Element" type="warning" density="compact" class="ga-2 ma-1" variant="outlined"></v-alert>
         `;
+    }
+
+    // Stamp the universal field marker onto a rendered field's <i-...> component root (the
+    // element that also carries the type + single/double-wide classes via attribute fallthrough).
+    // `.isdl-field` is the one selector theme-token consumption targets; `.isdl-field-<name>` is
+    // the per-field hook + the target a per-field theme override is emitted against.
+    function injectFieldMarker(node: CompositeGeneratorNode, element: Property): CompositeGeneratorNode {
+        const html = toString(node);
+        const marker = `isdl-field isdl-field-${element.name.toLowerCase()}`;
+        // Stamp the marker onto the FIRST element tag of the rendered field, whatever its name --
+        // <i-number>, a datatable <div class="datatable-drop-zone">, a <DocumentChoice> component,
+        // etc. Insert right after the tag NAME so attribute values (which can contain '>') are never
+        // parsed. If that tag already leads with a `class` attribute, merge into it (no double class).
+        const tag = html.match(/<([A-Za-z][\w.-]*)/);
+        if (tag?.index === undefined) return node;
+        const insertAt = tag.index + tag[0].length;
+        const rest = html.slice(insertAt);
+        const injected = /^\s+class="/.test(rest)
+            ? html.slice(0, insertAt) + rest.replace(/^(\s+class=")/, `$1${marker} `)
+            : html.slice(0, insertAt) + ` class="${marker}"` + rest;
+        return expandToNode`${injected}`;
     }
 }
