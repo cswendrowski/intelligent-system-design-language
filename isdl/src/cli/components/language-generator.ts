@@ -17,7 +17,7 @@ import {
     isItem,
     isHookHandler,
     isLabelParam, Layout, isLayout, isChoiceStringValue, isStringExtendedChoice, isStringChoiceField, isDamageTypeChoiceField, isStringChoicesField,
-    isVariableExpression, isPrompt,
+    isVariableExpression, isPrompt, isFunctionDefinition,
     isSettingHint, isSettingChoices,
 } from "../../language/generated/ast.js"
 import { Prompt, VariableExpression, SettingHint, SettingChoices } from '../../language/generated/ast.js';
@@ -100,6 +100,14 @@ export function generateLanguageJson(entry: Entry, id: string, destination: stri
                 .flatMap(v => (v.value as Prompt).body);
             const promptEntries = Object.assign({}, ...promptFields.map(f => propertyEntries(f)));
             return { [property.name]: labelParam ? labelParam.value : humanize(property.name), ...promptEntries };
+        }
+        if (isFunctionDefinition(property)) {
+            // Functions have no label of their own, but prompt fields inside them still need
+            // localization entries so their labels resolve (same as the action branch above).
+            const promptFields = (property.method.body.filter(x => isVariableExpression(x)) as VariableExpression[])
+                .filter(v => isPrompt(v.value))
+                .flatMap(v => (v.value as Prompt).body);
+            return Object.assign({}, ...promptFields.map(f => propertyEntries(f)));
         }
         if (isHookHandler(property)) {
             return { [property.name]: humanize(property.name) };

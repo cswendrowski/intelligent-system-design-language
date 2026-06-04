@@ -4,22 +4,31 @@ import { expandToNode, toString } from 'langium/generate';
 import { Action, Document, Entry, IconParam, isActor, isIconParam, isPrompt, isVariableExpression, Prompt, VariableExpression } from "../../../language/generated/ast.js";
 import { generatePromptApp } from './vue-prompt-generator.js';
 import { generatePromptSheetClass } from './vue-prompt-sheet-class-generator.js';
-import { getPromptIdentity } from '../utils.js';
+import { getDocumentPromptContainers, getPromptIdentity } from '../utils.js';
+
+// Generate the Vue app + sheet-class files for every prompt in a document, across
+// BOTH `action` and `function` bodies. Driven once per document (not per action) so
+// prompts inside functions -- and documents with function-prompts but no actions --
+// are covered. The per-prompt output is identity-keyed, so it's identical to what the
+// old per-action loop produced for action prompts.
+export function generateDocumentPromptApps(entry: Entry, id: string, document: Document, destination: string) {
+    for (const container of getDocumentPromptContainers(document)) {
+        const promptVariables = (container.method.body.filter(x => isVariableExpression(x)) as VariableExpression[])
+            .filter(x => isPrompt(x.value));
+        for (const variable of promptVariables) {
+            const prompt = variable.value as Prompt;
+            const identity = getPromptIdentity(container, variable);
+            generatePromptSheetClass(identity, entry, id, document, prompt, destination);
+            generatePromptApp(identity, entry, id, document, prompt, destination);
+        }
+    }
+}
 
 export function generateActionComponent(entry: Entry, id: string, document: Document, action: Action, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase(), "components", "actions");
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}${action.name}Action.vue`);
     const iconParam = action.params.find(x => isIconParam(x)) as IconParam | undefined;
-
-    const variables = action.method.body.filter(x => isVariableExpression(x)) as VariableExpression[];
-    const promptVariables = variables.filter(x => isPrompt(x.value));
-    for ( const variable of promptVariables ) {
-        const prompt = variable.value as Prompt;
-        const identity = getPromptIdentity(action, variable);
-        generatePromptSheetClass(identity, entry, id, document, prompt, destination);
-        generatePromptApp(identity, entry, id, document, prompt, destination);
-    }
 
     if (!fs.existsSync(generatedFileDir)) {
         fs.mkdirSync(generatedFileDir, { recursive: true });

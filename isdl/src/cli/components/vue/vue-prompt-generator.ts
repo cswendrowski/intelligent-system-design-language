@@ -6,7 +6,6 @@ import {
     ClassExpression,
     Document,
     Entry,
-    isAction,
     isActor,
     isAttributeExp,
     isBooleanExp,
@@ -53,7 +52,7 @@ import {
     DieNoneParam,
     isRollVisualizerField, isIconParam, isColorParam, IconParam, ColorParam
 } from "../../../language/generated/ast.js";
-import { getDocument, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
+import { getDocument, getPromptContainer, globalGetAllOfType, toMachineIdentifier } from '../utils.js';
 import { compileVisualizerFormula } from '../method-generator.js';
 import { AstUtils } from 'langium';
 
@@ -108,11 +107,11 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
         if (element.modifier == "unlocked") disabled = false;
 
         const variable = AstUtils.getContainerOfType(prompt.$container, isVariableExpression);
-        const action = AstUtils.getContainerOfType(prompt.$container, isAction);
+        const container = getPromptContainer(prompt);
 
         const label = `${document.name}.${element.name}`;
         const labelFragment = `:label="game.i18n.localize('${label}')"`;
-        const systemPath = `system.${action?.name.toLowerCase()}${variable?.name.toLowerCase()}.${element.name.toLowerCase()}`;
+        const systemPath = `system.${container?.name.toLowerCase()}${variable?.name.toLowerCase()}.${element.name.toLowerCase()}`;
 
         if (isRollVisualizerField(element)) {
             // Phase 1: static preview on prompts -- the formula resolves against the
