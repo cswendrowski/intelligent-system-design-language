@@ -13,7 +13,7 @@ export default function generateImageComponent(destination: string, entry?: Entr
 
     const fileNode = expandToNode`
     <script setup>
-        import { computed, inject } from "vue";
+        import { computed } from "vue";
 
         const props = defineProps({
             label: String,
@@ -24,17 +24,18 @@ export default function generateImageComponent(destination: string, entry?: Entr
             context: Object,
             icon: String,
             color: String,
+            // Standard field editability: true in play mode unless the field is unlocked. When
+            // disabled, the click-to-edit affordance is removed (no file picking).
             disabled: Boolean,
             visibility: String,
             // True when this field is bound to the document's native img (the movable portrait).
             primary: Boolean
         });
 
-        const document = inject("rawDocument");
-
-        // Read from the document (context.document is the reactive render copy; onEditImage updates
-        // the document + bumps the sheet renderKey, so a re-render re-reads the fresh path).
-        const src = computed(() => foundry.utils.getProperty(props.context?.document ?? document, props.systemPath));
+        // Read from context.object -- the toObject() snapshot the sheet rebuilds on every render
+        // (mixin updateContext). context.document is a STABLE reference, so reading from it would
+        // never react to an onEditImage update; context.object changes identity each render.
+        const src = computed(() => foundry.utils.getProperty(props.context?.object, props.systemPath));
 
         // Foundry copies missing-character.png into every generated system's img dir; resolve the
         // path at runtime so the component needs no generate-time system id.
@@ -49,6 +50,12 @@ export default function generateImageComponent(destination: string, entry?: Entr
             }
             return false;
         });
+
+        // Click-to-edit is delegated to the sheet's onEditImage action (Foundry FilePicker). Only
+        // wire it when the field is editable -- omitting data-action makes the image inert, matching
+        // standard field behavior (disabled in play mode unless unlocked).
+        const editAction = computed(() => props.disabled ? null : "onEditImage");
+        const editPath = computed(() => props.disabled ? null : props.systemPath);
     </script>
 
     <template>
@@ -57,17 +64,15 @@ export default function generateImageComponent(destination: string, entry?: Entr
                 <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                 {{ game.i18n.localize(props.label) }}
             </span>
-            <!-- Click-to-edit is delegated to the sheet's onEditImage action (Foundry FilePicker),
-                 keyed off data-edit. It is a no-op when the sheet is not editable. -->
             <v-img
                 :src="src || fallbackImg"
-                class="isdl-image-frame"
+                :class="['isdl-image-frame', { 'isdl-image-editable': !props.disabled }]"
                 cover
-                :data-edit="props.systemPath"
-                data-action="onEditImage"
+                :data-edit="editPath"
+                :data-action="editAction"
             >
                 <template #error>
-                    <v-img :src="fallbackImg" cover :data-edit="props.systemPath" data-action="onEditImage"></v-img>
+                    <v-img :src="fallbackImg" cover :data-edit="editPath" :data-action="editAction"></v-img>
                 </template>
             </v-img>
         </div>
