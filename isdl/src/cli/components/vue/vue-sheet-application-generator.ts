@@ -2280,7 +2280,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 // wrapper they have no drop target. The wrapper only exists in the layout
                 // case (never nested inside a .tabs-container), so no double drop binding.
                 return expandToNode`
-                    <v-col cols="12" class="pa-1 datatable-drop-zone" v-if="!isHidden('${element.name.toLowerCase()}')">
+                    <v-col class="pa-1 datatable-drop-zone" cols="12" v-if="!isHidden('${element.name.toLowerCase()}')">
                         <${componentName} systemPath="${systemPath}" :context="context" :primaryColor="primaryColor" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"></${componentName}>
                     </v-col>
                 `.appendNewLine();
