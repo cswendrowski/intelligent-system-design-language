@@ -616,19 +616,17 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     function generateAttributeRollMethod(attribute: AttributeExp): CompositeGeneratorNode {
         const rollParam = attribute.params.find(isAttributeRollParam) as AttributeRollParam | undefined;
         if (rollParam) {
-            // A block-style `roll: { ... }` is a method body: it declares its own variables, runs its
-            // own logic, and creates its own `chat` cards. Emit those statements directly. An
-            // expression-style `roll: roll(...)` produces a single Roll value we wrap in a chat card.
-            // `system` is provided in scope so `self.X` (which compiles to bare `system.x`) and
-            // `success:` thresholds resolve, matching the function/action handler convention.
+            // A block-style `roll: { ... }` is a method body that can call user functions
+            // (self.Foo(...)) and mutate the document (self.X += 1). Those need `this`, the action-style
+            // flush objects, and a flush/render tail — none of which exist in this <script setup> scope
+            // (`this` is undefined, `update` is never declared). So, like `function:`, the block runs as a
+            // real sheet method (_on<Attr>AttributeRoll, generated in vue-sheet-class-generator); here we
+            // only emit a delegating arrow. An expression-style `roll: roll(...)` (the else branch below)
+            // produces a single Roll value we wrap in a chat card and is unaffected.
             if (isMethodBlock(rollParam.roll)) {
                 return expandToNode`
-                const on${toMachineIdentifier(attribute.name)}AttributeRoll = async () => {
-                    const context = {
-                        object: document
-                    };
-                    let system = context.object.system;
-                    ${translateExpression(entry, id, rollParam.roll, false, attribute)}
+                const on${attribute.name}AttributeRoll = async (event) => {
+                    await document.sheet._on${attribute.name}AttributeRoll(event);
                 };
                 `;
             }

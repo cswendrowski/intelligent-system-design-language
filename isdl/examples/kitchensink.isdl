@@ -771,8 +771,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             attribute Brawl(min: 1, max: 30, style: plain, icon: "fa-solid fa-hand-fist", function: BrawlAttack)
             // QA: roll-under with `success: <= self.X` (self.X threshold must resolve in scope)
             attribute RollUnder(min: 0, max: 100, initial: 40, roll: roll(d100, success: <= self.RollUnder))
-            // QA: block-style `roll: { ... }` (emits its own statements + chat cards, not a wrapped Roll)
+            // QA (#107): block-style `roll: { ... }` that calls a user function AND mutates the document.
+            // This must route through the _onBlockRollAttributeRoll sheet method (where `this`/`update`
+            // exist), not inline in <script setup> — otherwise self.BrawlAttack()/self.NumberField throw.
             attribute BlockRoll(min: 0, max: 100, initial: 40, roll: {
+                self.NumberField += 1
+                self.BrawlAttack()
                 fleeting result = roll(d100)
                 if (result <= self.BlockRoll) {
                     chat Roll {

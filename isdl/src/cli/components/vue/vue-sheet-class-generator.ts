@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, AttributeFunctionParam, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, isAction, isActor, isAttributeExp, isAttributeFunctionParam, isFunctionDefinition, isHeightParam, isHtmlExp, isWidthParam } from "../../../language/generated/ast.js";
+import { Action, AttributeExp, AttributeFunctionParam, AttributeRollParam, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, isAction, isActor, isAttributeExp, isAttributeFunctionParam, isAttributeRollParam, isFunctionDefinition, isHeightParam, isHtmlExp, isMethodBlock, isWidthParam } from "../../../language/generated/ast.js";
 import { humanize, titleize } from 'inflection';
 import { getAllOfType, toMachineIdentifier } from '../utils.js';
 import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
@@ -35,6 +35,14 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
     const attributeFunctions = getAllOfType<AttributeExp>(document.body, isAttributeExp, false)
         .map(attr => ({ attr, param: attr.params.find(isAttributeFunctionParam) as AttributeFunctionParam | undefined }))
         .filter((x): x is { attr: AttributeExp, param: AttributeFunctionParam } => x.param?.function.ref != undefined);
+
+    // Attributes with a block-style `roll: { ... }` click handler. The block is a method body that can
+    // call user functions (self.Foo(...)) and mutate the document (self.X += 1), which require `this`,
+    // the six flush objects, and an action-style flush — none of which exist in the sheet's Vue
+    // <script setup> scope. So, like `function:`, the block runs as a real sheet method here instead.
+    const attributeRolls = getAllOfType<AttributeExp>(document.body, isAttributeExp, false)
+        .map(attr => ({ attr, param: attr.params.find(isAttributeRollParam) as AttributeRollParam | undefined }))
+        .filter((x): x is { attr: AttributeExp, param: AttributeRollParam } => x.param != undefined && isMethodBlock(x.param.roll));
     function generateFunctionDefinition(functionDef: FunctionDefinition): CompositeGeneratorNode {
         const functionName = toMachineIdentifier(functionDef.name);
         console.log(`Generating function ${functionName} for ${document.name} Vue sheet.`);
@@ -442,6 +450,11 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
 
             /* -------------------------------------------- */
 
+            // Attribute click handlers (block-style roll: param)
+            ${joinToNode(attributeRolls, generateAttributeRollMethod, { appendNewLineIfNotEmpty: true })}
+
+            /* -------------------------------------------- */
+
             // User defined methods
             ${joinToNode(functions, generateFunctionDefinition, { appendNewLineIfNotEmpty: true })}
         }
@@ -545,6 +558,79 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
                     context.actor = document;
                 }
                 ${translateExpression(entry, id, functionDef.method, false, functionDef)}
+                if (!selfDeleted && Object.keys(update).length > 0) {
+                    await this.document.update(update);
+                    rerender = true;
+                }
+                if (!selfDeleted && Object.keys(embeddedUpdate).length > 0) {
+                    for (let key of Object.keys(embeddedUpdate)) {
+                        await this.document.updateEmbeddedDocuments("Item", embeddedUpdate[key]);
+                    }
+                    rerender = true;
+                }
+                if (Object.keys(parentUpdate).length > 0) {
+                    await this.document.parent.update(parentUpdate);
+                    rerender = true;
+                }
+                if (Object.keys(parentEmbeddedUpdate).length > 0) {
+                    for (let key of Object.keys(parentEmbeddedUpdate)) {
+                        await document.parent.updateEmbeddedDocuments("Item", parentEmbeddedUpdate[key]);
+                    }
+                }
+                if (Object.keys(targetUpdate).length > 0) {
+                    await context.target.update(targetUpdate);
+                }
+                if (Object.keys(targetEmbeddedUpdate).length > 0) {
+                    for (let key of Object.keys(targetEmbeddedUpdate)) {
+                        await context.target.updateEmbeddedDocuments("Item", targetEmbeddedUpdate[key]);
+                    }
+                }
+                if (rerender) {
+                    this.render();
+                }
+            }
+        `;
+    }
+
+    // Generates a sheet method that runs an attribute's block-style `roll: { ... }` body with the same
+    // update/flush semantics as an action. The block is inlined here (rather than emitted as an arrow in
+    // the sheet's Vue <script setup>) because it may call user functions and mutate the document, which
+    // need `this`, the six flush objects, and the action-style flush/render tail — none of which exist
+    // in <script setup> scope (where `this` is undefined and `update` is never declared). Mirrors
+    // _on<Attr>AttributeFunction exactly; only the inlined body differs.
+    function generateAttributeRollMethod({ attr, param }: { attr: AttributeExp, param: AttributeRollParam }): CompositeGeneratorNode {
+        console.log(`Generating attribute roll handler ${attr.name} for ${document.name} Vue sheet.`);
+        return expandToNode`
+
+            /* -------------------------------------------- */
+
+            async _on${attr.name}AttributeRoll(event) {
+                if (event?.preventDefault) event.preventDefault();
+                let update = {};
+                let embeddedUpdate = {};
+                let parentUpdate = {};
+                let parentEmbeddedUpdate = {};
+                let targetUpdate = {};
+                let targetEmbeddedUpdate = {};
+                let selfDeleted = false;
+                let rerender = false;
+                let document = this.document;
+                const context = {
+                    object: this.document,
+                    target: game.user.getTargetOrNothing()
+                };
+                // If this is an item, attach the parent
+                if (document.documentName === "Item" && document.parent) {
+                    context.actor = document.parent;
+                }
+                else {
+                    context.actor = document;
+                }
+                // Roll-block translation emits bare 'system' references (e.g. for 'success:'/comparison
+                // thresholds like 'self.X'), so provide it in scope -- matching the original inline block
+                // and the action handler's 'system' parameter.
+                let system = context.object.system;
+                ${translateExpression(entry, id, param.roll, false, attr)}
                 if (!selfDeleted && Object.keys(update).length > 0) {
                     await this.document.update(update);
                     rerender = true;
