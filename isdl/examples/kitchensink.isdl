@@ -389,6 +389,15 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         log("Leveled up to Level " + value)
     }
 
+    // QA (#86): non-ASCII chars in string params - value should arrive intact inside the function
+    function TestEncoding(string Value) {
+        log("Encoding test: " + Value)
+    }
+
+    action TestEncodingAction {
+        self.TestEncoding("Kèthîra")
+    }
+
     function FightFightFight(number mod) returns number {
         fleeting rollResult = roll(d6 + self.Fight + mod)
         return rollResult.total
@@ -459,6 +468,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             // QA: calculated value calling a pure no-arg function (regression for the derived-data
             // function-call bug). DoubleNumber() returns NumberField*2, so this = NumberField*3.
             readonly number ComputedViaFn(value: { return self.NumberField + self.DoubleNumber() })
+            // QA (#110): ternary operator -- result is 1 when NumberField > 10, else 0
+            readonly number TernaryField(value: { return self.NumberField > 10 ? 1 : 0 })
             number CalculatorField(calculator: true)
             boolean BooleanField
             html HtmlField
@@ -1132,6 +1143,16 @@ item Skill {
                 self.Effects
             }
         }
+    }
+
+    // QA (#108): action visibility in item tables -- gmOnly action shows only to GMs
+    gmOnly action GmOnlyAction(icon: "fa-solid fa-eye-slash") {
+        log("GM-only action fired")
+    }
+
+    // QA (#108): hidden action must not appear in the table at all
+    hidden action HiddenAction {
+        log("Should never appear")
     }
 }
 
