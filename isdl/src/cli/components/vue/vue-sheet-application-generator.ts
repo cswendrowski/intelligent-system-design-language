@@ -1172,7 +1172,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const slots = slotsParam?.value ?? 20;
         const rows = rowsParam?.value;
         const slotSize = slotSizeParam ? parseInt(slotSizeParam.value.replace('px', '')) : 60;
-        const documentType = element.document.ref?.name.toLowerCase();
+        const documentType = element.documents[0]?.ref?.name.toLowerCase();
         const quantityField = quantityParam?.field.ref?.name.toLowerCase();
         const moneyField = moneyParam?.field.ref?.name.toLowerCase();
         const moneyFieldLabel = moneyField ? `${document.name}.${moneyParam?.field?.ref?.name}` : undefined;
@@ -2311,7 +2311,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 const rows = rowsParam?.value;
                 const columns = columnsParam?.value;
                 const slotSize = slotSizeParam ? parseInt(slotSizeParam.value.replace('px', '')) : 60;
-                const documentType = element.document.ref?.name.toLowerCase();
+                const documentType = element.documents[0]?.ref?.name.toLowerCase();
                 const quantityField = quantityParam?.field.ref?.name.toLowerCase();
                 const moneyField = moneyParam?.field.ref?.name.toLowerCase();
                 const moneyFieldLabel = moneyField ? `${document.name}.${moneyParam?.field?.ref?.name}` : undefined;

@@ -67,8 +67,8 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
         // Table `imageAction:` parameter - only actions on the table's referenced item type are valid
         if (isTableImageActionParam(context.container)) {
             const tableField = AstUtils.getContainerOfType(context.container, isTableField);
-            if (!tableField || !tableField.document.ref) return new MapScope([]);
-            const actions = getAllOfType<Action>(tableField.document.ref.body, isAction, false);
+            if (!tableField || !tableField.documents[0]?.ref) return new MapScope([]);
+            const actions = getAllOfType<Action>(tableField.documents[0].ref.body, isAction, false);
             return new MapScope(actions.map(a => this.astNodeDescriptionProvider.createDescription(a, a.name)));
         }
 
@@ -205,12 +205,12 @@ export class IsdlScopeProvider extends DefaultScopeProvider {
     private getInventoryPropertyScope(context: ReferenceInfo): Scope {
         // Get the inventory field that contains this parameter
         const inventoryField = AstUtils.getContainerOfType(context.container, isInventoryField);
-        if (!inventoryField || !inventoryField.document.ref) {
+        if (!inventoryField || !inventoryField.documents[0]?.ref) {
             return new MapScope([]);
         }
 
         // Get properties from the document type that the inventory references
-        const descriptions = this.getScopesForDocument(inventoryField.document.ref);
+        const descriptions = this.getScopesForDocument(inventoryField.documents[0].ref);
         return new MapScope(descriptions);
     }
 

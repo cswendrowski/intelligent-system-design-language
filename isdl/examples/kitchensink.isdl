@@ -1054,6 +1054,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     readonly table<Spell> ReadonlySpells
     // QA: view-preference params, independent of readonly -- sort/search/pin chrome gone, but Add/Actions still present
     table<Spell> ViewOnlySpells(sortable: false, searchable: false, pinnable: false)
+    // QA: multi-type table — exercises plural document grammar, multi-type filter, and fields: requirement
+    table<Spell|Skill> AllMagicAndSkills(fields: [Category])
 }
 
 actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp") {
@@ -1074,6 +1076,7 @@ actor NPC(svg: "/icons/creatures/mammals/beast-horned-scaled-glowing-orange.webp
 }
 
 item Skill {
+    string Category
     //string Ability(choices: [ "Fight", "Flight", "Endure", "Persuade" ])
     parent<attribute> Ability(choices: [Hero])
     boolean Trained
@@ -1158,6 +1161,7 @@ item Equipment {
 }
 
 item Spell {
+    string Category
     choice<string> Type(choices: [
         { value: "Attack", icon: "fa-solid fa-bolt", color: #FF0000 },
         { value: "Defense", icon: "fa-solid fa-shield", color: #00FF00 },

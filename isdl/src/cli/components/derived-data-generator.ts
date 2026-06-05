@@ -393,18 +393,21 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 console.log("Processing Derived Document Array: " + property.name);
 
                 const whereParam = property.params.find(p => isWhereParam(p)) as WhereParam | undefined;
+                const typeFilter = property.documents.length > 1
+                    ? `[${property.documents.map(d => `"${d.ref?.name.toLowerCase()}"`).join(', ')}].includes(item.type)`
+                    : `item.type == "${property.documents[0]?.ref?.name.toLowerCase()}"`;
                 if ( whereParam ) {
                     return expandToNode`
                     // ${property.name} Document Array Derived Data
                     this.system.${property.name.toLowerCase()} = this.items.filter((item) => {
-                        if ( item.type !== "${property.document.ref?.name.toLowerCase()}") return false;
+                        if ( !(${typeFilter})) return false;
                         return ${translateExpression(entry, id, whereParam.value, true, property)};
                     });
                     `.appendNewLineIfNotEmpty();
                 }
                 return expandToNode`
                     // ${property.name} Document Array Derived Data
-                    this.system.${property.name.toLowerCase()} = this.items.filter((item) => item.type == "${property.document.ref?.name.toLowerCase()}");
+                    this.system.${property.name.toLowerCase()} = this.items.filter((item) => ${typeFilter});
                 `.appendNewLineIfNotEmpty();
             }
 
