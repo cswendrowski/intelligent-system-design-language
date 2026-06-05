@@ -1191,6 +1191,14 @@ item Spell {
         }
     }
 
+    // QA (#98): parent.Function() — call a function defined on the parent actor from an item.
+    // parent.FightFightFight(self.Cost) resolves at runtime to the parent sheet's function_FightFightFight method.
+    action CallParentFunction(icon: "fa-solid fa-person-running") {
+        if (parent is Hero) {
+            parent.FightFightFight(self.Cost)
+        }
+    }
+
     section Dice {
         die BonusDie
         dice DamageDice

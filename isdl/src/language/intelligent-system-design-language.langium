@@ -661,6 +661,13 @@ MethodParam:
 
 FunctionCall:
     "self." method=[FunctionDefinition:ID] ("(" (params+=Expression ("," params+=Expression)*)? ")")?;
+
+// ParentFunctionCall: call a function defined on the parent actor from within an item.
+// `parent.Heal(amount)` resolves at runtime to calling the parent sheet's function_ method,
+// using the pre-threaded parentUpdate / parentEmbeddedUpdate objects.
+ParentFunctionCall:
+    "parent." method=ID ("(" (params+=Expression ("," params+=Expression)*)? ")")?;
+
 FunctionDefinition:
     "function" name=ID ("(" (params+=FunctionParam ("," params+=FunctionParam)*)? ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
 FunctionParam:
@@ -789,7 +796,7 @@ MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
     (MacroExecute | VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | SystemSettingAssignment | ReturnExpression |
-     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall  | PlayAudio | Combat | User );
+     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | ParentFunctionCall | PlayAudio | Combat | User );
 JS:
     js=JS_LINE;
 LogExpression:
@@ -913,7 +920,7 @@ Logical infers Expr:
 Comparison infers Expr:
     PrimitiveExpression ({infer BinaryExpression.e1=current} op=('<' | '<=' | '>' | '>=' | '==' | '!=' | 'equals' | '!equals') e2=PrimitiveExpression)*;
 PrimitiveExpression:
-    Literal | RollResultAccess | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | CombatProperty | UserProperty | SystemSettingAccess;
+    Literal | RollResultAccess | Ref | Roll | DamageRoll | Group | NegExpression | Access | EachAccess | JS | FleetingAccess | ParentAccess | TargetAccess | PromptInputAccess | ItemAccess | ArrayExpression | MathExpression | VisibilityValue | FunctionCall | ParentFunctionCall | CombatProperty | UserProperty | SystemSettingAccess;
 ComparisonExpression:
     e1=Expression term=("<" | ">" | "<=" | ">=" | "equals" | "==" | "!equals" | "!=" | "has" | "excludes" | "startsWith" | "endsWith") e2=Expression;
 ShorthandComparisonExpression:
