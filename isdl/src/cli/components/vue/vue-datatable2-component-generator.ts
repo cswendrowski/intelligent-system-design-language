@@ -496,7 +496,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                     key: 'actions',
                     sortable: false,
                     width: '150px',
-                    align: 'center'
+                    align: 'end'
                 }`}
             ];
 
@@ -899,7 +899,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                             rounded="0"
                             size="small"
                             :loading="loading"
-                            style="height: 38px;"
+                            style="max-width: 100px; height: 38px;"
                         >
                             {{ game.i18n.localize("Add") }}
                         </v-btn>
@@ -1012,7 +1012,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
 
                 <!-- Actions slot -->
                 ${isReadonly ? '' : expandToNode`<template v-slot:item.actions="{ item }">
-                    <div class="d-flex align-center justify-center ga-1">
+                    <div class="d-flex align-center justify-end ga-1">
                         ${table.documents.length > 1
                             ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => !a.isSecondary)" :key="action.name">
                             <v-tooltip :text="game.i18n.localize(action.label)">
