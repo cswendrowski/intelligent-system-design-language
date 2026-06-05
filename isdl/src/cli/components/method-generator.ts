@@ -136,6 +136,8 @@ import {
     isRollResultAccess,
     isCritParam, isFumbleParam, isSuccessParam, isFailureParam,
     isParentFunctionCall,
+    isTernaryExp,
+    TernaryExp,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getPromptContainer, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -1333,6 +1335,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
     if (isTargetAssignment(expression)) {
         return translateTargetAssignmentExpression(expression as TargetAssignment);
+    }
+    if (isTernaryExp(expression)) {
+        const cond = translateExpression(entry, id, (expression as TernaryExp).condition, preDerived, generatingProperty);
+        const then = translateExpression(entry, id, (expression as TernaryExp).thenExp, preDerived, generatingProperty);
+        const else_ = translateExpression(entry, id, (expression as TernaryExp).elseExp, preDerived, generatingProperty);
+        return expandToNode`(${cond} ? ${then} : ${else_})`;
     }
     if (isBinaryExpression(expression)) {
         return translateBinaryExpression(expression as BinaryExpression);

@@ -910,7 +910,9 @@ UpdateParent:
 // Expressions ------------------------------------------------------
 
 Expression:
-    AddOrSubtract;
+    TernaryExpression;
+TernaryExpression infers Expression:
+    AddOrSubtract ({infer TernaryExp.condition=current} '?' thenExp=Expression ':' elseExp=Expression)?;
 AddOrSubtract infers Expression:
     MultiplyOrDivide ({infer BinaryExpression.e1=current} op=('+'|'-') e2=MultiplyOrDivide)*;
 MultiplyOrDivide infers Expr:

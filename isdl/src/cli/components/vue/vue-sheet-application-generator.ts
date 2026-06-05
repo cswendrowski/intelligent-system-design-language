@@ -1338,9 +1338,11 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
         if (isRow(element)) {
             return expandToNode`
-            <v-row dense class="isdl-row"${styleAttr}>
-                ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
-            </v-row>
+            <v-col cols="12"${styleAttr}>
+                <v-row dense class="isdl-row">
+                    ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
+                </v-row>
+            </v-col>
             `;
         }
 
