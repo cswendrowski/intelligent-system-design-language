@@ -330,6 +330,37 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
         action.method.body.some(expr => isChatCard(expr))
     );
 
+    // Multi-type: collect per-document-type action metadata for runtime dispatch
+    const multiTypeActionsData = table.documents.length > 1
+        ? table.documents.map(docRef => {
+            const docName = docRef.ref?.name.toLowerCase() ?? '';
+            const docActions = getAllOfType<Action>(docRef.ref?.body ?? [], isAction, false);
+            return {
+                typeName: docName,
+                actions: docActions.map(action => {
+                    const standardParams = action.params as StandardFieldParams[];
+                    const icon = (standardParams.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
+                    const color = (standardParams.find(x => isColorParam(x)) as ColorParam)?.value ?? "primary";
+                    const parentDocument = AstUtils.getContainerOfType(action, isDocument);
+                    return {
+                        name: action.name.toLowerCase(),
+                        icon,
+                        color,
+                        label: `${parentDocument?.name}.${action.name}`,
+                        isSecondary: action.isSecondary ?? false
+                    };
+                })
+            };
+        })
+        : [];
+    const hasActionWithChatAny = table.documents.length > 1
+        ? table.documents.some(docRef =>
+            getAllOfType<Action>(docRef.ref?.body ?? [], isAction, false)
+                .filter(a => !a.isSecondary)
+                .some(action => action.method.body.some(isChatCard))
+          )
+        : hasActionWithChat;
+
     const fileNode = expandToNode`
     <script setup>
         import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from "vue";
@@ -388,6 +419,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             // Image and Name are configurable columns like any other. Image is ordered first by default.
             { title: game.i18n.localize("Image"), key: 'img', sortable: false, width: '50px', maxWidth: '50px' },
             { title: game.i18n.localize("Name"), key: 'name', sortable: ${isSortable}, minWidth: '120px', locked: true },
+            ${table.documents.length > 1 ? `{ title: game.i18n.localize("Type"), key: 'type', sortable: ${isSortable}, minWidth: '80px' },` : ''}
             ${table.documents.length > 1 && fieldsParam
                 ? joinToNode(
                     fieldsParam.fields.map(fieldName => {
@@ -483,6 +515,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
         const columnDefaultVisible = (key) => {
             if (key === 'img') return ${imageDefaultVisible};
             if (key === 'name') return true;
+            ${table.documents.length > 1 ? `if (key === 'type') return true;` : ''}
             return defaultVisibileColumns.includes(key);
         };
 
@@ -686,6 +719,14 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             const event = { currentTarget: { dataset: { action: actionName } } };
             foundryItem.sheet._onAction(event);
         };
+
+        ${table.documents.length > 1 ? expandToNode`
+        const getActionsForType = (itemType) => {
+            const actionsMap = {
+                ${joinToNode(multiTypeActionsData, ({ typeName, actions }) => expandToNode`'${typeName}': [${joinToNode(actions, a => expandToNode`{ name: '${a.name}', icon: '${a.icon}', color: '${a.color}', label: '${a.label}', isSecondary: ${a.isSecondary} }`, { separator: ', ' })}],`, { appendNewLineIfNotEmpty: true })}
+            };
+            return actionsMap[itemType?.toLowerCase()] || [];
+        };` : ''}
 
         const togglePin = async (item) => {
             const foundryItem = document.items.get(item._id);
@@ -935,6 +976,13 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                     </div>
                 </template>` : ''}
 
+                <!-- Type chip slot for multi-type tables -->
+                ${table.documents.length > 1 ? expandToNode`<template v-slot:item.type="{ item }">
+                    <v-chip size="x-small" variant="outlined" color="primary" label class="text-caption">
+                        {{ item.type }}
+                    </v-chip>
+                </template>` : ''}
+
                 <!-- Custom field slots -->
                 ${table.documents.length > 1 && fieldsParam
                     ? joinToNode(
@@ -954,7 +1002,15 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 <!-- Actions slot -->
                 ${isReadonly ? '' : expandToNode`<template v-slot:item.actions="{ item }">
                     <div class="d-flex align-center justify-center ga-1">
-                        ${joinToNode(primaryActions, generateActionButton, { appendNewLineIfNotEmpty: true })}
+                        ${table.documents.length > 1
+                            ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => !a.isSecondary)" :key="action.name">
+                            <v-tooltip :text="game.i18n.localize(action.label)">
+                                <template v-slot:activator="{ props }">
+                                    <v-btn v-bind="props" :icon="action.icon" size="x-small" variant="text" :color="action.color" @click="customItemAction(item, action.name)"></v-btn>
+                                </template>
+                            </v-tooltip>
+                        </template>`
+                            : joinToNode(primaryActions, generateActionButton, { appendNewLineIfNotEmpty: true })}
                         <v-tooltip text="Edit">
                             <template v-slot:activator="{ props }">
                                 <v-btn
@@ -966,7 +1022,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                                 ></v-btn>
                             </template>
                         </v-tooltip>
-                        ${!hasActionWithChat ? expandToNode`
+                        ${!hasActionWithChatAny ? expandToNode`
                         <v-tooltip text="Send to Chat">
                             <template v-slot:activator="{ props }">
                                 <v-btn
@@ -989,7 +1045,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                                 ></v-btn>
                             </template>
                             <v-list density="compact" class="pa-0" min-width="120">
-                                ${hasActionWithChat ? expandToNode`
+                                ${hasActionWithChatAny ? expandToNode`
                                 <v-list-item
                                     @click="sendItemToChat(item)"
                                     title="Send to Chat"
@@ -1000,7 +1056,13 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                                     </template>
                                 </v-list-item>
                                 ` : ''}
-                                ${joinToNode(secondaryActions, generateSecondaryActionMenuItem, { appendNewLineIfNotEmpty: true })}
+                                ${table.documents.length > 1
+                                    ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => a.isSecondary)" :key="action.name">
+                                    <v-list-item @click="customItemAction(item, action.name)" :title="game.i18n.localize(action.label)" min-height="32">
+                                        <template v-slot:prepend><v-icon :icon="action.icon" size="15"></v-icon></template>
+                                    </v-list-item>
+                                </template>`
+                                    : joinToNode(secondaryActions, generateSecondaryActionMenuItem, { appendNewLineIfNotEmpty: true })}
                                 <v-list-item
                                     @click="duplicateItem(item)"
                                     title="Duplicate"
