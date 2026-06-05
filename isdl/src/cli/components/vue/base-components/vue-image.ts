@@ -19,7 +19,7 @@ export default function generateImageComponent(destination: string, entry?: Entr
             label: String,
             // Document-relative path the image lives at: "img" for the primary (native portrait)
             // image, or "system.<name>" for a system-stored image field. Used for BOTH reading the
-            // current src and as the data-edit target the sheet's onEditImage FilePicker writes to.
+            // current src and as the data-edit-path target the sheet's onEditImage FilePicker writes to.
             systemPath: String,
             context: Object,
             icon: String,
@@ -55,6 +55,15 @@ export default function generateImageComponent(destination: string, entry?: Entr
         // Click-to-edit is delegated to the sheet's onEditImage action (Foundry FilePicker). Only
         // wire it when the field is editable -- omitting data-action makes the image inert, matching
         // standard field behavior (disabled in play mode unless unlocked).
+        //
+        // The edit target is exposed as data-edit-PATH, NOT data-edit, on purpose. Foundry's
+        // FormDataExtended scans every [data-edit] element on form submit and, for non-IMG tags,
+        // serializes element.innerHTML into the named field. Our edit target is the Vuetify <v-img>
+        // WRAPPER DIV (not an <img>), so a data-edit here would round-trip the rendered HTML back
+        // into the field, growing it exponentially until the URL blows past the 431 header limit.
+        // Using a custom attribute keeps the field out of that scan; the field is only ever written
+        // by the onEditImage callback via document.update. The sheet's _onEditImage reads
+        // dataset.editPath (falling back to dataset.edit for the legacy drawer portrait img).
         const editAction = computed(() => props.disabled ? null : "onEditImage");
         const editPath = computed(() => props.disabled ? null : props.systemPath);
     </script>
@@ -69,11 +78,11 @@ export default function generateImageComponent(destination: string, entry?: Entr
                 :src="src || fallbackImg"
                 :class="['isdl-image-frame', { 'isdl-image-editable': !props.disabled }]"
                 cover
-                :data-edit="editPath"
+                :data-edit-path="editPath"
                 :data-action="editAction"
             >
                 <template #error>
-                    <v-img :src="fallbackImg" cover :data-edit="editPath" :data-action="editAction"></v-img>
+                    <v-img :src="fallbackImg" cover :data-edit-path="editPath" :data-action="editAction"></v-img>
                 </template>
             </v-img>
         </div>

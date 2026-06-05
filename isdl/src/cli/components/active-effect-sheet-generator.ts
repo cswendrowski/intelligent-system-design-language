@@ -211,12 +211,16 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
             /* -------------------------------------------- */
 
             static async _onEditImage(event, target) {
-                const current = foundry.utils.getProperty(this.document, target.dataset.edit);
+                // data-edit-path is used by the Vue drawer's <v-img> so Foundry's FormDataExtended
+                // never serializes the wrapper div's innerHTML back into img. Fall back to data-edit
+                // for any legacy <img data-edit> markup.
+                const attr = target.dataset.editPath ?? target.dataset.edit;
+                const current = foundry.utils.getProperty(this.document, attr);
                 const fp = new FilePicker({
                     current,
                     type: "image",
                     callback: (path) => {
-                        this.document.update({ [target.dataset.edit]: path });
+                        this.document.update({ [attr]: path });
                     },
                     top: this.position.top + 40,
                     left: this.position.left + 10

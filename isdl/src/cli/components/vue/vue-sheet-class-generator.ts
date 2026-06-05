@@ -234,7 +234,10 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
              */
             static async _onEditImage(event, target) {
                 if (!this.isEditable) return false;
-                const attr = target.dataset.edit;
+                // Prefer data-edit-path (set by the <i-image> field component, which deliberately
+                // avoids data-edit so Foundry's FormDataExtended never serializes the v-img wrapper's
+                // innerHTML back into the field). Fall back to data-edit for the legacy drawer portrait.
+                const attr = target.dataset.editPath ?? target.dataset.edit;
                 const current = foundry.utils.getProperty(this.document, attr);
                 const { img } = this.document.constructor.getDefaultArtwork?.(this.document.toObject()) ?? {};
                 const fp = new FilePicker({

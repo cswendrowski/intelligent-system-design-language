@@ -275,9 +275,9 @@ export function generateActiveEffectVueSheet(entry: Entry, id: string, destinati
                 
                 <!-- Navigation Drawer -->
                 <v-navigation-drawer v-model="drawer" temporary style="background-color: #dddddd">
-                    <v-img :src="context.document.img" style="background-color: lightgray" data-edit='img' data-action='onEditImage'>
+                    <v-img :src="context.document.img" style="background-color: lightgray" data-edit-path='img' data-action='onEditImage'>
                         <template #error>
-                            <v-img src="/systems/${id}/img/missing-character.png" data-edit='img' data-action='onEditImage'></v-img>
+                            <v-img src="/systems/${id}/img/missing-character.png" data-edit-path='img' data-action='onEditImage'></v-img>
                         </template>
                     </v-img>
                     <v-tabs v-model="page" direction="vertical">
