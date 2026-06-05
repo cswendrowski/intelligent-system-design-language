@@ -135,6 +135,7 @@ import {
     isPromptInputAccess,
     isRollResultAccess,
     isCritParam, isFumbleParam, isSuccessParam, isFailureParam,
+    isParentFunctionCall,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
 import { getParentDocument, getPromptContainer, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -2025,6 +2026,26 @@ export function translateExpression(entry: Entry, id: string, expression: string
 
         return expandToNode`
             await ${accessPath}.function_${expression.method.ref?.name}(context, update, embeddedUpdate, parentUpdate, parentEmbeddedUpdate, targetUpdate, targetEmbeddedUpdate, ${args})
+        `;
+    }
+
+    if (isParentFunctionCall(expression)) {
+        console.log("Translating Parent Function Call Expression: ", expression.method);
+
+        // parent.FunctionName(args) — call a function defined on the parent actor from within an item.
+        // Resolves to the parent document's sheet function_ method at runtime.
+        // Uses the pre-threaded parentUpdate / parentEmbeddedUpdate objects as the update context.
+        // The caller's normal action flush already handles flushing parentUpdate/parentEmbeddedUpdate.
+        const args = joinToNode(expression.params, (arg) => {
+            return translateExpression(entry, id, arg, preDerived, generatingProperty)
+        }, { separator: ", " });
+
+        return expandToNode`
+            await context.object.parent?.sheet?.function_${expression.method}(
+                { object: context.object.parent },
+                parentUpdate,
+                parentEmbeddedUpdate,
+                {}, {}, {}, {}${expression.params.length ? ", " : ""}${args})
         `;
     }
 

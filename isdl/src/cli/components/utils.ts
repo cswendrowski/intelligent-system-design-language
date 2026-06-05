@@ -31,7 +31,7 @@ import {
     isLayout, isStringChoiceField, isTargetAccess, isDocumentChoiceExp, Access, isDiceField,
     isRoll, isDamageRoll, isChatCard, isUpdate, isPrompt, isWait,
     isPlayAudio, isMacroExecute, isAssignment, isParentAssignment,
-    isTargetAssignment, isCombat, isUser, isFunctionCall,
+    isTargetAssignment, isCombat, isUser, isFunctionCall, isParentFunctionCall,
     SettingField, isSettings, isAction, isFunctionDefinition,
 } from "../../language/generated/ast.js"
 
@@ -325,7 +325,7 @@ export function getDocument(property: Property): Document | undefined {
 const IMPURE_NODE_GUARDS: ((node: AstNode) => boolean)[] = [
     isRoll, isDamageRoll, isChatCard, isUpdate, isPrompt, isWait,
     isPlayAudio, isMacroExecute, isAssignment, isParentAssignment,
-    isTargetAssignment, isCombat, isUser,
+    isTargetAssignment, isCombat, isUser, isParentFunctionCall,
 ];
 
 /**
