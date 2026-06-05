@@ -1395,7 +1395,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 AstUtils.getContainerOfType(expression, isDocumentChoiceExp) ??
                 AstUtils.getContainerOfType(expression, isDocumentChoicesExp) ??
                 AstUtils.getContainerOfType(expression, isInventoryField);
-            const refDoc = (whereContainer as any)?.document?.ref as Document | undefined;
+            const refDoc = ((whereContainer as any)?.documents?.[0]?.ref ?? (whereContainer as any)?.document?.ref) as Document | undefined;
             if (refDoc) {
                 const prop = AstUtils.streamAllContents(refDoc).find(
                     n => isProperty(n) && (n as Property).name.toLowerCase() === itemPropName

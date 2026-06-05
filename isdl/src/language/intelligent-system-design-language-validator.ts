@@ -32,6 +32,7 @@ import {
     InventoryField, isInventorySlotsParam, isInventoryRowsParam,
     isInventorySlotSizeParam, isInventoryQuantityParam, isInventoryMoneyParam,
     isInventorySumParam, isItem, isMoneyField, isActor,
+    TableField, isTableFieldsParam,
     isBinaryExpression, isLiteral, NumberExp,
     MethodBlockExpression, isReturnExpression, ResourceExp, AttributeExp,
     Action, isAction,
@@ -70,6 +71,7 @@ export function registerValidationChecks(services: IntelligentSystemDesignLangua
         TrackerExp: validator.validateTrackerExpressions,
         StringChoiceField: validator.validateStringChoiceField,
         Document: [validator.validateDependencyCycles, validator.validatePrimaryImage],
+        TableField: validator.validateTableField,
         InventoryField: validator.validateInventoryField,
         NumberExp: validator.validateNumberExp,
         ResourceExp: validator.validateResourceExp,
@@ -492,11 +494,25 @@ export class IntelligentSystemDesignLanguageValidator {
         }
     }
 
+    validateTableField(field: TableField, accept: ValidationAcceptor): void {
+        if (field.documents.length > 1) {
+            const hasFieldsParam = field.params.some(isTableFieldsParam);
+            if (!hasFieldsParam) {
+                accept('error', 'Multi-type tables require an explicit `fields:` parameter listing the shared columns', { node: field });
+            }
+        }
+    }
+
     validateInventoryField(field: InventoryField, accept: ValidationAcceptor): void {
         // Validate that inventory only references item documents
-        if (field.document.ref && isActor(field.document.ref)) {
+        if (field.documents[0]?.ref && isActor(field.documents[0].ref)) {
             accept('error', 'Inventory fields can only reference item documents, not actors.',
-                { node: field, property: 'document' });
+                { node: field, property: 'documents' });
+        }
+
+        if (field.documents.length > 1) {
+            accept('warning', 'Multi-type inventory is not yet fully supported; only the first document type will be used.',
+                { node: field });
         }
 
         const slotsParam = field.params.find(isInventorySlotsParam);
@@ -528,7 +544,7 @@ export class IntelligentSystemDesignLanguageValidator {
 
         // Validate quantity field exists on item
         if (quantityParam && quantityParam.field.ref) {
-            const itemDocument = field.document.ref;
+            const itemDocument = field.documents[0]?.ref;
             if (itemDocument && isItem(itemDocument)) {
                 const itemProperties = getAllOfType<Property>(itemDocument.body, isProperty, false);
                 const quantityField = itemProperties.find(p => p.name === quantityParam.field.ref?.name);
@@ -551,7 +567,7 @@ export class IntelligentSystemDesignLanguageValidator {
 
         // Validate sum properties exist on item and are numeric
         if (sumParam) {
-            const itemDocument = field.document.ref;
+            const itemDocument = field.documents[0]?.ref;
             if (itemDocument && isItem(itemDocument)) {
                 const itemProperties = getAllOfType<Property>(itemDocument.body, isProperty, false);
 

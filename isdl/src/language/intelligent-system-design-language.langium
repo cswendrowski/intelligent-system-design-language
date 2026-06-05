@@ -449,7 +449,7 @@ MacroExecute:
 // Document Links -------------
 
 TableField:
-    ExpressionModifier "table" "<" document=[Document:ID] ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
+    ExpressionModifier "table" "<" documents+=[Document:ID] ("|" documents+=[Document:ID])* ">" name=ID ("(" params+=TableParams ("," params+=TableParams)* ")")?;
 TableParams:
     (StandardFieldParams | WhereParam | TableFieldsParam | TableImageParam | TableImageActionParam
      | TableSortableParam | TableSearchableParam | TablePinnableParam);
@@ -477,7 +477,7 @@ TablePinnableParam:
 // Inventory -------------
 
 InventoryField:
-    ExpressionModifier "inventory" "<" document=[Document:ID] ">" name=ID ("(" params+=InventoryParams ("," params+=InventoryParams)* ")")?;
+    ExpressionModifier "inventory" "<" documents+=[Document:ID] ("|" documents+=[Document:ID])* ">" name=ID ("(" params+=InventoryParams ("," params+=InventoryParams)* ")")?;
 
 InventoryParams:
     (StandardFieldParams | WhereParam | GlobalParam |

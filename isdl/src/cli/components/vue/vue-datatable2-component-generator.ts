@@ -92,8 +92,8 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
     if (fieldsParam) {
         defaultVisibleFields = fieldsParam.fields;
     }
-    else if (table.document.ref?.body) {
-        defaultVisibleFields = getAllOfType<Property>(table.document.ref.body, isProperty, false)
+    else if (table.documents[0]?.ref?.body) {
+        defaultVisibleFields = getAllOfType<Property>(table.documents[0].ref.body, isProperty, false)
             .map(p => p.name.toLowerCase()) ?? [];
     }
 
@@ -314,7 +314,11 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
     const whereParam = table.params.find(x => isWhereParam(x)) as WhereParam | undefined;
     const whereClause = whereParam ? translateExpression(entry, id, whereParam.value) : undefined;
 
-    let tableDocBody = table.document.ref?.body ?? [];
+    const typeFilterExpr = table.documents.length > 1
+        ? `['${table.documents.map(d => d.ref?.name.toLowerCase()).join("', '")}'].includes(i.type)`
+        : `i.type === '${table.documents[0]?.ref?.name.toLowerCase() ?? ''}'`;
+
+    let tableDocBody = table.documents[0]?.ref?.body ?? [];
     const actions = getAllOfType<Action>(tableDocBody, isAction, false);
 
     // Split actions into primary and secondary
@@ -353,7 +357,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             // (their getters are non-enumerable), so we transiently read the live item and overlay
             // each schema field's resolved value -- the live item is never stored in reactive state.
             const allItems = props.context?.object?.items ?? [];
-            return allItems.filter(i => i.type === '${table.document.ref?.name.toLowerCase() ?? ''}').map(plain => {
+            return allItems.filter(i => ${typeFilterExpr}).map(plain => {
                 const live = document.items.get(plain._id);
                 if (live) {
                     const fields = live.system.schema?.fields ?? live.system.constructor?.schema?.fields ?? {};
@@ -384,7 +388,20 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             // Image and Name are configurable columns like any other. Image is ordered first by default.
             { title: game.i18n.localize("Image"), key: 'img', sortable: false, width: '50px', maxWidth: '50px' },
             { title: game.i18n.localize("Name"), key: 'name', sortable: ${isSortable}, minWidth: '120px', locked: true },
-            ${joinToNode(table.document.ref!.body, p => generateDataTableHeader(table.document, p), { appendNewLineIfNotEmpty: true })}
+            ${table.documents.length > 1 && fieldsParam
+                ? joinToNode(
+                    fieldsParam.fields.map(fieldName => {
+                        for (const docRef of table.documents) {
+                            const found = getAllOfType<Property>(docRef.ref?.body ?? [], isProperty, false)
+                                .find(p => p.name.toLowerCase() === fieldName.toLowerCase());
+                            if (found) return { field: found, docRef };
+                        }
+                        return undefined;
+                    }).filter((x): x is { field: Property; docRef: Reference<Document> } => x !== undefined),
+                    ({ field, docRef }) => generateDataTableHeader(docRef, field),
+                    { appendNewLineIfNotEmpty: true }
+                  )
+                : joinToNode((table.documents[0]?.ref?.body ?? []), p => generateDataTableHeader(table.documents[0], p), { appendNewLineIfNotEmpty: true })}
         ];
 
         const orderedHeaders = computed(() => {
@@ -675,15 +692,34 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             await foundryItem.update({"system.pinned": !foundryItem.system.pinned});
         };
 
+        ${table.documents.length > 1
+            ? joinToNode(table.documents, d => {
+                const typeName = d.ref?.name.toLowerCase() ?? '';
+                return expandToNode`
+        const addNew_${typeName} = async () => {
+            loading.value = true;
+            try {
+                const items = await Item.createDocuments([{
+                    type: '${typeName}',
+                    name: "New ${typeName}"
+                }], {parent: document});
+                if (items && items[0]) { items[0].sheet.render(true); }
+            } catch (error) {
+                console.error("Error creating item:", error);
+                ui.notifications.error("Failed to create new item");
+            } finally { loading.value = false; }
+        };`;
+            }, { appendNewLineIfNotEmpty: true })
+            : expandToNode`
         const addNewItem = async () => {
             loading.value = true;
             try {
-                const type = '${table.document.ref?.name.toLowerCase()}';
+                const type = '${table.documents[0]?.ref?.name.toLowerCase()}';
                 const items = await Item.createDocuments([{
-                    type: type, 
+                    type: type,
                     name: "New " + type
                 }], {parent: document});
-                
+
                 if (items && items[0]) {
                     items[0].sheet.render(true);
                 }
@@ -693,7 +729,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
             } finally {
                 loading.value = false;
             }
-        };
+        };`}
         
         const truncate = (text, maxLength) => {
             if (!text) return '';
@@ -810,7 +846,23 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                     <v-icon>fa-solid fa-columns</v-icon>
                     <v-tooltip activator="parent" location="top">Configure Columns</v-tooltip>
                 </v-btn>
-                ${isReadonly ? '' : expandToNode`<v-btn
+                ${isReadonly ? '' : (
+                    table.documents.length > 1
+                        ? joinToNode(table.documents, d => {
+                            const typeName = d.ref?.name.toLowerCase() ?? '';
+                            return expandToNode`<v-btn
+                    :color="primaryColor || 'primary'"
+                    prepend-icon="fa-solid fa-plus"
+                    rounded="0"
+                    size="small"
+                    :loading="loading"
+                    @click="addNew_${typeName}"
+                    style="height: 38px;"
+                >
+                    {{ game.i18n.localize("Add") }} ${d.ref?.name ?? ''}
+                </v-btn>`;
+                        }, { appendNewLineIfNotEmpty: true })
+                        : expandToNode`<v-btn
                     :color="primaryColor || 'primary'"
                     prepend-icon="fa-solid fa-plus"
                     rounded="0"
@@ -820,7 +872,8 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                     style="max-width: 80px; height: 38px;"
                 >
                     {{ game.i18n.localize("Add") }}
-                </v-btn>`}
+                </v-btn>`
+                )}
             </v-card-title>
             <v-divider></v-divider>
             
@@ -841,7 +894,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 <!-- Image slot -->
                 <template v-slot:item.img="{ item }">
                     ${imageActionName
-                        ? expandToNode`<div class="isdl-image-action" @click.stop="customItemAction(item, '${imageActionName}')" :data-tooltip="game.i18n.localize('${table.document.ref?.name}.${imageActionParam!.action.ref!.name}')">
+                        ? expandToNode`<div class="isdl-image-action" @click.stop="customItemAction(item, '${imageActionName}')" :data-tooltip="game.i18n.localize('${table.documents[0]?.ref?.name}.${imageActionParam!.action.ref!.name}')">
                         <v-avatar size="40" rounded="0">
                             <v-img :src="item.img" :alt="item.name" cover></v-img>
                         </v-avatar>
@@ -883,7 +936,20 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 </template>` : ''}
 
                 <!-- Custom field slots -->
-                ${joinToNode(table.document.ref!.body, p => generateSlotTemplate(table.document, p), { appendNewLineIfNotEmpty: true })}
+                ${table.documents.length > 1 && fieldsParam
+                    ? joinToNode(
+                        fieldsParam.fields.map(fieldName => {
+                            for (const docRef of table.documents) {
+                                const found = getAllOfType<Property>(docRef.ref?.body ?? [], isProperty, false)
+                                    .find(p => p.name.toLowerCase() === fieldName.toLowerCase());
+                                if (found) return { field: found, docRef };
+                            }
+                            return undefined;
+                        }).filter((x): x is { field: Property; docRef: Reference<Document> } => x !== undefined),
+                        ({ field, docRef }) => generateSlotTemplate(docRef, field),
+                        { appendNewLineIfNotEmpty: true }
+                      )
+                    : joinToNode((table.documents[0]?.ref?.body ?? []), p => generateSlotTemplate(table.documents[0], p), { appendNewLineIfNotEmpty: true })}
 
                 <!-- Actions slot -->
                 ${isReadonly ? '' : expandToNode`<template v-slot:item.actions="{ item }">
@@ -965,7 +1031,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                         <v-icon size="48" color="grey-lighten-1">fa-solid fa-inbox</v-icon>
                         <div class="text-h6 mt-2">No items found</div>
                         <div class="text-body-2 text-medium-emphasis">
-                            Add your first {{ game.i18n.localize("${table.document.ref?.name}").toLowerCase() }} to get started
+                            Add your first {{ game.i18n.localize("${table.documents.length > 1 ? "item" : (table.documents[0]?.ref?.name ?? "item")}").toLowerCase() }} to get started
                         </div>
                     </div>
                 </template>
