@@ -496,9 +496,37 @@ export class IntelligentSystemDesignLanguageValidator {
 
     validateTableField(field: TableField, accept: ValidationAcceptor): void {
         if (field.documents.length > 1) {
-            const hasFieldsParam = field.params.some(isTableFieldsParam);
-            if (!hasFieldsParam) {
+            const fieldsParam = field.params.find(isTableFieldsParam);
+            if (!fieldsParam) {
                 accept('error', 'Multi-type tables require an explicit `fields:` parameter listing the shared columns', { node: field });
+                return;
+            }
+
+            // Collect all property names (lowercased) across all referenced document types
+            const allPropertyNames = new Set<string>();
+            for (const docRef of field.documents) {
+                if (docRef.ref?.body) {
+                    getAllOfType<Property>(docRef.ref.body, isProperty, false)
+                        .forEach(p => allPropertyNames.add(p.name.toLowerCase()));
+                }
+            }
+
+            // Check each field name: must exist on at least one referenced document type
+            const seen = new Set<string>();
+            for (let i = 0; i < fieldsParam.fields.length; i++) {
+                const name = fieldsParam.fields[i];
+                const lower = name.toLowerCase();
+
+                if (seen.has(lower)) {
+                    accept('error', `Duplicate field '${name}' in fields list`, { node: fieldsParam, property: 'fields', index: i });
+                    continue;
+                }
+                seen.add(lower);
+
+                if (!allPropertyNames.has(lower)) {
+                    const typeNames = field.documents.map(d => d.ref?.name ?? '?').join(' | ');
+                    accept('error', `Field '${name}' does not exist on any of the referenced types (${typeNames})`, { node: fieldsParam, property: 'fields', index: i });
+                }
             }
         }
     }
