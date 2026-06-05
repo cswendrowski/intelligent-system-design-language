@@ -26,7 +26,7 @@ export default function generateParentPropertyReferenceComponent(destination: st
       variant="outlined"
       clearable
       density="compact">
-      <template #label>
+      <template v-if="!props.hideLabel" #label>
         <span v-html="getLabel(props.label, props.icon)" />
       </template>
     </v-select>
@@ -61,6 +61,10 @@ const props = defineProps({
     default: () => []
   },
   disabled: {
+    type: Boolean,
+    default: false
+  },
+  hideLabel: {
     type: Boolean,
     default: false
   },

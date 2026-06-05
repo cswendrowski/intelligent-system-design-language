@@ -23,7 +23,8 @@ export default function generateBooleanComponent(destination: string, entry?: En
             editMode: Boolean,
             icon: String,
             color: String,
-            disabled: Boolean
+            disabled: Boolean,
+            hideLabel: Boolean
         });
 
         const document = inject("rawDocument");
@@ -66,7 +67,7 @@ export default function generateBooleanComponent(destination: string, entry?: En
                 class="single-wide"
                 variant="outlined"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ game.i18n.localize(props.label) }}

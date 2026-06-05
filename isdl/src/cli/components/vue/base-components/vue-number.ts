@@ -24,6 +24,7 @@ export default function generateNumberComponent(destination: string, entry?: Ent
             icon: String,
             color: String,
             disabled: Boolean,
+            hideLabel: Boolean,
             hasValueParam: Boolean,
             primaryColor: String,
             secondaryColor: String,
@@ -148,7 +149,7 @@ export default function generateNumberComponent(destination: string, entry?: Ent
                 density="compact"
                 variant="outlined"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ game.i18n.localize(props.label) }}
@@ -176,7 +177,7 @@ export default function generateNumberComponent(destination: string, entry?: Ent
                 append-inner-icon="fa-solid fa-function"
                 class="calculated-number single-wide"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ game.i18n.localize(props.label) }}

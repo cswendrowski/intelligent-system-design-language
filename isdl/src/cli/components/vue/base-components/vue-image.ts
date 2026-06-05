@@ -27,6 +27,7 @@ export default function generateImageComponent(destination: string, entry?: Entr
             // Standard field editability: true in play mode unless the field is unlocked. When
             // disabled, the click-to-edit affordance is removed (no file picking).
             disabled: Boolean,
+            hideLabel: Boolean,
             visibility: String,
             // True when this field is bound to the document's native img (the movable portrait).
             primary: Boolean
@@ -60,7 +61,7 @@ export default function generateImageComponent(destination: string, entry?: Entr
 
     <template>
         <div v-if="!isHidden" class="isdl-image single-wide">
-            <span v-if="props.label" class="field-label">
+            <span v-if="props.label && !props.hideLabel" class="field-label">
                 <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                 {{ game.i18n.localize(props.label) }}
             </span>

@@ -23,6 +23,7 @@ export default function generateAttributeComponent(destination: string) {
             context: Object,
             min: Number,
             disabled: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String,
             editMode: Boolean,
@@ -94,14 +95,14 @@ export default function generateAttributeComponent(destination: string) {
         >
             <div v-if="attributeStyle == 'plain'">
             <v-number-input v-if="attributeStyle == 'plain' && editMode" :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath, v); }" :name="systemPath" :min="props.min" :disabled="disabled" type="number" variant="outlined" density="compact" :hide-details="true" data-tooltip="Value">
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span v-html="getLabel" />
             </template>
             </v-number-input>
             <v-number-input v-if="attributeStyle == 'plain' && !editMode" :model-value="mod" :name="systemPath"  :disabled="true" type="number" controlVariant="hidden" variant="outlined" density="compact" :hide-details="true" data-tooltip="Mod">
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span v-html="getLabel" />
-                </template>   
+                </template>
             </v-number-input>
             <!-- Overlay with dice icon - appears on hover when roll function is available -->
                 <div
@@ -126,7 +127,7 @@ export default function generateAttributeComponent(destination: string) {
                 v-if="attributeStyle == 'box'"
 
                 >
-                <v-label :style="getStyle"><v-icon v-if="icon" size="x-small" :icon="icon" style="padding-right: 0.5rem;"></v-icon>{{ game.i18n.localize(label) }}</v-label>
+                <v-label v-if="!props.hideLabel" :style="getStyle"><v-icon v-if="icon" size="x-small" :icon="icon" style="padding-right: 0.5rem;"></v-icon>{{ game.i18n.localize(label) }}</v-label>
                 <div class="mod" v-if="hasMod">{{ mod }}</div>
                 <v-number-input :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath, v); }" inset :min="props.min" :disabled="disabled" :name="systemPath" :controlVariant="disabled ? 'hidden' : 'split'" :step="1" type="number" variant="outlined" density="compact" :hide-details="true" :tile="true"></v-number-input>
                 <!-- Overlay with dice icon - appears on hover when roll function is available -->

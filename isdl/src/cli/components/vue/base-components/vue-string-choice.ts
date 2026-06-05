@@ -24,6 +24,7 @@ export default function generateStringChoiceComponent(destination: string, entry
             icon: String,
             color: String,
             disabled: Boolean,
+            hideLabel: Boolean,
             items: {
                 type: Array,
                 default: () => []
@@ -85,7 +86,7 @@ export default function generateStringChoiceComponent(destination: string, entry
                 variant="outlined"
                 density="compact"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ localizedLabel }}
@@ -105,6 +106,7 @@ export default function generateStringChoiceComponent(destination: string, entry
                 :secondaryColor="props.secondaryColor"
                 :visibility="props.visibility"
                 :disabled="props.disabled"
+                :hideLabel="props.hideLabel"
                 :color="props.color">
             </i-extended-choice>
         </div>

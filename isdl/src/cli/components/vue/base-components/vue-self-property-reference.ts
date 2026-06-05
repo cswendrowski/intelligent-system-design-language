@@ -22,6 +22,7 @@ export default function generateSelfPropertyReferenceComponent(destination: stri
             disabled: Boolean,
             icon: String,
             color: String,
+            hideLabel: Boolean,
             propertyType: String,
             choices: Array
         });
@@ -64,7 +65,7 @@ export default function generateSelfPropertyReferenceComponent(destination: stri
                 density="compact"
                 clearable
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ game.i18n.localize(props.label) }}

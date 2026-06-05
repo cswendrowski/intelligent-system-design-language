@@ -19,6 +19,7 @@ export default function generateExtendedChoiceComponent(destination: string) {
             systemPath: String,
             context: Object,
             disabled: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String,
             icon: String,
@@ -83,7 +84,7 @@ export default function generateExtendedChoiceComponent(destination: string) {
             variant="outlined"
             @update:modelValue="onChange"
             density="compact">
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span v-html="getLabel(label, icon)" />
             </template>
             <template v-slot:item="{ props: itemProps, item }">

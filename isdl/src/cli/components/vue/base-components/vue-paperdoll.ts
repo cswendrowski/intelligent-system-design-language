@@ -19,6 +19,7 @@ export default function generatePaperdollComponent(destination: string) {
             systemPath: String,
             context: Object,
             disabled: Boolean,
+            hideLabel: Boolean,
             slots: Array,
             image: String,
             size: String
@@ -43,7 +44,7 @@ export default function generatePaperdollComponent(destination: string) {
 
     <template>
         <v-card class="isdl-paperdoll">
-            <v-card-title>{{ game.i18n.localize(label) }}</v-card-title>
+            <v-card-title v-if="!props.hideLabel">{{ game.i18n.localize(label) }}</v-card-title>
             <v-card-text>
                 <div class="paper-doll-container" :data-name="systemPath" :style="{ backgroundImage: 'url(' + image + ')' }">
                     <div class="paper-doll-slot" v-for="slot in slots" :key="slot.name" :data-name="slot.systemPath" @click="openSlot(slot)" :data-tooltip="slot.name" :data-type="slot.type" :style="{ left: slot.left, top: slot.top, width: size, height: size }">

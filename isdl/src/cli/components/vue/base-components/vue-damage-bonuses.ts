@@ -80,7 +80,8 @@ export default function generateDamageBonusesComponent(destination: string, entr
             context: Object,
             visibility: String,
             editMode: Boolean,
-            icon: String
+            icon: String,
+            hideLabel: Boolean
         });
 
         const document = inject("rawDocument");
@@ -140,7 +141,7 @@ export default function generateDamageBonusesComponent(destination: string, entr
     <template>
         <div v-if="!isHidden" class="isdl-damage-bonuses pt-2 single-wide">
             <v-card class="damage-bonuses-card" variant="outlined" theme="light" color="white">
-                <v-card-title class="damage-bonuses-header bg-grey-darken-3 text-white">
+                <v-card-title v-if="!props.hideLabel" class="damage-bonuses-header bg-grey-darken-3 text-white">
                     <v-icon v-if="icon" class="me-2">{{ icon }}</v-icon>
                     <span>{{ game.i18n.localize(label) }}</span>
                 </v-card-title>

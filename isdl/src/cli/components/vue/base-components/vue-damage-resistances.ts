@@ -80,7 +80,8 @@ export default function generateDamageResistancesComponent(destination: string, 
             context: Object,
             visibility: String,
             editMode: Boolean,
-            icon: String
+            icon: String,
+            hideLabel: Boolean
         });
 
         const document = inject("rawDocument");
@@ -160,7 +161,7 @@ export default function generateDamageResistancesComponent(destination: string, 
     <template>
         <div v-if="!isHidden" class="isdl-damage-resistances pt-2 double-wide">
             <v-card class="damage-resistances-card" variant="outlined" theme="light" color="white">
-                <v-card-title class="damage-resistances-header bg-grey-darken-3 text-white">
+                <v-card-title v-if="!props.hideLabel" class="damage-resistances-header bg-grey-darken-3 text-white">
                     <v-icon v-if="icon" class="me-2">{{ icon }}</v-icon>
                     <span>{{ game.i18n.localize(label) }}</span>
                 </v-card-title>

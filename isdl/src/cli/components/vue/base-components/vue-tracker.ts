@@ -25,6 +25,7 @@ export default function generateTrackerComponent(destination: string) {
             tertiaryColor: String,
             trackerStyle: String,
             icon: String,
+            hideLabel: Boolean,
             hideMin: Boolean,
             disableMin: Boolean,
             disableValue: Boolean,
@@ -261,7 +262,7 @@ export default function generateTrackerComponent(destination: string) {
                     density="compact"
                     variant="outlined"
                 >
-                    <template #label>
+                    <template v-if="!props.hideLabel" #label>
                         <span v-html="getLabel" />
                     </template>
                       <template #append-inner>

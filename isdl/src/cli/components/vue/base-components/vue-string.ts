@@ -21,11 +21,12 @@ export default function generateStringMethodComponent(destination: string, entry
             context: Object,
             icon: String,
             color: String,
-            disabled: Boolean
+            disabled: Boolean,
+            hideLabel: Boolean
         });
 
         const document = inject("rawDocument");
-        
+
         const value = computed({
             get: () => foundry.utils.getProperty(props.context, props.systemPath),
             set: (newValue) => foundry.utils.setProperty(props.context, props.systemPath, newValue)
@@ -62,7 +63,7 @@ export default function generateStringMethodComponent(destination: string, entry
                 append-inner-icon="fa-solid fa-function"
                 :data-tooltip="tooltipText"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ game.i18n.localize(props.label) }}

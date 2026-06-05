@@ -199,7 +199,7 @@ Layout:
 // container-specific token set enforced by validation: row/column accept only sizing
 // (`width`/`height`); section additionally accepts `border`/`background`/`text`.
 Section:
-    "section" name=ID ("(" params+=ThemeFieldParam ("," params+=ThemeFieldParam)* ")")? "{" body+=(ClassExpression|Row|Column)* "}";
+    "section" name=ID ("(" params+=(ThemeFieldParam | HideLabelParam) ("," params+=(ThemeFieldParam | HideLabelParam))* ")")? "{" body+=(ClassExpression|Row|Column)* "}";
 Row:
     "row" ("(" params+=ThemeFieldParam ("," params+=ThemeFieldParam)* ")")? "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Column:
@@ -235,9 +235,13 @@ ReferenceFields:
 fragment ExpressionModifier:
     (modifier=("unlocked" | "default" | "secret" | "edit" | "play" | "gmEdit" | "gmOnly" | "readonly" | "locked" | "hidden"))?;
 StandardFieldParams:
-    (VisibilityParam | IconParam | ColorParam | LabelParam | ThemeFieldParam);
+    (VisibilityParam | IconParam | ColorParam | LabelParam | ThemeFieldParam | HideLabelParam);
 fragment StandardFieldParamsFrag:
     ("(" params+=StandardFieldParams* ("," params+=StandardFieldParams)* ")")?;
+// Suppress a field's label (or a section's title). The field still renders, just without its
+// label text -- handy for compact layouts where the value or icon is self-explanatory.
+HideLabelParam:
+    "hideLabel:" value=BOOLEAN;
 NumberFieldParams:
     (NumberParamMin | NumberParamInitial | NumberParamValue | NumberParamMax | NumberParamCalculator);
 

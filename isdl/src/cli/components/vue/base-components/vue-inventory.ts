@@ -23,6 +23,7 @@ export default function generateInventoryComponent(destination: string, entry?: 
             icon: String,
             color: String,
             disabled: Boolean,
+            hideLabel: Boolean,
             maxSlots: {
                 type: Number,
                 default: 20
@@ -405,7 +406,7 @@ export default function generateInventoryComponent(destination: string, entry?: 
             <div class="inventory-header" v-if="showCount">
                 <div class="header-content">
                     <v-icon v-if="icon" :icon="icon" size="small"></v-icon>
-                    <span class="inventory-label">{{ game.i18n.localize(label) }}</span>
+                    <span v-if="!props.hideLabel" class="inventory-label">{{ game.i18n.localize(label) }}</span>
                 </div>
                 <span class="inventory-count">
                     {{ itemCount }}/{{ gridConfig.totalSlots }}

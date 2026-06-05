@@ -19,7 +19,8 @@ export default function generateDateTimeComponent(destination: string) {
             type: String,
             systemPath: String,
             context: Object,
-            disabled: Boolean
+            disabled: Boolean,
+            hideLabel: Boolean
         });
 
         const value = ref(foundry.utils.getProperty(props.context, props.systemPath));
@@ -45,7 +46,7 @@ export default function generateDateTimeComponent(destination: string) {
                     density="compact"
                     variant="outlined"
                     :disabled="disabled"
-                    :label="game.i18n.localize(label)"
+                    :label="props.hideLabel ? undefined : game.i18n.localize(label)"
                 >
                     <input :type="type" :name="systemPath" v-model="value" :disabled="disabled" />
                 </v-field>

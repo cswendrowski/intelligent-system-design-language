@@ -42,6 +42,7 @@ import {
     isIconParam,
     isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField, isDamageTrackExp, isDamageTrackTypesParam, DamageTrackTypesParam, isRollVisualizerField,
     ImageField, isImageField, isImagePrimaryParam,
+    isHideLabelParam,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -1168,6 +1169,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const summaryParam = element.params.find(isInventorySummaryParam);
 
         const label = labelParam ? labelParam.value : `${document.name}.${element.name}`;
+        const hideLabel = element.params.some((p: any) => isHideLabelParam(p) && p.value);
         const icon = iconParam?.value;
         const slots = slotsParam?.value ?? 20;
         const rows = rowsParam?.value;
@@ -1240,6 +1242,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 systemPath="${systemPath}"
                 :context="context"
                 :editMode="editModeRef"
+                ${hideLabel ? `:hideLabel="true"` : ''}
                 ${icon ? `icon="${icon}"` : ''}
                 ${slots ? `:maxSlots="${slots}"` : ''}
                 ${rows ? `:rows="${rows}"` : ''}
@@ -1309,10 +1312,13 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const cardStyle = [themeHeightToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
                 .filter(s => s.length > 0).join('; ');
             const cardAttr = cardStyle.length > 0 ? ` style="${cardStyle}"` : '';
+            // `hideLabel: true` on a section drops its title bar entirely (compact, unlabeled panel).
+            const hideTitle = ((element as any).params ?? []).some((p: any) => isHideLabelParam(p) && p.value);
+            const titleNode = hideTitle ? '' : `<v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>`;
             return expandToNode`
             <v-col class="section isdl-section isdl-section-${element.name.toLowerCase()}"${colAttr}>
                 <v-card variant="outlined" elevation="4"${cardAttr}>
-                    <v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>
+                    ${titleNode}
 
                     <v-card-text>
                         <v-row dense>
@@ -1380,7 +1386,11 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const colorParam = standardParams.find(p => isColorParam(p)) as ColorParam | undefined;
 
             const label = `${document.name}.${element.name}`;
-            const standardParamsFragment = colorParam ? `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')" color="${colorParam.value}"` : `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
+            // `hideLabel: true` suppresses the field's label text. Passed to every field component
+            // via the shared fragment; each component guards its label render on !hideLabel.
+            const hideLabel = standardParams.some(p => isHideLabelParam(p) && p.value);
+            const baseFragment = `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
+            const standardParamsFragment = `${baseFragment}${colorParam ? ` color="${colorParam.value}"` : ''}${hideLabel ? ' :hideLabel="true"' : ''}`;
             const systemPath = getSystemPath(element, [], undefined, false);
 
             const entry = AstUtils.getContainerOfType(element, isEntry) as Entry;
@@ -1399,6 +1409,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     label="${label}"
                     ${iconParam ? `icon="${iconParam.value}"` : ``}
                     ${colorParam ? `color="${colorParam.value}"` : ``}
+                    ${hideLabel ? `:hideLabel="true"` : ``}
                     systemPath="${systemPath}"
                     :formula='${formula}'
                     :rollData='${data}'
@@ -2080,6 +2091,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 return expandToNode`
                 <i-damage-track
                     label="${label}"
+                    ${hideLabel ? `:hideLabel="true"` : ''}
                     systemPath="system.${element.name.toLowerCase()}"
                     :context="context"
                     :editMode="editModeRef"
@@ -2123,9 +2135,10 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 }
 
                 return expandToNode`
-                <i-tracker 
+                <i-tracker
                     label="${label}"
-                    systemPath="system.${element.name.toLowerCase()}" :context="context" 
+                    ${hideLabel ? `:hideLabel="true"` : ''}
+                    systemPath="system.${element.name.toLowerCase()}" :context="context"
                     :visibility="visibilityStates['${element.name.toLowerCase()}'].value"
                     :editMode="editModeRef"
                     :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
@@ -2368,6 +2381,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         systemPath="${systemPath}"
                         :context="context"
                         :editMode="editModeRef"
+                        ${hideLabel ? `:hideLabel="true"` : ''}
                         ${icon ? `icon="${icon}"` : ''}
                         ${slots ? `:maxSlots="${slots}"` : ''}
                         ${rows ? `:rows="${rows}"` : ''}

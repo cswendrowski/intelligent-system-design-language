@@ -500,6 +500,14 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             image Crest(icon: "fa-solid fa-shield")
         }
 
+        // QA: `hideLabel: true` standard param. On a field it suppresses the label text (and the
+        // Vuetify outlined notch); on a section it drops the whole title bar. LabeledNormally still
+        // shows its label for contrast.
+        section HideLabels(hideLabel: true) {
+            string LabeledNormally
+            number Compact(hideLabel: true)
+        }
+
         section Money {
             // Simple money - single currency
             money Credits(icon: "fa-solid fa-coins", format: compact, precision: 1)

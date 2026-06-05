@@ -19,6 +19,7 @@ export default function generateDocumentLinkComponent(destination: string) {
             systemPath: String,
             context: Object,
             disabled: Boolean,
+            hideLabel: Boolean,
             documentName: String,
             secondaryColor: String
         });
@@ -58,7 +59,7 @@ export default function generateDocumentLinkComponent(destination: string) {
                 </template>
             </v-img>
             <v-img v-else src="/icons/containers/boxes/crates-wooden-stacked.webp" class="align-end" cover></v-img>
-            <v-card-title>{{ game.i18n.localize(label) }}</v-card-title>
+            <v-card-title v-if="!props.hideLabel">{{ game.i18n.localize(label) }}</v-card-title>
             <v-card-subtitle v-if="hasLink">{{ value.name }}</v-card-subtitle>
             <v-card-text v-else>{{ game.i18n.localize('NoSingleDocument') }}</v-card-text>
             <v-card-actions v-if="hasLink">

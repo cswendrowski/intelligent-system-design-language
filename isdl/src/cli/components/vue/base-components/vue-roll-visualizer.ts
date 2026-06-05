@@ -25,6 +25,7 @@ export default function generateRollVisualizerComponent(destination: string) {
             label: String,
             icon: String,
             color: String,
+            hideLabel: Boolean,
             systemPath: String,
             context: Object,
             // The Foundry roll formula (may contain @refs), compiled from the field's value: expression.
@@ -257,7 +258,7 @@ export default function generateRollVisualizerComponent(destination: string) {
     <template>
         <v-card class="isdl-roll-visualizer" :name="systemPath" variant="tonal" density="compact">
             <div class="isdl-roll-visualizer__header">
-                <span class="isdl-roll-visualizer__label" v-html="getLabel"></span>
+                <span v-if="!props.hideLabel" class="isdl-roll-visualizer__label" v-html="getLabel"></span>
                 <span class="isdl-roll-visualizer__avg" :style="{ color: accentColor }">{{ averageText }}</span>
             </div>
             <v-sparkline

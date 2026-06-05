@@ -21,7 +21,8 @@ export default function generateTextFieldComponent(destination: string) {
             disabled: Boolean,
             editMode: Boolean,
             icon: String,
-            color: String
+            color: String,
+            hideLabel: Boolean
         });
 
         const value = ref(foundry.utils.getProperty(props.context, props.systemPath));
@@ -58,9 +59,9 @@ export default function generateTextFieldComponent(destination: string) {
             :data-tooltip="value"
             :color="color"
         >
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span v-html="getLabel" />
-            </template>    
+            </template>
         </v-text-field>
     </template>
     `;

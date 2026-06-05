@@ -19,6 +19,7 @@ export default function generateResourceComponent(destination: string) {
             systemPath: String,
             context: Object,
             disabled: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String
         });
@@ -65,7 +66,7 @@ export default function generateResourceComponent(destination: string) {
 
     <template>
         <v-card elevation="4" class="ml-1 mr-1 resource-card" variant="outlined">
-            <v-card-title>
+            <v-card-title v-if="!props.hideLabel">
                 {{ game.i18n.localize(label) }}
             </v-card-title>
 

@@ -24,7 +24,8 @@ export default function generateMeasuredTemplateComponent(destination: string) {
             secondaryColor: String,
             tertiaryColor: String,
             icon: String,
-            disabled: Boolean
+            disabled: Boolean,
+            hideLabel: Boolean
         });
 
         const document = inject("rawDocument");
@@ -412,7 +413,7 @@ export default function generateMeasuredTemplateComponent(destination: string) {
                     density="compact"
                     variant="outlined"
                 >
-                    <template #label>
+                    <template v-if="!props.hideLabel" #label>
                         <span v-html="getLabel" />
                     </template>
                     <template #append-inner>

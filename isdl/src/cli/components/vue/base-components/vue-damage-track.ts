@@ -19,6 +19,7 @@ export default function generateDamageTrackComponent(destination: string) {
             systemPath: String,
             context: Object,
             editMode: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String,
             types: Array,
@@ -106,7 +107,7 @@ export default function generateDamageTrackComponent(destination: string) {
 
     <template>
         <div class="isdl-damage-track">
-            <div class="damage-track-label">{{ getLabel }}</div>
+            <div v-if="!props.hideLabel" class="damage-track-label">{{ getLabel }}</div>
             <div class="damage-track-boxes">
                 <div
                     v-for="(box, i) in boxes"

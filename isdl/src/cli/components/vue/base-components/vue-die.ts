@@ -23,6 +23,7 @@ export default function generateDieComponent(destination: string, entry?: Entry)
             disabled: Boolean,
             icon: String,
             color: String,
+            hideLabel: Boolean,
             none: {
                 type: Boolean,
                 default: false
@@ -73,7 +74,7 @@ export default function generateDieComponent(destination: string, entry?: Entry)
             variant="outlined"
             class="isdl-die single-wide"
         >
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span class="field-label">
                     <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                     {{ game.i18n.localize(props.label) }}

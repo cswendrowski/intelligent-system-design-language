@@ -21,6 +21,7 @@ export default function generateMacroChoiceComponent(destination: string) {
             visibility: String,
             editMode: Boolean,
             disabled: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String,
             icon: String
@@ -122,7 +123,7 @@ export default function generateMacroChoiceComponent(destination: string) {
             :disabled="disabled"
             class="double-wide"
         >
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span v-html="getLabel" />
             </template>
             <template v-slot:prepend-inner v-if="value">

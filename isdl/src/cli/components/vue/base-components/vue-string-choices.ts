@@ -22,6 +22,7 @@ export default function generateStringChoicesComponent(destination: string, entr
             icon: String,
             color: String,
             disabled: Boolean,
+            hideLabel: Boolean,
             items: {
                 type: Array,
                 default: () => []
@@ -147,7 +148,7 @@ export default function generateStringChoicesComponent(destination: string, entr
                 chips
                 clearable
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ localizedLabel }}
@@ -172,7 +173,7 @@ export default function generateStringChoicesComponent(destination: string, entr
                 chips
                 clearable
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span v-html="getLabel(props.label, props.icon)" />
                 </template>
 

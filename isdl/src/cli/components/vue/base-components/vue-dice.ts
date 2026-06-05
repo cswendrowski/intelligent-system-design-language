@@ -21,6 +21,7 @@ export default function generateDiceComponent(destination: string) {
             context: Object,
             editMode: Boolean,
             disabled: Boolean,
+            hideLabel: Boolean,
             choices: Array,
             primaryColor: String,
             secondaryColor: String
@@ -68,7 +69,7 @@ export default function generateDiceComponent(destination: string) {
                     density="compact"
                     :disabled="disabled"
                 >
-                    <template #label>
+                    <template v-if="!props.hideLabel" #label>
                         <span v-html="getLabel(label, icon)" />
                     </template>
                     <div class="flexrow align-center inner-content">

@@ -33,6 +33,7 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
             context: Object,
             editMode: Boolean,
             disabled: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String
         });
@@ -146,7 +147,7 @@ export function generateDocumentChoiceComponent(entry: Entry, id: string, docume
             :disabled="disabled"
             class="double-wide"
         >
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span v-html="getLabel('${document.name}.${documentChoice.name}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
             </template>
             <template v-slot:prepend-inner v-if="value">

@@ -30,6 +30,7 @@ export function generateDocumentChoicesComponent(entry: Entry, id: string, docum
         const props = defineProps({
             context: Object,
             editMode: Boolean,
+            hideLabel: Boolean,
             primaryColor: String,
             secondaryColor: String
         });
@@ -166,7 +167,7 @@ export function generateDocumentChoicesComponent(entry: Entry, id: string, docum
             variant="outlined"
             class="double-wide"
         >
-            <template #label>
+            <template v-if="!props.hideLabel" #label>
                 <span v-html="getLabel('${document.name}.${documentChoices.name}', ${iconParam ? `'${iconParam.value}'` : undefined})" />
             </template>
             <template v-slot:item="{ props, item }">

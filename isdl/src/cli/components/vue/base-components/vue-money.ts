@@ -24,6 +24,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
             icon: String,
             color: String,
             disabled: Boolean,
+            hideLabel: Boolean,
             hasValueParam: Boolean,
             primaryColor: String,
             secondaryColor: String,
@@ -311,7 +312,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                 density="compact"
                 variant="outlined"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <span class="field-label">
                         <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                         {{ game.i18n.localize(props.label) }}
@@ -337,7 +338,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                 variant="outlined"
                 :data-tooltip="exactAmountTooltip"
             >
-                <template #label>
+                <template v-if="!props.hideLabel" #label>
                     <v-tooltip :text="exactAmountTooltip">
                         <template v-slot:activator="{ props: tooltipProps }">
                             <span class="field-label" v-bind="tooltipProps">
@@ -357,7 +358,7 @@ export default function generateMoneyComponent(destination: string, entry?: Entr
                         density="compact"
                         variant="outlined"
                     >
-                        <template #label>
+                        <template v-if="!props.hideLabel" #label>
                             <span class="field-label">
                                 <v-icon v-if="props.icon" :icon="props.icon" size="small" class="me-1"></v-icon>
                                 {{ game.i18n.localize(props.label) }}
