@@ -666,7 +666,7 @@ FunctionCall:
 // `parent.Heal(amount)` resolves at runtime to calling the parent sheet's function_ method,
 // using the pre-threaded parentUpdate / parentEmbeddedUpdate objects.
 ParentFunctionCall:
-    "parent." method=ID ("(" (params+=Expression ("," params+=Expression)*)? ")")?;
+    "parent" "." method=ID "(" (params+=Expression ("," params+=Expression)*)? ")";
 
 FunctionDefinition:
     "function" name=ID ("(" (params+=FunctionParam ("," params+=FunctionParam)*)? ")")? ("returns" returnType=(NOTHING | "number" | "boolean" | "string"))? method=MethodBlock;
