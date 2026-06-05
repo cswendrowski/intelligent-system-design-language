@@ -40,13 +40,6 @@
     }
   }
 
-  // Tables rendered inside a row {} layout are a bare flex child of v-row.
-  // Without flex-basis they shrink to content width; force them to fill the row.
-  .datatable-drop-zone {
-    flex: 1 0 100%;
-    width: 100%;
-    min-width: 0;
-  }
 
   &.isdl-datatable {
     color: black;
