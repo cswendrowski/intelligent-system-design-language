@@ -889,20 +889,31 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 </v-btn>
                 ${isReadonly ? '' : (
                     table.documents.length > 1
-                        ? joinToNode(table.documents, d => {
+                        ? expandToNode`<v-menu>
+                    <template v-slot:activator="{ props }">
+                        <v-btn
+                            v-bind="props"
+                            :color="primaryColor || 'primary'"
+                            prepend-icon="fa-solid fa-plus"
+                            append-icon="fa-solid fa-caret-down"
+                            rounded="0"
+                            size="small"
+                            :loading="loading"
+                            style="height: 38px;"
+                        >
+                            {{ game.i18n.localize("Add") }}
+                        </v-btn>
+                    </template>
+                    <v-list density="compact" class="pa-0">
+                        ${joinToNode(table.documents, d => {
                             const typeName = d.ref?.name.toLowerCase() ?? '';
-                            return expandToNode`<v-btn
-                    :color="primaryColor || 'primary'"
-                    prepend-icon="fa-solid fa-plus"
-                    rounded="0"
-                    size="small"
-                    :loading="loading"
-                    @click="addNew_${typeName}"
-                    style="height: 38px;"
-                >
-                    {{ game.i18n.localize("Add") }} ${d.ref?.name ?? ''}
-                </v-btn>`;
-                        }, { appendNewLineIfNotEmpty: true })
+                            return expandToNode`<v-list-item @click="addNew_${typeName}" min-height="32">
+                            <template v-slot:prepend><v-icon icon="fa-solid fa-plus" size="15"></v-icon></template>
+                            <v-list-item-title>${d.ref?.name ?? ''}</v-list-item-title>
+                        </v-list-item>`;
+                        }, { appendNewLineIfNotEmpty: true })}
+                    </v-list>
+                </v-menu>`
                         : expandToNode`<v-btn
                     :color="primaryColor || 'primary'"
                     prepend-icon="fa-solid fa-plus"
