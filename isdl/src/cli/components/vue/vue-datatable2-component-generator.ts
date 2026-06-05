@@ -347,7 +347,8 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                         icon,
                         color,
                         label: `${parentDocument?.name}.${action.name}`,
-                        isSecondary: action.isSecondary ?? false
+                        isSecondary: action.isSecondary ?? false,
+                        visibility: action.modifier ?? 'default'
                     };
                 })
             };
@@ -469,6 +470,16 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
         // resolved here, so such columns fall through as visible.
         const passesVisibility = (header) => {
             const v = header?.visibility;
+            if (v === 'gmOnly') return game.user.isGM;
+            if (v === 'secret') {
+                return game.user.isGM || document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+            }
+            return true;
+        };
+
+        const actionPassesVisibility = (action) => {
+            const v = action?.visibility;
+            if (v === 'hidden') return false;
             if (v === 'gmOnly') return game.user.isGM;
             if (v === 'secret') {
                 return game.user.isGM || document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
@@ -723,7 +734,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
         ${table.documents.length > 1 ? expandToNode`
         const getActionsForType = (itemType) => {
             const actionsMap = {
-                ${joinToNode(multiTypeActionsData, ({ typeName, actions }) => expandToNode`'${typeName}': [${joinToNode(actions, a => expandToNode`{ name: '${a.name}', icon: '${a.icon}', color: '${a.color}', label: '${a.label}', isSecondary: ${a.isSecondary} }`, { separator: ', ' })}],`, { appendNewLineIfNotEmpty: true })}
+                ${joinToNode(multiTypeActionsData, ({ typeName, actions }) => expandToNode`'${typeName}': [${joinToNode(actions, a => expandToNode`{ name: '${a.name}', icon: '${a.icon}', color: '${a.color}', label: '${a.label}', isSecondary: ${a.isSecondary}, visibility: '${a.visibility}' }`, { separator: ', ' })}],`, { appendNewLineIfNotEmpty: true })}
             };
             return actionsMap[itemType?.toLowerCase()] || [];
         };` : ''}
@@ -1014,7 +1025,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                 ${isReadonly ? '' : expandToNode`<template v-slot:item.actions="{ item }">
                     <div class="d-flex align-center justify-end ga-1">
                         ${table.documents.length > 1
-                            ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => !a.isSecondary)" :key="action.name">
+                            ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => !a.isSecondary && actionPassesVisibility(a))" :key="action.name">
                             <v-tooltip :text="game.i18n.localize(action.label)">
                                 <template v-slot:activator="{ props }">
                                     <v-btn v-bind="props" :icon="action.icon" size="x-small" variant="text" :color="action.color" @click="customItemAction(item, action.name)"></v-btn>
@@ -1068,7 +1079,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
                                 </v-list-item>
                                 ` : ''}
                                 ${table.documents.length > 1
-                                    ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => a.isSecondary)" :key="action.name">
+                                    ? expandToNode`<template v-for="action in getActionsForType(item.type).filter(a => a.isSecondary && actionPassesVisibility(a))" :key="action.name">
                                     <v-list-item @click="customItemAction(item, action.name)" :title="game.i18n.localize(action.label)" min-height="32">
                                         <template v-slot:prepend><v-icon :icon="action.icon" size="15"></v-icon></template>
                                     </v-list-item>
@@ -1179,14 +1190,20 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
     `;
     fs.writeFileSync(generatedFilePath, toString(fileNode));
 
-    function generateActionButton(action: Action): CompositeGeneratorNode {
+    function generateActionButton(action: Action): CompositeGeneratorNode | undefined {
+        if (action.modifier === 'hidden') return undefined;
         const standardParams = action.params as StandardFieldParams[];
         const icon = (standardParams.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
         const color = (standardParams.find(x => isColorParam(x)) as ColorParam)?.value ?? "primary";
         const parentDocument = AstUtils.getContainerOfType(action, isDocument);
+        const vif = action.modifier === 'gmOnly'
+            ? ' v-if="game.user.isGM"'
+            : action.modifier === 'secret'
+                ? ' v-if="game.user.isGM || document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER"'
+                : '';
 
         return expandToNode`
-            <v-tooltip :text="game.i18n.localize('${parentDocument?.name}.${action.name}')">
+            <v-tooltip${vif} :text="game.i18n.localize('${parentDocument?.name}.${action.name}')">
                 <template v-slot:activator="{ props }">
                     <v-btn
                         v-bind="props"
@@ -1201,13 +1218,19 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
         `;
     }
 
-    function generateSecondaryActionMenuItem(action: Action): CompositeGeneratorNode {
+    function generateSecondaryActionMenuItem(action: Action): CompositeGeneratorNode | undefined {
+        if (action.modifier === 'hidden') return undefined;
         const standardParams = action.params as StandardFieldParams[];
         const icon = (standardParams.find(x => isIconParam(x)) as IconParam)?.value ?? "fa-solid fa-bolt";
         const parentDocument = AstUtils.getContainerOfType(action, isDocument);
+        const vif = action.modifier === 'gmOnly'
+            ? ' v-if="game.user.isGM"'
+            : action.modifier === 'secret'
+                ? ' v-if="game.user.isGM || document.getUserLevel(game.user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER"'
+                : '';
 
         return expandToNode`
-            <v-list-item
+            <v-list-item${vif}
                 @click="customItemAction(item, '${action.name.toLowerCase()}')"
                 :title="game.i18n.localize('${parentDocument?.name}.${action.name}')"
                 min-height="32"
