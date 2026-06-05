@@ -55,7 +55,7 @@ import {
     isStringExtendedChoice,
     StringChoice, isStringChoiceField, isDamageTypeChoiceField, ChoiceCustomProperty, isChoiceCustomProperty, isStringChoicesField, isMoneyField,
     isDamageTrackTypesParam, DamageTrackTypesParam,
-    isImageField, isImagePrimaryParam
+    isImageField, isImagePrimaryParam, isImageInitialParam, ImageInitialParam
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import * as fs from 'node:fs';
@@ -136,12 +136,20 @@ export function generateDocumentDataModel(entry: Entry, document: Document, dest
 
         if (isImageField(property)) {
             // A `primary: true` image stores nothing of its own -- it edits the document's native
-            // `img`. A normal image stores its file path at system.<name>.
+            // `img` (its `initial:` feeds the type's default artwork in the init hook instead). A
+            // normal image stores its file path at system.<name>, defaulting to `initial:` if given.
             if (property.params.some(p => isImagePrimaryParam(p) && p.value)) {
                 return undefined;
             }
+            const initialParam = property.params.find(p => isImageInitialParam(p)) as ImageInitialParam | undefined;
+            // Resolve a relative path against the system dir, mirroring the document `svg:` rule, so
+            // an author-supplied "img/foo.png" doesn't 404 when bound straight into the field's src.
+            const rawInitial = initialParam?.value ?? "";
+            const initial = !rawInitial || rawInitial.startsWith("icons") || rawInitial.startsWith("systems") || rawInitial.startsWith("/")
+                ? rawInitial
+                : `systems/${id}/${rawInitial}`;
             return expandToNode`
-                ${property.name.toLowerCase()}: new fields.StringField({initial: ""}),
+                ${property.name.toLowerCase()}: new fields.StringField({initial: "${initial}"}),
             `;
         }
 

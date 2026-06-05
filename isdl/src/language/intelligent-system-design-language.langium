@@ -334,9 +334,14 @@ MeasuredTemplateField:
 ImageField:
     ExpressionModifier "image" name=ID ("(" params+=ImageFieldParam ("," params+=ImageFieldParam)* ")")?;
 ImageFieldParam:
-    (StandardFieldParams | ImagePrimaryParam);
+    (StandardFieldParams | ImagePrimaryParam | ImageInitialParam);
 ImagePrimaryParam:
     "primary:" value=BOOLEAN;
+// Default image path. On a normal image field this is the StringField initial; on a
+// `primary: true` image it sets the document type's default native `img` (typeArtworks),
+// taking precedence over the document-level `svg:` param.
+ImageInitialParam:
+    "initial:" value=STRING;
 
 // Damage Bonuses -------------
 

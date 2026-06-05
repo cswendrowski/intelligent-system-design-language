@@ -493,11 +493,12 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         }
 
         // QA: the `image` field type. `Portrait(primary: true)` binds the document's native `img`
-        // (the movable portrait) -> this placement auto-hides the default drawer portrait. `Crest`
-        // is a normal image field stored at system.crest. Both are click-to-edit via FilePicker.
+        // (the movable portrait) -> this placement auto-hides the default drawer portrait; its
+        // `initial:` sets the type's default artwork (typeArtworks). `Crest` is a normal image field
+        // stored at system.crest, defaulting to its `initial:` path. Both are click-to-edit.
         section Images {
-            image Portrait(primary: true)
-            image Crest(icon: "fa-solid fa-shield")
+            image Portrait(primary: true, initial: "icons/svg/mystery-man.svg")
+            image Crest(icon: "fa-solid fa-shield", initial: "img/missing-character.png")
         }
 
         // QA: `hideLabel: true` standard param. On a field it suppresses the label text (and the

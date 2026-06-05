@@ -9,6 +9,7 @@ import {
     StatusProperty, VariableExpression,
     SettingField, SettingInitial, SettingChoices,
     isBooleanSetting, isNumberSetting, isSettingInitial, isSettingChoices, isSettingHint,
+    ImageField, ImageInitialParam, isImageField, isImagePrimaryParam, isImageInitialParam,
 } from "../../language/generated/ast.js";
 import path from "node:path";
 import fs from "node:fs";
@@ -164,15 +165,30 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
     }
 
 
+    // Resolve a document's default native artwork (its `img`). A `primary: true` image field's
+    // `initial:` wins over the document-level `svg:` param (it's the more specific declaration);
+    // relative paths are resolved against the system dir so they don't 404 as default art.
+    const resolveArtPath = (p: string): string =>
+        !p || p.startsWith("icons") || p.startsWith("systems") || p.startsWith("/") || p.startsWith("http")
+            ? p : `systems/${id}/${p}`;
+    const getDocDefaultArt = (document: Document): string | undefined => {
+        const primaryImage = getAllOfType<ImageField>(document.body, isImageField)
+            .find(f => f.params.some(p => isImagePrimaryParam(p) && p.value));
+        const imageInitial = primaryImage?.params.find(p => isImageInitialParam(p)) as ImageInitialParam | undefined;
+        if (imageInitial?.value) return resolveArtPath(imageInitial.value);
+        const svg = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value;
+        return svg ? resolveArtPath(svg) : undefined;
+    };
+
     let actorDocs = entry.documents.filter(d => isActor(d)).map(d => d as Actor);
     let actorDefaultType = actorDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value))?.name.toLowerCase() ?? actorDocs[0]?.name.toLowerCase();
-    let actorArtworks = actorDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
+    let actorArtworks = actorDocs.filter(a => getDocDefaultArt(a) !== undefined);
     let actorDescriptions = actorDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
     let actorCreatables = actorDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
 
     let itemDocs = entry.documents.filter(d => isItem(d)).map(d => d as Item);
     let itemDefaultType = itemDocs.find(a => a.params.find(p => isDocumentDefaultParam(p) && p.value))?.name.toLowerCase() ?? itemDocs[0]?.name.toLowerCase();
-    let itemArtworks = itemDocs.filter(a => a.params.find(p => isDocumentSvgParam(p)));
+    let itemArtworks = itemDocs.filter(a => getDocDefaultArt(a) !== undefined);
     let itemDescriptions = itemDocs.filter(a => a.params.find(p => isDocumentDescriptionParam(p)));
     let itemCreatables = itemDocs.filter(a => a.params.find(p => isDocumentCreatableParam(p)));
 
@@ -397,17 +413,13 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
 
             CONFIG.Actor.typeArtworks = {
                 ${joinToNode(actorArtworks, document => {
-                    const path = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value ?? '';
-                    const fullPath = path.startsWith('/icons/') ? path : `systems/${id}/${path}`;
-                    return `"${document.name.toLowerCase()}": "${fullPath}"`;
+                    return `"${document.name.toLowerCase()}": "${getDocDefaultArt(document)}"`;
                 }, { appendNewLineIfNotEmpty: true, separator: ',' })}
             };
-            
+
             CONFIG.Item.typeArtworks = {
                 ${joinToNode(itemArtworks, document => {
-                    const path = (document.params.find(p => isDocumentSvgParam(p)) as DocumentSvgParam)?.value ?? '';
-                    const fullPath = path.startsWith('/icons/') ? path : `systems/${id}/${path}`;
-                    return `"${document.name.toLowerCase()}": "${fullPath}"`;
+                    return `"${document.name.toLowerCase()}": "${getDocDefaultArt(document)}"`;
                 }, { appendNewLineIfNotEmpty: true, separator: ',' })}
             };
 
