@@ -176,7 +176,9 @@ Actor:
 Item:
     "item" name=ID ("(" params+=DocumentParam ("," params+=DocumentParam)* ")")? ClassBlock;
 DocumentParam:
-    (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam | DocumentCreatableParam | DocumentDefaultParam | WidthParam | HeightParam);
+    (IconParam | BackgroundParam | DocumentSvgParam | DocumentDescriptionParam | DocumentCreatableParam | DocumentDefaultParam | WidthParam | HeightParam | ZoomParam);
+ZoomParam:
+    "zoom:" value=INT;
 DocumentSvgParam:
     "svg:" value=STRING;
 DocumentDescriptionParam:

@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
-import { Action, AttributeExp, AttributeFunctionParam, AttributeRollParam, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, isAction, isActor, isAttributeExp, isAttributeFunctionParam, isAttributeRollParam, isFunctionDefinition, isHeightParam, isHtmlExp, isMethodBlock, isWidthParam } from "../../../language/generated/ast.js";
+import { Action, AttributeExp, AttributeFunctionParam, AttributeRollParam, Document, Entry, FunctionDefinition, HtmlExp, HeightParam, WidthParam, ZoomParam, isAction, isActor, isAttributeExp, isAttributeFunctionParam, isAttributeRollParam, isFunctionDefinition, isHeightParam, isHtmlExp, isMethodBlock, isWidthParam, isZoomParam } from "../../../language/generated/ast.js";
 import { humanize, titleize } from 'inflection';
 import { getAllOfType, toMachineIdentifier } from '../utils.js';
 import { translateBodyExpressionToJavascript, translateExpression } from '../method-generator.js';
@@ -22,6 +22,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
     const formatDimension = (value: 'auto' | number): string => value === 'auto' ? '"auto"' : `${value}`;
     const widthParam = document.params?.find(isWidthParam) as WidthParam | undefined;
     const heightParam = document.params?.find(isHeightParam) as HeightParam | undefined;
+    const zoomParam = document.params?.find(isZoomParam) as ZoomParam | undefined;
     const sheetWidth = widthParam ? formatDimension(widthParam.value) : (type == "item" ? 1050 : 1200);
     const sheetHeight = heightParam ? formatDimension(heightParam.value) : (type == "item" ? 875 : 950);
 
@@ -226,9 +227,7 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
              */
             _onRender(context, options) {
                 this.#dragDrop.forEach((d) => d.bind(this.element));
-                // You may want to add other special handling here
-                // Foundry comes with a large number of utility classes, e.g. SearchFilter
-                // That you may want to implement yourself.
+                ${zoomParam ? expandToNode`this.element.querySelector('.window-content').style.zoom = '${zoomParam.value / 100}';` : ''}
             }
 
             /**

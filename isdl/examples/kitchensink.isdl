@@ -308,8 +308,8 @@ actor BasicHero {
     }
 }
 
-// QA: custom default sheet size (width/height params on the document)
-actor Superhero(width: 900, height: 700) {
+// QA: custom default sheet size (width/height params on the document); zoom: 125 = 125% scale
+actor Superhero(width: 900, height: 700, zoom: 125) {
 
     page Alias {
         string SuperheroName
