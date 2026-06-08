@@ -1,0 +1,12 @@
+{
+  "_comment": "Config + state for /discord-sweep. Fill in the two channel IDs (right-click channel in Discord with Developer Mode on -> Copy Channel ID). 'kind' biases classification but every message is still individually classified. 'watermarks' is written by the command after each sweep -- do not edit by hand.",
+  "fetchLimit": 100,
+  "channels": [
+    { "id": "1103755490619568189", "name": "general", "kind": "mixed" },
+    { "id": "1405706297579667498", "name": "isdl", "kind": "mixed" }
+  ],
+  "watermarks": {
+    "1103755490619568189": "1513559976231047198",
+    "1405706297579667498": "1513012517767483422"
+  }
+}
