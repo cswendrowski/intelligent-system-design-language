@@ -21,7 +21,8 @@ export default function generateResourceComponent(destination: string) {
             disabled: Boolean,
             hideLabel: Boolean,
             primaryColor: String,
-            secondaryColor: String
+            secondaryColor: String,
+            emptyColor: String
         });
 
         const document = inject("rawDocument");
@@ -74,7 +75,7 @@ export default function generateResourceComponent(destination: string) {
                 <v-progress-linear
                     :height="18"
                     :color="primaryColor"
-                    bg-color="#92aed9"
+                    :bg-color="props.emptyColor || '#92aed9'"
                     rounded
                     :model-value="value"
                     min="0"

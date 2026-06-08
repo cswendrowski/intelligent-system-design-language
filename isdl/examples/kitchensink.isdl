@@ -19,7 +19,9 @@ config KitchenSink {
         border   { color: #6750A4, width: 2, radius: 6 },
         font     { family: "Roboto", size: 14 },
         heading  { color: #4a3a78, size: 20, transform: "uppercase" },
-        disabledText { color: #555555, size: 13 }   // play-mode (read-only) field text
+        disabledText { color: #555555, size: 13 },   // play-mode (read-only) field text
+        // QA #118: elevation param — overrides the default v-card elevation (4) for all sections.
+        elevation: 2
     }
     // QA: sidecar SCSS authored next to this .isdl, compiled + auto-scoped. `sheetStyles`
     // scopes under the Vue sheets (.kitchen-sink.vue-application); `globalStyles` scopes under
@@ -154,6 +156,25 @@ actor BasicHero {
 
     // QA: socket-target prompt -- routes through game.socket to the GM's client,
     // which opens the same Vue prompt app and resolves back over the socket.
+    // QA #96: switch / match statement — compiles to an if/else chain over a single value.
+    // Uses a top-level number field; string literals work the same way.
+    action CheckModifier {
+        switch (self.HealthModifier) {
+            case 0: {
+                chat ModResult { "No health modifier" }
+            }
+            case 5: {
+                chat ModResult { "Small bonus: " + self.HealthModifier }
+            }
+            case 10: {
+                chat ModResult { "Large bonus: " + self.HealthModifier }
+            }
+            default {
+                chat ModResult { "Custom modifier: " + self.HealthModifier }
+            }
+        }
+    }
+
     action AskGm {
         fleeting answer = prompt(label: "GM Decision", target: gm) {
             choice<string> Verdict(choices: ["Approve", "Deny"])
@@ -498,9 +519,11 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             string NarrowField
         }
 
-        section Complex {
-            resource ResourceField
-            tracker TrackerField
+        // QA #106: collapsible section — starts collapsed (collapsed: true); toggles with localStorage persistence.
+        section Complex(collapsible: true, collapsed: true) {
+            // QA #88: emptyColor — custom unfilled color on tracker and resource bars.
+            resource ResourceField(emptyColor: #4a90d9)
+            tracker TrackerField(emptyColor: #8B0000)
             // QA: per-field theme `width: { max }` on a resource. A resource renders as
             // `.isdl-tracker` which hardcodes `min-width: 300px; max-width: 600px`; the themed
             // sizing must emit as DIRECT declarations on `.isdl-field-narrowbar` (not --isdl-* vars,
@@ -510,6 +533,11 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             attribute AttributeField
             measuredTemplate MeasuredTemplateField
             //damageTrack DamageTrackField
+        }
+
+        // QA #106: collapsible section that starts open (no collapsed: param).
+        section Collapsible(collapsible: true) {
+            string OpenByDefault
         }
 
         // QA: the `image` field type. `Portrait(primary: true)` binds the document's native `img`

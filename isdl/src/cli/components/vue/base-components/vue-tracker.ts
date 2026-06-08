@@ -23,6 +23,7 @@ export default function generateTrackerComponent(destination: string) {
             primaryColor: String,
             secondaryColor: String,
             tertiaryColor: String,
+            emptyColor: String,
             trackerStyle: String,
             icon: String,
             hideLabel: Boolean,
@@ -159,6 +160,11 @@ export default function generateTrackerComponent(destination: string) {
             return props.primaryColor;
         });
 
+        // emptyColor controls the unfilled portion of the bar. Falls back to a neutral blue-grey,
+        // or transparent for style variants that use outline-only empties (slashes, clock, segmented).
+        const emptyBgColor = computed(() => props.emptyColor || '#92aed9');
+        const emptyFillColor = computed(() => props.emptyColor || 'transparent');
+
         const expanded = ref(false);
 
         const expandIcon = computed(() => {
@@ -208,7 +214,7 @@ export default function generateTrackerComponent(destination: string) {
                 \${mainColor.value} \${primaryPct}%,
                 \${props.tertiaryColor} \${primaryPct}%,
                 \${props.tertiaryColor} \${tempPct}%,
-                transparent \${tempPct}%
+                \${emptyFillColor.value} \${tempPct}%
             )\`;
 
             const segmentLines = \`repeating-linear-gradient(
@@ -278,7 +284,7 @@ export default function generateTrackerComponent(destination: string) {
                                 v-if="trackerStyle == 'bar'"
                                 :height="18"
                                 :color="mainColor"
-                                bg-color="#92aed9"
+                                :bg-color="emptyBgColor"
                                 rounded
                                 :model-value="value"
                                 min="0"
@@ -321,7 +327,7 @@ export default function generateTrackerComponent(destination: string) {
                                         minWidth: '5px',
                                         flexShrink: 0,
                                         height: '30px',
-                                        backgroundColor: i <= value ? mainColor : (i <= value + temp ? tertiaryColor : 'transparent'),
+                                        backgroundColor: i <= value ? mainColor : (i <= value + temp ? tertiaryColor : emptyFillColor),
                                         border: i <= value ? 'none' : '2px solid ' + secondaryColor,
                                         transform: 'skewX(-20deg)',
                                         borderRadius: '2px',
@@ -361,7 +367,7 @@ export default function generateTrackerComponent(destination: string) {
                                 <g v-for="i in barMax" :key="i">
                                     <path
                                         :d="describeSlice(i - 1, barMax, radius, size / 2)"
-                                        :fill="i <= value ? mainColor : (i <= value + temp ? tertiaryColor: 'transparent')"
+                                        :fill="i <= value ? mainColor : (i <= value + temp ? tertiaryColor: emptyFillColor)"
                                         :stroke="secondaryColor"
                                         stroke-width="2"
                                     />

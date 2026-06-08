@@ -38,7 +38,10 @@ fragment ThemeBodyFrag:
     (params+=ThemeBodyParam ("," params+=ThemeBodyParam)*)?;
 
 ThemeBodyParam:
-    (ThemePaletteParam | ThemeBorderGroup | ThemeFontGroup | ThemeHeadingGroup | ThemeDisabledGroup | ThemeWidthGroup | ThemeHeightGroup);
+    (ThemePaletteParam | ThemeBorderGroup | ThemeFontGroup | ThemeHeadingGroup | ThemeDisabledGroup | ThemeWidthGroup | ThemeHeightGroup | ThemeElevationParam);
+
+ThemeElevationParam:
+    "elevation:" value=INT;
 
 Theme:
     "theme" "{" ThemeBodyFrag "}";
@@ -201,7 +204,11 @@ Layout:
 // container-specific token set enforced by validation: row/column accept only sizing
 // (`width`/`height`); section additionally accepts `border`/`background`/`text`.
 Section:
-    "section" name=ID ("(" params+=(ThemeFieldParam | HideLabelParam) ("," params+=(ThemeFieldParam | HideLabelParam))* ")")? "{" body+=(ClassExpression|Row|Column)* "}";
+    "section" name=ID ("(" params+=(ThemeFieldParam | HideLabelParam | CollapsibleParam | CollapsedParam) ("," params+=(ThemeFieldParam | HideLabelParam | CollapsibleParam | CollapsedParam))* ")")? "{" body+=(ClassExpression|Row|Column)* "}";
+CollapsibleParam:
+    "collapsible:" value=BOOLEAN;
+CollapsedParam:
+    "collapsed:" value=BOOLEAN;
 Row:
     "row" ("(" params+=ThemeFieldParam ("," params+=ThemeFieldParam)* ")")? "{" body+=(ClassExpression|Section|Row|Column)* "}";
 Column:
@@ -320,7 +327,7 @@ HtmlExp:
 ResourceExp:
     ExpressionModifier (tag=("health" | "wounds"))? "resource" name=ID ("(" params+=ResourceParameter* ("," params+=ResourceParameter)* ")")?;
 ResourceParameter:
-    (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter);
+    (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter | EmptyColorParam);
 
 
 // Measured Template -------------
@@ -404,11 +411,13 @@ RollVisualizerValueParam:
 TrackerExp:
     ExpressionModifier "tracker" name=ID ("(" params+=TrackerParameter ("," params+=TrackerParameter)* ")")?;
 TrackerParameter:
-    (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter);
+    (StandardFieldParams | NumberFieldParams | TrackerStyleParameter | SegmentsParameter | EmptyColorParam);
 TrackerStyleParameter:
     "style:" style=("bar" | "dial" | "icons" | "slashes" | "segmented" | "clock" | "plain");
 SegmentsParameter:
     "segments:" segments=INT;
+EmptyColorParam:
+    "emptyColor:" value=HEX_COLOR;
 
 
 // Attribute -------------
@@ -798,7 +807,15 @@ MethodBlock:
     ("{" body+=(MethodBlockExpression)* "}") | (body+=MethodBlockExpression);
 MethodBlockExpression:
     (MacroExecute | VariableExpression | Assignment | ParentAssignment | TargetAssignment | VariableAssignment | SystemSettingAssignment | ReturnExpression |
-     IfStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | ParentFunctionCall | PlayAudio | Combat | User );
+     IfStatement | SwitchStatement | JS | ChatCard | SelfMethod | Each | Update | LogExpression | Wait | FunctionCall | ParentFunctionCall | PlayAudio | Combat | User );
+
+// Switch / match statement: compiles to an if/else chain.
+// case values are literals (strings, numbers, booleans); use if/else for complex expressions.
+// `default` (no colon, like `else`) is the fallthrough branch.
+SwitchStatement:
+    ("switch" | "match") "(" value=Expression ")" "{" cases+=SwitchCase* ("default" defaultBody=MethodBlock)? "}";
+SwitchCase:
+    "case" value=Literal ":" body=MethodBlock;
 JS:
     js=JS_LINE;
 LogExpression:

@@ -138,6 +138,9 @@ import {
     isParentFunctionCall,
     isTernaryExp,
     TernaryExp,
+    isSwitchStatement,
+    SwitchStatement,
+    SwitchCase,
 } from "../../language/generated/ast.js"
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { getParentDocument, getPromptContainer, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
@@ -1216,6 +1219,29 @@ export function translateExpression(entry: Entry, id: string, expression: string
         `;
     }
 
+    function translateSwitchStatement(stmt: SwitchStatement): CompositeGeneratorNode | undefined {
+        const valueExpr = translateExpression(entry, id, stmt.value, preDerived, generatingProperty);
+
+        const caseNodes = stmt.cases.map((c: SwitchCase, i: number) => {
+            const keyword = i === 0 ? 'if' : 'else if';
+            const caseValue = translateExpression(entry, id, c.value, preDerived, generatingProperty);
+            return expandToNode`
+                ${keyword} (${valueExpr} === ${caseValue}) {
+                    ${translateBodyExpressionToJavascript(entry, id, c.body.body, preDerived, generatingProperty)}
+                }
+            `;
+        });
+
+        return expandToNode`
+            ${joinToNode(caseNodes, n => n, { appendNewLineIfNotEmpty: true })}
+            ${stmt.defaultBody != undefined ? expandToNode`
+                else {
+                    ${translateBodyExpressionToJavascript(entry, id, stmt.defaultBody.body, preDerived, generatingProperty)}
+                }
+            `.appendNewLineIfNotEmpty() : ""}
+        `;
+    }
+
     function translateComparisonExpression(expression: WhenExpressions): CompositeGeneratorNode | undefined {
 
         console.log("Translating Comparison Expression: ");
@@ -1419,6 +1445,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
     if (isIfStatement(expression)) {
         return translateIfStatement(expression as IfStatement);
+    }
+    if (isSwitchStatement(expression)) {
+        return translateSwitchStatement(expression as SwitchStatement);
     }
     if (isWhenExpressions(expression)) {
         return translateComparisonExpression(expression as WhenExpressions);

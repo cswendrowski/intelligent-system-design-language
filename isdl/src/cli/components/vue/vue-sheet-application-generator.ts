@@ -43,6 +43,10 @@ import {
     isImageParam, isLabelParam, isMacroField, isMeasuredTemplateField, isDamageBonusesField, isDamageResistancesField, isPinnedField, isMoneyField, isDamageTrackExp, isDamageTrackTypesParam, DamageTrackTypesParam, isRollVisualizerField,
     ImageField, isImageField, isImagePrimaryParam,
     isHideLabelParam,
+    isCollapsibleParam, CollapsibleParam,
+    isCollapsedParam, CollapsedParam,
+    isEmptyColorParam, EmptyColorParam,
+    isThemeElevationParam, ThemeElevationParam,
     isMethodBlock,
     isNumberExp,
     isNumberParamMax,
@@ -56,7 +60,7 @@ import {
     isSelfPropertyRefExp,
     isProperty,
     isResourceExp, isRow,
-    isSection,
+    isSection, Section,
     isSegmentsParameter,
     isSingleDocumentExp,
     isSizeParam,
@@ -131,6 +135,17 @@ function getUserColorsEnabled(entry: Entry): boolean {
     return flag ? (flag as any).value : true;
 }
 
+// Returns the elevation integer from the global `theme { elevation: N }` block, or 4 if unset.
+const DEFAULT_ELEVATION = 4;
+function getGlobalThemeElevation(entry: Entry): number {
+    const theme = entry.config.body.find(isTheme);
+    if (theme) {
+        const ep = theme.params.find(isThemeElevationParam) as ThemeElevationParam | undefined;
+        if (ep != null) return ep.value;
+    }
+    return DEFAULT_ELEVATION;
+}
+
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase());
@@ -150,6 +165,33 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateCollapsibleSectionsSetup(document: Document): string {
+    const allSections = getAllOfType<Section>(document.body as any, isSection);
+    const collapsibleSections = allSections.filter(s => (s.params ?? []).some(p => isCollapsibleParam(p) && (p as CollapsibleParam).value));
+    if (collapsibleSections.length === 0) return '';
+
+    const defaultCollapsedEntries = collapsibleSections
+        .filter(s => (s.params ?? []).some(p => isCollapsedParam(p) && (p as CollapsedParam).value))
+        .map(s => `'${s.name.toLowerCase()}': true`)
+        .join(', ');
+    const defaultsObj = `{ ${defaultCollapsedEntries} }`;
+
+    return `
+        // Collapsible sections — state persisted per-document in localStorage.
+        const _collapsibleDefaults = ${defaultsObj};
+        const collapsedSections = ref((() => {
+            try {
+                const s = JSON.parse(localStorage.getItem(\`isdl-sections-\${document.uuid}\`) ?? 'null');
+                return s !== null ? s : { ..._collapsibleDefaults };
+            } catch { return { ..._collapsibleDefaults }; }
+        })());
+        const toggleSection = (name) => {
+            collapsedSections.value[name] = !collapsedSections.value[name];
+            localStorage.setItem(\`isdl-sections-\${document.uuid}\`, JSON.stringify(collapsedSections.value));
+        };
+    `;
 }
 
 function generateVueComponentScript(entry: Entry, id: string, document: Document, destination: string): CompositeGeneratorNode {
@@ -832,6 +874,8 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
             document.setFlag('${id}', 'edit-mode', editModeRef.value);
         };
 
+        ${generateCollapsibleSectionsSetup(document)}
+
         function spawnDatatableWindow(e, pageName, tabName) {
             if (event.button === 1) {
                 event.preventDefault();
@@ -1310,12 +1354,41 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const cardStyle = [themeHeightToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
                 .filter(s => s.length > 0).join('; ');
             const cardAttr = cardStyle.length > 0 ? ` style="${cardStyle}"` : '';
+            const sectionParams = (element as any).params ?? [];
             // `hideLabel: true` on a section drops its title bar entirely (compact, unlabeled panel).
-            const hideTitle = ((element as any).params ?? []).some((p: any) => isHideLabelParam(p) && p.value);
-            const titleNode = hideTitle ? '' : `<v-card-title>{{ game.i18n.localize('${document.name}.${element.name}') }}</v-card-title>`;
+            const hideTitle = sectionParams.some((p: any) => isHideLabelParam(p) && p.value);
+            // Elevation: per-section theme override, falling back to global theme elevation (default 4).
+            const sectionElevationParam = themeParam?.params?.find(isThemeElevationParam) as ThemeElevationParam | undefined;
+            const elevation = sectionElevationParam?.value ?? getGlobalThemeElevation(entry);
+            // Collapsible: `collapsible: true` wraps body in a toggled expand-transition.
+            const isCollapsible = sectionParams.some((p: any) => isCollapsibleParam(p) && p.value);
+            const sectionName = element.name.toLowerCase();
+            const localizeKey = `${document.name}.${element.name}`;
+
+            if (isCollapsible) {
+                const titleBar = hideTitle
+                    ? ''
+                    : `<v-card-title class="isdl-section-title" @click.stop="toggleSection('${sectionName}')" style="cursor:pointer;display:flex;align-items:center;">{{ game.i18n.localize('${localizeKey}') }}<v-icon class="ml-auto" :icon="collapsedSections['${sectionName}'] ? 'mdi-chevron-down' : 'mdi-chevron-up'"></v-icon></v-card-title>`;
+                return expandToNode`
+                <v-col class="section isdl-section isdl-section-${sectionName}"${colAttr}>
+                    <v-card variant="outlined" elevation="${elevation}"${cardAttr}>
+                        ${titleBar}
+                        <v-expand-transition>
+                            <v-card-text v-show="!collapsedSections['${sectionName}']">
+                                <v-row dense>
+                                    ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
+                                </v-row>
+                            </v-card-text>
+                        </v-expand-transition>
+                    </v-card>
+                </v-col>
+                `;
+            }
+
+            const titleNode = hideTitle ? '' : `<v-card-title>{{ game.i18n.localize('${localizeKey}') }}</v-card-title>`;
             return expandToNode`
-            <v-col class="section isdl-section isdl-section-${element.name.toLowerCase()}"${colAttr}>
-                <v-card variant="outlined" elevation="4"${cardAttr}>
+            <v-col class="section isdl-section isdl-section-${sectionName}"${colAttr}>
+                <v-card variant="outlined" elevation="${elevation}"${cardAttr}>
                     ${titleNode}
 
                     <v-card-text>
@@ -2126,6 +2199,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                 const segmentParm = element.params.find(x => isSegmentsParameter(x)) as SegmentsParameter | undefined;
                 const segments = segmentParm?.segments ?? 1;
 
+                const emptyColorParam = element.params.find(x => isEmptyColorParam(x)) as EmptyColorParam | undefined;
+                const emptyColor = emptyColorParam?.value;
+
                 let isHealth = false;
                 let isWounds = false;
                 if (isResourceExp(element)) {
@@ -2142,8 +2218,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     :visibility="visibilityStates['${element.name.toLowerCase()}'].value"
                     :editMode="editModeRef"
                     :primaryColor="${primaryColor}" :secondaryColor="secondaryColor" :tertiaryColor="tertiaryColor"
+                    ${emptyColor != null ? `emptyColor="${emptyColor}"` : ''}
                     trackerStyle="${style}"
-                    icon="${icon}" 
+                    icon="${icon}"
                     :hideMin="${hideMin}"
                     :disableMin="${disableMin}"
                     :disableValue="${disableValue}"
