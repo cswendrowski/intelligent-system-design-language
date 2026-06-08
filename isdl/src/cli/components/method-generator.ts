@@ -139,7 +139,7 @@ import {
     isTernaryExp,
     TernaryExp,
 } from "../../language/generated/ast.js"
-import { CompositeGeneratorNode, expandToNode, joinToNode } from 'langium/generate';
+import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { getParentDocument, getPromptContainer, getPromptRegistryKey, getPromptVariable, getSystemPath, getTargetDocument, toMachineIdentifier } from './utils.js';
 import { AstUtils } from 'langium';
 
@@ -1443,7 +1443,8 @@ export function translateExpression(entry: Entry, id: string, expression: string
             accessPath = `${accessPath}.${isRollDice ? "diceFaces" : fleetingSubProperty(expression)}`;
         }
         else if (expression.arrayAccess != undefined) {
-            accessPath = `${accessPath}[${translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty)}]`;
+            const indexStr = toString(translateExpression(entry, id, expression.arrayAccess, preDerived, generatingProperty))?.trim() ?? '';
+            accessPath = `${accessPath}[${indexStr}]`;
         }
         else if (isRoll(expression.variable.ref?.value) || isDamageRoll(expression.variable.ref?.value)) {
             // A bare reference to a roll variable used in a general expression

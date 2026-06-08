@@ -309,7 +309,7 @@ actor BasicHero {
 }
 
 // QA: custom default sheet size (width/height params on the document); zoom: 125 = 125% scale
-actor Superhero(width: 900, height: 700, zoom: 125) {
+actor Superhero(width: 900, height: 700, zoom: 75) {
 
     page Alias {
         string SuperheroName
@@ -443,6 +443,13 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
         chat FunctionPromptResult {
             flavor "Function prompt net bonus: " + bonus
         }
+    }
+
+    // QA: array subscript with variable index must emit the variable name, not [object Object] (#116)
+    function ArrayIndexTest returns number {
+        eternal testArr = [10, 20, 30]
+        fleeting idx = 1
+        return testArr[idx]
     }
 
     // QA: assigning to a self attribute must write .value, not the derived .mod
