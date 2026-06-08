@@ -11,8 +11,6 @@ import type { Diagnostic } from 'vscode-languageserver-types';
  * Documents that parse cleanly are completely unaffected -- their linking and validation
  * diagnostics (e.g. "referenced field does not exist") are reported as usual.
  */
-const MAX_SYNTAX_ERRORS = 1;
-
 export class IsdlDocumentValidator extends DefaultDocumentValidator {
     override async validateDocument(
         document: LangiumDocument,
@@ -32,7 +30,8 @@ export class IsdlDocumentValidator extends DefaultDocumentValidator {
         }
 
         // Syntax errors present -> the AST is unreliable, so drop the recovery cascade and the
-        // bogus linking/validation diagnostics, surfacing only the root syntax error(s).
-        return syntaxErrors.slice(0, MAX_SYNTAX_ERRORS);
+        // bogus linking/validation diagnostics, surfacing only the real syntax errors.
+        // Show all of them so each distinct location gets a squiggle.
+        return syntaxErrors;
     }
 }

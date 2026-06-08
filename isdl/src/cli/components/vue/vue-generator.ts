@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import {
     Document,
     Entry,
@@ -63,20 +64,59 @@ export async function runViteBuild(destination: string) {
     try {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
+        // The generated system directory has no node_modules of its own, so
+        // we must redirect all bare-specifier imports at the CLI's own
+        // node_modules.  A simple string-prefix alias
+        //   { vuetify: ".../node_modules/vuetify" }
+        // works for the root package but **bypasses the exports map** for
+        // sub-paths.  vite-plugin-vuetify / @vuetify/loader-shared emits
+        // per-component imports such as "vuetify/components/VBtn".  After the
+        // prefix alias that becomes ".../node_modules/vuetify/components/VBtn"
+        // — a path that doesn't exist on disk (real files live under lib/).
+        // On Linux (case-sensitive FS) this is a hard ENOENT; issue #85.
+        //
+        // Fix: use a custom Vite plugin with a resolveId hook that forwards
+        // all "vuetify/*" specifiers through Node's require() resolver, which
+        // honours the exports map and returns the real lib/ path regardless of
+        // which sub-path shape loader-shared generated.
+        const nodeModules = path.resolve(__dirname, "../../../../node_modules");
+        // createRequire needs a file URL; any file inside nodeModules works as anchor.
+        const cliRequire = createRequire(path.join(nodeModules, "vuetify", "package.json"));
+
+        // enforce:'pre' so this plugin runs BEFORE @rollup/plugin-alias, preventing
+        // the alias from mangling "vuetify/components/VBtn" into an absolute path
+        // (which would no longer start with "vuetify" and bypass the resolver).
+        const vuetifyResolverPlugin = {
+            name: "isdl:vuetify-resolver",
+            enforce: "pre" as const,
+            resolveId(id: string) {
+                // Intercept any import that starts with "vuetify" (bare or sub-path).
+                if (!id.startsWith("vuetify")) return null;
+                try {
+                    return cliRequire.resolve(id);
+                } catch {
+                    // Not resolvable — let Vite handle it (shouldn't happen in practice).
+                    return null;
+                }
+            }
+        };
 
         const config = defineConfig({
             root: destination,
             plugins: [
                 vue(),
-                vuetify({ autoImport: true })
+                vuetify({ autoImport: true }),
+                vuetifyResolverPlugin
             ],
             optimizeDeps: {
                 include: ["vuetify"]
             },
             resolve: {
-                alias: {
-                    vuetify: path.resolve(__dirname, "../../../../node_modules/vuetify"),
-                }
+                // No alias for vuetify — the vuetifyResolverPlugin above handles all
+                // "vuetify/*" specifiers via Node's exports-map-aware resolver, which
+                // correctly maps e.g. "vuetify/components/VBtn" -> lib/components/VBtn/index.mjs
+                // regardless of which loader-shared version generated the import (issue #85).
+                alias: {}
             },
             build: {
                 emptyOutDir: true, // Clears previous builds

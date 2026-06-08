@@ -116,7 +116,9 @@ export function getPromptDataPath(container: PromptContainer, variable: Variable
 }
 
 export function toMachineIdentifier(s: string): string {
-    return s.replace(/[^a-zA-Z0-9]/g, '');
+    // Normalize to NFD so accented chars decompose (e.g. á → a + combining accent),
+    // strip the combining marks, then strip any remaining non-alphanumeric chars.
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '');
 }
 
 function getPropertyAccessorSuffix(property: ClassExpression): string {

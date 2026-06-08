@@ -6,5 +6,83 @@ config MyFirstSystem {
 }
 
 actor PC {
-    health resource HP(max: 10)
+    health resource HP
+
+    section Attributes {
+        attribute Brain(min:1, max:10)
+        attribute Brawn(min:1 max:10)
+
+        action RollBrain {
+            fleeting brainRoll = roll(d20 + self.Brain)
+            chat brainResult {
+                brainRoll
+            }
+        }
+
+        action RollBrawn {
+            fleeting brawnRoll = roll(d20 + self.Brawn)
+            chat brawnResult {
+                brawnRoll
+            }
+        }
+    }
+
+    section Roller {
+        self<attribute> Attribute
+        choice<Skill> Skill
+
+        action Roll {
+            fleeting rollResult = roll(d20 + self.Attribute + self.Skill.Bonus)
+            chat rollResult {
+                rollResult
+            }
+        }
+    }
+    table<Loot> MyLoot
+    table<Skill> Skills
+    table<Weapon> Weapons
+}
+
+actor Monster {
+    health resource HP
+    number ArmorClass(min: 0, max: 20)
+    attribute Fight(min: 1, max: 10)
+}
+
+item Loot {
+    number Value(min: 0)
+}
+
+item Skill {
+    parent<attribute> UsesAttribute(choices:[PC.Brain, PC.Brawn])
+    number Bonus
+}
+
+item Weapon {
+    parent<attribute> UsesAttribute
+    number AttackBonus
+    die DamageDie
+    number DamageBonus
+    choice<string> DamageType(choices:["Physical", "Mental"])
+
+    action Roll {
+        fleeting attackRoll = roll(d20 + self.UsesAttribute + self.AttackBonus)
+        fleeting damageRoll = roll(self.DamageDie + self.DamageBonus)
+        if(target is Monster) {
+            if (attackRoll < target.ArmorClass) {
+                chat miss {
+                    flavor "Miss!"
+                    attackRoll
+                }
+            }
+            else {
+                chat hit {
+                    flavor "Hit!"
+                    attackRoll
+                    damageRoll
+                    tag self.DamageType
+                }
+            }
+        }
+    }
 }

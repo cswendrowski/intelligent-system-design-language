@@ -481,6 +481,8 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             boolean BooleanField
             html HtmlField
             choice<string> ChoiceStringField(choices: ["Option A", "Option B", "Option C"])
+            // QA #117: unicode in choice keys — accented chars should survive as normalized ASCII keys
+            choice<string> Sunsign(choices: ["Ùlándus", "Arálius", "Fenéri", "Áhnù"])
             choices<string> ChoicesStringField(choices: [
                 "Basic Option",
                 { value: "Advanced", label: "Advanced Option", icon: "fa-solid fa-star", color: #FFD700 },
