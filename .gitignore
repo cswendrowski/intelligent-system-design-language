@@ -6,3 +6,7 @@ isdl/test-output/
 isdl/temp-output/
 
 isdl/out/
+
+isdl/examples/users/
+
+.claude/worktrees/

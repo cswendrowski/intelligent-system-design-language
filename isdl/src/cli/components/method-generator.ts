@@ -1393,6 +1393,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isParentAccess(expression)) {
         let path = "context.object.parent";
 
+        // .name is a top-level Foundry document property, not a system field.
+        // If the ref is unresolved but the raw text is "name"/"Name", emit it directly.
+        if (!expression.property?.ref && expression.property?.$refText?.toLowerCase() === "name") {
+            return expandToNode`
+                ${path}?.name ?? 0
+            `;
+        }
+
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, expression, true);
         path = `${path}?.${systemPath}`;
 
@@ -1404,6 +1412,14 @@ export function translateExpression(entry: Entry, id: string, expression: string
     }
     if (isTargetAccess(expression)) {
         let path = "context.target";
+
+        // .name is a top-level Foundry document property, not a system field.
+        // If the ref is unresolved but the raw text is "name"/"Name", emit it directly.
+        if (!expression.property?.ref && expression.property?.$refText?.toLowerCase() === "name") {
+            return expandToNode`
+                ${path}?.name
+            `;
+        }
 
         let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
         path = `${path}?.${systemPath}`;

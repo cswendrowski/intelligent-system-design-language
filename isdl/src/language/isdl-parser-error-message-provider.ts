@@ -35,6 +35,12 @@ export class IsdlParserErrorMessageProvider extends LangiumParserErrorMessagePro
                 + `(letters, numbers, and underscores only)${suggestion}.`;
         }
 
+        // Missing comma in a choices list. Writing `choices: ["A" "B"]` (two STRING tokens in a
+        // row) means the user forgot the comma between items. Chevrotain expected `,` or `]`.
+        if (previous?.tokenType?.name === 'STRING' && actual?.tokenType?.name === 'STRING') {
+            return `Missing comma between items — expected ',' before ${actual.image}.`;
+        }
+
         // Extension point for further plain-English rewrites. Add a detector here (keyed
         // conservatively on expected/previous/actual tokens or ruleName) when a recurring confusing
         // error is identified; unrecognized cases fall back to the default Langium message.

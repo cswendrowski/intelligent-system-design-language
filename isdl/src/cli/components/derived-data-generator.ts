@@ -119,11 +119,17 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                 const maxParam = property.params.find(p => isNumberParamMax(p)) as NumberParamMax | undefined;
 
                 if (valueParam) {
+                    // min/max with calculated block values must be evaluated lazily inside the
+                    // getter — hoisting them outside causes a stale-NaN clamp if sibling derived
+                    // fields (e.g. self.SB used in max: { return self.SB * 7 }) haven't been
+                    // computed yet when this property's setup code runs.
+                    const minIsCalculated = minParam != undefined && isMethodBlock(minParam.value);
+                    const maxIsCalculated = maxParam != undefined && isMethodBlock(maxParam.value);
+
                     return expandToNode`
                     // ${property.name} Number Calculated Data
 
-
-                    ${minParam != undefined ? expandToNode`
+                    ${minParam != undefined && !minIsCalculated ? expandToNode`
                         const ${property.name.toLowerCase()}MinFunc = (system) => {
                             const context = {
                                 object: this
@@ -136,7 +142,7 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         }
                         `.appendNewLine() : ""}
 
-                    ${maxParam != undefined ? expandToNode`
+                    ${maxParam != undefined && !maxIsCalculated ? expandToNode`
                         const ${property.name.toLowerCase()}MaxFunc = (system) => {
                             const context = {
                                 object: this
@@ -156,6 +162,16 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                         };
                         ${translateMethodOrValueOrStored(property, valueParam)}
                     };
+                    ${minIsCalculated ? expandToNode`
+                    const ${property.name.toLowerCase()}MinFunc = (system) => {
+                        const context = { object: this };
+                        ${translateMethodOrValueOrStored(property, minParam)}
+                    };`.appendNewLine() : ""}
+                    ${maxIsCalculated ? expandToNode`
+                    const ${property.name.toLowerCase()}MaxFunc = (system) => {
+                        const context = { object: this };
+                        ${translateMethodOrValueOrStored(property, maxParam)}
+                    };`.appendNewLine() : ""}
                     Object.defineProperty(this.system, "${property.name.toLowerCase()}", {
                         get: () => {
                             let current = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
@@ -164,11 +180,19 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                                 current = 0;
                             }
                             ${minParam != undefined ? expandToNode`
+                                let ${property.name.toLowerCase()}Min = ${minIsCalculated
+                                    ? `${property.name.toLowerCase()}MinFunc(this.system)`
+                                    : `${property.name.toLowerCase()}Min`};
+                                if (isNaN(${property.name.toLowerCase()}Min) || ${property.name.toLowerCase()}Min == null) { ${property.name.toLowerCase()}Min = 0; }
                                 if ( current < ${property.name.toLowerCase()}Min ) {
                                     current = ${property.name.toLowerCase()}Min;
                                 }
                             `.appendNewLine() : ""}
                             ${maxParam != undefined ? expandToNode`
+                                let ${property.name.toLowerCase()}Max = ${maxIsCalculated
+                                    ? `${property.name.toLowerCase()}MaxFunc(this.system)`
+                                    : `${property.name.toLowerCase()}Max`};
+                                if (isNaN(${property.name.toLowerCase()}Max) || ${property.name.toLowerCase()}Max == null) { ${property.name.toLowerCase()}Max = 0; }
                                 if ( current > ${property.name.toLowerCase()}Max ) {
                                     current = ${property.name.toLowerCase()}Max;
                                 }

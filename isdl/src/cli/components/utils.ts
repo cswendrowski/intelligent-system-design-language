@@ -94,7 +94,7 @@ export function getSettingScope(setting: SettingField): 'world' | 'client' {
  * keep the key segment valid.
  */
 export function settingChoiceKeySegment(choiceValue: string): string {
-    return choiceValue.replace(/[^a-zA-Z0-9]/g, '');
+    return toMachineIdentifier(choiceValue);
 }
 export function settingChoiceKey(setting: SettingField, choiceValue: string): string {
     return `SETTINGS.${setting.name}.${settingChoiceKeySegment(choiceValue)}`;
