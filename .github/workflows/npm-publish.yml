@@ -42,7 +42,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Install dependencies
       run: npm ci
@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write 
+      id-token: write   # Required for OIDC trusted publishing
 
     steps:
     - name: Checkout repository
@@ -104,8 +104,9 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
-        registry-url: 'https://registry.npmjs.org'
+        node-version: '24'
+        # registry-url intentionally omitted: setup-node auto-sets NODE_AUTH_TOKEN
+        # which conflicts with OIDC. OIDC auth is handled entirely via --provenance.
 
     - name: Install dependencies
       run: npm ci
@@ -131,6 +132,8 @@ jobs:
     # the package name and stay the same.
     - name: Publish CLI to npm
       working-directory: ./isdl
+      env:
+        NODE_AUTH_TOKEN: ""   # Clear any token setup-node may have set; OIDC handles auth
       run: |
         npm pkg set name=intelligent-system-design-language
         npm publish --provenance --access public
