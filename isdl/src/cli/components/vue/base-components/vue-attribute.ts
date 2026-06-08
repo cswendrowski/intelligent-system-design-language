@@ -123,7 +123,7 @@ export default function generateAttributeComponent(destination: string) {
                 </div>
             </div>
             <v-container 
-                :class="['isdl-property', 'attributeExp', { 'no-mod': !hasMod }]" 
+                :class="['isdl-property', 'isdl-attribute-box', { 'no-mod': !hasMod }]" 
                 v-if="attributeStyle == 'box'"
 
                 >

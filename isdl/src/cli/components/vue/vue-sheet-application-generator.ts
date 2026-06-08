@@ -2497,13 +2497,63 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         `;
     }
 
-    // Stamp the universal field marker onto a rendered field's <i-...> component root (the
-    // element that also carries the type + single/double-wide classes via attribute fallthrough).
-    // `.isdl-field` is the one selector theme-token consumption targets; `.isdl-field-<name>` is
-    // the per-field hook + the target a per-field theme override is emitted against.
+    function getFieldTypeClass(element: Property): string {
+        if (isNumberExp(element)) return 'isdl-number';
+        if (isStringExp(element)) return 'isdl-string';
+        if (isHtmlExp(element)) return 'isdl-html';
+        if (isBooleanExp(element)) return 'isdl-boolean';
+        if (isAttributeExp(element)) return 'isdl-attribute';
+        if (isTrackerExp(element)) return 'isdl-tracker';
+        if (isResourceExp(element)) return 'isdl-resource';
+        if (isImageField(element)) return 'isdl-image';
+        if (isMoneyField(element)) return 'isdl-money';
+        if (isStringChoiceField(element)) return 'isdl-string-choice';
+        if (isDamageTypeChoiceField(element)) return 'isdl-damage-type-choice';
+        if (isStringChoicesField(element)) return 'isdl-string-choices';
+        if (isDamageTrackExp(element)) return 'isdl-damage-track';
+        if (isDamageBonusesField(element)) return 'isdl-bonuses';
+        if (isDamageResistancesField(element)) return 'isdl-resistances';
+        if (isRollVisualizerField(element)) return 'isdl-roll-visualizer';
+        if (isMeasuredTemplateField(element)) return 'isdl-measured-template';
+        if (isMacroField(element)) return 'isdl-macro';
+        if (isPaperDollExp(element)) return 'isdl-paperdoll';
+        if (isDieField(element)) return 'isdl-die';
+        if (isDiceField(element)) return 'isdl-dice';
+        if (isDateExp(element)) return 'isdl-date';
+        if (isTimeExp(element)) return 'isdl-time';
+        if (isDateTimeExp(element)) return 'isdl-datetime';
+        if (isSingleDocumentExp(element)) return 'isdl-document-link';
+        if (isDocumentChoiceExp(element)) return 'isdl-document-choice';
+        if (isDocumentChoicesExp(element)) return 'isdl-document-choices';
+        if (isTableField(element)) return 'isdl-table';
+        if (isInventoryField(element)) return 'isdl-inventory';
+        if (isPinnedField(element)) return 'isdl-pinned';
+        if (isParentPropertyRefExp(element)) return 'isdl-parent-property-reference';
+        if (isSelfPropertyRefExp(element)) return 'isdl-self-property-reference';
+        return '';
+    }
+
+    function getVisibilityClass(element: Property): string {
+        const standardParams = (element.params as StandardFieldParams[]) ?? [];
+        const visibilityParam = standardParams.find(p => isVisibilityParam(p)) as VisibilityParam | undefined;
+        if (element.modifier != null && !visibilityParam) return `isdl-visibility-${element.modifier}`;
+        if (visibilityParam) {
+            if (isMethodBlock(visibilityParam.visibility)) return 'isdl-visibility-dynamic';
+            return `isdl-visibility-${visibilityParam.visibility}`;
+        }
+        return 'isdl-visibility-default';
+    }
+
+    // Stamp field type, name, and declared visibility classes onto a rendered field's <i-...>
+    // component root (the element that also carries single/double-wide via attribute fallthrough).
+    // `.isdl-field` is the shared selector theme tokens target; `.isdl-<type>` is the type hook;
+    // `.isdl-field-<name>` is the per-field hook; `.isdl-visibility-<value>` reflects declared
+    // visibility for CSS authoring (runtime show/hide is handled by v-if / :disabled separately).
     function injectFieldMarker(node: CompositeGeneratorNode, element: Property): CompositeGeneratorNode {
         const html = toString(node);
-        const marker = `isdl-field isdl-field-${element.name.toLowerCase()}`;
+        const typeClass = getFieldTypeClass(element);
+        const visibilityClass = getVisibilityClass(element);
+        const marker = `isdl-field${typeClass ? ` ${typeClass}` : ''} isdl-field-${element.name.toLowerCase()} ${visibilityClass}`;
         // Stamp the marker onto the FIRST element tag of the rendered field, whatever its name --
         // <i-number>, a datatable <div class="datatable-drop-zone">, a <DocumentChoice> component,
         // etc. Insert right after the tag NAME so attribute values (which can contain '>') are never
