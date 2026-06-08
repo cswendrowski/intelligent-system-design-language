@@ -93,6 +93,9 @@ jobs:
   publish-cli:
     name: Publish CLI to npm
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write 
 
     steps:
     - name: Checkout repository
@@ -128,8 +131,6 @@ jobs:
     # the package name and stay the same.
     - name: Publish CLI to npm
       working-directory: ./isdl
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       run: |
         npm pkg set name=intelligent-system-design-language
-        npm publish --access public
+        npm publish --provenance --access public
