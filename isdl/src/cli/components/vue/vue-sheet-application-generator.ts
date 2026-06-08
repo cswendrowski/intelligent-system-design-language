@@ -1368,7 +1368,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             if (isCollapsible) {
                 const titleBar = hideTitle
                     ? ''
-                    : `<v-card-title class="isdl-section-title" @click.stop="toggleSection('${sectionName}')" style="cursor:pointer;display:flex;align-items:center;">{{ game.i18n.localize('${localizeKey}') }}<v-icon class="ml-auto" :icon="collapsedSections['${sectionName}'] ? 'mdi-chevron-down' : 'mdi-chevron-up'"></v-icon></v-card-title>`;
+                    : `<v-card-title class="isdl-section-title" @click.stop="toggleSection('${sectionName}')" style="cursor:pointer;display:flex;align-items:center;">{{ game.i18n.localize('${localizeKey}') }}<v-icon class="ml-auto" :icon="collapsedSections['${sectionName}'] ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'"></v-icon></v-card-title>`;
                 return expandToNode`
                 <v-col class="section isdl-section isdl-section-${sectionName}"${colAttr}>
                     <v-card variant="outlined" elevation="${elevation}"${cardAttr}>
