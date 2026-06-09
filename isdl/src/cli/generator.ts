@@ -28,72 +28,77 @@ import {generateReadyHookMjs} from "./components/ready-hook-generator.js";
 import {generateHotbarDropHookMjs} from "./components/hotbar-drop-hook-generator.js";
 import {generateMeasuredTemplatePreview} from "./components/measured-template-preview.js";
 import {generateDamageRoll} from "./components/damage-roll-generator.js";
+import {generateDevModule} from "./components/dev-module-generator.js";
 
 export async function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): Promise<string> {
     const config = entry.config;
 
     const data = extractDestinationAndName(filePath, destination);
     const id = (config.body.find(x => isConfigExpression(x) && x.type == "id")! as any).value;
-    data.destination = path.join(data.destination, id);
-    console.log("Writing to " + data.destination);
+    const systemDest = path.join(data.systemDestination, id);
+    const devDest = path.join(data.devDestination, `${id}-dev`);
+    console.log("Writing system to " + systemDest);
+    console.log("Writing dev module to " + devDest);
 
-    if (!fs.existsSync(path.join(data.destination, "system"))) {
-        fs.mkdirSync(path.join(data.destination, "system"), { recursive: true });
+    if (!fs.existsSync(path.join(systemDest, "system"))) {
+        fs.mkdirSync(path.join(systemDest, "system"), { recursive: true });
     }
 
     // Libraries
-    copyProgressBarJs(data.destination);
+    copyProgressBarJs(systemDest);
 
     // Images
-    copyImage("isdl.png", data.destination);
-    copyImage("paperdoll_default.png", data.destination);
-    copyImage("missing-character.png", data.destination);
+    copyImage("isdl.png", systemDest);
+    copyImage("paperdoll_default.png", systemDest);
+    copyImage("missing-character.png", systemDest);
 
     // Generic shared components
-    generateSystemCss(entry, id, data.destination);
-    generateThemeCss(entry, id, data.destination);
+    generateSystemCss(entry, id, systemDest);
+    generateThemeCss(entry, id, systemDest);
     // Sidecar SCSS lives next to the source .isdl; resolve relative to it.
-    const sidecars = compileSidecarScss(entry, id, path.dirname(filePath), data.destination);
-    generateCustomCss(entry, id, data.destination);
-    generateUuidDocumentField(data.destination);
-    generateUuidDocumentArrayField(data.destination);
+    const sidecars = compileSidecarScss(entry, id, path.dirname(filePath), systemDest);
+    generateCustomCss(entry, id, systemDest);
+    generateUuidDocumentField(systemDest);
+    generateUuidDocumentArrayField(systemDest);
 
-    generateActiveEffectBaseSheet(entry, id, data.destination);
-    generateActiveEffectHandlebars(id, entry, data.destination);
-    generateSystemJson(entry, id, data.destination, sidecars);
-    generateLanguageJson(entry, id, data.destination);
-    generateTemplateJson(entry, id, data.destination);
-    generateExtendedDocumentClasses(entry, id, data.destination);
-    generateMeasuredTemplatePreview(data.destination);
-    generateEntryMjs(entry, id, data.destination);
-    generateCustomEntryMjs(entry, id, data.destination);
-    generateInitHookMjs(entry, id, data.destination);
-    generateReadyHookMjs(entry, id, data.destination);
-    generateHotbarDropHookMjs(entry, id, data.destination);
-    generateHotReloadHookMjs(entry, id, data.destination);
-    generateChatCardClass(entry, data.destination);
-    generateStandardChatCardTemplate(data.destination);
-    generateRenderChatLogHookMjs(entry, id, data.destination);
-    generateRenderSettingsHookMjs(entry, id, data.destination);
-    generateExtendedRoll(entry, id, data.destination);
-    generateDamageRoll(entry, id, data.destination);
-    generateContextMenu2(entry, id, data.destination);
-    generateDocumentCreateHbs(entry, id, data.destination);
-    generateCombatant(entry, id, data.destination);
-    generateCanvasToken(entry, id, data.destination);
-    generateTokenDocument(entry, id, data.destination);
-    generateVue(entry, id, data.destination);
+    generateActiveEffectBaseSheet(entry, id, systemDest);
+    generateActiveEffectHandlebars(id, entry, systemDest);
+    generateSystemJson(entry, id, systemDest, sidecars);
+    generateLanguageJson(entry, id, systemDest);
+    generateTemplateJson(entry, id, systemDest);
+    generateExtendedDocumentClasses(entry, id, systemDest);
+    generateMeasuredTemplatePreview(systemDest);
+    generateEntryMjs(entry, id, systemDest);
+    generateCustomEntryMjs(entry, id, systemDest);
+    generateInitHookMjs(entry, id, systemDest);
+    generateReadyHookMjs(entry, id, systemDest);
+    generateHotbarDropHookMjs(entry, id, systemDest);
+    generateHotReloadHookMjs(entry, id, systemDest);
+    generateChatCardClass(entry, systemDest);
+    generateStandardChatCardTemplate(systemDest);
+    generateRenderChatLogHookMjs(entry, id, systemDest);
+    generateRenderSettingsHookMjs(entry, id, systemDest);
+    generateExtendedRoll(entry, id, systemDest);
+    generateDamageRoll(entry, id, systemDest);
+    generateContextMenu2(entry, id, systemDest);
+    generateDocumentCreateHbs(entry, id, systemDest);
+    generateCombatant(entry, id, systemDest);
+    generateCanvasToken(entry, id, systemDest);
+    generateTokenDocument(entry, id, systemDest);
+    generateVue(entry, id, systemDest);
 
     // Documents
     entry.documents.forEach(x => {
-        generateDocumentDataModel(entry, x, data.destination);
+        generateDocumentDataModel(entry, x, systemDest);
     });
 
     console.log("Running Vite build");
-    await runViteBuild(data.destination);
+    await runViteBuild(systemDest);
     console.log("Vite build complete");
 
-    return data.destination;
+    generateDevModule(entry, id, devDest);
+
+    return systemDest;
 }
 
 function copyProgressBarJs(destination: string) {
