@@ -213,6 +213,10 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 `;
             }
             if (isParentAccess(expression)) {
+                if (expression.nameAccess) {
+                    const suffix = noLabels ? "" : "[Name]";
+                    return expandToNode`"@name${suffix}"`;
+                }
                 let path = expression.property?.ref?.name ?? ""
                 let label = humanize(expression.property?.ref?.name ?? "");
                 const document = getParentDocument(expression as ParentAccess);
@@ -239,6 +243,10 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 `;
             }
             if (isTargetAccess(expression)) {
+                if (expression.nameAccess) {
+                    const suffix = noLabels ? "" : "[Name]";
+                    return expandToNode`"@name${suffix}"`;
+                }
                 let path = expression.property?.ref?.name ?? ""
                 let label = humanize(expression.property?.ref?.name ?? "");
                 const document = getTargetDocument(expression as TargetAccess);
@@ -377,9 +385,11 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 return label.trim();
             }
             if (isParentAccess(expression)) {
+                if (expression.nameAccess) return "Name";
                 return humanize(expression.property?.ref?.name ?? "");
             }
             if (isTargetAccess(expression)) {
+                if (expression.nameAccess) return "Name";
                 return humanize(expression.property?.ref?.name ?? "");
             }
             if (isFleetingAccess(expression)) {
@@ -391,6 +401,11 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
         export function translateDiceData(expression: Expression | VariableAccess, entry: Entry, id: string, preDerived: boolean, generatingProperty: ClassExpression | undefined): CompositeGeneratorNode | undefined {
             console.log("Translating Dice Data: ", expression.$type);
             if (isParentAccess(expression)) {
+                if (expression.nameAccess) {
+                    return expandToNode`
+                        "name": context.object.parent?.name
+                    `;
+                }
                 let path = "context.object.parent.system";
                 let label = expression.property?.ref?.name ?? "";
 
@@ -415,6 +430,11 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                 `;
             }
             if (isTargetAccess(expression)) {
+                if (expression.nameAccess) {
+                    return expandToNode`
+                        "name": context.target?.name
+                    `;
+                }
                 let path = "context.target.system";
                 let label = expression.property?.ref?.name ?? "";
 
@@ -1393,11 +1413,9 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isParentAccess(expression)) {
         let path = "context.object.parent";
 
-        // .name is a top-level Foundry document property, not a system field.
-        // If the ref is unresolved but the raw text is "name"/"Name", emit it directly.
-        if (!expression.property?.ref && expression.property?.$refText?.toLowerCase() === "name") {
+        if (expression.nameAccess) {
             return expandToNode`
-                ${path}?.name ?? 0
+                ${path}?.name
             `;
         }
 
@@ -1413,9 +1431,7 @@ export function translateExpression(entry: Entry, id: string, expression: string
     if (isTargetAccess(expression)) {
         let path = "context.target";
 
-        // .name is a top-level Foundry document property, not a system field.
-        // If the ref is unresolved but the raw text is "name"/"Name", emit it directly.
-        if (!expression.property?.ref && expression.property?.$refText?.toLowerCase() === "name") {
+        if (expression.nameAccess) {
             return expandToNode`
                 ${path}?.name
             `;
@@ -1613,15 +1629,25 @@ export function translateExpression(entry: Entry, id: string, expression: string
                 `;
             }
             if ( isParentAccess(expression) ) {
-                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
                 const wide = expression.type == "wide" ? true : false;
+                if (expression.nameAccess) {
+                    return expandToNode`
+                        { isRoll: false, label: "Name", value: context.object.parent?.name, wide: ${wide}, hasValue: context.object.parent?.name != "" },
+                    `;
+                }
+                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
                 return expandToNode`
                     { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.object.parent?.${systemPath}, wide: ${wide}, hasValue: context.object.parent?.${systemPath} != "" },
                 `;
             }
             if ( isTargetAccess(expression) ) {
-                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
                 const wide = expression.type == "wide" ? true : false;
+                if (expression.nameAccess) {
+                    return expandToNode`
+                        { isRoll: false, label: "Name", value: context.target?.name, wide: ${wide}, hasValue: context.target?.name != "" },
+                    `;
+                }
+                let systemPath = getSystemPath(expression.property?.ref, expression.subProperties, undefined, true);
                 return expandToNode`
                     { isRoll: false, label: "${humanize(expression.property?.ref?.name ?? "")}", value: context.target?.${systemPath}, wide: ${wide}, hasValue: context.target?.${systemPath} != "" },
                 `;

@@ -274,13 +274,13 @@ actor BasicHero {
         }
     }
 
-    // QA (#122): target.X access inside an if (target is Hero) guard
+    // QA (#122): target.Name — built-in name, no type guard required
     action StrikeTarget(icon: "fa-solid fa-crosshairs") {
+        chat TargetCard {
+            target.Name
+        }
         if (target is Hero) {
             target.ResourceField -= 1
-            chat TargetCard {
-                target.ResourceField
-            }
         }
     }
 
@@ -1269,6 +1269,13 @@ item Spell {
     action DrainParentFight {
         if (parent is Hero) {
             parent.Fight -= self.Cost
+        }
+    }
+
+    // QA (#122): parent.Name — built-in name, no type guard required
+    action ShowParentName {
+        chat ParentNameCard {
+            parent.Name
         }
     }
 

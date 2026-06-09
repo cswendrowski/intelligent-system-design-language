@@ -714,7 +714,7 @@ PromptInputAccess:
 // Parent Access / Modification ------------------------------------------------------
 
 fragment Parent:
-    "parent" ( "." property=[Property:ID] | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
+    "parent" ( "." (nameAccess="Name" | property=[Property:ID]) | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
 ParentAccess:
     Parent;
 ParentAssignment:
@@ -730,7 +730,7 @@ ParentQuickModifyAssignment:
 // Target Access / Modification ------------------------------------------------------
 
 fragment Target:
-    "target" ( "." property=[Property:ID] ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
+    "target" ( "." (nameAccess="Name" | property=[Property:ID]) ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
 TargetAccess:
     Target;
 TargetAssignment:

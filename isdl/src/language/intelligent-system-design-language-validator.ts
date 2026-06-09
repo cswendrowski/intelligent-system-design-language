@@ -38,8 +38,8 @@ import {
     Action, isAction,
     DamageTrackExp,
     ParentAccess, ParentAssignment, IfStatement,
-    isIfStatement, isParentTypeCheckExpression,
-    TargetAccess, TargetAssignment, isTargetTypeCheckExpression,
+    isIfStatement, isParentTypeCheckExpression, isParentAccess,
+    TargetAccess, TargetAssignment, isTargetTypeCheckExpression, isTargetAccess,
     RollVisualizerField, isRollVisualizerValueParam,
     PromptInputAccess, isPrompt, isRollVisualizerField,
     Ref, FleetingAccess, RollResultAccess, Roll,
@@ -729,6 +729,11 @@ export class IntelligentSystemDesignLanguageValidator {
      * error. Detect the missing guard and surface a clear, actionable message instead.
      */
     validateParentAccess(node: ParentAccess | ParentAssignment, accept: ValidationAcceptor): void {
+        if ((node as any).nameAccess) {
+            if (isParentAccess(node)) return; // .Name is read-only access — no guard needed
+            accept('error', `'parent.Name' is read-only — you cannot assign to a document's built-in name.`, { node, property: 'nameAccess' });
+            return;
+        }
         // Is there an enclosing `if (parent is SomeActor) { ... }`?
         const guard = AstUtils.getContainerOfType(node as AstNode, (n: AstNode): n is IfStatement =>
             isIfStatement(n) && isParentTypeCheckExpression(n.expression));
@@ -753,6 +758,11 @@ export class IntelligentSystemDesignLanguageValidator {
      * message when the guard is missing.
      */
     validateTargetAccess(node: TargetAccess | TargetAssignment, accept: ValidationAcceptor): void {
+        if ((node as any).nameAccess) {
+            if (isTargetAccess(node)) return; // .Name is read-only access — no guard needed
+            accept('error', `'target.Name' is read-only — you cannot assign to a document's built-in name.`, { node, property: 'nameAccess' });
+            return;
+        }
         const guard = AstUtils.getContainerOfType(node as AstNode, (n: AstNode): n is IfStatement =>
             isIfStatement(n) && isTargetTypeCheckExpression(n.expression));
         if (guard) return;
