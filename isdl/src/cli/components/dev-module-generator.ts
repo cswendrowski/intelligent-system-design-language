@@ -128,6 +128,23 @@ function generateDevTools(id: string, title: string, devDest: string) {
                 }
                 .isdl-dev-copy:hover { background: #4a9eff; color: #1a1a2e; }
                 .isdl-design-mode-btn { opacity: 0.4; cursor: not-allowed !important; }
+                .isdl-inspector { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+                .isdl-inspector-hint { font-size: 12px; color: #888; margin: 0; }
+                .isdl-inspector-hint code { font-size: 11px; background: #eee; padding: 1px 3px; border-radius: 2px; }
+                .isdl-inspector-copy-all { align-self: flex-end; cursor: pointer; }
+                .isdl-inspector-pre {
+                    max-height: 420px;
+                    overflow: auto;
+                    font-size: 11px;
+                    font-family: monospace;
+                    background: #1a1a2e;
+                    color: #a0cfff;
+                    padding: 10px;
+                    border-radius: 4px;
+                    margin: 0;
+                    white-space: pre;
+                    line-height: 1.5;
+                }
             \`;
             document.head.appendChild(style);
         }
@@ -203,21 +220,71 @@ function generateDevTools(id: string, title: string, devDest: string) {
             };
         }
 
+        // ─── System data inspector ──────────────────────────────────────────
+        function _openInspector(doc) {
+            const data = doc.system?.toObject?.() ?? doc.system ?? {};
+            const json = JSON.stringify(data, null, 2);
+            new Dialog({
+                title: \`System Data — \${doc.name}\`,
+                content: \`
+                    <div class="isdl-inspector">
+                        <p class="isdl-inspector-hint">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Everything stored in <code>actor.system</code> for this document.
+                            Use these paths in macros, roll formulas, and scripts.
+                        </p>
+                        <button type="button" class="isdl-inspector-copy-all">
+                            <i class="fa-solid fa-copy"></i> Copy all
+                        </button>
+                        <pre class="isdl-inspector-pre">\${json}</pre>
+                    </div>
+                \`,
+                buttons: { close: { label: "Close" } },
+                render: html => {
+                    const root = html instanceof HTMLElement ? html : html?.[0];
+                    root?.querySelector(".isdl-inspector-copy-all")?.addEventListener("click", () => {
+                        navigator.clipboard.writeText(json).then(() => {
+                            const btn = root.querySelector(".isdl-inspector-copy-all");
+                            if (btn) {
+                                btn.innerHTML = \`<i class="fa-solid fa-check"></i> Copied!\`;
+                                setTimeout(() => { btn.innerHTML = \`<i class="fa-solid fa-copy"></i> Copy all\`; }, 1500);
+                            }
+                        });
+                    });
+                }
+            }).render(true);
+        }
+
         // ─── Sheet overlay ──────────────────────────────────────────────────
-        function _activateOverlays(html) {
+        function _activateOverlays(doc, html) {
             const root = html instanceof HTMLElement ? html : html?.[0];
             if (!root) return;
 
+            // v14: header is a direct child of the form (root IS the sheet element)
+            // v12/v13: header is a sibling of root inside .window-app
+            const header = root.querySelector(".window-header, .window-controls")
+                ?? root.closest(".window-app, .application")?.querySelector(".window-header, .window-controls");
+
+            // Inspector button — opens system data dialog
+            if (header && !header.querySelector(".isdl-inspector-btn")) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "isdl-inspector-btn header-control fa-solid fa-magnifying-glass";
+                btn.setAttribute("aria-label", "Inspect System Data");
+                btn.setAttribute("data-tooltip", "Inspect System Data");
+                btn.addEventListener("click", e => { e.preventDefault(); _openInspector(doc); });
+                header.prepend(btn);
+            }
+
             // Design Mode stub button (greyed out until VS Code HTTP server is up)
-            const controls = root.closest(".window-app")?.querySelector(".window-controls");
-            if (controls && !controls.querySelector(".isdl-design-mode-btn")) {
+            if (header && !header.querySelector(".isdl-design-mode-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "isdl-design-mode-btn header-control fa-solid fa-pen-ruler";
                 btn.setAttribute("aria-label", "Design Mode");
                 btn.setAttribute("data-tooltip", "Design Mode — open your .isdl file in VS Code to enable");
                 btn.disabled = true;
-                controls.prepend(btn);
+                header.prepend(btn);
             }
 
             // System path + CSS selectors on hover for every rendered ISDL field
@@ -249,15 +316,17 @@ function generateDevTools(id: string, title: string, devDest: string) {
         // ApplicationV1 fires the legacy renderActorSheet / renderItemSheet
         for (const hook of ["renderActorSheet", "renderActorSheetV2"]) {
             Hooks.on(hook, (app, html) => {
-                _activateOverlays(html instanceof HTMLElement ? html : html?.[0] ?? app.element);
-                console.log(\`[\${MODULE_ID}] \${hook}\`, app.actor?.name, app.actor?.system);
+                const doc = app.actor ?? app.document;
+                _activateOverlays(doc, html instanceof HTMLElement ? html : html?.[0] ?? app.element);
+                console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name, doc?.system);
             });
         }
 
         for (const hook of ["renderItemSheet", "renderItemSheetV2"]) {
             Hooks.on(hook, (app, html) => {
-                _activateOverlays(html instanceof HTMLElement ? html : html?.[0] ?? app.element);
-                console.log(\`[\${MODULE_ID}] \${hook}\`, app.item?.name, app.item?.system);
+                const doc = app.item ?? app.document;
+                _activateOverlays(doc, html instanceof HTMLElement ? html : html?.[0] ?? app.element);
+                console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name, doc?.system);
             });
         }
 
