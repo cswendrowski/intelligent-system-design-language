@@ -1136,6 +1136,14 @@ function generateDevTools(
         }
 
         // ─── Sheet overlay ────────────────────────────────────────────────────
+        function _addHeaderControl(header, btn) {
+            // Insert before the close button so our controls sit in the actions area,
+            // not before the window icon/title (which prepend() would do).
+            const closeBtn = header.querySelector(".close, [data-action='close'], [aria-label='Close']");
+            if (closeBtn) closeBtn.before(btn);
+            else header.append(btn);
+        }
+
         function _activateOverlays(doc, html) {
             const root = html instanceof HTMLElement ? html : html?.[0];
             if (!root) return;
@@ -1143,27 +1151,30 @@ function generateDevTools(
             const header = root.querySelector(".window-header, .window-controls")
                 ?? root.closest(".window-app, .application")?.querySelector(".window-header, .window-controls");
 
-            // Inspector button
+            // Inspector button. Foundry v14 renders header-control icons as <i class="fa-...">
+            // inside the button — FA classes directly on the button produce blank boxes.
             if (header && !header.querySelector(".isdl-inspector-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = "isdl-inspector-btn header-control fa-solid fa-magnifying-glass";
+                btn.className = "isdl-inspector-btn header-control";
+                btn.innerHTML = \`<i class="fa-solid fa-magnifying-glass"></i>\`;
                 btn.setAttribute("aria-label", "Inspect System Data");
                 btn.setAttribute("data-tooltip", "Inspect System Data");
                 btn.addEventListener("click", e => { e.preventDefault(); _openInspector(doc); });
-                header.prepend(btn);
+                _addHeaderControl(header, btn);
             }
 
             // Design Mode button — enabled only when layout server is reachable
             if (header && !header.querySelector(".isdl-design-mode-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = "isdl-design-mode-btn header-control fa-solid fa-pen-ruler";
+                btn.className = "isdl-design-mode-btn header-control";
+                btn.innerHTML = \`<i class="fa-solid fa-pen-ruler"></i>\`;
                 btn.setAttribute("aria-label", "Design Mode");
                 btn.setAttribute("data-tooltip", "Design Mode — checking for VS Code layout server…");
                 btn.disabled = true;
                 btn.style.opacity = "0.4";
-                header.prepend(btn);
+                _addHeaderControl(header, btn);
 
                 fetch(_LAYOUT_SERVER + "/status", { method: "GET" })
                     .then(r => r.ok ? r.json() : Promise.reject())
