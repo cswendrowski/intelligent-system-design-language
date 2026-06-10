@@ -1,0 +1,39 @@
+{
+    "version": 2,
+    "actors": {
+        "hero": {
+            "pages": {
+                "hero": {
+                    "children": [
+                        { "kind": "field", "name": "effectme", "size": "full", "color": "#e91e63", "icon": "fa-solid fa-flask" },
+                        {
+                            "kind": "section", "id": "damage", "hideLabel": true,
+                            "children": [
+                                { "kind": "field", "name": "damage" },
+                                { "kind": "field", "name": "takebashing" },
+                                { "kind": "field", "name": "healdamagetrack" }
+                            ]
+                        },
+                        {
+                            "kind": "section", "id": "health",
+                            "children": [
+                                {
+                                    "kind": "row", "id": "__row_0",
+                                    "children": [
+                                        { "kind": "field", "name": "defense" },
+                                        { "kind": "field", "name": "crisis" },
+                                        { "kind": "field", "name": "stealth", "hideLabel": true },
+                                        { "kind": "field", "name": "hp" }
+                                    ]
+                                }
+                            ]
+                        },
+                        { "kind": "field", "name": "testencodingaction" },
+                        { "kind": "field", "name": "testnoargfunction" }
+                    ]
+                }
+            }
+        }
+    },
+    "items": {}
+}

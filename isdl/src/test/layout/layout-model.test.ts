@@ -1,0 +1,430 @@
+import { EmptyFileSystem } from 'langium';
+import { parseHelper } from 'langium/test';
+import { describe, it, expect } from 'vitest';
+import { createIntelligentSystemDesignLanguageServices } from '../../language/intelligent-system-design-language-module.js';
+import { Entry, isActor } from '../../language/generated/ast.js';
+import {
+    buildEffectiveDocTree,
+    collectFieldOverrides,
+    collectSectionOverrides,
+    serializeLayoutTree,
+    SystemLayoutV2,
+    EffectiveNode,
+    EffectiveContainerNode,
+    EffectiveFieldNode,
+} from '../../cli/components/layout-model.js';
+
+const services = createIntelligentSystemDesignLanguageServices(EmptyFileSystem);
+const parse = parseHelper<Entry>(services.IntelligentSystemDesignLanguage);
+
+// Minimal valid ISDL document used by all tests.
+const ISDL_SRC = `
+config Test {
+    id = "test"
+    label = "Test"
+    author = "x"
+    description = "x"
+}
+
+actor Hero {
+    section stats {
+        number Strength
+        number Agility
+    }
+    section info {
+        string Background
+    }
+    number Loose
+    page Combat {
+        number Attack
+    }
+}
+`;
+
+async function parseEntry(src: string = ISDL_SRC): Promise<Entry> {
+    const doc = await parse(src, { validation: false });
+    return doc.parseResult.value;
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function heroDoc(entry: Entry) {
+    const doc = entry.documents.find(isActor);
+    if (!doc) throw new Error('No actor Hero found in parsed entry');
+    return doc;
+}
+
+function fieldIds(nodes: EffectiveNode[]): string[] {
+    return nodes
+        .filter((n): n is EffectiveFieldNode => n.kind === 'field')
+        .map(n => n.name);
+}
+
+function containerChildren(nodes: EffectiveNode[], id: string): EffectiveNode[] {
+    const c = nodes.find((n): n is EffectiveContainerNode => n.kind !== 'field' && n.id === id);
+    if (!c) throw new Error(`No container with id "${id}" found`);
+    return c.children;
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+describe('buildEffectiveDocTree', () => {
+
+    it('1. null layout → default tree structure', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+        const tree = buildEffectiveDocTree(doc, null);
+
+        // Pages: main "hero" and explicit "combat"
+        expect(tree.pages.has('hero')).toBe(true);
+        expect(tree.pages.has('combat')).toBe(true);
+        expect(tree.pages.size).toBe(2);
+
+        const main = tree.pages.get('hero')!;
+
+        // Top-level structure: section stats, section info, field loose
+        expect(main).toHaveLength(3);
+
+        const statsNode = main[0] as EffectiveContainerNode;
+        expect(statsNode.kind).toBe('section');
+        expect(statsNode.id).toBe('stats');
+
+        const infoNode = main[1] as EffectiveContainerNode;
+        expect(infoNode.kind).toBe('section');
+        expect(infoNode.id).toBe('info');
+
+        const looseNode = main[2] as EffectiveFieldNode;
+        expect(looseNode.kind).toBe('field');
+        expect(looseNode.name).toBe('loose');
+
+        // Stats section children: strength, agility (in that order)
+        const statsChildren = statsNode.children;
+        expect(statsChildren).toHaveLength(2);
+        expect((statsChildren[0] as EffectiveFieldNode).name).toBe('strength');
+        expect((statsChildren[1] as EffectiveFieldNode).name).toBe('agility');
+
+        // Info section children: background
+        const infoChildren = infoNode.children;
+        expect(infoChildren).toHaveLength(1);
+        expect((infoChildren[0] as EffectiveFieldNode).name).toBe('background');
+
+        // Combat page: just field attack
+        const combat = tree.pages.get('combat')!;
+        expect(combat).toHaveLength(1);
+        expect((combat[0] as EffectiveFieldNode).kind).toBe('field');
+        expect((combat[0] as EffectiveFieldNode).name).toBe('attack');
+    });
+
+    it('2. layout v2 reorders within a section', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'agility' },
+                                        { kind: 'field', name: 'strength' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+        const statsChildren = containerChildren(main, 'stats');
+
+        expect(statsChildren).toHaveLength(2);
+        expect((statsChildren[0] as EffectiveFieldNode).name).toBe('agility');
+        expect((statsChildren[1] as EffectiveFieldNode).name).toBe('strength');
+    });
+
+    it('3. cross-section move: background moved into stats', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength' },
+                                        { kind: 'field', name: 'agility' },
+                                        { kind: 'field', name: 'background' },   // moved here
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [] },    // now empty
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+
+        // Stats should contain strength, agility, background
+        const statsChildren = containerChildren(main, 'stats');
+        expect(fieldIds(statsChildren)).toEqual(['strength', 'agility', 'background']);
+
+        // Info section still present (even if empty by layout spec)
+        const infoNode = main.find((n): n is EffectiveContainerNode => n.kind !== 'field' && n.id === 'info');
+        expect(infoNode).toBeDefined();
+        // background was consumed into stats — info's children should be empty
+        expect(infoNode!.children).toHaveLength(0);
+    });
+
+    it('4. overrides — layout field node carries overrides into effective tree', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        {
+                                            kind: 'field', name: 'strength',
+                                            size: 'double',
+                                            hideLabel: true,
+                                            color: '#ff0000',
+                                            icon: 'fa-solid fa-star',
+                                        },
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+        const statsChildren = containerChildren(main, 'stats');
+        const strengthNode = statsChildren[0] as EffectiveFieldNode;
+
+        expect(strengthNode.name).toBe('strength');
+        expect(strengthNode.overrides).toEqual({
+            size: 'double',
+            hideLabel: true,
+            color: '#ff0000',
+            icon: 'fa-solid fa-star',
+        });
+
+        // collectFieldOverrides reflects them
+        const overrides = collectFieldOverrides(tree);
+        expect(overrides.has('strength')).toBe(true);
+        expect(overrides.get('strength')).toEqual({
+            size: 'double',
+            hideLabel: true,
+            color: '#ff0000',
+            icon: 'fa-solid fa-star',
+        });
+
+        // agility has no overrides — should not appear in the map
+        expect(overrides.has('agility')).toBe(false);
+    });
+
+    it('5. drift: field added after save appears at end of main page', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        // Layout that omits "loose" entirely
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength' },
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                // loose intentionally absent
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+
+        // loose must still be present
+        const allNames = (function collect(nodes: EffectiveNode[]): string[] {
+            const out: string[] = [];
+            for (const n of nodes) {
+                if (n.kind === 'field') out.push(n.name);
+                else out.push(...collect(n.children));
+            }
+            return out;
+        })(main);
+
+        expect(allNames).toContain('loose');
+
+        // It should be appended at the end of the top-level children (drift pass)
+        const lastTopLevel = main[main.length - 1];
+        expect(lastTopLevel.kind).toBe('field');
+        expect((lastTopLevel as EffectiveFieldNode).name).toBe('loose');
+    });
+
+    it('6. drift: stale layout entry for nonexistent field is dropped', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength' },
+                                        { kind: 'field', name: 'ghost' },   // stale — doesn't exist
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+        const statsChildren = containerChildren(main, 'stats');
+
+        // ghost should be absent
+        const names = fieldIds(statsChildren);
+        expect(names).not.toContain('ghost');
+
+        // The real fields are still present
+        expect(names).toContain('strength');
+        expect(names).toContain('agility');
+    });
+
+    it('7. section hideTitle: layout hideLabel propagates to effective container', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats',
+                                    hideLabel: true,
+                                    children: [
+                                        { kind: 'field', name: 'strength' },
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+        const statsNode = main.find((n): n is EffectiveContainerNode => n.kind !== 'field' && n.id === 'stats')!;
+
+        expect(statsNode.hideTitle).toBe(true);
+
+        // collectSectionOverrides reflects it
+        const sectionOverrides = collectSectionOverrides(tree);
+        expect(sectionOverrides.has('stats')).toBe(true);
+        expect(sectionOverrides.get('stats')).toEqual({ hideTitle: true });
+
+        // info section: no hideLabel set → should NOT appear in sectionOverrides
+        expect(sectionOverrides.has('info')).toBe(false);
+    });
+
+    it('8. serializeLayoutTree: field nodes have label, typeClass, defaultSize, sizable', async () => {
+        const entry = await parseEntry();
+        const serialized = serializeLayoutTree(entry, null);
+
+        expect(serialized.actors).toBeDefined();
+        expect(serialized.actors['hero']).toBeDefined();
+
+        const heroDef = serialized.actors['hero'];
+        expect(heroDef.name).toBe('Hero');
+        expect(heroDef.pages['hero']).toBeDefined();
+
+        const mainChildren = heroDef.pages['hero'].children;
+
+        // Find the stats section
+        const statsSection = mainChildren.find(n => n.kind === 'section' && n.id === 'stats');
+        expect(statsSection).toBeDefined();
+        expect(statsSection!.kind).toBe('section');
+
+        // Inside stats: check strength field node
+        const statsChildren = (statsSection as any).children as any[];
+        const strengthNode = statsChildren.find((c: any) => c.kind === 'field' && c.name === 'strength');
+        expect(strengthNode).toBeDefined();
+        expect(strengthNode.label).toBeDefined();
+        expect(typeof strengthNode.label).toBe('string');
+        expect(strengthNode.typeClass).toBe('number');
+        expect(strengthNode.defaultSize).toBeDefined();
+        expect(typeof strengthNode.sizable).toBe('boolean');
+
+        // "number" type should be sizable and single-wide by default
+        expect(strengthNode.defaultSize).toBe('single');
+        expect(strengthNode.sizable).toBe(true);
+
+        // Combat page also serialized
+        expect(heroDef.pages['combat']).toBeDefined();
+        const combatChildren = heroDef.pages['combat'].children;
+        const attackNode = combatChildren.find((n: any) => n.kind === 'field' && n.name === 'attack') as any;
+        expect(attackNode).toBeDefined();
+        expect(attackNode?.typeClass).toBe('number');
+    });
+
+});

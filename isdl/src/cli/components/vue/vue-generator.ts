@@ -12,6 +12,7 @@ import {
     VariableExpression
 } from "../../../language/generated/ast.js";
 import { generateDocumentVueComponent } from "./vue-sheet-application-generator.js";
+import { SystemLayoutV2 } from "../layout-model.js";
 import { CompositeGeneratorNode, expandToNode, joinToNode, toString } from 'langium/generate';
 import { generateDocumentVueSheet } from './vue-sheet-class-generator.js';
 import { build, defineConfig } from "vite";
@@ -28,7 +29,7 @@ import {generateActiveEffectVueSheet} from "./vue-active-effect-sheet-generator.
 import {generateDocumentCreationVueSheet} from "./vue-document-creation-app.js";
 import {generateDocumentCreationDialog} from "./vue-document-creation-sheet.js";
 
-export function generateVue(entry: Entry, id: string, destination: string) {
+export function generateVue(entry: Entry, id: string, destination: string, savedLayout: SystemLayoutV2 | null = null) {
 
     // Clear the vue directory
     const vueDir = path.join(destination, "system", "templates", "vue");
@@ -56,7 +57,7 @@ export function generateVue(entry: Entry, id: string, destination: string) {
 
     entry.documents.forEach(x => {
         generateDocumentVueSheet(entry, id, x, destination);
-        generateDocumentVueComponent(entry, id, x, destination);
+        generateDocumentVueComponent(entry, id, x, destination, savedLayout);
     });
 }
 

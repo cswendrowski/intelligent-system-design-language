@@ -96,6 +96,10 @@ import {
     VisibilityParam, VisibilityValue, Expression
 } from "../../../language/generated/ast.js";
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
+import {
+    buildEffectiveDocTree, collectFieldOverrides, collectSectionOverrides,
+    EffectiveNode, LayoutFieldOverrides, SystemLayoutV2,
+} from '../layout-model.js';
 import {AstUtils} from 'langium';
 import {generateActionComponent, generateDocumentPromptApps} from './vue-action-component-generator.js';
 import {generatePinnedVuetifyDatatableComponent} from './vue-pinned-datatable-component-generator.js';
@@ -146,7 +150,7 @@ function getGlobalThemeElevation(entry: Entry): number {
     return DEFAULT_ELEVATION;
 }
 
-export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string) {
+export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string, savedLayout: SystemLayoutV2 | null = null) {
     const type = isActor(document) ? 'actor' : 'item';
     const generatedFileDir = path.join(destination, "system", "templates", "vue", type, document.name.toLowerCase());
     const generatedFilePath = path.join(generatedFileDir, `${document.name.toLowerCase()}App.vue`);
@@ -159,9 +163,13 @@ export function generateDocumentVueComponent(entry: Entry, id: string, document:
     // unconditionally per document (covers documents with function-prompts but no actions).
     generateDocumentPromptApps(entry, id, document, destination);
 
+    const effectiveTree = buildEffectiveDocTree(document, savedLayout);
+    const fieldOverrides = collectFieldOverrides(effectiveTree);
+    const sectionOverrides = collectSectionOverrides(effectiveTree);
+
     const fileNode = expandToNode`
     ${generateVueComponentScript(entry, id, document, destination)}
-    ${generateVueComponentTemplate(entry, id, document)}
+    ${generateVueComponentTemplate(entry, id, document, effectiveTree, fieldOverrides, sectionOverrides)}
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
@@ -991,7 +999,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     `;
 }
 
-function generateVueComponentTemplate(entry: Entry, id: string, document: Document): CompositeGeneratorNode {
+function generateVueComponentTemplate(entry: Entry, id: string, document: Document, effectiveTree: ReturnType<typeof buildEffectiveDocTree>, fieldOverrides: Map<string, LayoutFieldOverrides>, sectionOverrides: Map<string, { hideTitle: boolean }>): CompositeGeneratorNode {
     const pages = getAllOfType<Page>(document.body, isPage);
     const firstPageTables = document.body.filter(isTableField); // We explicitly only want top-level tables
     const firstPagePinned = document.body.filter(isPinnedField); // We explicitly only want top-level pinned fields
@@ -1100,7 +1108,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     <v-tabs-window v-model="page">
                         <v-tabs-window-item value="${document.name.toLowerCase()}" data-tab="${document.name.toLowerCase()}">
                             <v-row dense>
-                                ${joinToNode(document.body, element => generateElement(element, true), {appendNewLineIfNotEmpty: true})}
+                                ${joinToNode(effectiveTree.pages.get(document.name.toLowerCase()) ?? [], node => generateNode(node, true), {appendNewLineIfNotEmpty: true})}
                             </v-row>
                             <v-divider class="mt-4 mb-2"></v-divider>
                             <v-tabs v-model="tab" grow always-center>
@@ -1166,7 +1174,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         return expandToNode`
         <v-tabs-window-item value="${page.name.toLowerCase()}" data-tab="${page.name.toLowerCase()}">
             <v-row dense>
-                ${joinToNode(page.body, element => generateElement(element, true), {appendNewLineIfNotEmpty: true})}
+                ${joinToNode(effectiveTree.pages.get(page.name.toLowerCase()) ?? [], node => generateNode(node, true), {appendNewLineIfNotEmpty: true})}
             </v-row>
             <v-divider class="mt-4 mb-2"></v-divider>
             <v-tabs v-model="tab" grow always-center>
@@ -1211,7 +1219,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const summaryParam = element.params.find(isInventorySummaryParam);
 
         const label = labelParam ? labelParam.value : `${document.name}.${element.name}`;
-        const hideLabel = element.params.some((p: any) => isHideLabelParam(p) && p.value);
+        const hideLabel = (fieldOverrides.get(element.name.toLowerCase()) ?? {}).hideLabel ?? element.params.some((p: any) => isHideLabelParam(p) && p.value);
         const icon = iconParam?.value;
         const slots = slotsParam?.value ?? 20;
         const rows = rowsParam?.value;
@@ -1337,33 +1345,32 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         `.appendNewLine();
     }
 
-    function generateElement(element: Page | ClassExpression | Layout, isTopLevel = false): CompositeGeneratorNode {
+    // Walk an EffectiveNode: dispatch containers here, leaf fields to generateElement.
+    function generateNode(node: EffectiveNode, isTopLevel = false): CompositeGeneratorNode {
+        if (node.kind === 'field') {
+            return generateElement(node.element, isTopLevel);
+        }
 
-        // A layout container's `theme: { ... }` compiles to an inline `style="..."` of ACTUAL
-        // CSS (not `--isdl-*` vars, which would inherit and leak sizing into nested children).
-        // The themed style is split by who owns the geometry: WIDTH governs the flex item that
-        // lays out in the row (the OUTER v-col/v-row), so it must ride that element -- putting it
-        // on the inner card lets the column keep its full width and the card just floats inside.
-        // HEIGHT + PAINT (border/bg/text) belong on the visible v-card surface (or the bare
-        // row/column when there is no card). See css-generator's theme*ToInlineStyle helpers.
+        // Container node — node.element is the AST Section/Row/Column.
+        const element = node.element;
         const themeParam = (element as any).params?.find(isThemeFieldParam) as ThemeFieldParam | undefined;
 
-        if (isSection(element)) {
+        if (node.kind === 'section') {
             const colStyle = themeWidthToInlineStyle(themeParam);
             const colAttr = colStyle.length > 0 ? ` style="${colStyle}"` : '';
             const cardStyle = [themeHeightToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
                 .filter(s => s.length > 0).join('; ');
             const cardAttr = cardStyle.length > 0 ? ` style="${cardStyle}"` : '';
             const sectionParams = (element as any).params ?? [];
-            // `hideLabel: true` on a section drops its title bar entirely (compact, unlabeled panel).
-            const hideTitle = sectionParams.some((p: any) => isHideLabelParam(p) && p.value);
+            // hideTitle: layout override wins, fall back to AST hideLabel param.
+            const hideTitle = node.hideTitle ?? sectionParams.some((p: any) => isHideLabelParam(p) && p.value);
             // Elevation: per-section theme override, falling back to global theme elevation (default 4).
             const sectionElevationParam = themeParam?.params?.find(isThemeElevationParam) as ThemeElevationParam | undefined;
             const elevation = sectionElevationParam?.value ?? getGlobalThemeElevation(entry);
             // Collapsible: `collapsible: true` wraps body in a toggled expand-transition.
             const isCollapsible = sectionParams.some((p: any) => isCollapsibleParam(p) && p.value);
-            const sectionName = element.name.toLowerCase();
-            const localizeKey = `${document.name}.${element.name}`;
+            const sectionName = (element as any).name.toLowerCase();
+            const localizeKey = `${document.name}.${(element as any).name}`;
 
             if (isCollapsible) {
                 const titleBar = hideTitle
@@ -1376,7 +1383,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         <v-expand-transition>
                             <v-card-text v-show="!collapsedSections['${sectionName}']">
                                 <v-row dense>
-                                    ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
+                                    ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                                 </v-row>
                             </v-card-text>
                         </v-expand-transition>
@@ -1393,7 +1400,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
                     <v-card-text>
                         <v-row dense>
-                            ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
+                            ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                         </v-row>
                    </v-card-text>
                 </v-card>
@@ -1402,33 +1409,38 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         }
 
         // Bare row/column have no inner card, so sizing AND border ride the element itself.
-        // (background/text are section-only and rejected by the validator, so paint here only ever
-        // yields a border.) themePaintToInlineStyle was previously omitted here -- dropping borders
-        // authored on a row/column.
         const containerStyle = [themeSizingToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
             .filter(s => s.length > 0).join('; ');
         const styleAttr = containerStyle.length > 0 ? ` style="${containerStyle}"` : '';
 
-        if (isRow(element)) {
+        if (node.kind === 'row') {
             return expandToNode`
             <v-col cols="12"${styleAttr}>
                 <v-row dense class="isdl-row">
-                    ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
+                    ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                 </v-row>
             </v-col>
             `;
         }
 
-        if (isColumn(element)) {
-            return expandToNode`
-            <v-col class="isdl-column"${styleAttr}>
-                ${joinToNode(element.body, element => generateElement(element), {appendNewLineIfNotEmpty: true})}
-            </v-col>
-            `;
-        }
+        // column
+        return expandToNode`
+        <v-col class="isdl-column"${styleAttr}>
+            ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
+        </v-col>
+        `;
+    }
+
+    function generateElement(element: Page | ClassExpression | Layout, isTopLevel = false): CompositeGeneratorNode {
 
         // We don't render these elements as part of this function
         if (isPage(element) || isAccess(element) || isStatusProperty(element)) {
+            return expandToNode``;
+        }
+
+        // Container types should not reach generateElement any more (they are handled by generateNode).
+        // Guard defensively to avoid silent mis-renders if a stale call site passes one.
+        if (isSection(element) || isRow(element) || isColumn(element)) {
             return expandToNode``;
         }
 
@@ -1454,14 +1466,15 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             if (element.modifier == "hidden") return expandToNode``;
 
             const standardParams = element.params as StandardFieldParams[];
-            const iconParam = standardParams.find(p => isIconParam(p)) as IconParam | undefined;
 
-            const colorParam = standardParams.find(p => isColorParam(p)) as ColorParam | undefined;
+            // Layout overrides (from saved layout JSON) take precedence over AST params.
+            const layoutOv = fieldOverrides.get(element.name.toLowerCase()) ?? {};
+            const iconParam = (layoutOv.icon ? { value: layoutOv.icon } : standardParams.find(p => isIconParam(p))) as IconParam | undefined;
+            const colorParam = (layoutOv.color ? { value: layoutOv.color } : standardParams.find(p => isColorParam(p))) as ColorParam | undefined;
 
             const label = `${document.name}.${element.name}`;
-            // `hideLabel: true` suppresses the field's label text. Passed to every field component
-            // via the shared fragment; each component guards its label render on !hideLabel.
-            const hideLabel = standardParams.some(p => isHideLabelParam(p) && p.value);
+            // `hideLabel: true` suppresses the field's label text. Layout override takes precedence.
+            const hideLabel = layoutOv.hideLabel ?? standardParams.some(p => isHideLabelParam(p) && p.value);
             const baseFragment = `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;
             const standardParamsFragment = `${baseFragment}${colorParam ? ` color="${colorParam.value}"` : ''}${hideLabel ? ' :hideLabel="true"' : ''}`;
             const systemPath = getSystemPath(element, [], undefined, false);
@@ -2489,7 +2502,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             `;
 
             })();
-            return injectFieldMarker(fieldComponent, element);
+            return injectFieldMarker(fieldComponent, element, layoutOv.size);
         }
 
         return expandToNode`
@@ -2549,11 +2562,12 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     // `.isdl-field` is the shared selector theme tokens target; `.isdl-<type>` is the type hook;
     // `.isdl-field-<name>` is the per-field hook; `.isdl-visibility-<value>` reflects declared
     // visibility for CSS authoring (runtime show/hide is handled by v-if / :disabled separately).
-    function injectFieldMarker(node: CompositeGeneratorNode, element: Property): CompositeGeneratorNode {
+    function injectFieldMarker(node: CompositeGeneratorNode, element: Property, sizeOverride?: 'single' | 'double' | 'full'): CompositeGeneratorNode {
         const html = toString(node);
         const typeClass = getFieldTypeClass(element);
         const visibilityClass = getVisibilityClass(element);
-        const marker = `isdl-field${typeClass ? ` ${typeClass}` : ''} isdl-field-${element.name.toLowerCase()} ${visibilityClass}`;
+        const sizeClass = sizeOverride ? ` isdl-size-${sizeOverride}` : '';
+        const marker = `isdl-field${typeClass ? ` ${typeClass}` : ''} isdl-field-${element.name.toLowerCase()} ${visibilityClass}${sizeClass}`;
         // Stamp the marker onto the FIRST element tag of the rendered field, whatever its name --
         // <i-number>, a datatable <div class="datatable-drop-zone">, a <DocumentChoice> component,
         // etc. Insert right after the tag NAME so attribute values (which can contain '>') are never
