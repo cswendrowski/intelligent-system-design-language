@@ -311,9 +311,12 @@ function generateDevTools(
                     line-height: 1.5;
                 }
                 .isdl-dm-overlay {
-                    position: absolute; inset: 0; background: #10141e; z-index: 50;
+                    position: absolute; inset: 0; background: #10141e; z-index: 1010;
                     display: flex; flex-direction: column; overflow: hidden;
                     font-family: var(--font-primary, sans-serif);
+                }
+                .isdl-dm-root {
+                    height: 100%; display: flex; flex-direction: column; overflow: hidden;
                 }
                 .isdl-dm-toolbar {
                     display: flex; align-items: center; gap: 8px; padding: 5px 10px;
@@ -594,9 +597,7 @@ function generateDevTools(
             const Vuetify = assets.vuetify;
             const Comps = assets.comps;
 
-            const sheetApp = Object.values(ui.windows).find(w =>
-                (w.actor ?? w.document) === doc || (w.item ?? w.document) === doc
-            );
+            const sheetApp = doc.sheet;
             if (!sheetApp) { btn.classList.remove("active"); return ui.notifications?.warn("[isdl-dev] Sheet not found."); }
             const sheetEl = sheetApp.element instanceof HTMLElement ? sheetApp.element : sheetApp.element?.[0];
             const windowContent = sheetEl?.querySelector(".window-content") ?? sheetEl;
