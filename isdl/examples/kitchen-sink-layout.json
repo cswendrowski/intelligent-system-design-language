@@ -1,39 +1,807 @@
 {
-    "version": 2,
-    "actors": {
+  "version": 2,
+  "actors": {
+    "hero": {
+      "pages": {
         "hero": {
-            "pages": {
-                "hero": {
-                    "children": [
-                        { "kind": "field", "name": "effectme", "size": "full", "color": "#e91e63", "icon": "fa-solid fa-flask" },
-                        {
-                            "kind": "section", "id": "damage", "hideLabel": true,
-                            "children": [
-                                { "kind": "field", "name": "damage" },
-                                { "kind": "field", "name": "takebashing" },
-                                { "kind": "field", "name": "healdamagetrack" }
-                            ]
-                        },
-                        {
-                            "kind": "section", "id": "health",
-                            "children": [
-                                {
-                                    "kind": "row", "id": "__row_0",
-                                    "children": [
-                                        { "kind": "field", "name": "defense" },
-                                        { "kind": "field", "name": "crisis" },
-                                        { "kind": "field", "name": "stealth", "hideLabel": true },
-                                        { "kind": "field", "name": "hp" }
-                                    ]
-                                }
-                            ]
-                        },
-                        { "kind": "field", "name": "testencodingaction" },
-                        { "kind": "field", "name": "testnoargfunction" }
-                    ]
+          "children": [
+            {
+              "kind": "field",
+              "name": "effectme",
+              "size": "full",
+              "hideLabel": true,
+              "color": "#e91e63",
+              "icon": "fa-solid fa-flask"
+            },
+            {
+              "kind": "section",
+              "id": "damage",
+              "hideLabel": true,
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "damage"
+                },
+                {
+                  "kind": "field",
+                  "name": "takebashing"
+                },
+                {
+                  "kind": "field",
+                  "name": "healdamagetrack"
                 }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "health",
+              "children": [
+                {
+                  "kind": "row",
+                  "id": "__row_0",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "crisis"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "defense"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "stealth",
+                      "hideLabel": true
+                    },
+                    {
+                      "kind": "field",
+                      "name": "hp"
+                    }
+                  ]
+                },
+                {
+                  "kind": "row",
+                  "id": "__row_1",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "stagger"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "recover"
+                    }
+                  ]
+                },
+                {
+                  "kind": "row",
+                  "id": "__row_2",
+                  "children": [
+                    {
+                      "kind": "column",
+                      "id": "__column_0",
+                      "children": [
+                        {
+                          "kind": "field",
+                          "name": "mana"
+                        },
+                        {
+                          "kind": "field",
+                          "name": "refill"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "row",
+                  "id": "__row_3",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "damagetrack"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "heal"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "level2",
+                      "size": "double"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "roll"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "field",
+              "name": "testencodingaction"
+            },
+            {
+              "kind": "field",
+              "name": "testnoargfunction"
+            },
+            {
+              "kind": "field",
+              "name": "testfunctionprompt"
+            },
+            {
+              "kind": "field",
+              "name": "drainfight"
+            },
+            {
+              "kind": "field",
+              "name": "favorites"
+            },
+            {
+              "kind": "field",
+              "name": "gmpinned"
+            },
+            {
+              "kind": "field",
+              "name": "potions"
+            },
+            {
+              "kind": "field",
+              "name": "spells"
+            },
+            {
+              "kind": "field",
+              "name": "skills"
+            },
+            {
+              "kind": "field",
+              "name": "vuetifyspells"
+            },
+            {
+              "kind": "field",
+              "name": "gmonlytable"
+            },
+            {
+              "kind": "field",
+              "name": "secretparamtable"
+            },
+            {
+              "kind": "field",
+              "name": "noimagetable"
+            },
+            {
+              "kind": "field",
+              "name": "readonlyspells"
+            },
+            {
+              "kind": "field",
+              "name": "viewonlyspells"
+            },
+            {
+              "kind": "field",
+              "name": "allmagicandskills"
             }
+          ]
+        },
+        "plainfields": {
+          "children": [
+            {
+              "kind": "section",
+              "id": "basic",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "stringfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "numberfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "computedviafn"
+                },
+                {
+                  "kind": "field",
+                  "name": "ternaryfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "calculatorfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "booleanfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "htmlfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "choicestringfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "sunsign"
+                },
+                {
+                  "kind": "field",
+                  "name": "choicesstringfield"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "narrow",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "narrowfield"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "complex",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "resourcefield"
+                },
+                {
+                  "kind": "field",
+                  "name": "trackerfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "narrowbar"
+                },
+                {
+                  "kind": "field",
+                  "name": "attributefield"
+                },
+                {
+                  "kind": "field",
+                  "name": "measuredtemplatefield"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "collapsible",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "openbydefault"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "images",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "portrait"
+                },
+                {
+                  "kind": "field",
+                  "name": "crest"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "hidelabels",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "labelednormally"
+                },
+                {
+                  "kind": "field",
+                  "name": "compact"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "money",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "credits"
+                },
+                {
+                  "kind": "field",
+                  "name": "wealth"
+                },
+                {
+                  "kind": "field",
+                  "name": "zenits"
+                },
+                {
+                  "kind": "field",
+                  "name": "bonusmultiplier"
+                },
+                {
+                  "kind": "field",
+                  "name": "totalwealth"
+                },
+                {
+                  "kind": "field",
+                  "name": "addmoney"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "datetime",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "datefield"
+                },
+                {
+                  "kind": "field",
+                  "name": "timefield"
+                },
+                {
+                  "kind": "field",
+                  "name": "datetimefield"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "dice",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "diefield"
+                },
+                {
+                  "kind": "field",
+                  "name": "dicefield"
+                },
+                {
+                  "kind": "field",
+                  "name": "rolldice"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "documentlinks",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "skillstable"
+                },
+                {
+                  "kind": "field",
+                  "name": "inlinegmtable"
+                },
+                {
+                  "kind": "field",
+                  "name": "singledocumentfield"
+                },
+                {
+                  "kind": "row",
+                  "id": "__row_0",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "choicefield"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "choicesfield"
+                    }
+                  ]
+                },
+                {
+                  "kind": "field",
+                  "name": "macrofield"
+                },
+                {
+                  "kind": "field",
+                  "name": "paperdollfield"
+                },
+                {
+                  "kind": "field",
+                  "name": "executemacro"
+                }
+              ]
+            },
+            {
+              "kind": "field",
+              "name": "rollskills"
+            },
+            {
+              "kind": "section",
+              "id": "selfrefs",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "selfattribute"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfresource"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfnumber"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfboolean"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfdate"
+                },
+                {
+                  "kind": "field",
+                  "name": "selftime"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfdatetime"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfdie"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfstring"
+                },
+                {
+                  "kind": "field",
+                  "name": "selftracker"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfchoice"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfpaperdoll"
+                },
+                {
+                  "kind": "field",
+                  "name": "selfhtml"
+                }
+              ]
+            }
+          ]
+        },
+        "info": {
+          "children": [
+            {
+              "kind": "section",
+              "id": "basicinfo",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "herotype"
+                },
+                {
+                  "kind": "field",
+                  "name": "damagetype"
+                },
+                {
+                  "kind": "field",
+                  "name": "summary"
+                },
+                {
+                  "kind": "field",
+                  "name": "text2"
+                },
+                {
+                  "kind": "field",
+                  "name": "test3"
+                },
+                {
+                  "kind": "field",
+                  "name": "test4"
+                },
+                {
+                  "kind": "field",
+                  "name": "bonuses"
+                },
+                {
+                  "kind": "field",
+                  "name": "resistances"
+                },
+                {
+                  "kind": "field",
+                  "name": "background"
+                },
+                {
+                  "kind": "field",
+                  "name": "endcombat"
+                },
+                {
+                  "kind": "field",
+                  "name": "nextturn"
+                },
+                {
+                  "kind": "field",
+                  "name": "pinned"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "level",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "experience"
+                },
+                {
+                  "kind": "row",
+                  "id": "__row_0",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "fate"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "shield"
+                    }
+                  ]
+                },
+                {
+                  "kind": "row",
+                  "id": "__row_1",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "wounds"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "heat"
+                    }
+                  ]
+                },
+                {
+                  "kind": "field",
+                  "name": "time"
+                },
+                {
+                  "kind": "field",
+                  "name": "timepassed"
+                },
+                {
+                  "kind": "field",
+                  "name": "outoftime"
+                },
+                {
+                  "kind": "field",
+                  "name": "level"
+                },
+                {
+                  "kind": "field",
+                  "name": "plain"
+                },
+                {
+                  "kind": "field",
+                  "name": "levelup"
+                },
+                {
+                  "kind": "field",
+                  "name": "experiencetrack"
+                }
+              ]
+            },
+            {
+              "kind": "field",
+              "name": "flipacoin"
+            }
+          ]
+        },
+        "stats": {
+          "children": [
+            {
+              "kind": "section",
+              "id": "attributes",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "fight"
+                },
+                {
+                  "kind": "field",
+                  "name": "flight"
+                },
+                {
+                  "kind": "field",
+                  "name": "endure"
+                },
+                {
+                  "kind": "field",
+                  "name": "persuade"
+                },
+                {
+                  "kind": "field",
+                  "name": "grit"
+                },
+                {
+                  "kind": "field",
+                  "name": "brawl"
+                },
+                {
+                  "kind": "field",
+                  "name": "rollunder"
+                },
+                {
+                  "kind": "field",
+                  "name": "blockroll"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "plainattributes",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "fightplain"
+                },
+                {
+                  "kind": "field",
+                  "name": "flightplain"
+                },
+                {
+                  "kind": "field",
+                  "name": "endureplain"
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "statuseffects",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "slowed"
+                },
+                {
+                  "kind": "field",
+                  "name": "dazed"
+                }
+              ]
+            },
+            {
+              "kind": "row",
+              "id": "__row_0",
+              "children": [
+                {
+                  "kind": "section",
+                  "id": "counter",
+                  "children": [
+                    {
+                      "kind": "column",
+                      "id": "__column_0",
+                      "children": [
+                        {
+                          "kind": "field",
+                          "name": "count"
+                        },
+                        {
+                          "kind": "field",
+                          "name": "reset"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "column",
+                      "id": "__column_1",
+                      "children": [
+                        {
+                          "kind": "field",
+                          "name": "increment"
+                        },
+                        {
+                          "kind": "field",
+                          "name": "decrement"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "section",
+                  "id": "fancycounter",
+                  "children": [
+                    {
+                      "kind": "field",
+                      "name": "count2"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "fancycounteramount"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "increment2"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "decrement2"
+                    },
+                    {
+                      "kind": "field",
+                      "name": "reset2"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "section",
+              "id": "test",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "something"
+                },
+                {
+                  "kind": "field",
+                  "name": "anotherthing"
+                }
+              ]
+            }
+          ]
+        },
+        "equipment": {
+          "children": [
+            {
+              "kind": "field",
+              "name": "armor"
+            },
+            {
+              "kind": "field",
+              "name": "armors"
+            },
+            {
+              "kind": "field",
+              "name": "weapons"
+            },
+            {
+              "kind": "field",
+              "name": "potion"
+            },
+            {
+              "kind": "section",
+              "id": "backpack",
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "carrycapacity"
+                },
+                {
+                  "kind": "field",
+                  "name": "maxvalue"
+                },
+                {
+                  "kind": "field",
+                  "name": "backpackinventory"
+                }
+              ]
+            }
+          ]
         }
-    },
-    "items": {}
+      }
+    }
+  },
+  "items": {}
 }

@@ -1450,14 +1450,14 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const colorParam = element.params.find(x => isColorParam(x)) as ColorParam | undefined;
             const primaryColor = colorParam ? `'${colorParam.value}'` : "primaryColor";
 
-            return expandToNode`
-            <${componentName} 
-                :context="context" 
+            return injectFieldMarker(expandToNode`
+            <${componentName}
+                :context="context"
                 :color="${primaryColor}"
                 :editMode="editModeRef"
                 :visibility="visibilityStates['${element.name.toLowerCase()}'].value">
             </${componentName}>
-            `;
+            `, element);
         }
 
         if (!isProperty(element)) return expandToNode``;
@@ -2510,7 +2510,8 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         `;
     }
 
-    function getFieldTypeClass(element: Property): string {
+    function getFieldTypeClass(element: Property | Action): string {
+        if (isAction(element)) return 'isdl-action';
         if (isNumberExp(element)) return 'isdl-number';
         if (isStringExp(element)) return 'isdl-string';
         if (isHtmlExp(element)) return 'isdl-html';
@@ -2546,7 +2547,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         return '';
     }
 
-    function getVisibilityClass(element: Property): string {
+    function getVisibilityClass(element: Property | Action): string {
         const standardParams = (element.params as StandardFieldParams[]) ?? [];
         const visibilityParam = standardParams.find(p => isVisibilityParam(p)) as VisibilityParam | undefined;
         if (element.modifier != null && !visibilityParam) return `isdl-visibility-${element.modifier}`;
@@ -2562,7 +2563,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     // `.isdl-field` is the shared selector theme tokens target; `.isdl-<type>` is the type hook;
     // `.isdl-field-<name>` is the per-field hook; `.isdl-visibility-<value>` reflects declared
     // visibility for CSS authoring (runtime show/hide is handled by v-if / :disabled separately).
-    function injectFieldMarker(node: CompositeGeneratorNode, element: Property, sizeOverride?: 'single' | 'double' | 'full'): CompositeGeneratorNode {
+    function injectFieldMarker(node: CompositeGeneratorNode, element: Property | Action, sizeOverride?: 'single' | 'double' | 'full'): CompositeGeneratorNode {
         const html = toString(node);
         const typeClass = getFieldTypeClass(element);
         const visibilityClass = getVisibilityClass(element);

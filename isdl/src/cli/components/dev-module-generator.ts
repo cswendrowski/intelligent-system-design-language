@@ -2,151 +2,8 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
 import { Entry } from '../../language/generated/ast.js';
-import {
-    isConfigExpression, isSection, isAction, isFunctionDefinition, isHookHandler,
-    isStatusProperty, isPinnedField, isActor, isItem,
-    isAttributeExp, isResourceExp, isTrackerExp, isNumberExp, isStringExp,
-    isBooleanExp, isHtmlExp, isDamageTrackExp, isTableField, isInventoryField,
-    isDamageBonusesField, isDamageResistancesField, isImageField, isPaperDollExp,
-    isRollVisualizerField, isDateExp, isDateTimeExp, isTimeExp, isDiceField, isDieField,
-    isDocumentChoiceExp, isDocumentChoicesExp, isSingleDocumentExp,
-    isStringChoiceField, isStringChoicesField, isMoneyField, isMeasuredTemplateField,
-    isMacroField, isDamageTypeChoiceField,
-} from '../../language/generated/ast.js';
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-interface FieldMeta {
-    name: string;
-    label: string;
-    typeClass: string;
-    width: number;
-}
-
-interface DocFieldMeta {
-    name: string;
-    fields: FieldMeta[];
-}
-
-interface DocCategory {
-    actors: Record<string, DocFieldMeta>;
-    items: Record<string, DocFieldMeta>;
-}
-
-export interface FieldPlacement {
-    field: string;
-    row: number;
-    col: number;
-    width: number;
-    hideLabel?: boolean;
-    color?: string;
-    icon?: string;
-}
-
-export interface SystemLayout {
-    version: number;
-    actors: Record<string, FieldPlacement[]>;
-    items: Record<string, FieldPlacement[]>;
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function humanizeFieldName(name: string): string {
-    return name
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .replace(/[_-]+/g, ' ')
-        .replace(/([a-zA-Z])(\d)/g, '$1 $2')
-        .replace(/^./, s => s.toUpperCase());
-}
-
-function getTypeLabel(el: unknown): string {
-    if (isAttributeExp(el)) return 'attribute';
-    if (isResourceExp(el)) return 'resource';
-    if (isTrackerExp(el)) return 'tracker';
-    if (isNumberExp(el)) return 'number';
-    if (isStringExp(el)) return 'text';
-    if (isBooleanExp(el)) return 'checkbox';
-    if (isHtmlExp(el)) return 'html';
-    if (isDamageTrackExp(el)) return 'damage-track';
-    if (isTableField(el)) return 'table';
-    if (isInventoryField(el)) return 'inventory';
-    if (isSection(el)) return 'section';
-    if (isAction(el)) return 'action';
-    if (isFunctionDefinition(el)) return 'function';
-    if (isHookHandler(el)) return 'hook';
-    if (isStatusProperty(el)) return 'status';
-    if (isPinnedField(el)) return 'pinned';
-    if (isDamageBonusesField(el)) return 'bonuses';
-    if (isDamageResistancesField(el)) return 'resistances';
-    if (isImageField(el)) return 'image';
-    if (isPaperDollExp(el)) return 'paperdoll';
-    if (isRollVisualizerField(el)) return 'roll-viz';
-    if (isDateExp(el)) return 'date';
-    if (isDateTimeExp(el)) return 'datetime';
-    if (isTimeExp(el)) return 'time';
-    if (isDiceField(el)) return 'dice';
-    if (isDieField(el)) return 'die';
-    if (isDocumentChoiceExp(el)) return 'doc-choice';
-    if (isDocumentChoicesExp(el)) return 'doc-choices';
-    if (isSingleDocumentExp(el)) return 'document';
-    if (isStringChoiceField(el)) return 'choice';
-    if (isStringChoicesField(el)) return 'choices';
-    if (isMoneyField(el)) return 'money';
-    if (isMeasuredTemplateField(el)) return 'template';
-    if (isMacroField(el)) return 'macro';
-    if (isDamageTypeChoiceField(el)) return 'dmg-choice';
-    return 'field';
-}
-
-function getDefaultWidth(typeClass: string): number {
-    const FULL_WIDTH = new Set([
-        'html', 'table', 'inventory', 'damage-track', 'roll-viz',
-        'pinned', 'paperdoll', 'bonuses', 'resistances',
-        'doc-choices', 'choices',
-    ]);
-    return FULL_WIDTH.has(typeClass) ? 12 : 6;
-}
-
-function extractDocMeta(entry: Entry): DocCategory {
-    const actors: Record<string, DocFieldMeta> = {};
-    const items: Record<string, DocFieldMeta> = {};
-
-    function gatherFields(nodes: any[], seen: Set<string>): FieldMeta[] {
-        const out: FieldMeta[] = [];
-        for (const el of nodes) {
-            if (isSection(el)) {
-                out.push(...gatherFields((el as any).body ?? [], seen));
-                continue;
-            }
-            if (el.name && !seen.has((el.name as string).toLowerCase())) {
-                const typeClass = getTypeLabel(el);
-                const skip = new Set(['field', 'function', 'hook', 'status']);
-                if (!skip.has(typeClass)) {
-                    const params: any[] = el.params ?? [];
-                    const labelParam = params.find((p: any) => p.type === 'label' || p.$type === 'LabelParam') as any;
-                    const label = labelParam?.value ?? humanizeFieldName(el.name as string);
-                    const name = (el.name as string).toLowerCase();
-                    seen.add(name);
-                    out.push({ name, label, typeClass, width: getDefaultWidth(typeClass) });
-                }
-            }
-        }
-        return out;
-    }
-
-    for (const doc of entry.documents) {
-        const seen = new Set<string>();
-        const fields = gatherFields(doc.body as any[] ?? [], seen);
-        const name = (doc.name as string);
-        if (isActor(doc)) {
-            actors[name.toLowerCase()] = { name, fields };
-        } else if (isItem(doc)) {
-            items[name.toLowerCase()] = { name, fields };
-        }
-    }
-
-    return { actors, items };
-}
+import { isConfigExpression } from '../../language/generated/ast.js';
+import { SystemLayoutV2, serializeLayoutTree } from './layout-model.js';
 
 // ── Public entry point ─────────────────────────────────────────────────────
 
@@ -154,7 +11,7 @@ export function generateDevModule(
     entry: Entry,
     id: string,
     devDest: string,
-    layout: SystemLayout | null = null,
+    layout: SystemLayoutV2 | null = null,
     layoutServerPort = 3721,
 ) {
     const scriptsDir = path.join(devDest, 'scripts');
@@ -165,12 +22,11 @@ export function generateDevModule(
     const title = (entry.config.body.find(x => isConfigExpression(x) && x.type === 'label') as any)?.value ?? id;
     const author = (entry.config.body.find(x => isConfigExpression(x) && x.type === 'author') as any)?.value ?? '';
 
-    const docMeta = extractDocMeta(entry);
-    const fieldMetaJson = JSON.stringify(docMeta, null, 4);
-    const embeddedLayoutJson = layout ? JSON.stringify(layout) : 'null';
+    const layoutTreeJson = JSON.stringify(serializeLayoutTree(entry, layout), null, 4);
+    const savedLayoutJson = layout ? JSON.stringify(layout) : 'null';
 
     generateModuleJson(id, title, author, devDest);
-    generateDevTools(id, title, devDest, fieldMetaJson, embeddedLayoutJson, layoutServerPort);
+    generateDevTools(id, title, devDest, layoutTreeJson, savedLayoutJson, layoutServerPort);
 }
 
 function generateModuleJson(id: string, title: string, author: string, devDest: string) {
@@ -209,8 +65,8 @@ function generateDevTools(
     id: string,
     title: string,
     devDest: string,
-    fieldMetaJson: string,
-    embeddedLayoutJson: string,
+    layoutTreeJson: string,
+    savedLayoutJson: string,
     layoutServerPort: number,
 ) {
     const filePath = path.join(devDest, 'scripts', 'dev-tools.mjs');
@@ -221,16 +77,16 @@ function generateDevTools(
         const MODULE_ID = "${id}-dev";
         const _LAYOUT_SERVER = "http://localhost:${layoutServerPort}";
 
-        // ─── Embedded metadata (generated from ISDL AST) ───────────────────
-        const FIELD_META = ${fieldMetaJson};
-        const EMBEDDED_LAYOUT = ${embeddedLayoutJson};
+        // ─── Embedded layout metadata (generated from ISDL AST + saved layout) ──
+        const LAYOUT_TREE = ${layoutTreeJson};
+        const SAVED_LAYOUT = ${savedLayoutJson};
 
-        // ─── Vue DevTools ───────────────────────────────────────────────────
+        // ─── Vue DevTools ────────────────────────────────────────────────────
         if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__) {
             window.__VUE_DEVTOOLS_GLOBAL_HOOK__.enabled = true;
         }
 
-        // ─── Styles ─────────────────────────────────────────────────────────
+        // ─── Styles ──────────────────────────────────────────────────────────
         {
             const style = document.createElement("style");
             style.textContent = \`
@@ -310,93 +166,112 @@ function generateDevTools(
                     white-space: pre;
                     line-height: 1.5;
                 }
-                .isdl-dm-overlay {
-                    position: absolute; inset: 0; background: #10141e; z-index: 1010;
-                    display: flex; flex-direction: column; overflow: hidden;
-                    font-family: var(--font-primary, sans-serif);
-                }
-                .isdl-dm-root {
-                    height: 100%; display: flex; flex-direction: column; overflow: hidden;
-                }
-                .isdl-dm-toolbar {
-                    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
-                    background: #0a0e18; border-bottom: 1px solid #2a4a8a;
-                    flex-shrink: 0; font-size: 12px; font-weight: bold; color: #c0d8f0;
-                }
-                .isdl-dm-toolbar-title { flex: 1; }
-                .isdl-dm-doc-badge {
-                    font-size: 10px; background: #1a2a5a; color: #6a9aff;
-                    padding: 1px 6px; border-radius: 2px; font-weight: normal;
-                }
-                .isdl-dm-toolbar button {
-                    background: #1a2a4a; border: 1px solid #4a7aff; border-radius: 3px;
-                    color: #a0c8ff; cursor: pointer; padding: 3px 10px; font-size: 11px;
-                }
-                .isdl-dm-toolbar button.save { background: #0e2a1a; border-color: #2aaa5a; color: #80d8a0; }
-                .isdl-dm-toolbar button:hover { filter: brightness(1.3); }
-                .isdl-dm-toolbar button:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
-                .isdl-dm-body { display: flex; flex: 1; min-height: 0; }
-                .isdl-dm-grid-wrap {
-                    flex: 1; overflow-y: auto; padding: 8px;
-                    display: flex; flex-direction: column; gap: 6px;
-                }
-                .isdl-dm-row {
-                    display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px;
-                    background: rgba(255,255,255,0.02); border-radius: 3px; padding: 4px; min-height: 32px;
-                }
-                .isdl-dm-cell {
-                    border: 2px solid transparent; border-radius: 3px; cursor: pointer;
-                    background: rgba(255,255,255,0.04); overflow: hidden; min-height: 34px;
-                    transition: border-color 0.1s;
-                }
-                .isdl-dm-cell:hover { border-color: #3a6aaa; }
-                .isdl-dm-cell.selected { border-color: #4a9eff; background: rgba(74,158,255,0.07); }
-                .isdl-dm-cell.drag-over { border-color: #ffaa4a; background: rgba(255,170,74,0.07); }
-                .isdl-dm-cell-header {
-                    display: flex; align-items: center; gap: 3px; padding: 2px 4px;
-                    background: rgba(0,0,0,0.3); font-size: 10px; color: #7a9ab8;
-                }
-                .isdl-dm-cell-header i { cursor: grab; color: #4a6a8a; font-size: 9px; }
-                .isdl-dm-cell-header > span:first-of-type { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-                .isdl-dm-type-badge { background: #1a2a5a; color: #6a9aff; border-radius: 2px; padding: 0 3px; font-size: 9px; flex-shrink: 0; }
-                .isdl-dm-width-badge { background: #1a2a2a; color: #4a9a8a; border-radius: 2px; padding: 0 3px; font-size: 9px; flex-shrink: 0; }
-                .isdl-dm-cell-preview { padding: 2px; pointer-events: none; overflow: hidden; }
-                .isdl-dm-placeholder {
-                    padding: 4px; font-size: 10px; color: #4a6a8a; text-align: center;
-                    border: 1px dashed #2a4a6a; border-radius: 2px; margin: 2px;
-                }
-                .isdl-dm-empty {
-                    color: #4a6a8a; font-size: 12px; padding: 16px; text-align: center;
-                    border: 1px dashed #2a4a6a; border-radius: 4px;
-                }
+                /* ── Design Mode decoration styles ── */
+                .isdl-dm-active .v-application { flex: 1 1 auto; min-width: 0; }
+                .isdl-dm-active .isdl-section:hover { outline: 1px dashed #3a6aaa; outline-offset: 1px; }
+                .isdl-dm-active .isdl-field:hover { outline: 1px dashed #3a6aaa; outline-offset: 1px; }
+                .isdl-dm-active .isdl-section { pointer-events: auto !important; cursor: pointer; }
+                .isdl-dm-active .isdl-section * { pointer-events: none !important; }
+                .isdl-dm-active .isdl-field { pointer-events: auto !important; cursor: pointer; }
+                .isdl-dm-active .isdl-field * { pointer-events: none !important; }
+                .isdl-dm-selected { outline: 2px solid #4a9eff !important; outline-offset: 1px; }
+                .isdl-dm-drop-before { box-shadow: -3px 0 0 0 #ffaa4a !important; }
+                .isdl-dm-drop-after { box-shadow: 3px 0 0 0 #ffaa4a !important; }
+                .isdl-dm-drop-into { outline: 2px solid #ffaa4a !important; outline-offset: 1px; }
+                /* ── Design Mode sidebar panel ── */
                 .isdl-dm-panel {
-                    width: 210px; flex-shrink: 0; border-left: 1px solid #1a2a4a; padding: 10px;
-                    overflow-y: auto; background: #0a0e18; display: flex; flex-direction: column; gap: 8px;
+                    width: 240px;
+                    flex-shrink: 0;
+                    border-left: 1px solid #1a2a4a;
+                    overflow-y: auto;
+                    background: #0a0e18;
+                    display: flex;
+                    flex-direction: column;
+                    color: #c0d8f0;
+                    font-family: var(--font-primary, sans-serif);
+                    font-size: 12px;
                 }
-                .isdl-dm-panel-title { font-weight: bold; color: #c0d8f0; font-size: 12px; }
-                .isdl-dm-panel label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #7a9ab8; }
-                .isdl-dm-panel .row-flex { flex-direction: row !important; align-items: center; gap: 6px; }
-                .isdl-dm-panel input[type=range] { width: 100%; cursor: pointer; }
-                .isdl-dm-panel input[type=color] { width: 36px; height: 22px; border: none; cursor: pointer; border-radius: 2px; }
-                .isdl-dm-panel input[type=text] {
-                    width: 100%; background: #1a2a4a; border: 1px solid #2a4a8a;
-                    color: #a0c8ff; border-radius: 2px; padding: 2px 4px; font-size: 11px;
+                .isdl-dm-panel-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 10px;
+                    background: #0a0e18;
+                    border-bottom: 1px solid #2a4a8a;
+                    flex-shrink: 0;
+                    font-size: 12px;
+                    font-weight: bold;
                 }
-                .isdl-dm-panel button {
-                    background: #1a2a4a; border: 1px solid #2a4a8a; color: #a0c8ff;
-                    cursor: pointer; padding: 2px 8px; border-radius: 2px; font-size: 11px;
+                .isdl-dm-panel-header-title { flex: 1; }
+                .isdl-dm-doc-badge {
+                    font-size: 10px;
+                    background: #1a2a5a;
+                    color: #6a9aff;
+                    padding: 1px 6px;
+                    border-radius: 2px;
+                    font-weight: normal;
                 }
-                .isdl-dm-remove-cell {
-                    background: #2a1010 !important; border-color: #6a2a2a !important;
-                    color: #f07070 !important; margin-top: 4px; padding: 5px !important;
+                .isdl-dm-panel-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+                .isdl-dm-panel-hint { color: #6a8aaa; font-size: 11px; line-height: 1.4; }
+                .isdl-dm-panel-note { color: #8a9aaa; font-size: 10px; font-style: italic; margin-top: 2px; }
+                .isdl-dm-field-name { font-family: monospace; font-size: 11px; color: #a0cfff; background: #0e1a2e; padding: 1px 4px; border-radius: 2px; }
+                .isdl-dm-type-badge {
+                    display: inline-block;
+                    background: #1a2a5a;
+                    color: #6a9aff;
+                    border-radius: 2px;
+                    padding: 0 5px;
+                    font-size: 10px;
                 }
-                .isdl-dm-remove-cell:hover { background: #3a1818 !important; }
-                .isdl-dm-root.saving { opacity: 0.7; pointer-events: none; }
+                .isdl-dm-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #6a8aaa; margin-bottom: 2px; margin-top: 6px; }
+                .isdl-dm-section-label:first-child { margin-top: 0; }
+                .isdl-dm-size-row { display: flex; gap: 4px; }
+                .isdl-dm-size-btn {
+                    flex: 1;
+                    background: #1a2a4a;
+                    border: 1px solid #2a4a8a;
+                    color: #a0c8ff;
+                    cursor: pointer;
+                    padding: 3px 0;
+                    border-radius: 2px;
+                    font-size: 11px;
+                    text-align: center;
+                }
+                .isdl-dm-size-btn.active { background: #1a3a6a; border-color: #4a9eff; color: #ffffff; }
+                .isdl-dm-size-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+                .isdl-dm-checkbox-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #a0c8ff; cursor: pointer; }
+                .isdl-dm-color-row { display: flex; align-items: center; gap: 6px; }
+                .isdl-dm-color-row input[type=color] { width: 36px; height: 22px; border: none; cursor: pointer; border-radius: 2px; background: none; }
+                .isdl-dm-panel-btn {
+                    background: #1a2a4a;
+                    border: 1px solid #2a4a8a;
+                    color: #a0c8ff;
+                    cursor: pointer;
+                    padding: 3px 8px;
+                    border-radius: 2px;
+                    font-size: 11px;
+                }
+                .isdl-dm-panel-btn:hover { filter: brightness(1.3); }
+                .isdl-dm-panel-btn.save { background: #0e2a1a; border-color: #2aaa5a; color: #80d8a0; padding: 5px 8px; }
+                .isdl-dm-panel-btn.danger { background: #2a1010; border-color: #6a2a2a; color: #f07070; }
+                .isdl-dm-panel-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+                .isdl-dm-move-row { display: flex; gap: 4px; }
+                .isdl-dm-move-row .isdl-dm-panel-btn { flex: 1; }
+                .isdl-dm-icon-input {
+                    width: 100%;
+                    background: #1a2a4a;
+                    border: 1px solid #2a4a8a;
+                    color: #a0c8ff;
+                    border-radius: 2px;
+                    padding: 3px 5px;
+                    font-size: 11px;
+                    box-sizing: border-box;
+                }
             \`;
             document.head.appendChild(style);
         }
 
-        // ─── Tooltip helpers ────────────────────────────────────────────────
+        // ─── Tooltip helpers ─────────────────────────────────────────────────
         let _devTip = null;
 
         function _makeRow(iconClass, label, value) {
@@ -465,7 +340,7 @@ function generateDevTools(
             };
         }
 
-        // ─── System data inspector ──────────────────────────────────────────
+        // ─── System data inspector ───────────────────────────────────────────
         function _openInspector(doc) {
             const data = doc.system?.toObject?.() ?? doc.system ?? {};
             const json = JSON.stringify(data, null, 2);
@@ -499,367 +374,768 @@ function generateDevTools(
             }).render(true);
         }
 
-        // ─── Design Mode ────────────────────────────────────────────────────
-        let _dmApp = null;
-        let _dmMountEl = null;
-        let _dmAssets = null;
+        // ─── Design Mode ─────────────────────────────────────────────────────
+        // State singleton — null when design mode is closed.
+        // { doc, sheetEl, windowContent, appRoot, docType, docKey, tree, selected, panelEl,
+        //   previewStyleEl, listeners: [], dragging: null, btn }
+        let _dm = null;
 
-        async function _loadDmAssets() {
-            if (_dmAssets) return _dmAssets;
-            const [vueModule, vuetifyModule, compsModule] = await Promise.all([
-                import("/systems/${id}/lib/vue.esm-browser.js"),
-                import("/systems/${id}/lib/vuetify.esm.js"),
-                import("/systems/${id}/system/sheets/vue/components/components.vue.es.mjs")
-            ]);
-            _dmAssets = { vue: vueModule, vuetify: vuetifyModule, comps: compsModule };
-            return _dmAssets;
+        // ── Model helpers ────────────────────────────────────────────────────
+
+        function _dmCurrentPageKey() {
+            const active = _dm.windowContent.querySelector(".v-tabs-window-item.v-window-item--active");
+            if (active?.dataset?.tab) return active.dataset.tab;
+            const keys = Object.keys(_dm.tree.pages);
+            return keys[0] ?? null;
         }
 
-        const _DM_TYPE_MAP = {
-            "attribute": "i-attribute", "resource": "i-resource", "tracker": "i-tracker",
-            "number": "i-number", "text": "i-text-field", "checkbox": "i-boolean",
-            "html": "i-prosemirror", "damage-track": "i-damage-track", "inventory": "i-inventory",
-            "bonuses": "i-bonuses", "resistances": "i-resistances", "image": "i-image",
-            "paperdoll": "i-paperdoll", "roll-viz": "i-roll-visualizer",
-            "date": "i-datetime", "datetime": "i-datetime", "time": "i-datetime",
-            "dice": "i-dice", "die": "i-die", "doc-choice": "i-extended-choice",
-            "choice": "i-string-choice", "choices": "i-string-choices",
-            "money": "i-money", "template": "i-measured-template", "macro": "i-macro",
-            "dmg-choice": "i-extended-choice",
-        };
+        function _dmWalkNodes(nodes, visitor) {
+            for (const n of nodes) {
+                visitor(n);
+                if (n.children) _dmWalkNodes(n.children, visitor);
+            }
+        }
 
-        function _dmBuildRows(docMeta, existingPlacements) {
-            const fields = docMeta.fields;
-            if (!existingPlacements || existingPlacements.length === 0) {
-                const rows = [];
-                let currentRow = [], currentWidth = 0;
-                for (const f of fields) {
-                    if (currentWidth + f.width > 12 && currentRow.length > 0) {
-                        rows.push(currentRow); currentRow = []; currentWidth = 0;
+        function _dmFindNode(pageKey, kind, key) {
+            const page = _dm.tree.pages[pageKey];
+            if (!page) return null;
+            let result = null;
+            function walk(nodes, parent) {
+                for (let i = 0; i < nodes.length; i++) {
+                    const n = nodes[i];
+                    const matches = kind === "field" ? n.kind === "field" && n.name === key
+                                                     : n.kind !== "field" && n.id === key;
+                    if (matches) {
+                        result = { node: n, parent, index: i, parentChildren: nodes };
+                        return true;
                     }
-                    currentRow.push({ field: f.name, label: f.label, typeClass: f.typeClass, width: f.width, hideLabel: false, color: "", icon: "" });
-                    currentWidth += f.width;
+                    if (n.children && walk(n.children, n)) return true;
                 }
-                if (currentRow.length > 0) rows.push(currentRow);
-                return rows;
+                return false;
             }
-            const fieldMap = Object.fromEntries(fields.map(f => [f.name, f]));
-            const maxRow = existingPlacements.reduce((m, p) => Math.max(m, p.row), 0);
-            const rows = [];
-            for (let r = 0; r <= maxRow; r++) {
-                const row = existingPlacements
-                    .filter(p => p.row === r)
-                    .sort((a, b) => a.col - b.col)
-                    .map(p => {
-                        const meta = fieldMap[p.field] ?? { name: p.field, label: p.field, typeClass: "field", width: p.width };
-                        return { field: p.field, label: meta.label, typeClass: meta.typeClass, width: p.width, hideLabel: !!p.hideLabel, color: p.color ?? "", icon: p.icon ?? "" };
+            walk(page.children, null);
+            return result;
+        }
+
+        function _dmFindAnywhere(kind, key) {
+            for (const pageKey of Object.keys(_dm.tree.pages)) {
+                const r = _dmFindNode(pageKey, kind, key);
+                if (r) return { ...r, pageKey };
+            }
+            return null;
+        }
+
+        // ── DOM helpers ──────────────────────────────────────────────────────
+
+        function _dmFieldRoot(name) {
+            return _dm.windowContent.querySelector(\`.isdl-field-\${name}\`);
+        }
+
+        function _dmSectionRoot(id) {
+            return _dm.windowContent.querySelector(\`.isdl-section-\${id}\`);
+        }
+
+        function _dmNodeRoot(node) {
+            return node.kind === "field" ? _dmFieldRoot(node.name) : _dmSectionRoot(node.id);
+        }
+
+        // ── Preview stylesheet ────────────────────────────────────────────────
+
+        function _dmBuildPreviewCss() {
+            let css = "";
+            for (const [pageKey, page] of Object.entries(_dm.tree.pages)) {
+                _dmWalkNodes(page.children, node => {
+                    if (node.kind === "field" && node.size) {
+                        const name = node.name;
+                        if (node.size === "double") {
+                            css += \`.isdl-dm-active .isdl-field-\${name} { flex: 2 1 0 !important; min-width: 300px !important; max-width: 600px !important; }\\n\`;
+                        } else if (node.size === "full") {
+                            css += \`.isdl-dm-active .isdl-field-\${name} { flex: 1 1 100% !important; min-width: 100% !important; max-width: none !important; }\\n\`;
+                        } else if (node.size === "single") {
+                            css += \`.isdl-dm-active .isdl-field-\${name} { flex: 1 1 0 !important; min-width: 150px !important; max-width: 600px !important; }\\n\`;
+                        }
+                    }
+                    if (node.kind === "field" && node.hideLabel === true) {
+                        const name = node.name;
+                        css += \`.isdl-dm-active .isdl-field-\${name} .v-field-label,\`
+                             + \` .isdl-dm-active .isdl-field-\${name} .v-label,\`
+                             + \` .isdl-dm-active .isdl-field-\${name} legend { display: none !important; }\\n\`;
+                    }
+                    if (node.kind === "section" && node.hideLabel === true) {
+                        const id = node.id;
+                        css += \`.isdl-dm-active .isdl-section-\${id} .v-card-title { display: none !important; }\\n\`;
+                    }
+                });
+            }
+            return css;
+        }
+
+        function _dmApplyOrderToDOMChildren(nodes) {
+            let order = 0;
+            for (const node of nodes) {
+                const el = _dmNodeRoot(node);
+                if (!el) {
+                    order++;
+                    continue;
+                }
+                el.style.order = String(order++);
+                el.setAttribute("data-isdl-dm", "1");
+                el.draggable = true;
+            }
+        }
+
+        function _dmApplyPreview() {
+            if (!_dm) return;
+
+            // Rebuild preview CSS
+            _dm.previewStyleEl.textContent = _dmBuildPreviewCss();
+
+            // DOM pass: set CSS order + draggable on addressable nodes per page
+            for (const [pageKey, page] of Object.entries(_dm.tree.pages)) {
+                // Top-level children
+                _dmApplyOrderToDOMChildren(page.children);
+                // Recurse into containers
+                _dmWalkNodes(page.children, node => {
+                    if (node.kind !== "field" && node.children) {
+                        _dmApplyOrderToDOMChildren(node.children);
+                    }
+                });
+            }
+
+            // Re-apply selection outline
+            _dm.windowContent.querySelectorAll(".isdl-dm-selected").forEach(el => el.classList.remove("isdl-dm-selected"));
+            if (_dm.selected) {
+                const el = _dmNodeRoot(_dm.selected.node);
+                if (el) el.classList.add("isdl-dm-selected");
+            }
+
+            // Ensure panel is still attached
+            if (_dm.panelEl && !_dm.panelEl.isConnected) {
+                _dm.windowContent.appendChild(_dm.panelEl);
+            }
+
+            // Refresh panel body
+            _dmRenderPanelBody();
+        }
+
+        // ── Sidebar panel ─────────────────────────────────────────────────────
+
+        function _dmBuildPanel(docType, docKey) {
+            const panel = document.createElement("div");
+            panel.className = "isdl-dm-panel";
+
+            // Header
+            const header = document.createElement("div");
+            header.className = "isdl-dm-panel-header";
+            header.innerHTML = \`<i class="fa-solid fa-pen-ruler"></i><span class="isdl-dm-panel-header-title">Design Mode</span><span class="isdl-dm-doc-badge">\${docType}/\${docKey}</span>\`;
+
+            const saveBtn = document.createElement("button");
+            saveBtn.type = "button";
+            saveBtn.className = "isdl-dm-panel-btn save";
+            saveBtn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;
+            saveBtn.addEventListener("click", e => { e.stopPropagation(); _dmSave(saveBtn); });
+
+            const closeBtn = document.createElement("button");
+            closeBtn.type = "button";
+            closeBtn.className = "isdl-dm-panel-btn";
+            closeBtn.innerHTML = \`<i class="fa-solid fa-times"></i>\`;
+            closeBtn.style.cssText = "padding:3px 6px;";
+            closeBtn.addEventListener("click", e => { e.stopPropagation(); _closeDesignMode(); });
+
+            header.appendChild(saveBtn);
+            header.appendChild(closeBtn);
+            panel.appendChild(header);
+
+            // Body (dynamic)
+            const body = document.createElement("div");
+            body.className = "isdl-dm-panel-body";
+            body.dataset.dmPanelBody = "1";
+            panel.appendChild(body);
+
+            return panel;
+        }
+
+        function _dmRenderPanelBody() {
+            if (!_dm?.panelEl) return;
+            const body = _dm.panelEl.querySelector("[data-dm-panel-body]");
+            if (!body) return;
+            body.innerHTML = "";
+
+            const sel = _dm.selected;
+            if (!sel) {
+                const hint = document.createElement("p");
+                hint.className = "isdl-dm-panel-hint";
+                hint.textContent = "Click a field or section to edit it. Drag to reorder.";
+                body.appendChild(hint);
+                return;
+            }
+
+            const node = sel.node;
+
+            if (node.kind === "field") {
+                _dmRenderFieldPanel(body, node, sel.pageKey);
+            } else if (node.kind === "section") {
+                _dmRenderSectionPanel(body, node, sel.pageKey);
+            }
+        }
+
+        function _dmMakeSectionLabel(text) {
+            const div = document.createElement("div");
+            div.className = "isdl-dm-section-label";
+            div.textContent = text;
+            return div;
+        }
+
+        function _dmRenderFieldPanel(body, node, pageKey) {
+            // Label + name
+            const nameDiv = document.createElement("div");
+            nameDiv.innerHTML = \`<strong>\${node.label ?? node.name}</strong> <span class="isdl-dm-field-name">\${node.name}</span>\`;
+            body.appendChild(nameDiv);
+
+            const typeBadge = document.createElement("span");
+            typeBadge.className = "isdl-dm-type-badge";
+            typeBadge.textContent = node.typeClass ?? "";
+            body.appendChild(typeBadge);
+
+            // Size
+            body.appendChild(_dmMakeSectionLabel("Size"));
+            const sizeRow = document.createElement("div");
+            sizeRow.className = "isdl-dm-size-row";
+            const sizable = node.sizable !== false;
+            const currentSize = node.size ?? node.defaultSize ?? "single";
+            for (const sz of ["single", "double", "full"]) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "isdl-dm-size-btn" + (currentSize === sz ? " active" : "");
+                btn.textContent = sz.charAt(0).toUpperCase() + sz.slice(1);
+                btn.disabled = !sizable;
+                if (sizable) {
+                    btn.addEventListener("click", e => {
+                        e.stopPropagation();
+                        node.size = sz;
+                        _dmApplyPreview();
                     });
-                if (row.length > 0) rows.push(row);
-            }
-            return rows;
-        }
-
-        function _dmRowsToPlacements(rows) {
-            const out = [];
-            for (let ri = 0; ri < rows.length; ri++) {
-                let col = 0;
-                for (const cell of rows[ri]) {
-                    const p = { field: cell.field, row: ri, col, width: cell.width };
-                    if (cell.hideLabel) p.hideLabel = true;
-                    if (cell.color) p.color = cell.color;
-                    if (cell.icon) p.icon = cell.icon;
-                    out.push(p);
-                    col += cell.width;
                 }
+                sizeRow.appendChild(btn);
             }
-            return out;
+            body.appendChild(sizeRow);
+            if (!sizable) {
+                const note = document.createElement("p");
+                note.className = "isdl-dm-panel-note";
+                note.textContent = "This field type has a fixed size.";
+                body.appendChild(note);
+            }
+
+            // Hide label
+            body.appendChild(_dmMakeSectionLabel("Display"));
+            const hideLabelRow = document.createElement("label");
+            hideLabelRow.className = "isdl-dm-checkbox-row";
+            const hlCheck = document.createElement("input");
+            hlCheck.type = "checkbox";
+            hlCheck.checked = !!node.hideLabel;
+            hlCheck.addEventListener("change", e => {
+                e.stopPropagation();
+                node.hideLabel = hlCheck.checked ? true : undefined;
+                _dmApplyPreview();
+            });
+            hideLabelRow.appendChild(hlCheck);
+            hideLabelRow.appendChild(document.createTextNode(" Hide label"));
+            body.appendChild(hideLabelRow);
+
+            // Color
+            body.appendChild(_dmMakeSectionLabel("Color"));
+            const colorRow = document.createElement("div");
+            colorRow.className = "isdl-dm-color-row";
+            const colorInput = document.createElement("input");
+            colorInput.type = "color";
+            colorInput.value = node.color || "#000000";
+            colorInput.addEventListener("input", e => {
+                e.stopPropagation();
+                node.color = colorInput.value;
+            });
+            const clearColorBtn = document.createElement("button");
+            clearColorBtn.type = "button";
+            clearColorBtn.className = "isdl-dm-panel-btn";
+            clearColorBtn.textContent = "Clear";
+            clearColorBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                node.color = undefined;
+                colorInput.value = "#000000";
+            });
+            colorRow.appendChild(colorInput);
+            colorRow.appendChild(clearColorBtn);
+            body.appendChild(colorRow);
+
+            // Icon
+            body.appendChild(_dmMakeSectionLabel("Icon"));
+            const iconInput = document.createElement("input");
+            iconInput.type = "text";
+            iconInput.className = "isdl-dm-icon-input";
+            iconInput.placeholder = "fa-solid fa-star";
+            iconInput.value = node.icon || "";
+            iconInput.addEventListener("input", e => {
+                e.stopPropagation();
+                node.icon = iconInput.value || undefined;
+            });
+            body.appendChild(iconInput);
+
+            const regenNote = document.createElement("p");
+            regenNote.className = "isdl-dm-panel-note";
+            regenNote.textContent = "Color and icon apply on regenerate.";
+            body.appendChild(regenNote);
+
+            // Move + Reset
+            body.appendChild(_dmMakeSectionLabel("Position"));
+            const moveRow = document.createElement("div");
+            moveRow.className = "isdl-dm-move-row";
+            const upBtn = document.createElement("button");
+            upBtn.type = "button";
+            upBtn.className = "isdl-dm-panel-btn";
+            upBtn.innerHTML = \`<i class="fa-solid fa-arrow-up"></i> Up\`;
+            upBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, -1); });
+            const downBtn = document.createElement("button");
+            downBtn.type = "button";
+            downBtn.className = "isdl-dm-panel-btn";
+            downBtn.innerHTML = \`<i class="fa-solid fa-arrow-down"></i> Down\`;
+            downBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, 1); });
+            moveRow.appendChild(upBtn);
+            moveRow.appendChild(downBtn);
+            body.appendChild(moveRow);
+
+            const resetBtn = document.createElement("button");
+            resetBtn.type = "button";
+            resetBtn.className = "isdl-dm-panel-btn danger";
+            resetBtn.style.width = "100%";
+            resetBtn.innerHTML = \`<i class="fa-solid fa-rotate-left"></i> Reset overrides\`;
+            resetBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                delete node.size;
+                delete node.hideLabel;
+                delete node.color;
+                delete node.icon;
+                _dmApplyPreview();
+            });
+            body.appendChild(resetBtn);
         }
 
-        async function _openDesignMode(doc, btn) {
-            if (_dmApp) {
-                _dmApp.unmount(); _dmApp = null;
-                _dmMountEl?.remove(); _dmMountEl = null;
-                btn.classList.remove("active");
+        function _dmRenderSectionPanel(body, node, pageKey) {
+            const nameDiv = document.createElement("div");
+            nameDiv.innerHTML = \`<strong>\${node.label ?? node.id}</strong>\`;
+            body.appendChild(nameDiv);
+
+            // Hide title
+            body.appendChild(_dmMakeSectionLabel("Display"));
+            const hideTitleRow = document.createElement("label");
+            hideTitleRow.className = "isdl-dm-checkbox-row";
+            const htCheck = document.createElement("input");
+            htCheck.type = "checkbox";
+            htCheck.checked = !!node.hideLabel;
+            htCheck.addEventListener("change", e => {
+                e.stopPropagation();
+                node.hideLabel = htCheck.checked ? true : undefined;
+                _dmApplyPreview();
+            });
+            hideTitleRow.appendChild(htCheck);
+            hideTitleRow.appendChild(document.createTextNode(" Hide title"));
+            body.appendChild(hideTitleRow);
+
+            // Move
+            body.appendChild(_dmMakeSectionLabel("Position"));
+            const moveRow = document.createElement("div");
+            moveRow.className = "isdl-dm-move-row";
+            const upBtn = document.createElement("button");
+            upBtn.type = "button";
+            upBtn.className = "isdl-dm-panel-btn";
+            upBtn.innerHTML = \`<i class="fa-solid fa-arrow-up"></i> Up\`;
+            upBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, -1); });
+            const downBtn = document.createElement("button");
+            downBtn.type = "button";
+            downBtn.className = "isdl-dm-panel-btn";
+            downBtn.innerHTML = \`<i class="fa-solid fa-arrow-down"></i> Down\`;
+            downBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, 1); });
+            moveRow.appendChild(upBtn);
+            moveRow.appendChild(downBtn);
+            body.appendChild(moveRow);
+        }
+
+        function _dmMoveNode(pageKey, node, delta) {
+            const kind = node.kind === "field" ? "field" : "container";
+            const key = node.kind === "field" ? node.name : node.id;
+            const found = _dmFindNode(pageKey, kind === "field" ? "field" : "section", key);
+            if (!found) return;
+            const { parentChildren, index } = found;
+            const newIdx = index + delta;
+            if (newIdx < 0 || newIdx >= parentChildren.length) return;
+            parentChildren.splice(index, 1);
+            parentChildren.splice(newIdx, 0, node);
+            _dmApplyPreview();
+        }
+
+        // ── Open / close ──────────────────────────────────────────────────────
+
+        function _openDesignMode(doc, btn) {
+            if (_dm) {
+                _closeDesignMode();
                 return;
             }
-            btn.classList.add("active");
-
-            let assets;
-            try { assets = await _loadDmAssets(); }
-            catch (err) {
-                btn.classList.remove("active");
-                console.error("[" + MODULE_ID + "] Failed to load assets:", err);
-                ui.notifications?.error("Design Mode: failed to load assets — see console.");
-                return;
-            }
-
-            const { createApp, ref, reactive, computed } = assets.vue;
-            const Vuetify = assets.vuetify;
-            const Comps = assets.comps;
 
             const sheetApp = doc.sheet;
-            if (!sheetApp) { btn.classList.remove("active"); return ui.notifications?.warn("[isdl-dev] Sheet not found."); }
+            if (!sheetApp) return ui.notifications?.warn("[isdl-dev] Sheet not found.");
             const sheetEl = sheetApp.element instanceof HTMLElement ? sheetApp.element : sheetApp.element?.[0];
             const windowContent = sheetEl?.querySelector(".window-content") ?? sheetEl;
-            if (!windowContent) { btn.classList.remove("active"); return; }
+            if (!windowContent) return;
 
             const docType = doc.documentName === "Actor" ? "actors" : "items";
             const docKey = (doc.type ?? "").toLowerCase();
-            const docMeta = FIELD_META[docType]?.[docKey];
-            if (!docMeta) {
-                btn.classList.remove("active");
-                return ui.notifications?.warn(\`[isdl-dev] No FIELD_META for \${docType}/\${docKey}\`);
+
+            const docTree = LAYOUT_TREE[docType]?.[docKey];
+            if (!docTree) {
+                return ui.notifications?.warn(\`[isdl-dev] No layout tree for \${docType}/\${docKey}\`);
             }
 
-            const existingPlacements = EMBEDDED_LAYOUT?.[docType]?.[docKey] ?? [];
-            const initRows = _dmBuildRows(docMeta, existingPlacements);
+            // Deep-clone the tree so mutations don't affect the static constant
+            const tree = structuredClone(docTree);
+            const appRoot = windowContent.querySelector(".v-application") ?? windowContent.firstElementChild;
 
-            _dmMountEl = document.createElement("div");
-            _dmMountEl.className = "isdl-dm-overlay";
-            windowContent.style.position = "relative";
-            windowContent.appendChild(_dmMountEl);
+            const panelEl = _dmBuildPanel(docType, docKey);
+            const previewStyleEl = document.createElement("style");
+            previewStyleEl.dataset.isdlDmPreview = "1";
 
-            const docContext = { object: doc, isEditable: false, isOwner: doc.isOwner ?? true };
-
-            const dmComponent = {
-                setup() {
-                    const rows = reactive(initRows.map(r => r.map(c => Object.assign({}, c))));
-                    const selected = ref(null);
-                    const saving = ref(false);
-                    const dragSrc = ref(null);
-                    const dragOverCell = ref(null);
-
-                    const selectedCell = computed(() =>
-                        selected.value ? rows[selected.value.ri]?.[selected.value.ci] : null
-                    );
-
-                    function cellStyle(cell) { return { gridColumn: "span " + cell.width }; }
-                    function getComp(tc) { return _DM_TYPE_MAP[tc] ?? null; }
-                    function isSelected(ri, ci) { return selected.value?.ri === ri && selected.value?.ci === ci; }
-                    function isDragOver(ri, ci) { return dragOverCell.value?.ri === ri && dragOverCell.value?.ci === ci; }
-                    function clearSelection() { selected.value = null; }
-
-                    function select(ri, ci, e) {
-                        e.stopPropagation();
-                        selected.value = isSelected(ri, ci) ? null : { ri, ci };
-                    }
-
-                    function onDragStart(e, ri, ci) {
-                        dragSrc.value = { ri, ci };
-                        e.dataTransfer.effectAllowed = "move";
-                    }
-                    function onDragOver(e, ri, ci) {
-                        e.preventDefault();
-                        dragOverCell.value = { ri, ci };
-                    }
-                    function onDragLeave() { dragOverCell.value = null; }
-                    function onDrop(e, ri, ci) {
-                        e.preventDefault();
-                        dragOverCell.value = null;
-                        const src = dragSrc.value;
-                        dragSrc.value = null;
-                        if (!src || (src.ri === ri && src.ci === ci)) return;
-                        const [cell] = rows[src.ri].splice(src.ci, 1);
-                        const srcWasEmpty = rows[src.ri].length === 0;
-                        if (srcWasEmpty) rows.splice(src.ri, 1);
-                        let dRi = ri, dCi = ci;
-                        if (srcWasEmpty && src.ri < ri) dRi--;
-                        if (src.ri === ri && src.ci < ci) dCi--;
-                        dRi = Math.min(Math.max(0, dRi), rows.length);
-                        if (dRi === rows.length) { rows.push([cell]); selected.value = null; return; }
-                        const targetRow = rows[dRi];
-                        targetRow.splice(Math.min(Math.max(0, dCi), targetRow.length), 0, cell);
-                        selected.value = null;
-                    }
-
-                    function removeSelected() {
-                        if (!selected.value) return;
-                        const { ri, ci } = selected.value;
-                        rows[ri].splice(ci, 1);
-                        if (rows[ri].length === 0) rows.splice(ri, 1);
-                        selected.value = null;
-                    }
-
-                    async function saveLayout() {
-                        saving.value = true;
-                        const placements = _dmRowsToPlacements(rows);
-                        const layout = EMBEDDED_LAYOUT
-                            ? JSON.parse(JSON.stringify(EMBEDDED_LAYOUT))
-                            : { version: 1, actors: {}, items: {} };
-                        if (!layout[docType]) layout[docType] = {};
-                        layout[docType][docKey] = placements;
-                        try {
-                            const resp = await fetch(_LAYOUT_SERVER + "/layout", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ id: "${id}", layout })
-                            });
-                            const result = await resp.json();
-                            if (result.ok) ui.notifications.info("Layout saved — regenerate system to apply.");
-                            else ui.notifications.error("Save failed: " + (result.error ?? "unknown"));
-                        } catch (err) {
-                            ui.notifications.error("Layout server error: " + err.message);
-                        } finally {
-                            saving.value = false;
-                        }
-                    }
-
-                    function close() {
-                        if (_dmApp) { _dmApp.unmount(); _dmApp = null; }
-                        _dmMountEl?.remove(); _dmMountEl = null;
-                        btn.classList.remove("active");
-                    }
-
-                    return {
-                        rows, selected, selectedCell, saving, docMeta, docType, docKey, docContext,
-                        cellStyle, getComp, isSelected, isDragOver, clearSelection,
-                        select, onDragStart, onDragOver, onDragLeave, onDrop,
-                        removeSelected, saveLayout, close
-                    };
-                },
-                template: \`
-                    <div class="isdl-dm-root" :class="{saving: saving}" @click="clearSelection">
-                        <div class="isdl-dm-toolbar">
-                            <i class="fa-solid fa-pen-ruler"></i>
-                            <span class="isdl-dm-toolbar-title">Design Mode — {{ docMeta.name }}</span>
-                            <span class="isdl-dm-doc-badge">{{ docType }}/{{ docKey }}</span>
-                            <button class="save" type="button" @click.stop="saveLayout" :disabled="saving">
-                                <i class="fa-solid fa-floppy-disk"></i> {{ saving ? 'Saving...' : 'Save Layout' }}
-                            </button>
-                            <button type="button" @click.stop="close">
-                                <i class="fa-solid fa-times"></i> Close
-                            </button>
-                        </div>
-                        <div class="isdl-dm-body">
-                            <div class="isdl-dm-grid-wrap" @click.stop>
-                                <div v-if="rows.length === 0" class="isdl-dm-empty">No fields in layout.</div>
-                                <div v-for="(row, ri) in rows" :key="ri" class="isdl-dm-row">
-                                    <div
-                                        v-for="(cell, ci) in row"
-                                        :key="cell.field + '-' + ci"
-                                        class="isdl-dm-cell"
-                                        :class="{selected: isSelected(ri,ci), 'drag-over': isDragOver(ri,ci)}"
-                                        :style="cellStyle(cell)"
-                                        draggable="true"
-                                        @dragstart="onDragStart($event,ri,ci)"
-                                        @dragover="onDragOver($event,ri,ci)"
-                                        @dragleave="onDragLeave"
-                                        @drop="onDrop($event,ri,ci)"
-                                        @click.stop="select(ri,ci,$event)"
-                                    >
-                                        <div class="isdl-dm-cell-header">
-                                            <i class="fa-solid fa-grip-vertical"></i>
-                                            <span>{{ cell.label }}</span>
-                                            <span class="isdl-dm-type-badge">{{ cell.typeClass }}</span>
-                                            <span class="isdl-dm-width-badge">{{ cell.width }}/12</span>
-                                        </div>
-                                        <div class="isdl-dm-cell-preview">
-                                            <component
-                                                v-if="getComp(cell.typeClass)"
-                                                :is="getComp(cell.typeClass)"
-                                                :label="cell.label"
-                                                :systemPath="'system.' + cell.field"
-                                                :context="docContext"
-                                                :disabled="true"
-                                                :color="cell.color || undefined"
-                                                :icon="cell.icon || undefined"
-                                            />
-                                            <div v-else class="isdl-dm-placeholder">{{ cell.typeClass }}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="isdl-dm-panel" v-if="selectedCell" @click.stop>
-                                <div class="isdl-dm-panel-title">{{ selectedCell.label }}</div>
-                                <span class="isdl-dm-type-badge" style="display:inline-block;margin-bottom:8px">{{ selectedCell.typeClass }}</span>
-                                <label>
-                                    Width {{ selectedCell.width }}/12
-                                    <input type="range" min="1" max="12" :value="selectedCell.width" @input="selectedCell.width = +$event.target.value">
-                                </label>
-                                <label class="row-flex">
-                                    <input type="checkbox" v-model="selectedCell.hideLabel"> Hide Label
-                                </label>
-                                <label>
-                                    Color
-                                    <div class="row-flex">
-                                        <input type="color" :value="selectedCell.color || '#000000'" @input="selectedCell.color = $event.target.value">
-                                        <button type="button" @click="selectedCell.color = ''">Clear</button>
-                                    </div>
-                                </label>
-                                <label>
-                                    Icon (FA class)
-                                    <input type="text" :value="selectedCell.icon || ''" @input="selectedCell.icon = $event.target.value" placeholder="fas fa-star">
-                                </label>
-                                <button class="isdl-dm-remove-cell" type="button" @click="removeSelected">
-                                    <i class="fa-solid fa-trash"></i> Remove from layout
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                \`
+            _dm = {
+                doc, sheetEl, windowContent, appRoot, docType, docKey,
+                tree, selected: null, panelEl, previewStyleEl,
+                listeners: [], dragging: null, btn,
             };
 
-            const aliases = {
-                collapse: "fas fa-chevron-up", complete: "fas fa-check", cancel: "fas fa-times-circle",
-                close: "fas fa-times", delete: "fas fa-times-circle", clear: "fas fa-times-circle",
-                success: "fas fa-check-circle", info: "fas fa-info-circle", warning: "fas fa-exclamation",
-                error: "fas fa-exclamation-triangle", prev: "fas fa-chevron-left", next: "fas fa-chevron-right",
-                checkboxOn: "fas fa-check-square", checkboxOff: "far fa-square",
-                checkboxIndeterminate: "fas fa-minus-square", delimiter: "fas fa-circle",
-                sortAsc: "fas fa-arrow-up", sortDesc: "fas fa-arrow-down", expand: "fas fa-chevron-down",
-                menu: "fas fa-bars", subgroup: "fas fa-caret-down", dropdown: "fas fa-caret-down",
-                radioOn: "far fa-dot-circle", radioOff: "far fa-circle", edit: "fas fa-edit",
-                ratingEmpty: "far fa-star", ratingFull: "fas fa-star", ratingHalf: "fas fa-star-half",
-                loading: "fas fa-sync", first: "fas fa-step-backward", last: "fas fa-step-forward",
-                unfold: "fas fa-arrows-alt-v", file: "fas fa-paperclip", plus: "fas fa-plus",
-                minus: "fas fa-minus", calendar: "fas fa-calendar",
-                treeviewCollapse: "fas fa-caret-down", treeviewExpand: "fas fa-caret-right",
-                eyeDropper: "fas fa-eye-dropper"
-            };
-            const fa = { component: Vuetify.components.VClassIcon };
+            // Activate container layout
+            windowContent.classList.add("isdl-dm-active");
+            windowContent.style.display = "flex";
+            if (appRoot) {
+                appRoot.style.flex = "1 1 auto";
+                appRoot.style.minWidth = "0";
+            }
 
-            _dmApp = createApp(dmComponent);
-            _dmApp.component("i-attribute", Comps.Attribute);
-            _dmApp.component("i-resource", Comps.Resource);
-            _dmApp.component("i-document-link", Comps.DocumentLink);
-            _dmApp.component("i-prosemirror", Comps.ProseMirror);
-            _dmApp.component("i-roll-visualizer", Comps.RollVisualizer);
-            _dmApp.component("i-paperdoll", Comps.Paperdoll);
-            _dmApp.component("i-calculator", Comps.Calculator);
-            _dmApp.component("i-text-field", Comps.TextField);
-            _dmApp.component("i-datetime", Comps.DateTime);
-            _dmApp.component("i-tracker", Comps.Tracker);
-            _dmApp.component("i-macro", Comps.MacroField);
-            _dmApp.component("i-measured-template", Comps.MeasuredTemplateField);
-            _dmApp.component("i-extended-choice", Comps.ExtendedChoiceField);
-            _dmApp.component("i-dice", Comps.DiceField);
-            _dmApp.component("i-bonuses", Comps.DamageBonuses);
-            _dmApp.component("i-resistances", Comps.DamageResistances);
-            _dmApp.component("i-boolean", Comps.BooleanField);
-            _dmApp.component("i-die", Comps.DieField);
-            _dmApp.component("i-string", Comps.StringMethodField);
-            _dmApp.component("i-number", Comps.NumberField);
-            _dmApp.component("i-string-choice", Comps.StringChoiceField);
-            _dmApp.component("i-string-choices", Comps.StringChoicesField);
-            _dmApp.component("i-money", Comps.MoneyField);
-            _dmApp.component("i-inventory", Comps.Inventory);
-            _dmApp.component("i-damage-track", Comps.DamageTrack);
-            _dmApp.component("i-image", Comps.ImageField);
+            windowContent.appendChild(panelEl);
+            document.head.appendChild(previewStyleEl);
 
-            const vuetify = Vuetify.createVuetify({
-                icons: { defaultSet: "fa", aliases, sets: { fa } },
-                components: { VNumberInput: Vuetify.components.VNumberInput }
-            });
-            _dmApp.use(vuetify);
-            _dmApp.config.globalProperties.game = game;
-            _dmApp.config.globalProperties.CONFIG = CONFIG;
-            _dmApp.config.globalProperties.foundry = foundry;
-            _dmApp.provide("rawDocument", doc);
-            _dmApp.provide("rawSheet", null);
-            _dmApp.mount(_dmMountEl);
+            // Attach delegated event listeners (capture phase)
+            const onClick = e => _dmHandleClick(e);
+            const onDragStart = e => _dmHandleDragStart(e);
+            const onDragOver = e => _dmHandleDragOver(e);
+            const onDragLeave = e => _dmHandleDragLeave(e);
+            const onDrop = e => _dmHandleDrop(e);
+            const onDragEnd = e => _dmHandleDragEnd(e);
+
+            windowContent.addEventListener("click", onClick, true);
+            windowContent.addEventListener("dragstart", onDragStart, true);
+            windowContent.addEventListener("dragover", onDragOver, true);
+            windowContent.addEventListener("dragleave", onDragLeave, true);
+            windowContent.addEventListener("drop", onDrop, true);
+            windowContent.addEventListener("dragend", onDragEnd, true);
+
+            _dm.listeners = [
+                ["click", onClick, true],
+                ["dragstart", onDragStart, true],
+                ["dragover", onDragOver, true],
+                ["dragleave", onDragLeave, true],
+                ["drop", onDrop, true],
+                ["dragend", onDragEnd, true],
+            ];
+
+            btn.classList.add("active");
+            _dmApplyPreview();
         }
 
-        // ─── Sheet overlay ──────────────────────────────────────────────────
+        function _closeDesignMode() {
+            if (!_dm) return;
+            const { windowContent, appRoot, panelEl, previewStyleEl, listeners, btn } = _dm;
+
+            // Remove event listeners
+            for (const [type, handler, capture] of listeners) {
+                windowContent.removeEventListener(type, handler, capture);
+            }
+
+            // Remove panel and preview style
+            panelEl?.remove();
+            previewStyleEl?.remove();
+
+            // Remove DM class and reset flex
+            windowContent.classList.remove("isdl-dm-active");
+            windowContent.style.display = "";
+            if (appRoot) {
+                appRoot.style.flex = "";
+                appRoot.style.minWidth = "";
+            }
+
+            // Clean up all decorated DOM elements
+            windowContent.querySelectorAll("[data-isdl-dm]").forEach(el => {
+                el.removeAttribute("data-isdl-dm");
+                el.removeAttribute("draggable");
+                el.style.order = "";
+                el.classList.remove("isdl-dm-selected", "isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
+            });
+
+            btn?.classList.remove("active");
+            _dm = null;
+        }
+
+        // ── Interaction handlers ──────────────────────────────────────────────
+
+        function _dmHandleClick(e) {
+            if (!_dm) return;
+            // Ignore clicks inside the panel
+            if (_dm.panelEl?.contains(e.target)) return;
+
+            const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const sectionRoot = e.target.closest("[class*='isdl-section-']");
+            const root = fieldRoot ?? sectionRoot;
+
+            if (!root) {
+                _dm.selected = null;
+                _dmApplyPreview();
+                return;
+            }
+
+            // Extract the key from class name, prefer field over section
+            let kind = null, key = null;
+            if (fieldRoot) {
+                const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
+                if (cls) { kind = "field"; key = cls.replace("isdl-field-", ""); }
+            }
+            if (!kind && sectionRoot) {
+                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
+                if (cls) { kind = "section"; key = cls.replace("isdl-section-", ""); }
+            }
+
+            if (!kind || !key) {
+                _dm.selected = null;
+                _dmApplyPreview();
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const found = _dmFindAnywhere(kind, key);
+            if (found) {
+                _dm.selected = { pageKey: found.pageKey, node: found.node };
+            } else {
+                _dm.selected = null;
+            }
+            _dmApplyPreview();
+        }
+
+        function _dmHandleDragStart(e) {
+            if (!_dm) return;
+            const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const sectionRoot = e.target.closest("[class*='isdl-section-']");
+            const root = fieldRoot ?? sectionRoot;
+            if (!root) return;
+
+            let kind = null, key = null;
+            if (fieldRoot) {
+                const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
+                if (cls) { kind = "field"; key = cls.replace("isdl-field-", ""); }
+            }
+            if (!kind && sectionRoot) {
+                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
+                if (cls) { kind = "section"; key = cls.replace("isdl-section-", ""); }
+            }
+            if (!kind || !key) return;
+
+            _dm.dragging = { kind, key };
+            e.dataTransfer.effectAllowed = "move";
+        }
+
+        function _dmHandleDragOver(e) {
+            if (!_dm?.dragging) return;
+            const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const sectionRoot = e.target.closest("[class*='isdl-section-']");
+
+            // Clear all indicators first
+            _dm.windowContent.querySelectorAll(".isdl-dm-drop-before, .isdl-dm-drop-after, .isdl-dm-drop-into").forEach(el => {
+                el.classList.remove("isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
+            });
+
+            if (fieldRoot) {
+                const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
+                if (cls) {
+                    const dragKey = _dm.dragging.key;
+                    const dragKind = _dm.dragging.kind;
+                    const targetKey = cls.replace("isdl-field-", "");
+                    if (dragKey === targetKey && dragKind === "field") return;
+                    e.preventDefault();
+                    const rect = fieldRoot.getBoundingClientRect();
+                    const before = e.clientX < rect.left + rect.width / 2;
+                    fieldRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
+                }
+            } else if (sectionRoot && _dm.dragging.kind === "field") {
+                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
+                if (cls) {
+                    e.preventDefault();
+                    sectionRoot.classList.add("isdl-dm-drop-into");
+                }
+            } else if (sectionRoot && _dm.dragging.kind === "section") {
+                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
+                if (cls) {
+                    const targetKey = cls.replace("isdl-section-", "");
+                    if (_dm.dragging.key === targetKey) return;
+                    e.preventDefault();
+                    const rect = sectionRoot.getBoundingClientRect();
+                    const before = e.clientX < rect.left + rect.width / 2;
+                    sectionRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
+                }
+            }
+        }
+
+        function _dmHandleDragLeave(e) {
+            if (!_dm) return;
+            // Only clear when truly leaving the element (not going to a child)
+            const rel = e.relatedTarget;
+            const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const sectionRoot = e.target.closest("[class*='isdl-section-']");
+            const root = fieldRoot ?? sectionRoot;
+            if (root && !root.contains(rel)) {
+                root.classList.remove("isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
+            }
+        }
+
+        function _dmHandleDrop(e) {
+            if (!_dm?.dragging) return;
+            e.preventDefault();
+
+            const { kind: dragKind, key: dragKey } = _dm.dragging;
+            _dm.dragging = null;
+
+            // Clear indicators
+            _dm.windowContent.querySelectorAll(".isdl-dm-drop-before, .isdl-dm-drop-after, .isdl-dm-drop-into").forEach(el => {
+                el.classList.remove("isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
+            });
+
+            const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const sectionRoot = e.target.closest("[class*='isdl-section-']");
+
+            const srcFound = _dmFindAnywhere(dragKind, dragKey);
+            if (!srcFound) return;
+            const pageKey = srcFound.pageKey;
+
+            let targetKey = null, targetKind = null, insertBefore = true, dropInto = false;
+
+            if (fieldRoot) {
+                const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
+                if (cls) {
+                    targetKey = cls.replace("isdl-field-", "");
+                    targetKind = "field";
+                    const rect = fieldRoot.getBoundingClientRect();
+                    insertBefore = e.clientX < rect.left + rect.width / 2;
+                }
+            } else if (sectionRoot) {
+                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
+                if (cls) {
+                    targetKey = cls.replace("isdl-section-", "");
+                    if (dragKind === "field") {
+                        dropInto = true;
+                    } else {
+                        targetKind = "section";
+                        const rect = sectionRoot.getBoundingClientRect();
+                        insertBefore = e.clientX < rect.left + rect.width / 2;
+                    }
+                }
+            }
+
+            if (!targetKey) return;
+
+            // Remove from source
+            srcFound.parentChildren.splice(srcFound.index, 1);
+
+            if (dropInto) {
+                // Drop field into section
+                const tgtFound = _dmFindNode(pageKey, "section", targetKey);
+                if (!tgtFound) return;
+                const sectionNode = tgtFound.node;
+                const children = sectionNode.children ?? (sectionNode.children = []);
+                // Append to last row child if exists, else to children directly
+                const lastChild = children[children.length - 1];
+                if (lastChild && lastChild.kind === "row") {
+                    lastChild.children.push(srcFound.node);
+                } else {
+                    children.push(srcFound.node);
+                }
+            } else if (targetKind) {
+                // Reorder relative to target
+                const tgtFound = _dmFindNode(pageKey, targetKind, targetKey);
+                if (!tgtFound) return;
+                let insertIdx = tgtFound.index;
+                if (!insertBefore) insertIdx++;
+                tgtFound.parentChildren.splice(insertIdx, 0, srcFound.node);
+            }
+
+            _dmApplyPreview();
+        }
+
+        function _dmHandleDragEnd(e) {
+            if (!_dm) return;
+            _dm.dragging = null;
+            _dm.windowContent.querySelectorAll(".isdl-dm-drop-before, .isdl-dm-drop-after, .isdl-dm-drop-into").forEach(el => {
+                el.classList.remove("isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
+            });
+        }
+
+        // ── Save ──────────────────────────────────────────────────────────────
+
+        async function _dmSave(btn) {
+            if (!_dm) return;
+            btn.disabled = true;
+            btn.innerHTML = \`<i class="fa-solid fa-spinner fa-spin"></i> Saving…\`;
+
+            const { docType, docKey, tree } = _dm;
+
+            // Build clean layout nodes from the current tree
+            function stripNode(node) {
+                if (node.kind === "field") {
+                    const out = { kind: "field", name: node.name };
+                    if (node.size) out.size = node.size;
+                    if (node.hideLabel === true) out.hideLabel = true;
+                    if (node.color) out.color = node.color;
+                    if (node.icon) out.icon = node.icon;
+                    return out;
+                }
+                const out = { kind: node.kind, id: node.id };
+                if (node.kind === "section" && node.hideLabel === true) out.hideLabel = true;
+                out.children = (node.children ?? []).map(stripNode);
+                return out;
+            }
+
+            const pages = {};
+            for (const [pk, page] of Object.entries(tree.pages)) {
+                pages[pk] = { children: page.children.map(stripNode) };
+            }
+
+            const base = SAVED_LAYOUT ? structuredClone(SAVED_LAYOUT) : { version: 2, actors: {}, items: {} };
+            if (!base[docType]) base[docType] = {};
+            base[docType][docKey] = { pages };
+
+            try {
+                const resp = await fetch(_LAYOUT_SERVER + "/layout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: "${id}", layout: base })
+                });
+                const result = await resp.json();
+                if (result.ok) {
+                    ui.notifications.info("Layout saved — regenerate system to apply.");
+                } else {
+                    ui.notifications.error("Save failed: " + (result.error ?? "unknown"));
+                }
+            } catch (err) {
+                ui.notifications.error("Layout server error: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;
+            }
+        }
+
+        // ─── Sheet overlay ────────────────────────────────────────────────────
         function _activateOverlays(doc, html) {
             const root = html instanceof HTMLElement ? html : html?.[0];
             if (!root) return;
@@ -897,9 +1173,7 @@ function generateDevTools(
                         btn.setAttribute("data-tooltip", "Design Mode");
                         btn.addEventListener("click", e => {
                             e.preventDefault();
-                            _openDesignMode(doc, btn).catch(err => {
-                                console.error("[" + MODULE_ID + "] Design Mode error:", err);
-                            });
+                            _openDesignMode(doc, btn);
                         });
                     })
                     .catch(() => {
@@ -908,17 +1182,21 @@ function generateDevTools(
             }
 
             // System path + CSS selectors on hover for every rendered ISDL field
+            // Guard: skip tooltip wiring when design mode is active (hover is suppressed anyway)
             root.querySelectorAll("[class*='isdl-']").forEach(el => {
                 const input = el.querySelector("input[name^='system.'], select[name^='system.'], textarea[name^='system.']");
                 if (!input) return;
                 const systemPath = input.getAttribute("name");
                 const { typeSelector, nameSelector } = _buildCssSelectors(el);
-                el.addEventListener("mouseenter", () => _showDevTooltip(el, systemPath, typeSelector, nameSelector));
+                el.addEventListener("mouseenter", () => {
+                    if (_dm) return;
+                    _showDevTooltip(el, systemPath, typeSelector, nameSelector);
+                });
                 el.addEventListener("mouseleave", _hideDevTooltip);
             });
         }
 
-        // ─── Hooks ──────────────────────────────────────────────────────────
+        // ─── Hooks ────────────────────────────────────────────────────────────
         Hooks.once("init", () => {
             console.group(\`[\${MODULE_ID}] init\`);
             console.log("system:", game.system);
@@ -935,16 +1213,65 @@ function generateDevTools(
         for (const hook of ["renderActorSheet", "renderActorSheetV2"]) {
             Hooks.on(hook, (app, html) => {
                 const doc = app.actor ?? app.document;
-                _activateOverlays(doc, html instanceof HTMLElement ? html : html?.[0] ?? app.element);
+                const root = html instanceof HTMLElement ? html : html?.[0] ?? app.element;
+                _activateOverlays(doc, root);
                 console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name, doc?.system);
+
+                // Re-render resilience: if design mode is open for this doc, re-attach after sheet re-render
+                if (_dm && _dm.doc === doc) {
+                    const sheetEl = app.element instanceof HTMLElement ? app.element : app.element?.[0];
+                    const windowContent = sheetEl?.querySelector(".window-content") ?? sheetEl;
+                    if (windowContent && windowContent !== _dm.windowContent) {
+                        // windowContent was replaced — re-wire listeners
+                        for (const [type, handler, capture] of _dm.listeners) {
+                            _dm.windowContent.removeEventListener(type, handler, capture);
+                        }
+                        _dm.windowContent = windowContent;
+                        for (const [type, handler, capture] of _dm.listeners) {
+                            windowContent.addEventListener(type, handler, capture);
+                        }
+                    }
+                    if (windowContent) {
+                        windowContent.classList.add("isdl-dm-active");
+                        windowContent.style.display = "flex";
+                        const appRoot = windowContent.querySelector(".v-application") ?? windowContent.firstElementChild;
+                        if (appRoot) { appRoot.style.flex = "1 1 auto"; appRoot.style.minWidth = "0"; }
+                        if (_dm.panelEl && !_dm.panelEl.isConnected) windowContent.appendChild(_dm.panelEl);
+                        requestAnimationFrame(() => _dmApplyPreview());
+                    }
+                }
             });
         }
 
         for (const hook of ["renderItemSheet", "renderItemSheetV2"]) {
             Hooks.on(hook, (app, html) => {
                 const doc = app.item ?? app.document;
-                _activateOverlays(doc, html instanceof HTMLElement ? html : html?.[0] ?? app.element);
+                const root = html instanceof HTMLElement ? html : html?.[0] ?? app.element;
+                _activateOverlays(doc, root);
                 console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name, doc?.system);
+
+                // Re-render resilience
+                if (_dm && _dm.doc === doc) {
+                    const sheetEl = app.element instanceof HTMLElement ? app.element : app.element?.[0];
+                    const windowContent = sheetEl?.querySelector(".window-content") ?? sheetEl;
+                    if (windowContent && windowContent !== _dm.windowContent) {
+                        for (const [type, handler, capture] of _dm.listeners) {
+                            _dm.windowContent.removeEventListener(type, handler, capture);
+                        }
+                        _dm.windowContent = windowContent;
+                        for (const [type, handler, capture] of _dm.listeners) {
+                            windowContent.addEventListener(type, handler, capture);
+                        }
+                    }
+                    if (windowContent) {
+                        windowContent.classList.add("isdl-dm-active");
+                        windowContent.style.display = "flex";
+                        const appRoot = windowContent.querySelector(".v-application") ?? windowContent.firstElementChild;
+                        if (appRoot) { appRoot.style.flex = "1 1 auto"; appRoot.style.minWidth = "0"; }
+                        if (_dm.panelEl && !_dm.panelEl.isConnected) windowContent.appendChild(_dm.panelEl);
+                        requestAnimationFrame(() => _dmApplyPreview());
+                    }
+                }
             });
         }
 

@@ -111,7 +111,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     await runViteBuild(systemDest);
     console.log("Vite build complete");
 
-    generateDevModule(entry, id, devDest, savedLayout as any);
+    generateDevModule(entry, id, devDest, savedLayout);
 
     return systemDest;
 }
