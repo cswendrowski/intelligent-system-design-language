@@ -9,9 +9,11 @@ import { GitHubTreeProvider } from "./github/githubTreeProvider.js";
 import { GitHubQuickActions } from "./github/githubQuickActions.js";
 import { GitHubGistManager } from "./github/githubGistManager.js";
 import { GitHubGistActions } from "./github/githubGistActions.js";
+import { createLayoutServer, type LayoutServer } from '../layout-server.js';
 
 let client: LanguageClient;
 let outputChannel: vscode.OutputChannel;
+let layoutServer: LayoutServer | undefined;
 
 // This function is called when the extension is activated.
 export function activate(context: vscode.ExtensionContext): void {
@@ -21,6 +23,28 @@ export function activate(context: vscode.ExtensionContext): void {
     registerCodeActions(context);
     registerGithub(context);
     client = startLanguageClient(context);
+
+    // Start Design Mode layout server (async, non-blocking)
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (workspaceFolder) {
+        const port = vscode.workspace.getConfiguration('isdl').get<number>('layoutServerPort', 3721);
+        const workspaceDir = workspaceFolder.uri.fsPath;
+        createLayoutServer({
+            port,
+            workspaceDir,
+            onSaved: (id, layoutPath) => {
+                vscode.window.setStatusBarMessage(`$(save) ISDL layout saved for ${id} — regenerate to apply`, 5000);
+                outputChannel.appendLine(`[layout-server] Layout saved for "${id}": ${layoutPath}`);
+            },
+        }).then(server => {
+            layoutServer = server;
+            outputChannel.appendLine(`[layout-server] Listening on port ${port}`);
+        }).catch(err => {
+            outputChannel.appendLine(`[layout-server] Failed to start (port ${port} may be in use): ${err}`);
+        });
+    }
+
+    context.subscriptions.push({ dispose() { layoutServer?.stop(); } });
 }
 
 // This function is called when the extension is deactivated.

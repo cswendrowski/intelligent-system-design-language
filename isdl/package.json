@@ -310,6 +310,11 @@
     "type": "object",
     "title": "Intelligent System Design Language Configuration",
     "properties": {
+      "isdl.layoutServerPort": {
+        "type": "number",
+        "default": 3721,
+        "description": "Port for the local Design Mode layout server (POSTs from the Foundry dev companion module)"
+      },
       "isdl.lastSelectedFolder": {
         "type": "string",
         "default": "",
