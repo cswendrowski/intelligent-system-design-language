@@ -28,7 +28,7 @@ import {generateReadyHookMjs} from "./components/ready-hook-generator.js";
 import {generateHotbarDropHookMjs} from "./components/hotbar-drop-hook-generator.js";
 import {generateMeasuredTemplatePreview} from "./components/measured-template-preview.js";
 import {generateDamageRoll} from "./components/damage-roll-generator.js";
-import {generateDevModule} from "./components/dev-module-generator.js";
+import {generateDevModule, SystemLayout} from "./components/dev-module-generator.js";
 
 export async function generateJavaScript(entry: Entry, filePath: string, destination: string | undefined): Promise<string> {
     const config = entry.config;
@@ -96,7 +96,13 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     await runViteBuild(systemDest);
     console.log("Vite build complete");
 
-    generateDevModule(entry, id, devDest);
+    // Load saved layout JSON from alongside the .isdl file (written by layout server)
+    const layoutPath = path.join(path.dirname(filePath), `${id}-layout.json`);
+    let savedLayout: SystemLayout | null = null;
+    if (fs.existsSync(layoutPath)) {
+        try { savedLayout = JSON.parse(fs.readFileSync(layoutPath, 'utf8')); } catch (_) {}
+    }
+    generateDevModule(entry, id, devDest, savedLayout);
 
     return systemDest;
 }

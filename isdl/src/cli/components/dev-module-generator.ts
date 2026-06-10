@@ -2,9 +2,161 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
 import { Entry } from '../../language/generated/ast.js';
-import { isConfigExpression } from '../../language/generated/ast.js';
+import {
+    isConfigExpression, isSection, isAction, isFunctionDefinition, isHookHandler,
+    isStatusProperty, isPinnedField, isActor, isItem,
+    isAttributeExp, isResourceExp, isTrackerExp, isNumberExp, isStringExp,
+    isBooleanExp, isHtmlExp, isDamageTrackExp, isTableField, isInventoryField,
+    isDamageBonusesField, isDamageResistancesField, isImageField, isPaperDollExp,
+    isRollVisualizerField, isDateExp, isDateTimeExp, isTimeExp, isDiceField, isDieField,
+    isDocumentChoiceExp, isDocumentChoicesExp, isSingleDocumentExp,
+    isStringChoiceField, isStringChoicesField, isMoneyField, isMeasuredTemplateField,
+    isMacroField, isDamageTypeChoiceField,
+} from '../../language/generated/ast.js';
 
-export function generateDevModule(entry: Entry, id: string, devDest: string) {
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface FieldMeta {
+    name: string;
+    label: string;
+    typeClass: string;
+    width: number;
+}
+
+interface DocFieldMeta {
+    name: string;
+    fields: FieldMeta[];
+}
+
+interface DocCategory {
+    actors: Record<string, DocFieldMeta>;
+    items: Record<string, DocFieldMeta>;
+}
+
+export interface FieldPlacement {
+    field: string;
+    row: number;
+    col: number;
+    width: number;
+    hideLabel?: boolean;
+    color?: string;
+    icon?: string;
+}
+
+export interface SystemLayout {
+    version: number;
+    actors: Record<string, FieldPlacement[]>;
+    items: Record<string, FieldPlacement[]>;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function humanizeFieldName(name: string): string {
+    return name
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/[_-]+/g, ' ')
+        .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+        .replace(/^./, s => s.toUpperCase());
+}
+
+function getTypeLabel(el: unknown): string {
+    if (isAttributeExp(el)) return 'attribute';
+    if (isResourceExp(el)) return 'resource';
+    if (isTrackerExp(el)) return 'tracker';
+    if (isNumberExp(el)) return 'number';
+    if (isStringExp(el)) return 'text';
+    if (isBooleanExp(el)) return 'checkbox';
+    if (isHtmlExp(el)) return 'html';
+    if (isDamageTrackExp(el)) return 'damage-track';
+    if (isTableField(el)) return 'table';
+    if (isInventoryField(el)) return 'inventory';
+    if (isSection(el)) return 'section';
+    if (isAction(el)) return 'action';
+    if (isFunctionDefinition(el)) return 'function';
+    if (isHookHandler(el)) return 'hook';
+    if (isStatusProperty(el)) return 'status';
+    if (isPinnedField(el)) return 'pinned';
+    if (isDamageBonusesField(el)) return 'bonuses';
+    if (isDamageResistancesField(el)) return 'resistances';
+    if (isImageField(el)) return 'image';
+    if (isPaperDollExp(el)) return 'paperdoll';
+    if (isRollVisualizerField(el)) return 'roll-viz';
+    if (isDateExp(el)) return 'date';
+    if (isDateTimeExp(el)) return 'datetime';
+    if (isTimeExp(el)) return 'time';
+    if (isDiceField(el)) return 'dice';
+    if (isDieField(el)) return 'die';
+    if (isDocumentChoiceExp(el)) return 'doc-choice';
+    if (isDocumentChoicesExp(el)) return 'doc-choices';
+    if (isSingleDocumentExp(el)) return 'document';
+    if (isStringChoiceField(el)) return 'choice';
+    if (isStringChoicesField(el)) return 'choices';
+    if (isMoneyField(el)) return 'money';
+    if (isMeasuredTemplateField(el)) return 'template';
+    if (isMacroField(el)) return 'macro';
+    if (isDamageTypeChoiceField(el)) return 'dmg-choice';
+    return 'field';
+}
+
+function getDefaultWidth(typeClass: string): number {
+    const FULL_WIDTH = new Set([
+        'html', 'table', 'inventory', 'damage-track', 'roll-viz',
+        'pinned', 'paperdoll', 'bonuses', 'resistances',
+        'doc-choices', 'choices',
+    ]);
+    return FULL_WIDTH.has(typeClass) ? 12 : 6;
+}
+
+function extractDocMeta(entry: Entry): DocCategory {
+    const actors: Record<string, DocFieldMeta> = {};
+    const items: Record<string, DocFieldMeta> = {};
+
+    function gatherFields(nodes: any[], seen: Set<string>): FieldMeta[] {
+        const out: FieldMeta[] = [];
+        for (const el of nodes) {
+            if (isSection(el)) {
+                out.push(...gatherFields((el as any).body ?? [], seen));
+                continue;
+            }
+            if (el.name && !seen.has((el.name as string).toLowerCase())) {
+                const typeClass = getTypeLabel(el);
+                const skip = new Set(['field', 'function', 'hook', 'status']);
+                if (!skip.has(typeClass)) {
+                    const params: any[] = el.params ?? [];
+                    const labelParam = params.find((p: any) => p.type === 'label' || p.$type === 'LabelParam') as any;
+                    const label = labelParam?.value ?? humanizeFieldName(el.name as string);
+                    const name = (el.name as string).toLowerCase();
+                    seen.add(name);
+                    out.push({ name, label, typeClass, width: getDefaultWidth(typeClass) });
+                }
+            }
+        }
+        return out;
+    }
+
+    for (const doc of entry.documents) {
+        const seen = new Set<string>();
+        const fields = gatherFields(doc.body as any[] ?? [], seen);
+        const name = (doc.name as string);
+        if (isActor(doc)) {
+            actors[name.toLowerCase()] = { name, fields };
+        } else if (isItem(doc)) {
+            items[name.toLowerCase()] = { name, fields };
+        }
+    }
+
+    return { actors, items };
+}
+
+// ── Public entry point ─────────────────────────────────────────────────────
+
+export function generateDevModule(
+    entry: Entry,
+    id: string,
+    devDest: string,
+    layout: SystemLayout | null = null,
+    layoutServerPort = 3721,
+) {
     const scriptsDir = path.join(devDest, 'scripts');
     if (!fs.existsSync(scriptsDir)) {
         fs.mkdirSync(scriptsDir, { recursive: true });
@@ -13,8 +165,12 @@ export function generateDevModule(entry: Entry, id: string, devDest: string) {
     const title = (entry.config.body.find(x => isConfigExpression(x) && x.type === 'label') as any)?.value ?? id;
     const author = (entry.config.body.find(x => isConfigExpression(x) && x.type === 'author') as any)?.value ?? '';
 
+    const docMeta = extractDocMeta(entry);
+    const fieldMetaJson = JSON.stringify(docMeta, null, 4);
+    const embeddedLayoutJson = layout ? JSON.stringify(layout) : 'null';
+
     generateModuleJson(id, title, author, devDest);
-    generateDevTools(id, title, devDest);
+    generateDevTools(id, title, devDest, fieldMetaJson, embeddedLayoutJson, layoutServerPort);
 }
 
 function generateModuleJson(id: string, title: string, author: string, devDest: string) {
@@ -49,22 +205,32 @@ function generateModuleJson(id: string, title: string, author: string, devDest: 
     fs.writeFileSync(filePath, toString(fileNode));
 }
 
-function generateDevTools(id: string, title: string, devDest: string) {
+function generateDevTools(
+    id: string,
+    title: string,
+    devDest: string,
+    fieldMetaJson: string,
+    embeddedLayoutJson: string,
+    layoutServerPort: number,
+) {
     const filePath = path.join(devDest, 'scripts', 'dev-tools.mjs');
     const fileNode = expandToNode`
         // ${id}-dev — developer companion for ${title}
         // Regenerated on each build. Customise ${id}-custom.mjs instead.
 
         const MODULE_ID = "${id}-dev";
+        const _LAYOUT_SERVER = "http://localhost:${layoutServerPort}";
+
+        // ─── Embedded metadata (generated from ISDL AST) ───────────────────
+        const FIELD_META = ${fieldMetaJson};
+        const EMBEDDED_LAYOUT = ${embeddedLayoutJson};
 
         // ─── Vue DevTools ───────────────────────────────────────────────────
-        // Only enable if the Vue DevTools extension is already installed —
-        // creating a stub hook causes Vue to call emit() on a no-op object and break.
         if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__) {
             window.__VUE_DEVTOOLS_GLOBAL_HOOK__.enabled = true;
         }
 
-        // ─── Tooltip styles ─────────────────────────────────────────────────
+        // ─── Styles ─────────────────────────────────────────────────────────
         {
             const style = document.createElement("style");
             style.textContent = \`
@@ -127,7 +293,6 @@ function generateDevTools(id: string, title: string, devDest: string) {
                     line-height: 1.4;
                 }
                 .isdl-dev-copy:hover { background: #4a9eff; color: #1a1a2e; }
-                .isdl-design-mode-btn { opacity: 0.4; cursor: not-allowed !important; }
                 .isdl-inspector { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
                 .isdl-inspector-hint { font-size: 12px; color: #888; margin: 0; }
                 .isdl-inspector-hint code { font-size: 11px; background: #eee; padding: 1px 3px; border-radius: 2px; }
@@ -205,9 +370,7 @@ function generateDevTools(id: string, title: string, devDest: string) {
 
         function _buildCssSelectors(el) {
             const classes = [...el.classList];
-            // e.g. isdl-field-brawn → "Just this field"
             const nameClass = classes.find(c => /^isdl-field-[a-z]/.test(c));
-            // e.g. isdl-number, isdl-attribute — the field type, skip field/visibility/name classes
             const typeClass = classes.find(c =>
                 c.startsWith("isdl-") &&
                 c !== "isdl-field" &&
@@ -216,7 +379,7 @@ function generateDevTools(id: string, title: string, devDest: string) {
             );
             return {
                 typeSelector: typeClass ? \`.\${typeClass}\` : null,
-                nameSelector: nameClass ? \`.\${nameClass}\` : null
+                nameSelector: nameClass ? \`.\${nameClass}\` : null,
             };
         }
 
@@ -231,7 +394,6 @@ function generateDevTools(id: string, title: string, devDest: string) {
                         <p class="isdl-inspector-hint">
                             <i class="fa-solid fa-circle-info"></i>
                             Everything stored in <code>actor.system</code> for this document.
-                            Use these paths in macros, roll formulas, and scripts.
                         </p>
                         <button type="button" class="isdl-inspector-copy-all">
                             <i class="fa-solid fa-copy"></i> Copy all
@@ -255,17 +417,21 @@ function generateDevTools(id: string, title: string, devDest: string) {
             }).render(true);
         }
 
+        // ─── Design Mode ────────────────────────────────────────────────────
+        async function _openDesignMode(doc, btn) {
+            // TODO: mount Vue design mode overlay (step 2)
+            ui.notifications?.info("Design Mode coming soon!");
+        }
+
         // ─── Sheet overlay ──────────────────────────────────────────────────
         function _activateOverlays(doc, html) {
             const root = html instanceof HTMLElement ? html : html?.[0];
             if (!root) return;
 
-            // v14: header is a direct child of the form (root IS the sheet element)
-            // v12/v13: header is a sibling of root inside .window-app
             const header = root.querySelector(".window-header, .window-controls")
                 ?? root.closest(".window-app, .application")?.querySelector(".window-header, .window-controls");
 
-            // Inspector button — opens system data dialog
+            // Inspector button
             if (header && !header.querySelector(".isdl-inspector-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
@@ -276,15 +442,33 @@ function generateDevTools(id: string, title: string, devDest: string) {
                 header.prepend(btn);
             }
 
-            // Design Mode stub button (greyed out until VS Code HTTP server is up)
+            // Design Mode button — enabled only when layout server is reachable
             if (header && !header.querySelector(".isdl-design-mode-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "isdl-design-mode-btn header-control fa-solid fa-pen-ruler";
                 btn.setAttribute("aria-label", "Design Mode");
-                btn.setAttribute("data-tooltip", "Design Mode — open your .isdl file in VS Code to enable");
+                btn.setAttribute("data-tooltip", "Design Mode — checking for VS Code layout server…");
                 btn.disabled = true;
+                btn.style.opacity = "0.4";
                 header.prepend(btn);
+
+                fetch(_LAYOUT_SERVER + "/status", { method: "GET" })
+                    .then(r => r.ok ? r.json() : Promise.reject())
+                    .then(() => {
+                        btn.disabled = false;
+                        btn.style.opacity = "";
+                        btn.setAttribute("data-tooltip", "Design Mode");
+                        btn.addEventListener("click", e => {
+                            e.preventDefault();
+                            _openDesignMode(doc, btn).catch(err => {
+                                console.error("[" + MODULE_ID + "] Design Mode error:", err);
+                            });
+                        });
+                    })
+                    .catch(() => {
+                        btn.setAttribute("data-tooltip", "Design Mode — start VS Code with your .isdl file to enable");
+                    });
             }
 
             // System path + CSS selectors on hover for every rendered ISDL field
@@ -298,7 +482,7 @@ function generateDevTools(id: string, title: string, devDest: string) {
             });
         }
 
-        // ─── Verbose logging ────────────────────────────────────────────────
+        // ─── Hooks ──────────────────────────────────────────────────────────
         Hooks.once("init", () => {
             console.group(\`[\${MODULE_ID}] init\`);
             console.log("system:", game.system);
@@ -312,8 +496,6 @@ function generateDevTools(id: string, title: string, devDest: string) {
             console.groupEnd();
         });
 
-        // ApplicationV2 (Foundry v13+) fires renderActorSheetV2 / renderItemSheetV2
-        // ApplicationV1 fires the legacy renderActorSheet / renderItemSheet
         for (const hook of ["renderActorSheet", "renderActorSheetV2"]) {
             Hooks.on(hook, (app, html) => {
                 const doc = app.actor ?? app.document;
