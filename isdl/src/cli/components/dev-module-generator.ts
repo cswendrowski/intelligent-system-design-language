@@ -296,6 +296,16 @@ function generateDevTools(
                     font-size: 11px;
                     box-sizing: border-box;
                 }
+                .isdl-dm-icon-style {
+                    flex: 0 0 72px;
+                    background: #1a2a4a;
+                    border: 1px solid #2a4a8a;
+                    color: #a0c8ff;
+                    border-radius: 2px;
+                    font-size: 11px;
+                    padding: 2px;
+                }
+                .isdl-dm-icon-input { flex: 1; min-width: 0; }
                 /* ── Status row ── */
                 .isdl-dm-status-row {
                     display: flex;
@@ -846,11 +856,83 @@ function generateDevTools(
                 _dm.windowContent.appendChild(_dm.panelEl);
             }
 
-            // Refresh panel body
-            _dmRenderPanelBody();
+            // Refresh panel body — but never while the user is typing in a panel input:
+            // rebuilding replaces the focused element and eats the keystroke.
+            const active = document.activeElement;
+            const typingInPanel = _dm.panelEl?.contains(active) &&
+                ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
+            if (!typingInPanel) _dmRenderPanelBody();
         }
 
         // ── Sidebar panel ─────────────────────────────────────────────────────
+
+        // ── Font Awesome icon autocomplete ────────────────────────────────────
+        let _dmFaIconList = null;
+
+        // Harvest every available icon name from the Font Awesome stylesheet Foundry
+        // already ships (rules look like .fa-star::before with a glyph content).
+        // One-time scan, cached for the session — no hardcoded icon list to drift.
+        function _dmGetFaIcons() {
+            if (_dmFaIconList) return _dmFaIconList;
+            const names = new Set();
+            const NOT_ICONS = new Set([
+                "solid", "regular", "light", "thin", "duotone", "sharp", "brands", "classic",
+                "fw", "xs", "sm", "lg", "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x",
+                "spin", "spin-pulse", "spin-reverse", "pulse", "beat", "beat-fade", "fade", "flip",
+                "flip-horizontal", "flip-vertical", "flip-both", "shake", "bounce", "border",
+                "inverse", "stack", "stack-1x", "stack-2x", "ul", "li", "level-up", "level-down",
+                "rotate-90", "rotate-180", "rotate-270", "rotate-by", "swap-opacity", "pull-left", "pull-right",
+            ]);
+            // Foundry's top-level css is a stack of @import rules, so recurse into
+            // CSSImportRule.styleSheet (and grouping rules). An icon definition is any
+            // rule that sets a glyph: FA6.4+ uses a --fa custom property, older FA uses
+            // content on ::before — accept either and harvest the .fa-<name> tokens.
+            function scan(sheetOrGroup, depth) {
+                if (!sheetOrGroup || depth > 4) return;
+                let rules;
+                try { rules = sheetOrGroup.cssRules; } catch (e) { return; } // cross-origin
+                if (!rules) return;
+                for (const rule of rules) {
+                    if (rule.styleSheet) { scan(rule.styleSheet, depth + 1); continue; } // @import
+                    if (rule.cssRules && !rule.selectorText) { scan(rule, depth + 1); continue; } // @media etc.
+                    const sel = rule.selectorText;
+                    if (!sel || !sel.includes(".fa-") || !rule.style) continue;
+                    const definesGlyph = rule.style.getPropertyValue("--fa") !== "" ||
+                        (rule.style.content && rule.style.content !== "normal" && rule.style.content !== "none");
+                    if (!definesGlyph) continue;
+                    for (const m of sel.matchAll(/\\.fa-([a-z0-9-]+)/g)) {
+                        if (!NOT_ICONS.has(m[1])) names.add(m[1]);
+                    }
+                }
+            }
+            for (const sheet of document.styleSheets) scan(sheet, 0);
+            _dmFaIconList = [...names].sort();
+            return _dmFaIconList;
+        }
+
+        function _dmEnsureIconDatalist() {
+            if (document.getElementById("isdl-dm-fa-icons")) return;
+            const dl = document.createElement("datalist");
+            dl.id = "isdl-dm-fa-icons";
+            for (const n of _dmGetFaIcons()) {
+                const o = document.createElement("option");
+                o.value = n;
+                dl.appendChild(o);
+            }
+            document.body.appendChild(dl);
+        }
+
+        // Split an icon class string ("fa-duotone fa-star") into style + bare name.
+        function _dmParseIconClasses(icon) {
+            const STYLES = new Set(["fa-solid", "fa-regular", "fa-light", "fa-thin", "fa-duotone", "fa-brands", "fa-sharp"]);
+            let style = "fa-solid", name = "";
+            for (const tok of (icon ?? "").split(/\\s+/).filter(Boolean)) {
+                if (STYLES.has(tok)) style = tok === "fa-sharp" ? style : tok;
+                else if (tok.startsWith("fa-")) name = tok.slice(3);
+                else if (tok !== "fas" && tok !== "far" && tok !== "fab") name = tok;
+            }
+            return { style, name };
+        }
 
         // ── Status row state (module-level, lives for DM session) ────────────────
         let _dmLastSyncTime = null;
@@ -1335,19 +1417,37 @@ function generateDevTools(
             colorRow.appendChild(clearColorBtn);
             body.appendChild(colorRow);
 
-            // Icon
+            // Icon: style dropdown + name input with Font Awesome autocomplete
             body.appendChild(_dmMakeSectionLabel("Icon"));
+            _dmEnsureIconDatalist();
+            const parsed = _dmParseIconClasses(node.icon);
+            const iconRow = document.createElement("div");
+            iconRow.className = "isdl-dm-move-row";
+            const styleSelect = document.createElement("select");
+            styleSelect.className = "isdl-dm-icon-style";
+            for (const s of ["solid", "regular", "light", "thin", "duotone", "brands"]) {
+                const o = document.createElement("option");
+                o.value = "fa-" + s;
+                o.textContent = s;
+                styleSelect.appendChild(o);
+            }
+            styleSelect.value = parsed.style;
             const iconInput = document.createElement("input");
             iconInput.type = "text";
             iconInput.className = "isdl-dm-icon-input";
-            iconInput.placeholder = "fa-solid fa-star";
-            iconInput.value = node.icon || "";
-            iconInput.addEventListener("input", e => {
-                e.stopPropagation();
-                node.icon = iconInput.value || undefined;
+            iconInput.placeholder = "star";
+            iconInput.setAttribute("list", "isdl-dm-fa-icons");
+            iconInput.value = parsed.name;
+            const applyIcon = () => {
+                const name = iconInput.value.trim().replace(/^fa-/, "");
+                node.icon = name ? \`\${styleSelect.value} fa-\${name}\` : undefined;
                 _dmApplyPreview();
-            });
-            body.appendChild(iconInput);
+            };
+            styleSelect.addEventListener("change", e => { e.stopPropagation(); applyIcon(); });
+            iconInput.addEventListener("input", e => { e.stopPropagation(); applyIcon(); });
+            iconRow.appendChild(styleSelect);
+            iconRow.appendChild(iconInput);
+            body.appendChild(iconRow);
 
             const regenNote = document.createElement("p");
             regenNote.className = "isdl-dm-panel-note";
