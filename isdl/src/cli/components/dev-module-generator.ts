@@ -170,10 +170,16 @@ function generateDevTools(
                 .isdl-dm-active .v-application { flex: 1 1 auto; min-width: 0; }
                 .isdl-dm-active .isdl-section:hover { outline: 1px dashed #3a6aaa; outline-offset: 1px; }
                 .isdl-dm-active .isdl-field:hover { outline: 1px dashed #3a6aaa; outline-offset: 1px; }
+                .isdl-dm-active .isdl-static:hover { outline: 1px dashed #3a6aaa; outline-offset: 1px; }
+                /* 4c: Section roots need pointer-events:auto so dragover can fire on their padding/title.
+                   Children inherit none so the section outline stays, but the field root re-enables its children
+                   via the .isdl-field rule below so field-targeting still works correctly. */
                 .isdl-dm-active .isdl-section { pointer-events: auto !important; cursor: pointer; }
                 .isdl-dm-active .isdl-section * { pointer-events: none !important; }
                 .isdl-dm-active .isdl-field { pointer-events: auto !important; cursor: pointer; }
                 .isdl-dm-active .isdl-field * { pointer-events: none !important; }
+                .isdl-dm-active .isdl-static { pointer-events: auto !important; cursor: pointer; }
+                .isdl-dm-active .isdl-static * { pointer-events: none !important; }
                 .isdl-dm-selected { outline: 2px solid #4a9eff !important; outline-offset: 1px; }
                 .isdl-dm-drop-before { box-shadow: -3px 0 0 0 #ffaa4a !important; }
                 .isdl-dm-drop-after { box-shadow: 3px 0 0 0 #ffaa4a !important; }
@@ -183,13 +189,22 @@ function generateDevTools(
                     width: 240px;
                     flex-shrink: 0;
                     border-left: 1px solid #1a2a4a;
-                    overflow-y: auto;
                     background: #0a0e18;
                     display: flex;
                     flex-direction: column;
                     color: #c0d8f0;
                     font-family: var(--font-primary, sans-serif);
                     font-size: 12px;
+                    /* #2 sticky pin: panel stays at top of the viewport regardless of whether
+                       .window-content or an inner element is the scroll container.
+                       100% (not 100vh): vh can exceed the scrollport, making the panel itself the
+                       tallest child — and a sticky element taller than its scrollport can't pin. */
+                    position: sticky;
+                    top: 0;
+                    align-self: flex-start;
+                    height: 100%;
+                    max-height: 100%;
+                    overflow-y: auto;
                 }
                 .isdl-dm-panel-header {
                     display: flex;
@@ -211,7 +226,7 @@ function generateDevTools(
                     border-radius: 2px;
                     font-weight: normal;
                 }
-                .isdl-dm-panel-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+                .isdl-dm-panel-body { padding: 12px 10px 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
                 .isdl-dm-panel-hint { color: #6a8aaa; font-size: 11px; line-height: 1.4; }
                 .isdl-dm-panel-note { color: #8a9aaa; font-size: 10px; font-style: italic; margin-top: 2px; }
                 .isdl-dm-field-name { font-family: monospace; font-size: 11px; color: #a0cfff; background: #0e1a2e; padding: 1px 4px; border-radius: 2px; }
@@ -267,6 +282,65 @@ function generateDevTools(
                     font-size: 11px;
                     box-sizing: border-box;
                 }
+                .isdl-dm-text-input {
+                    width: 100%;
+                    background: #1a2a4a;
+                    border: 1px solid #2a4a8a;
+                    color: #a0c8ff;
+                    border-radius: 2px;
+                    padding: 3px 5px;
+                    font-size: 11px;
+                    box-sizing: border-box;
+                }
+                /* ── Status row ── */
+                .isdl-dm-status-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 10px;
+                    background: #060910;
+                    border-top: 1px solid #1a2a4a;
+                    border-bottom: 1px solid #1a2a4a;
+                    font-size: 10px;
+                    color: #6a8aaa;
+                    flex-shrink: 0;
+                }
+                .isdl-dm-status-dot {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    background: #888;
+                    flex-shrink: 0;
+                }
+                .isdl-dm-status-dot.ok { background: #2aaa5a; }
+                .isdl-dm-status-dot.err { background: #cc4444; }
+                .isdl-dm-status-label { flex: 1; }
+                .isdl-dm-status-synced { color: #4a6a8a; }
+                .isdl-dm-export-btn {
+                    background: none;
+                    border: 1px solid #2a4a8a;
+                    color: #6a9aff;
+                    cursor: pointer;
+                    padding: 1px 5px;
+                    border-radius: 2px;
+                    font-size: 10px;
+                }
+                .isdl-dm-export-btn:hover { background: #1a2a4a; }
+                /* ── Insert group ── */
+                .isdl-dm-insert-row { display: flex; gap: 4px; flex-wrap: wrap; }
+                .isdl-dm-insert-btn {
+                    flex: 1;
+                    background: #0e1a2e;
+                    border: 1px solid #2a4a8a;
+                    color: #6a9aff;
+                    cursor: pointer;
+                    padding: 3px 4px;
+                    border-radius: 2px;
+                    font-size: 10px;
+                    text-align: center;
+                    white-space: nowrap;
+                }
+                .isdl-dm-insert-btn:hover { background: #1a2a4a; }
             \`;
             document.head.appendChild(style);
         }
@@ -392,7 +466,8 @@ function generateDevTools(
         function _dmWalkNodes(nodes, visitor) {
             for (const n of nodes) {
                 visitor(n);
-                if (n.children) _dmWalkNodes(n.children, visitor);
+                // Static nodes have no children; only containers recurse
+                if (n.kind !== "field" && n.kind !== "static" && n.children) _dmWalkNodes(n.children, visitor);
             }
         }
 
@@ -403,13 +478,20 @@ function generateDevTools(
             function walk(nodes, parent) {
                 for (let i = 0; i < nodes.length; i++) {
                     const n = nodes[i];
-                    const matches = kind === "field" ? n.kind === "field" && n.name === key
-                                                     : n.kind !== "field" && n.id === key;
+                    let matches = false;
+                    if (kind === "field") {
+                        matches = n.kind === "field" && n.name === key;
+                    } else if (kind === "static") {
+                        matches = n.kind === "static" && n.id === key;
+                    } else {
+                        // section/row/column
+                        matches = (n.kind === "section" || n.kind === "row" || n.kind === "column") && n.id === key;
+                    }
                     if (matches) {
                         result = { node: n, parent, index: i, parentChildren: nodes };
                         return true;
                     }
-                    if (n.children && walk(n.children, n)) return true;
+                    if (n.kind !== "field" && n.kind !== "static" && n.children && walk(n.children, n)) return true;
                 }
                 return false;
             }
@@ -435,8 +517,14 @@ function generateDevTools(
             return _dm.windowContent.querySelector(\`.isdl-section-\${id}\`);
         }
 
+        function _dmStaticRoot(id) {
+            return _dm.windowContent.querySelector(\`.isdl-static-\${id}\`);
+        }
+
         function _dmNodeRoot(node) {
-            return node.kind === "field" ? _dmFieldRoot(node.name) : _dmSectionRoot(node.id);
+            if (node.kind === "field") return _dmFieldRoot(node.name);
+            if (node.kind === "static") return _dmStaticRoot(node.id) ?? _dmStaticRoot(node.id + "_synth");
+            return _dmSectionRoot(node.id);
         }
 
         // ── Preview stylesheet ────────────────────────────────────────────────
@@ -456,10 +544,27 @@ function generateDevTools(
                         }
                     }
                     if (node.kind === "field" && node.hideLabel === true) {
+                        // 3a: Broaden to cover all common label nodes across field types
                         const name = node.name;
                         css += \`.isdl-dm-active .isdl-field-\${name} .v-field-label,\`
                              + \` .isdl-dm-active .isdl-field-\${name} .v-label,\`
-                             + \` .isdl-dm-active .isdl-field-\${name} legend { display: none !important; }\\n\`;
+                             + \` .isdl-dm-active .isdl-field-\${name} legend,\`
+                             + \` .isdl-dm-active .isdl-field-\${name} .v-card-title,\`
+                             + \` .isdl-dm-active .isdl-field-\${name} .v-input__details,\`
+                             + \` .isdl-dm-active .isdl-field-\${name} label { display: none !important; }\\n\`;
+                    }
+                    if (node.kind === "field" && node.color) {
+                        // 3b: Best-effort live color preview tinting Vuetify hooks
+                        const name = node.name;
+                        const c = node.color;
+                        css += \`.isdl-dm-active .isdl-field-\${name} .v-btn { color: \${c} !important; }\\n\`;
+                        // Action components: the marker falls through to the v-btn ROOT itself,
+                        // and elevated buttons render their color prop as background.
+                        css += \`.isdl-dm-active .v-btn.isdl-field-\${name} { background-color: \${c} !important; }\\n\`;
+                        css += \`.isdl-dm-active .isdl-field-\${name} .v-progress-linear__determinate { background-color: \${c} !important; }\\n\`;
+                        css += \`.isdl-dm-active .isdl-field-\${name} .v-field__outline { color: \${c} !important; border-color: \${c} !important; }\\n\`;
+                        css += \`.isdl-dm-active .isdl-field-\${name} .v-slider__thumb { color: \${c} !important; background-color: \${c} !important; }\\n\`;
+                        css += \`.isdl-dm-active .isdl-field-\${name} input { caret-color: \${c} !important; }\\n\`;
                     }
                     if (node.kind === "section" && node.hideLabel === true) {
                         const id = node.id;
@@ -470,37 +575,112 @@ function generateDevTools(
             return css;
         }
 
-        function _dmApplyOrderToDOMChildren(nodes) {
+        function _dmApplyOrderToDOMChildren(nodes, containerEl) {
             let order = 0;
             for (const node of nodes) {
+                // Synthesize DOM for static nodes that aren't in the generated markup yet
+                if (node.kind === "static") {
+                    let el = _dmStaticRoot(node.id);
+                    if (!el && containerEl) {
+                        // Not yet in DOM (inserted in DM, not yet regenerated) — synthesize it
+                        el = document.createElement("div");
+                        el.className = \`isdl-static isdl-static-\${node.id}\`;
+                        el.dataset.isdlDmSynth = "1";
+                        if (node.staticType === "hr") {
+                            el.innerHTML = \`<hr style="border-color: #4a6a8a; margin: 4px 0;">\`;
+                        } else if (node.staticType === "paragraph") {
+                            el.innerHTML = \`<p class="isdl-static-paragraph" style="margin:4px 0;color:#c0d0e0;font-size:12px;">\${node.text ?? ""}</p>\`;
+                        } else {
+                            el.innerHTML = \`<h3 class="isdl-static-heading" style="margin:4px 0;color:#c0d0e0;font-size:13px;font-weight:bold;">\${node.text ?? "Heading"}</h3>\`;
+                        }
+                        containerEl.appendChild(el);
+                    } else if (el && node.staticType !== "hr") {
+                        // Update text of existing synth element in case it was edited
+                        const textEl = el.querySelector(".isdl-static-heading, .isdl-static-paragraph");
+                        if (textEl && textEl.dataset.isdlDmLive !== "1") {
+                            textEl.textContent = node.text ?? "";
+                        }
+                    }
+                    if (el) {
+                        // Cross-container move: a static dragged into a different container must
+                        // physically reparent — CSS order only sorts among siblings.
+                        if (containerEl && el.parentElement !== containerEl) containerEl.appendChild(el);
+                        el.style.order = String(order++);
+                        el.setAttribute("data-isdl-dm", "1");
+                        el.draggable = true;
+                    } else {
+                        order++;
+                    }
+                    continue;
+                }
                 const el = _dmNodeRoot(node);
                 if (!el) {
                     order++;
                     continue;
                 }
+                // Cross-container move: when the model places this node under a container the
+                // element doesn't live in (e.g. field dragged to another section), reparent it.
+                // CSS order alone can't express that — it only sorts among existing siblings.
+                if (containerEl && el.parentElement !== containerEl) containerEl.appendChild(el);
                 el.style.order = String(order++);
                 el.setAttribute("data-isdl-dm", "1");
                 el.draggable = true;
             }
         }
 
+        function _dmGetSectionRowEl(sectionId) {
+            // 4b: Robust selector for section inner row — handles both collapsible and non-collapsible.
+            // The generated markup is: .isdl-section-<id> .v-card-text .v-row (first match)
+            return _dm.windowContent.querySelector(\`.isdl-section-\${sectionId} .v-card-text .v-row\`);
+        }
+
         function _dmApplyPreview() {
             if (!_dm) return;
+
+            // Remove previously synthesised static nodes so we can re-add them in correct order
+            _dm.windowContent.querySelectorAll("[data-isdl-dm-synth]").forEach(el => el.remove());
 
             // Rebuild preview CSS
             _dm.previewStyleEl.textContent = _dmBuildPreviewCss();
 
             // DOM pass: set CSS order + draggable on addressable nodes per page
             for (const [pageKey, page] of Object.entries(_dm.tree.pages)) {
-                // Top-level children
-                _dmApplyOrderToDOMChildren(page.children);
-                // Recurse into containers
+                // Determine the page's top-level container element
+                const pageTabEl = _dm.windowContent.querySelector(\`[data-tab="\${pageKey}"] > .v-row, [data-tab="\${pageKey}"] .v-row\`);
+                // Top-level children — pass the v-row container for synth injection
+                _dmApplyOrderToDOMChildren(page.children, pageTabEl);
+                // Recurse into section/row/column containers
                 _dmWalkNodes(page.children, node => {
-                    if (node.kind !== "field" && node.children) {
-                        _dmApplyOrderToDOMChildren(node.children);
+                    if (node.kind !== "field" && node.kind !== "static" && node.children) {
+                        let containerEl = null;
+                        if (node.kind === "section") {
+                            containerEl = _dmGetSectionRowEl(node.id);
+                        } else if (node.kind === "row" || node.kind === "column") {
+                            containerEl = _dmSectionRoot(node.id) ?? null;
+                        }
+                        _dmApplyOrderToDOMChildren(node.children, containerEl);
                     }
                 });
             }
+
+            // 3c: Icon live preview — swap FA icon classes on the field's label area
+            _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), node => {
+                if (node.kind !== "field") return;
+                const el = _dmFieldRoot(node.name);
+                if (!el) return;
+                // Find an <i class="fa-..."> anywhere in the field root (labels, card-title, etc.)
+                const iconEl = el.querySelector(\`i[class*="fa-"]\`);
+                if (!iconEl) return;
+                if (node.icon) {
+                    if (!iconEl.dataset.isdlDmOrigIcon) {
+                        iconEl.dataset.isdlDmOrigIcon = iconEl.className;
+                    }
+                    iconEl.className = node.icon;
+                } else if (iconEl.dataset.isdlDmOrigIcon) {
+                    iconEl.className = iconEl.dataset.isdlDmOrigIcon;
+                    delete iconEl.dataset.isdlDmOrigIcon;
+                }
+            });
 
             // Re-apply selection outline
             _dm.windowContent.querySelectorAll(".isdl-dm-selected").forEach(el => el.classList.remove("isdl-dm-selected"));
@@ -520,6 +700,68 @@ function generateDevTools(
 
         // ── Sidebar panel ─────────────────────────────────────────────────────
 
+        // ── Status row state (module-level, lives for DM session) ────────────────
+        let _dmLastSyncTime = null;
+        let _dmStatusInterval = null;
+
+        function _dmFormatSyncTime() {
+            if (!_dmLastSyncTime) return "—";
+            const diff = Math.floor((Date.now() - _dmLastSyncTime) / 1000);
+            if (diff < 10) return "just now";
+            if (diff < 60) return \`\${diff}s ago\`;
+            return \`\${Math.floor(diff / 60)}m ago\`;
+        }
+
+        function _dmUpdateStatusRow(panelEl, ok) {
+            const dot = panelEl.querySelector(".isdl-dm-status-dot");
+            const label = panelEl.querySelector(".isdl-dm-status-label");
+            const synced = panelEl.querySelector(".isdl-dm-status-synced");
+            if (dot) {
+                dot.className = "isdl-dm-status-dot " + (ok === true ? "ok" : ok === false ? "err" : "");
+            }
+            if (label) label.textContent = ok === true ? "Connected" : ok === false ? "Offline" : "Checking…";
+            if (synced) synced.textContent = _dmFormatSyncTime();
+        }
+
+        function _dmCheckStatus(panelEl) {
+            fetch(_LAYOUT_SERVER + "/status", { method: "GET", signal: AbortSignal.timeout(3000) })
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(() => _dmUpdateStatusRow(panelEl, true))
+                .catch(() => _dmUpdateStatusRow(panelEl, false));
+        }
+
+        function _dmBuildLayoutPayload() {
+            if (!_dm) return null;
+            const { docType, docKey, tree } = _dm;
+            function stripNode(node) {
+                if (node.kind === "field") {
+                    const out = { kind: "field", name: node.name };
+                    if (node.size) out.size = node.size;
+                    if (node.hideLabel === true) out.hideLabel = true;
+                    if (node.color) out.color = node.color;
+                    if (node.icon) out.icon = node.icon;
+                    return out;
+                }
+                if (node.kind === "static") {
+                    const out = { kind: "static", id: node.id, staticType: node.staticType };
+                    if (node.text != null) out.text = node.text;
+                    return out;
+                }
+                const out = { kind: node.kind, id: node.id };
+                if (node.kind === "section" && node.hideLabel === true) out.hideLabel = true;
+                out.children = (node.children ?? []).map(stripNode);
+                return out;
+            }
+            const pages = {};
+            for (const [pk, page] of Object.entries(tree.pages)) {
+                pages[pk] = { children: page.children.map(stripNode) };
+            }
+            const base = SAVED_LAYOUT ? structuredClone(SAVED_LAYOUT) : { version: 2, actors: {}, items: {} };
+            if (!base[docType]) base[docType] = {};
+            base[docType][docKey] = { pages };
+            return base;
+        }
+
         function _dmBuildPanel(docType, docKey) {
             const panel = document.createElement("div");
             panel.className = "isdl-dm-panel";
@@ -533,7 +775,7 @@ function generateDevTools(
             saveBtn.type = "button";
             saveBtn.className = "isdl-dm-panel-btn save";
             saveBtn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;
-            saveBtn.addEventListener("click", e => { e.stopPropagation(); _dmSave(saveBtn); });
+            saveBtn.addEventListener("click", e => { e.stopPropagation(); _dmSave(saveBtn, panel); });
 
             const closeBtn = document.createElement("button");
             closeBtn.type = "button";
@@ -545,6 +787,44 @@ function generateDevTools(
             header.appendChild(saveBtn);
             header.appendChild(closeBtn);
             panel.appendChild(header);
+
+            // Status row (#6)
+            const statusRow = document.createElement("div");
+            statusRow.className = "isdl-dm-status-row";
+            statusRow.innerHTML =
+                \`<span class="isdl-dm-status-dot"></span>\`
+              + \`<span class="isdl-dm-status-label">Checking…</span>\`
+              + \`<span class="isdl-dm-status-synced">—</span>\`;
+
+            // Export button (#6)
+            const exportBtn = document.createElement("button");
+            exportBtn.type = "button";
+            exportBtn.className = "isdl-dm-export-btn";
+            exportBtn.innerHTML = \`<i class="fa-solid fa-download"></i>\`;
+            exportBtn.title = 'Download layout JSON (drop next to your .isdl)';
+            exportBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                const payload = _dmBuildLayoutPayload();
+                if (!payload) return;
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "${id}-layout.json";
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+            statusRow.appendChild(exportBtn);
+            panel.appendChild(statusRow);
+
+            // Start status polling (#6)
+            _dmLastSyncTime = null;
+            _dmCheckStatus(panel);
+            _dmStatusInterval = setInterval(() => {
+                _dmCheckStatus(panel);
+                const synced = panel.querySelector(".isdl-dm-status-synced");
+                if (synced) synced.textContent = _dmFormatSyncTime();
+            }, 30000);
 
             // Body (dynamic)
             const body = document.createElement("div");
@@ -561,6 +841,23 @@ function generateDevTools(
             if (!body) return;
             body.innerHTML = "";
 
+            // Insert group — always visible (#5c)
+            body.appendChild(_dmMakeSectionLabel("Insert"));
+            const insertRow = document.createElement("div");
+            insertRow.className = "isdl-dm-insert-row";
+            for (const [label, type, defaultText] of [["H Heading", "heading", "Heading"], ["¶ Paragraph", "paragraph", "Paragraph text"], ["— Divider", "hr", undefined]]) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "isdl-dm-insert-btn";
+                btn.textContent = label;
+                btn.addEventListener("click", e => {
+                    e.stopPropagation();
+                    _dmInsertStatic(type, defaultText);
+                });
+                insertRow.appendChild(btn);
+            }
+            body.appendChild(insertRow);
+
             const sel = _dm.selected;
             if (!sel) {
                 const hint = document.createElement("p");
@@ -576,7 +873,39 @@ function generateDevTools(
                 _dmRenderFieldPanel(body, node, sel.pageKey);
             } else if (node.kind === "section") {
                 _dmRenderSectionPanel(body, node, sel.pageKey);
+            } else if (node.kind === "static") {
+                _dmRenderStaticPanel(body, node, sel.pageKey);
             }
+        }
+
+        function _dmInsertStatic(staticType, defaultText) {
+            if (!_dm) return;
+            const newNode = { kind: "static", id: "__static_" + Date.now(), staticType };
+            if (defaultText != null) newNode.text = defaultText;
+
+            const pageKey = _dmCurrentPageKey();
+            if (!pageKey) return;
+            const page = _dm.tree.pages[pageKey];
+            if (!page) return;
+
+            if (_dm.selected) {
+                // Insert after the selected node in its parent container
+                const sel = _dm.selected;
+                const kind = sel.node.kind === "field" ? "field"
+                           : sel.node.kind === "static" ? "static" : "section";
+                const key = sel.node.kind === "field" ? sel.node.name : sel.node.id;
+                const found = _dmFindNode(sel.pageKey, kind, key);
+                if (found) {
+                    found.parentChildren.splice(found.index + 1, 0, newNode);
+                    _dm.selected = { pageKey: sel.pageKey, node: newNode };
+                    _dmApplyPreview();
+                    return;
+                }
+            }
+            // Fallback: append at end of current page
+            page.children.push(newNode);
+            _dm.selected = { pageKey, node: newNode };
+            _dmApplyPreview();
         }
 
         function _dmMakeSectionLabel(text) {
@@ -652,6 +981,7 @@ function generateDevTools(
             colorInput.addEventListener("input", e => {
                 e.stopPropagation();
                 node.color = colorInput.value;
+                _dmApplyPreview();
             });
             const clearColorBtn = document.createElement("button");
             clearColorBtn.type = "button";
@@ -676,12 +1006,13 @@ function generateDevTools(
             iconInput.addEventListener("input", e => {
                 e.stopPropagation();
                 node.icon = iconInput.value || undefined;
+                _dmApplyPreview();
             });
             body.appendChild(iconInput);
 
             const regenNote = document.createElement("p");
             regenNote.className = "isdl-dm-panel-note";
-            regenNote.textContent = "Color and icon apply on regenerate.";
+            regenNote.textContent = "Exact colors and icon apply on regenerate. Live preview is best-effort.";
             body.appendChild(regenNote);
 
             // Move + Reset
@@ -758,10 +1089,69 @@ function generateDevTools(
             body.appendChild(moveRow);
         }
 
+        function _dmRenderStaticPanel(body, node, pageKey) {
+            const nameDiv = document.createElement("div");
+            nameDiv.innerHTML = \`<strong>\${node.staticType === "hr" ? "Divider" : node.staticType.charAt(0).toUpperCase() + node.staticType.slice(1)}</strong> <span class="isdl-dm-field-name">\${node.id}</span>\`;
+            body.appendChild(nameDiv);
+
+            if (node.staticType !== "hr") {
+                body.appendChild(_dmMakeSectionLabel("Text"));
+                const textInput = document.createElement("input");
+                textInput.type = "text";
+                textInput.className = "isdl-dm-text-input";
+                textInput.value = node.text ?? "";
+                textInput.addEventListener("input", e => {
+                    e.stopPropagation();
+                    node.text = textInput.value;
+                    // Live-update the preview element's textContent
+                    const el = _dmStaticRoot(node.id);
+                    if (el) {
+                        const textEl = el.querySelector(".isdl-static-heading, .isdl-static-paragraph");
+                        if (textEl) {
+                            textEl.dataset.isdlDmLive = "1";
+                            textEl.textContent = node.text;
+                        }
+                    }
+                });
+                body.appendChild(textInput);
+            }
+
+            body.appendChild(_dmMakeSectionLabel("Position"));
+            const moveRow = document.createElement("div");
+            moveRow.className = "isdl-dm-move-row";
+            const upBtn = document.createElement("button");
+            upBtn.type = "button";
+            upBtn.className = "isdl-dm-panel-btn";
+            upBtn.innerHTML = \`<i class="fa-solid fa-arrow-up"></i> Up\`;
+            upBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, -1); });
+            const downBtn = document.createElement("button");
+            downBtn.type = "button";
+            downBtn.className = "isdl-dm-panel-btn";
+            downBtn.innerHTML = \`<i class="fa-solid fa-arrow-down"></i> Down\`;
+            downBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, 1); });
+            moveRow.appendChild(upBtn);
+            moveRow.appendChild(downBtn);
+            body.appendChild(moveRow);
+
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "isdl-dm-panel-btn danger";
+            removeBtn.style.width = "100%";
+            removeBtn.innerHTML = \`<i class="fa-solid fa-trash"></i> Remove\`;
+            removeBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                const found = _dmFindAnywhere("static", node.id);
+                if (found) found.parentChildren.splice(found.index, 1);
+                _dm.selected = null;
+                _dmApplyPreview();
+            });
+            body.appendChild(removeBtn);
+        }
+
         function _dmMoveNode(pageKey, node, delta) {
-            const kind = node.kind === "field" ? "field" : "container";
+            const kind = node.kind === "field" ? "field" : node.kind === "static" ? "static" : "section";
             const key = node.kind === "field" ? node.name : node.id;
-            const found = _dmFindNode(pageKey, kind === "field" ? "field" : "section", key);
+            const found = _dmFindNode(pageKey, kind, key);
             if (!found) return;
             const { parentChildren, index } = found;
             const newIdx = index + delta;
@@ -848,6 +1238,7 @@ function generateDevTools(
 
         function _closeDesignMode() {
             if (!_dm) return;
+            if (_dmStatusInterval) { clearInterval(_dmStatusInterval); _dmStatusInterval = null; }
             const { windowContent, appRoot, panelEl, previewStyleEl, listeners, btn } = _dm;
 
             // Remove event listeners
@@ -866,6 +1257,15 @@ function generateDevTools(
                 appRoot.style.flex = "";
                 appRoot.style.minWidth = "";
             }
+
+            // Remove synthesised static DOM elements
+            windowContent.querySelectorAll("[data-isdl-dm-synth]").forEach(el => el.remove());
+
+            // Restore any icon overrides applied via live preview
+            windowContent.querySelectorAll("i[data-isdl-dm-orig-icon]").forEach(iconEl => {
+                iconEl.className = iconEl.dataset.isdlDmOrigIcon;
+                delete iconEl.dataset.isdlDmOrigIcon;
+            });
 
             // Clean up all decorated DOM elements
             windowContent.querySelectorAll("[data-isdl-dm]").forEach(el => {
@@ -888,7 +1288,8 @@ function generateDevTools(
 
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
-            const root = fieldRoot ?? sectionRoot;
+            const staticRoot = e.target.closest("[class*='isdl-static-']");
+            const root = fieldRoot ?? staticRoot ?? sectionRoot;
 
             if (!root) {
                 _dm.selected = null;
@@ -896,11 +1297,15 @@ function generateDevTools(
                 return;
             }
 
-            // Extract the key from class name, prefer field over section
+            // Extract the key from class name: field > static > section
             let kind = null, key = null;
             if (fieldRoot) {
                 const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
                 if (cls) { kind = "field"; key = cls.replace("isdl-field-", ""); }
+            }
+            if (!kind && staticRoot) {
+                const cls = [...staticRoot.classList].find(c => /^isdl-static-__static_/.test(c));
+                if (cls) { kind = "static"; key = cls.replace("isdl-static-", ""); }
             }
             if (!kind && sectionRoot) {
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
@@ -928,14 +1333,19 @@ function generateDevTools(
         function _dmHandleDragStart(e) {
             if (!_dm) return;
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const staticRoot = e.target.closest("[class*='isdl-static-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
-            const root = fieldRoot ?? sectionRoot;
+            const root = fieldRoot ?? staticRoot ?? sectionRoot;
             if (!root) return;
 
             let kind = null, key = null;
             if (fieldRoot) {
                 const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
                 if (cls) { kind = "field"; key = cls.replace("isdl-field-", ""); }
+            }
+            if (!kind && staticRoot) {
+                const cls = [...staticRoot.classList].find(c => /^isdl-static-__static_/.test(c));
+                if (cls) { kind = "static"; key = cls.replace("isdl-static-", ""); }
             }
             if (!kind && sectionRoot) {
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
@@ -950,6 +1360,7 @@ function generateDevTools(
         function _dmHandleDragOver(e) {
             if (!_dm?.dragging) return;
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const staticRoot = e.target.closest("[class*='isdl-static-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
 
             // Clear all indicators first
@@ -969,7 +1380,18 @@ function generateDevTools(
                     const before = e.clientX < rect.left + rect.width / 2;
                     fieldRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
                 }
-            } else if (sectionRoot && _dm.dragging.kind === "field") {
+            } else if (staticRoot) {
+                const cls = [...staticRoot.classList].find(c => /^isdl-static-__static_/.test(c));
+                if (cls) {
+                    const targetKey = cls.replace("isdl-static-", "");
+                    if (_dm.dragging.key === targetKey) return;
+                    e.preventDefault();
+                    const rect = staticRoot.getBoundingClientRect();
+                    const before = e.clientX < rect.left + rect.width / 2;
+                    staticRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
+                }
+            } else if (sectionRoot && (_dm.dragging.kind === "field" || _dm.dragging.kind === "static")) {
+                // 4c: Allow dropping fields/statics into section padding/title area
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
                 if (cls) {
                     e.preventDefault();
@@ -1013,11 +1435,11 @@ function generateDevTools(
             });
 
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
+            const staticRoot = e.target.closest("[class*='isdl-static-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
 
             const srcFound = _dmFindAnywhere(dragKind, dragKey);
             if (!srcFound) return;
-            const pageKey = srcFound.pageKey;
 
             let targetKey = null, targetKind = null, insertBefore = true, dropInto = false;
 
@@ -1029,11 +1451,19 @@ function generateDevTools(
                     const rect = fieldRoot.getBoundingClientRect();
                     insertBefore = e.clientX < rect.left + rect.width / 2;
                 }
+            } else if (staticRoot) {
+                const cls = [...staticRoot.classList].find(c => /^isdl-static-__static_/.test(c));
+                if (cls) {
+                    targetKey = cls.replace("isdl-static-", "");
+                    targetKind = "static";
+                    const rect = staticRoot.getBoundingClientRect();
+                    insertBefore = e.clientX < rect.left + rect.width / 2;
+                }
             } else if (sectionRoot) {
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
                 if (cls) {
                     targetKey = cls.replace("isdl-section-", "");
-                    if (dragKind === "field") {
+                    if (dragKind === "field" || dragKind === "static") {
                         dropInto = true;
                     } else {
                         targetKind = "section";
@@ -1045,26 +1475,22 @@ function generateDevTools(
 
             if (!targetKey) return;
 
-            // Remove from source
+            // Remove from source (MUST happen before target lookup for same-container moves)
             srcFound.parentChildren.splice(srcFound.index, 1);
 
             if (dropInto) {
-                // Drop field into section
-                const tgtFound = _dmFindNode(pageKey, "section", targetKey);
+                // Drop field/static into section — 4a: search entire tree not just source page
+                const tgtFound = _dmFindAnywhere("section", targetKey);
                 if (!tgtFound) return;
                 const sectionNode = tgtFound.node;
                 const children = sectionNode.children ?? (sectionNode.children = []);
-                // Append to last row child if exists, else to children directly
-                const lastChild = children[children.length - 1];
-                if (lastChild && lastChild.kind === "row") {
-                    lastChild.children.push(srcFound.node);
-                } else {
-                    children.push(srcFound.node);
-                }
+                // Append directly to section children (not to a row sub-child)
+                children.push(srcFound.node);
             } else if (targetKind) {
-                // Reorder relative to target
-                const tgtFound = _dmFindNode(pageKey, targetKind, targetKey);
+                // Reorder relative to target — 4a: search entire tree
+                const tgtFound = _dmFindAnywhere(targetKind, targetKey);
                 if (!tgtFound) return;
+                // After splice above, index may have shifted if same array; re-check
                 let insertIdx = tgtFound.index;
                 if (!insertBefore) insertIdx++;
                 tgtFound.parentChildren.splice(insertIdx, 0, srcFound.node);
@@ -1083,37 +1509,17 @@ function generateDevTools(
 
         // ── Save ──────────────────────────────────────────────────────────────
 
-        async function _dmSave(btn) {
+        async function _dmSave(btn, panelEl) {
             if (!_dm) return;
             btn.disabled = true;
             btn.innerHTML = \`<i class="fa-solid fa-spinner fa-spin"></i> Saving…\`;
 
-            const { docType, docKey, tree } = _dm;
-
-            // Build clean layout nodes from the current tree
-            function stripNode(node) {
-                if (node.kind === "field") {
-                    const out = { kind: "field", name: node.name };
-                    if (node.size) out.size = node.size;
-                    if (node.hideLabel === true) out.hideLabel = true;
-                    if (node.color) out.color = node.color;
-                    if (node.icon) out.icon = node.icon;
-                    return out;
-                }
-                const out = { kind: node.kind, id: node.id };
-                if (node.kind === "section" && node.hideLabel === true) out.hideLabel = true;
-                out.children = (node.children ?? []).map(stripNode);
-                return out;
+            const base = _dmBuildLayoutPayload();
+            if (!base) {
+                btn.disabled = false;
+                btn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;
+                return;
             }
-
-            const pages = {};
-            for (const [pk, page] of Object.entries(tree.pages)) {
-                pages[pk] = { children: page.children.map(stripNode) };
-            }
-
-            const base = SAVED_LAYOUT ? structuredClone(SAVED_LAYOUT) : { version: 2, actors: {}, items: {} };
-            if (!base[docType]) base[docType] = {};
-            base[docType][docKey] = { pages };
 
             try {
                 const resp = await fetch(_LAYOUT_SERVER + "/layout", {
@@ -1124,11 +1530,15 @@ function generateDevTools(
                 const result = await resp.json();
                 if (result.ok) {
                     ui.notifications.info("Layout saved — regenerate system to apply.");
+                    _dmLastSyncTime = Date.now();
+                    if (panelEl) _dmUpdateStatusRow(panelEl, true);
                 } else {
                     ui.notifications.error("Save failed: " + (result.error ?? "unknown"));
+                    if (panelEl) _dmUpdateStatusRow(panelEl, false);
                 }
             } catch (err) {
                 ui.notifications.error("Layout server error: " + err.message);
+                if (panelEl) _dmUpdateStatusRow(panelEl, false);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;

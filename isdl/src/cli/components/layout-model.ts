@@ -41,7 +41,16 @@ export interface LayoutContainerNode {
     children: LayoutNode[];
 }
 
-export type LayoutNode = LayoutFieldNode | LayoutContainerNode;
+export interface LayoutStaticNode {
+    kind: 'static';
+    /** Stable id generated at insert time: "__static_<timestamp>" */
+    id: string;
+    staticType: 'heading' | 'paragraph' | 'hr';
+    /** Display text for heading/paragraph; absent for hr. */
+    text?: string;
+}
+
+export type LayoutNode = LayoutFieldNode | LayoutContainerNode | LayoutStaticNode;
 
 export interface DocLayoutV2 {
     pages: Record<string, { children: LayoutNode[] }>;
@@ -77,7 +86,14 @@ export interface EffectiveContainerNode {
     children: EffectiveNode[];
 }
 
-export type EffectiveNode = EffectiveFieldNode | EffectiveContainerNode;
+export interface EffectiveStaticNode {
+    kind: 'static';
+    id: string;
+    staticType: 'heading' | 'paragraph' | 'hr';
+    text?: string;
+}
+
+export type EffectiveNode = EffectiveFieldNode | EffectiveContainerNode | EffectiveStaticNode;
 
 export interface EffectiveDocTree {
     /** Keyed by page key: the main page uses the document name (lowercase), explicit pages their name (lowercase). */
@@ -199,7 +215,7 @@ function mergePage(
     (function index(nodes: EffectiveNode[]) {
         for (const n of nodes) {
             if (n.kind === 'field') fieldMap.set(n.name, n);
-            else { containerMap.set(n.id, n); index(n.children); }
+            else if (n.kind !== 'static') { containerMap.set(n.id, n); index(n.children); }
         }
     })(defaultChildren);
 
@@ -224,6 +240,9 @@ function mergePage(
                     hideTitle: typeof ln.hideLabel === 'boolean' ? ln.hideLabel : undefined,
                     children: fromLayout(ln.children),
                 });
+            } else if (ln.kind === 'static') {
+                // Static nodes have no AST counterpart — always pass through as-is.
+                out.push({ kind: 'static', id: ln.id, staticType: ln.staticType, text: ln.text });
             }
         }
         return out;
@@ -234,34 +253,42 @@ function mergePage(
     // Drift pass: anything in the AST but absent from the saved layout (e.g. a field added to the
     // ISDL source after the layout was saved) is appended at the end of its original container so
     // it never silently vanishes.
+    // Static nodes (kind='static') have no AST counterpart and are always already in the result —
+    // they do not participate in the drift pass.
     const effectiveByDefault = new Map<EffectiveContainerNode, EffectiveContainerNode>();
     (function mapContainers(nodes: EffectiveNode[]) {
         for (const n of nodes) {
-            if (n.kind !== 'field') {
-                const def = containerMap.get(n.id);
-                if (def) effectiveByDefault.set(def, n);
-                mapContainers(n.children);
-            }
+            // Static nodes have no AST counterpart and no children; skip them in the drift map.
+            if (n.kind === 'field' || n.kind === 'static') continue;
+            // n is now narrowed to EffectiveContainerNode
+            const c = n as EffectiveContainerNode;
+            const def = containerMap.get(c.id);
+            if (def) effectiveByDefault.set(def, c);
+            mapContainers(c.children);
         }
     })(result);
 
+    // appendDrifted only operates on AST-derived nodes (defaultChildren) which never contain statics.
+    // Parameter type is EffectiveNode[] to avoid unsafe casts; internally we only receive container or field nodes.
     function appendDrifted(defNodes: EffectiveNode[], fallbackTarget: EffectiveNode[]) {
         for (const dn of defNodes) {
             if (consumed.has(dn)) {
-                if (dn.kind !== 'field') {
-                    const eff = effectiveByDefault.get(dn);
-                    appendDrifted(dn.children, eff ? eff.children : fallbackTarget);
+                if (dn.kind !== 'field' && dn.kind !== 'static') {
+                    const c = dn as EffectiveContainerNode;
+                    const eff = effectiveByDefault.get(c);
+                    appendDrifted(c.children, eff ? eff.children : fallbackTarget);
                 }
                 continue;
             }
             consumed.add(dn);
             if (dn.kind === 'field') {
                 fallbackTarget.push(dn);
-            } else {
-                const effContainer: EffectiveContainerNode = { ...dn, children: [] };
-                effectiveByDefault.set(dn, effContainer);
+            } else if (dn.kind !== 'static') {
+                const c = dn as EffectiveContainerNode;
+                const effContainer: EffectiveContainerNode = { ...c, children: [] };
+                effectiveByDefault.set(c, effContainer);
                 fallbackTarget.push(effContainer);
-                appendDrifted(dn.children, effContainer.children);
+                appendDrifted(c.children, effContainer.children);
             }
         }
     }
@@ -303,7 +330,7 @@ export function collectFieldOverrides(tree: EffectiveDocTree): Map<string, Layou
         for (const n of nodes) {
             if (n.kind === 'field') {
                 if (Object.keys(n.overrides).length > 0) map.set(n.name, n.overrides);
-            } else {
+            } else if (n.kind !== 'static') {
                 walk(n.children);
             }
         }
@@ -317,10 +344,13 @@ export function collectSectionOverrides(tree: EffectiveDocTree): Map<string, { h
     const map = new Map<string, { hideTitle: boolean }>();
     const walk = (nodes: EffectiveNode[]) => {
         for (const n of nodes) {
-            if (n.kind !== 'field') {
-                if (n.kind === 'section' && typeof n.hideTitle === 'boolean') map.set(n.id, { hideTitle: n.hideTitle });
+            if (n.kind === 'section') {
+                if (typeof n.hideTitle === 'boolean') map.set(n.id, { hideTitle: n.hideTitle });
+                walk(n.children);
+            } else if (n.kind === 'row' || n.kind === 'column') {
                 walk(n.children);
             }
+            // 'field' and 'static' have no children to recurse into
         }
     };
     for (const children of tree.pages.values()) walk(children);
@@ -347,7 +377,14 @@ export interface ModuleContainerNode {
     children: ModuleLayoutNode[];
 }
 
-export type ModuleLayoutNode = ModuleFieldNode | ModuleContainerNode;
+export interface ModuleStaticNode {
+    kind: 'static';
+    id: string;
+    staticType: 'heading' | 'paragraph' | 'hr';
+    text?: string;
+}
+
+export type ModuleLayoutNode = ModuleFieldNode | ModuleContainerNode | ModuleStaticNode;
 
 function serializeNode(node: EffectiveNode): ModuleLayoutNode {
     if (node.kind === 'field') {
@@ -363,6 +400,9 @@ function serializeNode(node: EffectiveNode): ModuleLayoutNode {
             sizable: isSizable(typeClass),
             ...node.overrides,
         };
+    }
+    if (node.kind === 'static') {
+        return { kind: 'static', id: node.id, staticType: node.staticType, text: node.text };
     }
     return {
         kind: node.kind,

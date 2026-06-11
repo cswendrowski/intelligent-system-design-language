@@ -98,7 +98,7 @@ import {
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
 import {
     buildEffectiveDocTree, collectFieldOverrides, collectSectionOverrides,
-    EffectiveNode, LayoutFieldOverrides, SystemLayoutV2,
+    EffectiveNode, EffectiveStaticNode, LayoutFieldOverrides, SystemLayoutV2,
 } from '../layout-model.js';
 import {AstUtils} from 'langium';
 import {generateActionComponent, generateDocumentPromptApps} from './vue-action-component-generator.js';
@@ -1345,10 +1345,45 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         `.appendNewLine();
     }
 
+    // Escape static text for safe Vue template emission.
+    // HTML-escapes & < > and strips {{ / }} braces (Vue would try to evaluate them).
+    function escapeStaticText(text: string): string {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\{\{|\}\}/g, '');
+    }
+
     // Walk an EffectiveNode: dispatch containers here, leaf fields to generateElement.
     function generateNode(node: EffectiveNode, isTopLevel = false): CompositeGeneratorNode {
         if (node.kind === 'field') {
             return generateElement(node.element, isTopLevel);
+        }
+
+        if (node.kind === 'static') {
+            const staticNode = node as EffectiveStaticNode;
+            const safeText = escapeStaticText(staticNode.text ?? '');
+            if (staticNode.staticType === 'hr') {
+                return expandToNode`
+                <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
+                    <v-divider></v-divider>
+                </v-col>
+                `;
+            }
+            if (staticNode.staticType === 'paragraph') {
+                return expandToNode`
+                <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
+                    <p class="isdl-static-paragraph">${safeText}</p>
+                </v-col>
+                `;
+            }
+            // heading
+            return expandToNode`
+            <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
+                <h3 class="isdl-static-heading">${safeText}</h3>
+            </v-col>
+            `;
         }
 
         // Container node — node.element is the AST Section/Row/Column.

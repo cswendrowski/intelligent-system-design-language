@@ -33,6 +33,12 @@
               ]
             },
             {
+              "kind": "static",
+              "id": "__static_1749000000000",
+              "staticType": "heading",
+              "text": "Combat Stats"
+            },
+            {
               "kind": "section",
               "id": "health",
               "children": [

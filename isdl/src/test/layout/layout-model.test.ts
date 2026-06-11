@@ -12,6 +12,7 @@ import {
     EffectiveNode,
     EffectiveContainerNode,
     EffectiveFieldNode,
+    EffectiveStaticNode,
 } from '../../cli/components/layout-model.js';
 
 const services = createIntelligentSystemDesignLanguageServices(EmptyFileSystem);
@@ -61,7 +62,8 @@ function fieldIds(nodes: EffectiveNode[]): string[] {
 }
 
 function containerChildren(nodes: EffectiveNode[], id: string): EffectiveNode[] {
-    const c = nodes.find((n): n is EffectiveContainerNode => n.kind !== 'field' && n.id === id);
+    const c = nodes.find((n): n is EffectiveContainerNode =>
+        (n.kind === 'section' || n.kind === 'row' || n.kind === 'column') && n.id === id);
     if (!c) throw new Error(`No container with id "${id}" found`);
     return c.children;
 }
@@ -289,7 +291,7 @@ describe('buildEffectiveDocTree', () => {
             const out: string[] = [];
             for (const n of nodes) {
                 if (n.kind === 'field') out.push(n.name);
-                else out.push(...collect(n.children));
+                else if (n.kind !== 'static') out.push(...collect(n.children));
             }
             return out;
         })(main);
@@ -385,6 +387,99 @@ describe('buildEffectiveDocTree', () => {
 
         // info section: no hideLabel set → should NOT appear in sectionOverrides
         expect(sectionOverrides.has('info')).toBe(false);
+    });
+
+    it('9. static node passes through merge into the effective tree (not dropped, no warning)', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        // Layout includes a static heading node among the top-level children
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength' },
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                // Static node placed between sections
+                                { kind: 'static', id: '__static_1749000000000', staticType: 'heading', text: 'Info' } as any,
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const warnMessages: string[] = [];
+        // Temporarily intercept warnings
+        const origWarn = console.warn;
+        console.warn = (...args: any[]) => { warnMessages.push(String(args[0])); };
+        const tree = buildEffectiveDocTree(doc, layout);
+        console.warn = origWarn;
+
+        const main = tree.pages.get('hero')!;
+
+        // Static node should be present at index 1 (between stats and info)
+        const staticNode = main[1] as EffectiveStaticNode;
+        expect(staticNode.kind).toBe('static');
+        expect(staticNode.staticType).toBe('heading');
+        expect(staticNode.text).toBe('Info');
+        expect(staticNode.id).toBe('__static_1749000000000');
+
+        // No warning about it being dropped
+        expect(warnMessages.some(m => m.includes('__static_1749000000000'))).toBe(false);
+
+        // All original nodes still present
+        expect(main).toHaveLength(4); // stats, static, info, loose
+    });
+
+    it('10. static node serializes with kind/staticType/text/id intact', async () => {
+        const entry = await parseEntry();
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength' },
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'static', id: '__static_9999', staticType: 'paragraph', text: 'Background info' } as any,
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const serialized = serializeLayoutTree(entry, layout);
+        const heroPages = serialized.actors['hero'].pages;
+        const mainChildren = heroPages['hero'].children;
+
+        // Find the static node in the serialized output
+        const staticNode = mainChildren.find((n: any) => n.kind === 'static') as any;
+        expect(staticNode).toBeDefined();
+        expect(staticNode.kind).toBe('static');
+        expect(staticNode.staticType).toBe('paragraph');
+        expect(staticNode.text).toBe('Background info');
+        expect(staticNode.id).toBe('__static_9999');
     });
 
     it('8. serializeLayoutTree: field nodes have label, typeClass, defaultSize, sizable', async () => {
