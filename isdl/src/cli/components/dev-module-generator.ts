@@ -390,6 +390,45 @@ function generateDevTools(
                 .isdl-dm-active .isdl-dm-hidden { opacity: 0.25; outline: 1px dashed #aa5555 !important; }
                 /* ── Container hover/select in DM ── */
                 .isdl-dm-active [class*='isdl-container-']:hover { outline: 1px dashed #3a5a8a; outline-offset: 2px; }
+                /* Empty rows/columns are ~0px tall — give them a visible, hittable drop area */
+                .isdl-dm-active .isdl-dm-empty-container {
+                    min-height: 34px;
+                    outline: 1px dashed #3a5a8a;
+                    outline-offset: -2px;
+                }
+                /* Statics (esp. dividers) are easy to lose on a busy sheet while designing */
+                .isdl-dm-active [class*='isdl-static-'] { min-height: 18px; }
+                .isdl-dm-active [class*='isdl-static-']:hover { outline: 1px dashed #3a6aaa; outline-offset: 1px; }
+                .isdl-dm-active [class*='isdl-static-'] .v-divider,
+                .isdl-dm-active [class*='isdl-static-'] hr {
+                    border-color: #4a9eff !important;
+                    opacity: 0.8;
+                }
+                /* ── Outline tree ── */
+                .isdl-dm-outline {
+                    max-height: 260px;
+                    overflow-y: auto;
+                    border: 1px solid #1a2a4a;
+                    border-radius: 2px;
+                    margin-bottom: 6px;
+                }
+                .isdl-dm-outline-row {
+                    font-size: 11px;
+                    padding: 1px 4px;
+                    cursor: pointer;
+                    display: flex;
+                    gap: 4px;
+                    align-items: center;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    color: #a0c0e0;
+                }
+                .isdl-dm-outline-row:hover { background: #16203a; }
+                .isdl-dm-outline-row.isdl-dm-outline-selected { background: #1a2a5a; color: #c0d8f0; }
+                .isdl-dm-outline-row i { font-size: 9px; width: 12px; text-align: center; color: #4a7aaa; flex-shrink: 0; }
+                .isdl-dm-outline-row.is-hidden { opacity: 0.5; }
+                .isdl-dm-outline-row span { overflow: hidden; text-overflow: ellipsis; }
             \`;
             document.head.appendChild(style);
         }
@@ -805,6 +844,9 @@ function generateDevTools(
                         } else if (node.kind === "row" || node.kind === "column") {
                             // Item 3c: use isdl-container-<id> class for all rows/columns
                             containerEl = _dmContainerRoot(node.id) ?? null;
+                            // Empty containers are otherwise ~0px tall and impossible to
+                            // hit with a real drag — give them a visible drop area.
+                            containerEl?.classList.toggle("isdl-dm-empty-container", node.children.length === 0);
                         }
                         _dmApplyOrderToDOMChildren(node.children, containerEl);
                     }
@@ -825,19 +867,37 @@ function generateDevTools(
                 }
             });
 
-            // 3c: Icon live preview — swap FA icon classes on the field's label area
+            // 3c: Icon live preview — swap FA icon classes on the field's label area.
+            // Fields with no icon of their own get a SYNTHESIZED <i> so the override
+            // still previews (it lands in the label element, or the root as fallback).
             _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), node => {
                 if (node.kind !== "field") return;
                 const el = _dmFieldRoot(node.name);
                 if (!el) return;
-                // Find an <i class="fa-..."> anywhere in the field root (labels, card-title, etc.)
-                const iconEl = el.querySelector(\`i[class*="fa-"]\`);
-                if (!iconEl) return;
+                const synthIcon = el.querySelector("i[data-isdl-dm-synth-icon]");
+                // Only consider LABEL-area icons. Many components contain FA glyphs that are
+                // controls (number spinner chevrons, dropdown carets, action button icons) —
+                // swapping those breaks the control and shows nothing where the user expects.
+                const iconEl = synthIcon
+                    ?? [...el.querySelectorAll(\`i[class*="fa-"]\`)].find(i =>
+                        !i.closest("button, .v-btn, .v-field__append-inner, .v-field__prepend-inner, .v-input__append, .v-select__menu-icon"));
+                if (!iconEl) {
+                    if (!node.icon) return;
+                    const i = document.createElement("i");
+                    i.className = node.icon;
+                    i.dataset.isdlDmSynthIcon = "1";
+                    i.style.marginRight = "4px";
+                    const labelEl = el.querySelector(".v-label, .v-field-label, .v-card-title");
+                    (labelEl ?? el).prepend(i);
+                    return;
+                }
                 if (node.icon) {
-                    if (!iconEl.dataset.isdlDmOrigIcon) {
+                    if (!iconEl.dataset.isdlDmSynthIcon && !iconEl.dataset.isdlDmOrigIcon) {
                         iconEl.dataset.isdlDmOrigIcon = iconEl.className;
                     }
                     iconEl.className = node.icon;
+                } else if (iconEl.dataset.isdlDmSynthIcon) {
+                    iconEl.remove();
                 } else if (iconEl.dataset.isdlDmOrigIcon) {
                     iconEl.className = iconEl.dataset.isdlDmOrigIcon;
                     delete iconEl.dataset.isdlDmOrigIcon;
@@ -1075,6 +1135,61 @@ function generateDevTools(
             return panel;
         }
 
+        // Outline tree: indented, click-to-select rows for the active page's nodes.
+        // Open/closed survives panel rebuilds via module-level state.
+        let _dmOutlineOpen = true;
+
+        function _dmOutlineMeta(node) {
+            if (node.kind === "field") return { icon: "fa-solid fa-cube", label: node.label ?? node.name };
+            if (node.kind === "section") return { icon: "fa-regular fa-square-dashed", label: node.label ?? node.id };
+            if (node.kind === "row") return { icon: "fa-solid fa-arrows-left-right", label: "Row" };
+            if (node.kind === "column") return { icon: "fa-solid fa-arrows-up-down", label: "Column" };
+            if (node.staticType === "hr") return { icon: "fa-solid fa-minus", label: "Divider" };
+            if (node.staticType === "paragraph") return { icon: "fa-solid fa-paragraph", label: (node.text ?? "Paragraph").slice(0, 18) };
+            return { icon: "fa-solid fa-heading", label: (node.text ?? "Heading").slice(0, 18) };
+        }
+
+        function _dmRenderOutline(body) {
+            const pageKey = _dmCurrentPageKey();
+            const page = _dm.tree.pages[pageKey];
+            if (!page) return;
+
+            const label = _dmMakeSectionLabel(\`Outline \${_dmOutlineOpen ? "▾" : "▸"}\`);
+            label.style.cursor = "pointer";
+            label.addEventListener("click", e => {
+                e.stopPropagation();
+                _dmOutlineOpen = !_dmOutlineOpen;
+                _dmRenderPanelBody();
+            });
+            body.appendChild(label);
+            if (!_dmOutlineOpen) return;
+
+            const wrap = document.createElement("div");
+            wrap.className = "isdl-dm-outline";
+            const addRows = (nodes, depth) => {
+                for (const node of nodes) {
+                    const meta = _dmOutlineMeta(node);
+                    const row = document.createElement("div");
+                    row.className = "isdl-dm-outline-row";
+                    if (node.kind === "field" && node.hidden) row.classList.add("is-hidden");
+                    if (_dm.selected?.node === node) row.classList.add("isdl-dm-outline-selected");
+                    row.style.paddingLeft = \`\${4 + depth * 10}px\`;
+                    row.innerHTML = \`<i class="\${meta.icon}"></i><span></span>\${node.kind === "field" && node.hidden ? '<i class="fa-solid fa-eye-slash"></i>' : ""}\`;
+                    row.querySelector("span").textContent = meta.label;
+                    row.addEventListener("click", e => {
+                        e.stopPropagation();
+                        _dm.selected = { pageKey, node };
+                        _dmApplyPreview();
+                        _dmNodeRoot(node)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                    });
+                    wrap.appendChild(row);
+                    if (node.children) addRows(node.children, depth + 1);
+                }
+            };
+            addRows(page.children, 0);
+            body.appendChild(wrap);
+        }
+
         function _dmRenderPanelBody() {
             if (!_dm?.panelEl) return;
             const body = _dm.panelEl.querySelector("[data-dm-panel-body]");
@@ -1109,6 +1224,9 @@ function generateDevTools(
                 insertRow.appendChild(btn);
             }
             body.appendChild(insertRow);
+
+            // Outline tree — the active page's structure, click-to-select
+            _dmRenderOutline(body);
 
             // Item 4b: Hidden fields section — always shown when there are hidden fields
             const hiddenNodes = [];
@@ -1836,6 +1954,8 @@ function generateDevTools(
                 iconEl.className = iconEl.dataset.isdlDmOrigIcon;
                 delete iconEl.dataset.isdlDmOrigIcon;
             });
+            // Remove icons synthesized for fields that had none of their own
+            windowContent.querySelectorAll("i[data-isdl-dm-synth-icon]").forEach(el => el.remove());
 
             // Clean up all decorated DOM elements
             windowContent.querySelectorAll("[data-isdl-dm]").forEach(el => {
@@ -1985,6 +2105,15 @@ function generateDevTools(
                     const before = e.clientX < rect.left + rect.width / 2;
                     staticRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
                 }
+            } else if (containerRoot && (_dm.dragging.kind === "field" || _dm.dragging.kind === "static")) {
+                // Row/column target. MUST be checked before the section branches: rows live
+                // INSIDE sections, so when both match the container is the deeper (intended)
+                // target — section-first ordering made rows inside sections untargetable.
+                const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
+                if (cls) {
+                    e.preventDefault();
+                    containerRoot.classList.add("isdl-dm-drop-into");
+                }
             } else if (sectionRoot && (_dm.dragging.kind === "field" || _dm.dragging.kind === "static")) {
                 // 4c: Allow dropping fields/statics into section padding/title area
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
@@ -2001,13 +2130,6 @@ function generateDevTools(
                     const rect = sectionRoot.getBoundingClientRect();
                     const before = e.clientX < rect.left + rect.width / 2;
                     sectionRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
-                }
-            } else if (containerRoot && (_dm.dragging.kind === "field" || _dm.dragging.kind === "static")) {
-                // Item 3c: allow dropping fields/statics onto row/column containers
-                const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
-                if (cls) {
-                    e.preventDefault();
-                    containerRoot.classList.add("isdl-dm-drop-into");
                 }
             }
         }
@@ -2063,20 +2185,9 @@ function generateDevTools(
                     const rect = staticRoot.getBoundingClientRect();
                     insertBefore = e.clientX < rect.left + rect.width / 2;
                 }
-            } else if (sectionRoot) {
-                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
-                if (cls) {
-                    targetKey = cls.replace("isdl-section-", "");
-                    if (dragKind === "field" || dragKind === "static") {
-                        dropInto = true;
-                    } else {
-                        targetKind = "section";
-                        const rect = sectionRoot.getBoundingClientRect();
-                        insertBefore = e.clientX < rect.left + rect.width / 2;
-                    }
-                }
             } else if (containerRoot && (dragKind === "field" || dragKind === "static")) {
-                // Item 3c: dropping a field/static onto a container appends to its children
+                // Row/column target. Checked BEFORE sections: rows live inside sections, so
+                // when both match the container is the deeper (intended) target.
                 const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
                 if (cls) {
                     const cid = cls.replace("isdl-container-", "");
@@ -2090,6 +2201,18 @@ function generateDevTools(
                         children.push(srcFound.node);
                         _dmApplyPreview();
                         return;
+                    }
+                }
+            } else if (sectionRoot) {
+                const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
+                if (cls) {
+                    targetKey = cls.replace("isdl-section-", "");
+                    if (dragKind === "field" || dragKind === "static") {
+                        dropInto = true;
+                    } else {
+                        targetKind = "section";
+                        const rect = sectionRoot.getBoundingClientRect();
+                        insertBefore = e.clientX < rect.left + rect.width / 2;
                     }
                 }
             }
