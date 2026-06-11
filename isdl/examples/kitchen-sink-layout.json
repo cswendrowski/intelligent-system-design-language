@@ -17,7 +17,10 @@
               "kind": "section",
               "id": "damage",
               "hideLabel": true,
-              "theme": { "background": "#1a1410", "text": "#f0e6d2" },
+              "theme": {
+                "background": "#1a1410",
+                "text": "#f0e6d2"
+              },
               "children": [
                 {
                   "kind": "field",
@@ -37,7 +40,9 @@
               "kind": "static",
               "id": "__static_1749000000000",
               "staticType": "heading",
-              "text": "Combat Stats"
+              "text": "Combat Stats",
+              "fontSize": "18px",
+              "color": "#e91e63"
             },
             {
               "kind": "row",

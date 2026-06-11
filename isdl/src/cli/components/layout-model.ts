@@ -62,6 +62,9 @@ export interface LayoutStaticNode {
     staticType: 'heading' | 'paragraph' | 'hr';
     /** Display text for heading/paragraph; absent for hr. */
     text?: string;
+    /** Text styling for heading/paragraph, e.g. "18px" / "#c0d8f0". */
+    fontSize?: string;
+    color?: string;
 }
 
 export type LayoutNode = LayoutFieldNode | LayoutContainerNode | LayoutStaticNode;
@@ -110,6 +113,8 @@ export interface EffectiveStaticNode {
     id: string;
     staticType: 'heading' | 'paragraph' | 'hr';
     text?: string;
+    fontSize?: string;
+    color?: string;
 }
 
 export type EffectiveNode = EffectiveFieldNode | EffectiveContainerNode | EffectiveStaticNode;
@@ -306,7 +311,7 @@ function mergePage(
                 });
             } else if (ln.kind === 'static') {
                 // Static nodes have no AST counterpart — always pass through as-is.
-                out.push({ kind: 'static', id: ln.id, staticType: ln.staticType, text: ln.text });
+                out.push({ kind: 'static', id: ln.id, staticType: ln.staticType, text: ln.text, fontSize: ln.fontSize, color: ln.color });
             }
         }
         return out;
@@ -449,6 +454,8 @@ export interface ModuleStaticNode {
     id: string;
     staticType: 'heading' | 'paragraph' | 'hr';
     text?: string;
+    fontSize?: string;
+    color?: string;
 }
 
 export type ModuleLayoutNode = ModuleFieldNode | ModuleContainerNode | ModuleStaticNode;
@@ -470,7 +477,7 @@ function serializeNode(node: EffectiveNode): ModuleLayoutNode {
         return fieldOut;
     }
     if (node.kind === 'static') {
-        return { kind: 'static', id: node.id, staticType: node.staticType, text: node.text };
+        return { kind: 'static', id: node.id, staticType: node.staticType, text: node.text, fontSize: node.fontSize, color: node.color };
     }
     const containerOut: ModuleContainerNode = {
         kind: node.kind,

@@ -628,6 +628,13 @@ function generateDevTools(
                         const id = node.id;
                         css += \`.isdl-dm-active .isdl-section-\${id} .v-card-title { display: none !important; }\\n\`;
                     }
+                    // Static text styling: !important so it beats the synth elements' inline defaults
+                    if (node.kind === "static" && (node.fontSize || node.color)) {
+                        let rule = "";
+                        if (node.fontSize) rule += \`font-size: \${node.fontSize} !important; \`;
+                        if (node.color) rule += \`color: \${node.color} !important; \`;
+                        css += \`.isdl-dm-active .isdl-static-\${node.id} h3, .isdl-dm-active .isdl-static-\${node.id} p { \${rule}}\\n\`;
+                    }
                     // Item 2d: live preview for section theme overrides (targets .v-card, the painted surface)
                     if (node.kind === "section" && node.theme) {
                         const id = node.id;
@@ -892,6 +899,8 @@ function generateDevTools(
                 if (node.kind === "static") {
                     const out = { kind: "static", id: node.id, staticType: node.staticType };
                     if (node.text != null) out.text = node.text;
+                    if (node.fontSize) out.fontSize = node.fontSize;
+                    if (node.color) out.color = node.color;
                     return out;
                 }
                 const out = { kind: node.kind, id: node.id };
@@ -1536,6 +1545,45 @@ function generateDevTools(
                     }
                 });
                 body.appendChild(textInput);
+
+                // Text size + color (persisted on the node; live preview via the DM stylesheet)
+                body.appendChild(_dmMakeSectionLabel("Text size"));
+                const sizeInput = document.createElement("input");
+                sizeInput.type = "text";
+                sizeInput.className = "isdl-dm-text-input";
+                sizeInput.placeholder = node.staticType === "heading" ? "18px" : "13px";
+                sizeInput.value = node.fontSize ?? "";
+                sizeInput.addEventListener("input", e => {
+                    e.stopPropagation();
+                    const v = sizeInput.value.trim();
+                    if (v) node.fontSize = v; else delete node.fontSize;
+                    _dmApplyPreview();
+                });
+                body.appendChild(sizeInput);
+
+                body.appendChild(_dmMakeSectionLabel("Text color"));
+                const colorRow = document.createElement("div");
+                colorRow.className = "isdl-dm-move-row";
+                const colorInput = document.createElement("input");
+                colorInput.type = "color";
+                colorInput.value = node.color ?? "#c0d0e0";
+                colorInput.addEventListener("input", e => {
+                    e.stopPropagation();
+                    node.color = colorInput.value;
+                    _dmApplyPreview();
+                });
+                const clearColorBtn = document.createElement("button");
+                clearColorBtn.type = "button";
+                clearColorBtn.className = "isdl-dm-panel-btn";
+                clearColorBtn.textContent = "Clear";
+                clearColorBtn.addEventListener("click", e => {
+                    e.stopPropagation();
+                    delete node.color;
+                    _dmApplyPreview();
+                });
+                colorRow.appendChild(colorInput);
+                colorRow.appendChild(clearColorBtn);
+                body.appendChild(colorRow);
             }
 
             body.appendChild(_dmMakeSectionLabel("Position"));

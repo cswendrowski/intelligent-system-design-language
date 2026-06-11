@@ -1404,6 +1404,12 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         if (node.kind === 'static') {
             const staticNode = node as EffectiveStaticNode;
             const safeText = escapeStaticText(staticNode.text ?? '');
+            // Text styling set in Design Mode rides the text element as an inline style.
+            const textStyles = [
+                staticNode.fontSize ? `font-size: ${escapeStaticText(staticNode.fontSize)}` : '',
+                staticNode.color ? `color: ${escapeStaticText(staticNode.color)}` : '',
+            ].filter(s => s.length > 0).join('; ');
+            const textStyleAttr = textStyles.length > 0 ? ` style="${textStyles}"` : '';
             if (staticNode.staticType === 'hr') {
                 return expandToNode`
                 <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
@@ -1414,14 +1420,14 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             if (staticNode.staticType === 'paragraph') {
                 return expandToNode`
                 <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
-                    <p class="isdl-static-paragraph">${safeText}</p>
+                    <p class="isdl-static-paragraph"${textStyleAttr}>${safeText}</p>
                 </v-col>
                 `;
             }
             // heading
             return expandToNode`
             <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
-                <h3 class="isdl-static-heading">${safeText}</h3>
+                <h3 class="isdl-static-heading"${textStyleAttr}>${safeText}</h3>
             </v-col>
             `;
         }
