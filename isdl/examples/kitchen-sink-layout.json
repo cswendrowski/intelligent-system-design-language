@@ -17,6 +17,7 @@
               "kind": "section",
               "id": "damage",
               "hideLabel": true,
+              "theme": { "background": "#1a1410", "text": "#f0e6d2" },
               "children": [
                 {
                   "kind": "field",
@@ -37,6 +38,21 @@
               "id": "__static_1749000000000",
               "staticType": "heading",
               "text": "Combat Stats"
+            },
+            {
+              "kind": "row",
+              "id": "__dmrow_1749100000000",
+              "synthetic": true,
+              "children": [
+                {
+                  "kind": "field",
+                  "name": "testfunctionprompt"
+                },
+                {
+                  "kind": "field",
+                  "name": "drainfight"
+                }
+              ]
             },
             {
               "kind": "section",
@@ -134,19 +150,12 @@
             },
             {
               "kind": "field",
-              "name": "testfunctionprompt"
-            },
-            {
-              "kind": "field",
-              "name": "drainfight"
-            },
-            {
-              "kind": "field",
               "name": "favorites"
             },
             {
               "kind": "field",
-              "name": "gmpinned"
+              "name": "gmpinned",
+              "hidden": true
             },
             {
               "kind": "field",
@@ -421,6 +430,12 @@
                   "name": "executemacro"
                 }
               ]
+            },
+            {
+              "kind": "static",
+              "id": "__static_1781187708371",
+              "staticType": "heading",
+              "text": "Why hello there"
             },
             {
               "kind": "field",

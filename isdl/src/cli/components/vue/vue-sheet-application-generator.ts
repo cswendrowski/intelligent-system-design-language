@@ -98,7 +98,7 @@ import {
 import {getAllOfType, getDocument, getSystemPath, globalGetAllOfType, toMachineIdentifier} from '../utils.js';
 import {
     buildEffectiveDocTree, collectFieldOverrides, collectSectionOverrides,
-    EffectiveNode, EffectiveStaticNode, LayoutFieldOverrides, SystemLayoutV2,
+    EffectiveNode, EffectiveStaticNode, LayoutFieldOverrides, LayoutThemeOverride, SystemLayoutV2,
 } from '../layout-model.js';
 import {AstUtils} from 'langium';
 import {generateActionComponent, generateDocumentPromptApps} from './vue-action-component-generator.js';
@@ -148,6 +148,44 @@ function getGlobalThemeElevation(entry: Entry): number {
         if (ep != null) return ep.value;
     }
     return DEFAULT_ELEVATION;
+}
+
+// ── Layout theme override → inline style ─────────────────────────────────────
+// Mirrors the css-generator helpers but works from LayoutThemeOverride objects
+// (which come from saved layout JSON, not AST ThemeFieldParam nodes).
+// `which` selects which subset of declarations to emit, matching the split that
+// the AST helpers impose (width on the flex item; height+paint on the card/element).
+
+function layoutThemeToInlineStyle(theme: LayoutThemeOverride | undefined, which: 'width' | 'height' | 'paint' | 'field'): string {
+    if (!theme) return '';
+    const decls: string[] = [];
+    if (which === 'width' || which === 'field') {
+        if (theme.width) {
+            if (theme.width.min) decls.push(`min-width: ${theme.width.min}`);
+            if (theme.width.max) {
+                if (!theme.width.min) decls.push('min-width: 0');
+                decls.push(`max-width: ${theme.width.max}`);
+            }
+        }
+    }
+    if (which === 'height' || which === 'field') {
+        if (theme.height?.min) decls.push(`min-height: ${theme.height.min}`);
+    }
+    if (which === 'paint' || which === 'field') {
+        if (theme.background) decls.push(`background: ${theme.background}`);
+        if (theme.text) decls.push(`color: ${theme.text}`);
+        if (theme.border) {
+            if (theme.border.width && theme.border.color) {
+                decls.push(`border: ${theme.border.width} solid ${theme.border.color}`);
+            } else if (theme.border.color) {
+                decls.push(`border-color: ${theme.border.color}`);
+            } else if (theme.border.width) {
+                decls.push(`border-width: ${theme.border.width}; border-style: solid`);
+            }
+            if (theme.border.radius) decls.push(`border-radius: ${theme.border.radius}`);
+        }
+    }
+    return decls.join('; ');
 }
 
 export function generateDocumentVueComponent(entry: Entry, id: string, document: Document, destination: string, savedLayout: SystemLayoutV2 | null = null) {
@@ -1358,6 +1396,8 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     // Walk an EffectiveNode: dispatch containers here, leaf fields to generateElement.
     function generateNode(node: EffectiveNode, isTopLevel = false): CompositeGeneratorNode {
         if (node.kind === 'field') {
+            // Item 4a: hidden layout override — emit nothing (same as modifier === 'hidden').
+            if (node.overrides.hidden === true) return expandToNode``;
             return generateElement(node.element, isTopLevel);
         }
 
@@ -1386,17 +1426,25 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             `;
         }
 
-        // Container node — node.element is the AST Section/Row/Column.
+        // Container node.
+        // For synthetic containers (element === null), skip AST-based theme/params lookup.
         const element = node.element;
-        const themeParam = (element as any).params?.find(isThemeFieldParam) as ThemeFieldParam | undefined;
+        const themeParam = element ? ((element as any).params?.find(isThemeFieldParam) as ThemeFieldParam | undefined) : undefined;
 
         if (node.kind === 'section') {
-            const colStyle = themeWidthToInlineStyle(themeParam);
-            const colAttr = colStyle.length > 0 ? ` style="${colStyle}"` : '';
-            const cardStyle = [themeHeightToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
+            // AST-derived styles, with layout theme appended (later declarations win in style attr).
+            const astColStyle = themeWidthToInlineStyle(themeParam);
+            const layoutColStyle = layoutThemeToInlineStyle(node.themeOverride, 'width');
+            const colStyles = [astColStyle, layoutColStyle].filter(s => s.length > 0).join('; ');
+            const colAttr = colStyles.length > 0 ? ` style="${colStyles}"` : '';
+
+            const astCardStyle = [themeHeightToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
                 .filter(s => s.length > 0).join('; ');
-            const cardAttr = cardStyle.length > 0 ? ` style="${cardStyle}"` : '';
-            const sectionParams = (element as any).params ?? [];
+            const layoutCardStyle = layoutThemeToInlineStyle(node.themeOverride, 'paint');
+            const cardStyles = [astCardStyle, layoutCardStyle].filter(s => s.length > 0).join('; ');
+            const cardAttr = cardStyles.length > 0 ? ` style="${cardStyles}"` : '';
+
+            const sectionParams = (element as any)?.params ?? [];
             // hideTitle: layout override wins, fall back to AST hideLabel param.
             const hideTitle = node.hideTitle ?? sectionParams.some((p: any) => isHideLabelParam(p) && p.value);
             // Elevation: per-section theme override, falling back to global theme elevation (default 4).
@@ -1404,8 +1452,8 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const elevation = sectionElevationParam?.value ?? getGlobalThemeElevation(entry);
             // Collapsible: `collapsible: true` wraps body in a toggled expand-transition.
             const isCollapsible = sectionParams.some((p: any) => isCollapsibleParam(p) && p.value);
-            const sectionName = (element as any).name.toLowerCase();
-            const localizeKey = `${document.name}.${(element as any).name}`;
+            const sectionName = element ? (element as any).name.toLowerCase() : node.id;
+            const localizeKey = `${document.name}.${sectionName}`;
 
             if (isCollapsible) {
                 const titleBar = hideTitle
@@ -1444,14 +1492,20 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         }
 
         // Bare row/column have no inner card, so sizing AND border ride the element itself.
-        const containerStyle = [themeSizingToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
+        // Layout theme appended after AST styles (later declarations win).
+        const astContainerStyle = [themeSizingToInlineStyle(themeParam), themePaintToInlineStyle(themeParam)]
             .filter(s => s.length > 0).join('; ');
-        const styleAttr = containerStyle.length > 0 ? ` style="${containerStyle}"` : '';
+        const layoutContainerStyle = layoutThemeToInlineStyle(node.themeOverride, 'field');
+        const containerStyles = [astContainerStyle, layoutContainerStyle].filter(s => s.length > 0).join('; ');
+        const styleAttr = containerStyles.length > 0 ? ` style="${containerStyles}"` : '';
+
+        // Item 3b: stamp isdl-container-<id> on every row/column for DM DOM addressing.
+        const containerId = node.id;
 
         if (node.kind === 'row') {
             return expandToNode`
             <v-col cols="12"${styleAttr}>
-                <v-row dense class="isdl-row">
+                <v-row dense class="isdl-row isdl-container-${containerId}">
                     ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                 </v-row>
             </v-col>
@@ -1460,7 +1514,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
         // column
         return expandToNode`
-        <v-col class="isdl-column"${styleAttr}>
+        <v-col class="isdl-column isdl-container-${containerId}"${styleAttr}>
             ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
         </v-col>
         `;
@@ -1480,6 +1534,10 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         }
 
         if (isAction(element)) {
+            // Item 4a: hidden layout override skips actions too.
+            const actionLayoutOv = fieldOverrides.get(element.name.toLowerCase()) ?? {};
+            if (actionLayoutOv.hidden === true) return expandToNode``;
+
             const componentName = `${document.name.toLowerCase()}${element.name}Action`;
 
             const colorParam = element.params.find(x => isColorParam(x)) as ColorParam | undefined;
@@ -1498,12 +1556,12 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         if (!isProperty(element)) return expandToNode``;
 
         if (isProperty(element)) {
-            if (element.modifier == "hidden") return expandToNode``;
-
-            const standardParams = element.params as StandardFieldParams[];
-
             // Layout overrides (from saved layout JSON) take precedence over AST params.
             const layoutOv = fieldOverrides.get(element.name.toLowerCase()) ?? {};
+            // Item 4a: hidden layout override OR AST modifier === 'hidden' skips the field.
+            if (element.modifier == "hidden" || layoutOv.hidden === true) return expandToNode``;
+
+            const standardParams = element.params as StandardFieldParams[];
             const iconParam = (layoutOv.icon ? { value: layoutOv.icon } : standardParams.find(p => isIconParam(p))) as IconParam | undefined;
             const colorParam = (layoutOv.color ? { value: layoutOv.color } : standardParams.find(p => isColorParam(p))) as ColorParam | undefined;
 
@@ -2537,7 +2595,11 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             `;
 
             })();
-            return injectFieldMarker(fieldComponent, element, layoutOv.size);
+            // Item 2b: apply layout theme as inline style on the field root.
+            // AST theme is already applied via CSS rules in theme.css; layout override rides
+            // inline style so it wins. We pass 'field' to get all dimensions + paint combined.
+            const layoutThemeStyle = layoutThemeToInlineStyle(layoutOv.theme, 'field') || undefined;
+            return injectFieldMarker(fieldComponent, element, layoutOv.size, layoutThemeStyle);
         }
 
         return expandToNode`
@@ -2598,7 +2660,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
     // `.isdl-field` is the shared selector theme tokens target; `.isdl-<type>` is the type hook;
     // `.isdl-field-<name>` is the per-field hook; `.isdl-visibility-<value>` reflects declared
     // visibility for CSS authoring (runtime show/hide is handled by v-if / :disabled separately).
-    function injectFieldMarker(node: CompositeGeneratorNode, element: Property | Action, sizeOverride?: 'single' | 'double' | 'full'): CompositeGeneratorNode {
+    // `layoutThemeStyle` is an optional inline style string from LayoutThemeOverride that is merged
+    // onto the root tag's style attribute (if any existing style, append with '; '; otherwise add new attr).
+    function injectFieldMarker(node: CompositeGeneratorNode, element: Property | Action, sizeOverride?: 'single' | 'double' | 'full', layoutThemeStyle?: string): CompositeGeneratorNode {
         const html = toString(node);
         const typeClass = getFieldTypeClass(element);
         const visibilityClass = getVisibilityClass(element);
@@ -2612,9 +2676,30 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         if (tag?.index === undefined) return node;
         const insertAt = tag.index + tag[0].length;
         const rest = html.slice(insertAt);
-        const injected = /^\s+class="/.test(rest)
+        const withClass = /^\s+class="/.test(rest)
             ? html.slice(0, insertAt) + rest.replace(/^(\s+class=")/, `$1${marker} `)
             : html.slice(0, insertAt) + ` class="${marker}"` + rest;
+        // Merge layout theme style onto the root tag's style attribute (if any).
+        // Layout theme overrides ride inline style so they win over CSS-var-based theme rules.
+        if (!layoutThemeStyle) return expandToNode`${withClass}`;
+        // Re-find the insert point in the (possibly modified) string.
+        const tagInWith = withClass.match(/<([A-Za-z][\w.-]*)/);
+        if (!tagInWith || tagInWith.index === undefined) return expandToNode`${withClass}`;
+        const insertAt2 = tagInWith.index + tagInWith[0].length;
+        const rest2 = withClass.slice(insertAt2);
+        // If a style=" attribute is already present in the tag head (before the first closing >),
+        // append to it; otherwise inject a new style attribute. We look only within the opening tag.
+        const tagHead = rest2.slice(0, rest2.indexOf('>') + 1);
+        const styleMatch = /\sstyle="([^"]*)"/.exec(tagHead);
+        let injected: string;
+        if (styleMatch) {
+            // Existing style attr: append layout styles (later declarations win).
+            injected = withClass.slice(0, insertAt2) + rest2.replace(/(\sstyle=")([^"]*)(")/,
+                (_, open, existing, close) => `${open}${existing}; ${layoutThemeStyle}${close}`);
+        } else {
+            // No style attr: add one right after the tag name (before class/other attrs).
+            injected = withClass.slice(0, insertAt2) + ` style="${layoutThemeStyle}"` + rest2;
+        }
         return expandToNode`${injected}`;
     }
 }

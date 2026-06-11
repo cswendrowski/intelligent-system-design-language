@@ -13,6 +13,7 @@ import {
     EffectiveContainerNode,
     EffectiveFieldNode,
     EffectiveStaticNode,
+    LayoutThemeOverride,
 } from '../../cli/components/layout-model.js';
 
 const services = createIntelligentSystemDesignLanguageServices(EmptyFileSystem);
@@ -480,6 +481,164 @@ describe('buildEffectiveDocTree', () => {
         expect(staticNode.staticType).toBe('paragraph');
         expect(staticNode.text).toBe('Background info');
         expect(staticNode.id).toBe('__static_9999');
+    });
+
+    it('11. synthetic row passes through merge with resolved field children', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                { kind: 'section', id: 'stats', children: [{ kind: 'field', name: 'strength' }, { kind: 'field', name: 'agility' }] },
+                                {
+                                    kind: 'row', id: '__dmrow_1749100000000', synthetic: true,
+                                    children: [
+                                        { kind: 'field', name: 'loose' },
+                                    ]
+                                } as any,
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+
+        // Synthetic row should be present at index 1
+        const synthRow = main[1] as EffectiveContainerNode;
+        expect(synthRow.kind).toBe('row');
+        expect(synthRow.id).toBe('__dmrow_1749100000000');
+        expect(synthRow.synthetic).toBe(true);
+        expect(synthRow.element).toBeNull();
+
+        // Its child (loose) should be resolved via fieldMap
+        expect(synthRow.children).toHaveLength(1);
+        expect((synthRow.children[0] as EffectiveFieldNode).name).toBe('loose');
+
+        // Drift pass: loose was consumed into the synthetic row, so it should NOT be appended again
+        const allNames = (function collect(nodes: EffectiveNode[]): string[] {
+            const out: string[] = [];
+            for (const n of nodes) {
+                if (n.kind === 'field') out.push(n.name);
+                else if (n.kind !== 'static') out.push(...collect(n.children));
+            }
+            return out;
+        })(main);
+        expect(allNames.filter(n => n === 'loose')).toHaveLength(1);
+    });
+
+    it('12. hidden: true override survives merge + collectFieldOverrides', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength', hidden: true } as any,
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+        const statsChildren = containerChildren(main, 'stats');
+        const strengthNode = statsChildren[0] as EffectiveFieldNode;
+
+        // override.hidden should be set
+        expect(strengthNode.overrides.hidden).toBe(true);
+
+        // collectFieldOverrides should surface it
+        const overrides = collectFieldOverrides(tree);
+        expect(overrides.get('strength')?.hidden).toBe(true);
+        // agility has no overrides
+        expect(overrides.has('agility')).toBe(false);
+    });
+
+    it('13. theme override passes pickOverrides validation and serializes', async () => {
+        const entry = await parseEntry();
+        const doc = heroDoc(entry);
+
+        const theme: LayoutThemeOverride = {
+            background: '#1a1410',
+            text: '#f0e6d2',
+            border: { color: '#aa3333', width: '2px', radius: '4px' },
+            width: { min: '100px', max: '300px' },
+            height: { min: '50px' },
+        };
+
+        const layout: SystemLayoutV2 = {
+            version: 2,
+            actors: {
+                hero: {
+                    pages: {
+                        hero: {
+                            children: [
+                                {
+                                    kind: 'section', id: 'stats', children: [
+                                        { kind: 'field', name: 'strength', theme } as any,
+                                        { kind: 'field', name: 'agility' },
+                                    ]
+                                },
+                                { kind: 'section', id: 'info', children: [{ kind: 'field', name: 'background' }] },
+                                { kind: 'field', name: 'loose' },
+                            ]
+                        }
+                    }
+                }
+            },
+            items: {}
+        };
+
+        const tree = buildEffectiveDocTree(doc, layout);
+        const main = tree.pages.get('hero')!;
+        const statsChildren = containerChildren(main, 'stats');
+        const strengthNode = statsChildren[0] as EffectiveFieldNode;
+
+        // Theme override should be set on the effective node
+        expect(strengthNode.overrides.theme).toBeDefined();
+        expect(strengthNode.overrides.theme?.background).toBe('#1a1410');
+        expect(strengthNode.overrides.theme?.text).toBe('#f0e6d2');
+        expect(strengthNode.overrides.theme?.border?.color).toBe('#aa3333');
+        expect(strengthNode.overrides.theme?.border?.width).toBe('2px');
+        expect(strengthNode.overrides.theme?.border?.radius).toBe('4px');
+        expect(strengthNode.overrides.theme?.width?.min).toBe('100px');
+        expect(strengthNode.overrides.theme?.width?.max).toBe('300px');
+        expect(strengthNode.overrides.theme?.height?.min).toBe('50px');
+
+        // collectFieldOverrides should surface it
+        const overrides = collectFieldOverrides(tree);
+        expect(overrides.get('strength')?.theme?.background).toBe('#1a1410');
+
+        // serializeLayoutTree should include theme in the serialized node
+        const serialized = serializeLayoutTree(entry, layout);
+        const statsSection = (serialized.actors['hero'].pages['hero'].children as any[]).find(n => n.kind === 'section' && n.id === 'stats');
+        const strengthSer = (statsSection?.children as any[])?.find(n => n.kind === 'field' && n.name === 'strength');
+        expect(strengthSer?.theme?.background).toBe('#1a1410');
+        expect(strengthSer?.theme?.border?.width).toBe('2px');
     });
 
     it('8. serializeLayoutTree: field nodes have label, typeClass, defaultSize, sizable', async () => {

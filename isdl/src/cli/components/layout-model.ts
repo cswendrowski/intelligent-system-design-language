@@ -20,11 +20,21 @@ import { getAllOfType } from './utils.js';
 
 export type LayoutSize = 'single' | 'double' | 'full';
 
+export interface LayoutThemeOverride {
+    background?: string;   // CSS color
+    text?: string;         // CSS color
+    border?: { color?: string; width?: string; radius?: string };  // width/radius like "2px"
+    width?: { min?: string; max?: string };
+    height?: { min?: string; max?: string };
+}
+
 export interface LayoutFieldOverrides {
     size?: LayoutSize;
     hideLabel?: boolean;
     color?: string;
     icon?: string;
+    hidden?: boolean;
+    theme?: LayoutThemeOverride;
 }
 
 export interface LayoutFieldNode extends LayoutFieldOverrides {
@@ -38,6 +48,10 @@ export interface LayoutContainerNode {
     id: string;
     /** Sections only: hide the title bar. */
     hideLabel?: boolean;
+    /** Layout theme overrides for this container. */
+    theme?: LayoutThemeOverride;
+    /** True when this container was created in Design Mode and has no AST counterpart. */
+    synthetic?: boolean;
     children: LayoutNode[];
 }
 
@@ -80,9 +94,14 @@ export interface EffectiveFieldNode {
 export interface EffectiveContainerNode {
     kind: 'section' | 'row' | 'column';
     id: string;
-    element: Section | Row | Column;
+    /** AST element, or null for synthetic containers created in Design Mode. */
+    element: Section | Row | Column | null;
     /** Layout override for a section's hideLabel (title bar). undefined = use AST param. */
     hideTitle?: boolean;
+    /** Layout theme overrides applied on top of (or instead of) AST theme params. */
+    themeOverride?: LayoutThemeOverride;
+    /** True when this container was created in Design Mode (no AST counterpart). */
+    synthetic?: boolean;
     children: EffectiveNode[];
 }
 
@@ -200,6 +219,32 @@ function pickOverrides(node: LayoutFieldNode): LayoutFieldOverrides {
     if (typeof node.hideLabel === 'boolean') out.hideLabel = node.hideLabel;
     if (typeof node.color === 'string' && node.color.length > 0) out.color = node.color;
     if (typeof node.icon === 'string' && node.icon.length > 0) out.icon = node.icon;
+    if (node.hidden === true) out.hidden = true;
+    if (node.theme && typeof node.theme === 'object') {
+        const t = node.theme;
+        const tv: LayoutThemeOverride = {};
+        if (typeof t.background === 'string') tv.background = t.background;
+        if (typeof t.text === 'string') tv.text = t.text;
+        if (t.border && typeof t.border === 'object') {
+            const b: LayoutThemeOverride['border'] = {};
+            if (typeof t.border.color === 'string') b.color = t.border.color;
+            if (typeof t.border.width === 'string') b.width = t.border.width;
+            if (typeof t.border.radius === 'string') b.radius = t.border.radius;
+            if (Object.keys(b).length > 0) tv.border = b;
+        }
+        if (t.width && typeof t.width === 'object') {
+            const w: LayoutThemeOverride['width'] = {};
+            if (typeof t.width.min === 'string') w.min = t.width.min;
+            if (typeof t.width.max === 'string') w.max = t.width.max;
+            if (Object.keys(w).length > 0) tv.width = w;
+        }
+        if (t.height && typeof t.height === 'object') {
+            const h: LayoutThemeOverride['height'] = {};
+            if (typeof t.height.min === 'string') h.min = t.height.min;
+            if (Object.keys(h).length > 0) tv.height = h;
+        }
+        if (Object.keys(tv).length > 0) out.theme = tv;
+    }
     return out;
 }
 
@@ -232,12 +277,31 @@ function mergePage(
                 out.push({ ...def, overrides: pickOverrides(ln) });
             } else if (ln.kind === 'section' || ln.kind === 'row' || ln.kind === 'column') {
                 const def = containerMap.get(ln.id);
-                if (!def) { warn(`layout container "${ln.id}" no longer exists — dropped`); continue; }
+                // Synthetic containers (id starts with __dmrow_/__dmcol_ or has synthetic:true) have no
+                // AST counterpart and are passed through with element:null, children resolved from fieldMap.
+                if (!def) {
+                    const isSynth = ln.synthetic === true || /^__dm(row|col)_/.test(ln.id ?? '');
+                    if (!isSynth) { warn(`layout container "${ln.id}" no longer exists — dropped`); continue; }
+                    // Drift-tolerant: count synthetic containers as "consumed" so they never re-appear
+                    const synthNode: EffectiveContainerNode = {
+                        kind: ln.kind,
+                        id: ln.id,
+                        element: null,
+                        synthetic: true,
+                        hideTitle: typeof ln.hideLabel === 'boolean' ? ln.hideLabel : undefined,
+                        themeOverride: ln.theme,
+                        children: fromLayout(ln.children ?? []),
+                    };
+                    out.push(synthNode);
+                    continue;
+                }
                 if (consumed.has(def)) continue;
                 consumed.add(def);
+                const containerTheme = ln.theme;
                 out.push({
                     ...def,
                     hideTitle: typeof ln.hideLabel === 'boolean' ? ln.hideLabel : undefined,
+                    themeOverride: containerTheme,
                     children: fromLayout(ln.children),
                 });
             } else if (ln.kind === 'static') {
@@ -367,6 +431,7 @@ export interface ModuleFieldNode extends LayoutFieldOverrides {
     typeClass: string;
     defaultSize: LayoutSize;
     sizable: boolean;
+    // hidden and theme are inherited from LayoutFieldOverrides
 }
 
 export interface ModuleContainerNode {
@@ -374,6 +439,8 @@ export interface ModuleContainerNode {
     id: string;
     label?: string;
     hideLabel?: boolean;
+    theme?: LayoutThemeOverride;
+    synthetic?: boolean;
     children: ModuleLayoutNode[];
 }
 
@@ -391,7 +458,7 @@ function serializeNode(node: EffectiveNode): ModuleLayoutNode {
         const el = node.element as { name: string; params?: unknown[] };
         const labelParam = (el.params ?? []).find(p => isLabelParam(p)) as LabelParam | undefined;
         const typeClass = getTypeLabel(node.element);
-        return {
+        const fieldOut: ModuleFieldNode = {
             kind: 'field',
             name: node.name,
             label: labelParam?.value ?? humanizeFieldName(el.name),
@@ -400,17 +467,21 @@ function serializeNode(node: EffectiveNode): ModuleLayoutNode {
             sizable: isSizable(typeClass),
             ...node.overrides,
         };
+        return fieldOut;
     }
     if (node.kind === 'static') {
         return { kind: 'static', id: node.id, staticType: node.staticType, text: node.text };
     }
-    return {
+    const containerOut: ModuleContainerNode = {
         kind: node.kind,
         id: node.id,
-        label: node.kind === 'section' ? humanizeFieldName((node.element as Section).name) : undefined,
+        label: node.kind === 'section' && node.element ? humanizeFieldName((node.element as Section).name) : undefined,
         hideLabel: node.hideTitle,
         children: node.children.map(serializeNode),
     };
+    if (node.themeOverride) containerOut.theme = node.themeOverride;
+    if (node.synthetic) containerOut.synthetic = true;
+    return containerOut;
 }
 
 export interface ModuleDocTree {

@@ -180,6 +180,7 @@ function generateDevTools(
                 .isdl-dm-active .isdl-field * { pointer-events: none !important; }
                 .isdl-dm-active .isdl-static { pointer-events: auto !important; cursor: pointer; }
                 .isdl-dm-active .isdl-static * { pointer-events: none !important; }
+                .isdl-dm-active [class*='isdl-container-'] { pointer-events: auto !important; cursor: pointer; }
                 .isdl-dm-selected { outline: 2px solid #4a9eff !important; outline-offset: 1px; }
                 .isdl-dm-drop-before { box-shadow: -3px 0 0 0 #ffaa4a !important; }
                 .isdl-dm-drop-after { box-shadow: 3px 0 0 0 #ffaa4a !important; }
@@ -205,6 +206,9 @@ function generateDevTools(
                     height: 100%;
                     max-height: 100%;
                     overflow-y: auto;
+                    /* Item 1: the v-app-bar is position:fixed z-index:1006 inside the v-application
+                       (whose form root has z-index:101). Panel must exceed 1006 to paint over it. */
+                    z-index: 1010;
                 }
                 .isdl-dm-panel-header {
                     display: flex;
@@ -341,6 +345,41 @@ function generateDevTools(
                     white-space: nowrap;
                 }
                 .isdl-dm-insert-btn:hover { background: #1a2a4a; }
+                /* ── Theme group ── */
+                .isdl-dm-theme-row { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
+                .isdl-dm-theme-row label { flex: 1; font-size: 10px; color: #8a9aaa; }
+                .isdl-dm-theme-row input[type=color] { width: 30px; height: 20px; border: none; cursor: pointer; border-radius: 2px; background: none; flex-shrink: 0; }
+                .isdl-dm-theme-row .isdl-dm-text-input { flex: 1; width: auto; }
+                .isdl-dm-theme-clear { background: none; border: 1px solid #2a3a5a; color: #6a8aaa; cursor: pointer; padding: 0 4px; border-radius: 2px; font-size: 9px; flex-shrink: 0; }
+                .isdl-dm-theme-clear:hover { background: #1a2a4a; color: #a0c8ff; }
+                .isdl-dm-collapsible-header { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+                .isdl-dm-collapsible-header .isdl-dm-section-label { flex: 1; margin: 0; }
+                .isdl-dm-collapsible-header .isdl-dm-toggle-icon { font-size: 9px; color: #6a8aaa; }
+                .isdl-dm-collapsible-body { display: flex; flex-direction: column; gap: 3px; padding: 4px 0 2px; }
+                /* ── Hidden fields section ── */
+                .isdl-dm-hidden-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+                .isdl-dm-hidden-chip {
+                    display: flex; align-items: center; gap: 3px;
+                    background: #2a1010; border: 1px solid #6a2a2a; color: #f07070;
+                    border-radius: 10px; padding: 1px 6px 1px 8px; font-size: 10px; cursor: default;
+                }
+                .isdl-dm-hidden-chip-x {
+                    background: none; border: none; color: #f07070; cursor: pointer;
+                    font-size: 11px; padding: 0; line-height: 1;
+                }
+                .isdl-dm-hidden-chip-x:hover { color: #ff9090; }
+                /* ── Synthetic container DOM hints ── */
+                .isdl-dm-active [data-isdl-dm-synth-container]::after {
+                    content: "Drop fields here";
+                    display: flex; align-items: center; justify-content: center;
+                    color: #4a6a8a; font-size: 10px; font-style: italic;
+                    pointer-events: none;
+                }
+                .isdl-dm-active [data-isdl-dm-synth-container]:empty { outline: 1px dashed #2a4a8a; }
+                /* ── Hidden field ghosting in DM ── */
+                .isdl-dm-active .isdl-dm-hidden { opacity: 0.25; outline: 1px dashed #aa5555 !important; }
+                /* ── Container hover/select in DM ── */
+                .isdl-dm-active [class*='isdl-container-']:hover { outline: 1px dashed #3a5a8a; outline-offset: 2px; }
             \`;
             document.head.appendChild(style);
         }
@@ -524,6 +563,7 @@ function generateDevTools(
         function _dmNodeRoot(node) {
             if (node.kind === "field") return _dmFieldRoot(node.name);
             if (node.kind === "static") return _dmStaticRoot(node.id) ?? _dmStaticRoot(node.id + "_synth");
+            if (node.kind === "row" || node.kind === "column") return _dmContainerRoot(node.id);
             return _dmSectionRoot(node.id);
         }
 
@@ -566,9 +606,58 @@ function generateDevTools(
                         css += \`.isdl-dm-active .isdl-field-\${name} .v-slider__thumb { color: \${c} !important; background-color: \${c} !important; }\\n\`;
                         css += \`.isdl-dm-active .isdl-field-\${name} input { caret-color: \${c} !important; }\\n\`;
                     }
+                    // Item 2d: live preview for field theme overrides
+                    if (node.kind === "field" && node.theme) {
+                        const name = node.name;
+                        const t = node.theme;
+                        let rule = "";
+                        if (t.background) rule += \`background: \${t.background} !important; \`;
+                        if (t.text) rule += \`color: \${t.text} !important; \`;
+                        if (t.border) {
+                            if (t.border.width && t.border.color) rule += \`border: \${t.border.width} solid \${t.border.color} !important; \`;
+                            else if (t.border.color) rule += \`border-color: \${t.border.color} !important; \`;
+                            else if (t.border.width) rule += \`border-width: \${t.border.width} !important; border-style: solid !important; \`;
+                            if (t.border.radius) rule += \`border-radius: \${t.border.radius} !important; \`;
+                        }
+                        if (t.width?.min) rule += \`min-width: \${t.width.min} !important; \`;
+                        if (t.width?.max) rule += \`max-width: \${t.width.max} !important; \`;
+                        if (t.height?.min) rule += \`min-height: \${t.height.min} !important; \`;
+                        if (rule.trim()) css += \`.isdl-dm-active .isdl-field-\${name} { \${rule.trim()} }\\n\`;
+                    }
                     if (node.kind === "section" && node.hideLabel === true) {
                         const id = node.id;
                         css += \`.isdl-dm-active .isdl-section-\${id} .v-card-title { display: none !important; }\\n\`;
+                    }
+                    // Item 2d: live preview for section theme overrides (targets .v-card, the painted surface)
+                    if (node.kind === "section" && node.theme) {
+                        const id = node.id;
+                        const t = node.theme;
+                        let rule = "";
+                        if (t.background) rule += \`background: \${t.background} !important; \`;
+                        if (t.text) rule += \`color: \${t.text} !important; \`;
+                        if (t.border) {
+                            if (t.border.width && t.border.color) rule += \`border: \${t.border.width} solid \${t.border.color} !important; \`;
+                            else if (t.border.color) rule += \`border-color: \${t.border.color} !important; \`;
+                            if (t.border.radius) rule += \`border-radius: \${t.border.radius} !important; \`;
+                        }
+                        if (rule.trim()) css += \`.isdl-dm-active .isdl-section-\${id} .v-card { \${rule.trim()} }\\n\`;
+                    }
+                    // Item 2d: row/column theme preview (use container class when available)
+                    if ((node.kind === "row" || node.kind === "column") && node.theme) {
+                        const id = node.id;
+                        const t = node.theme;
+                        let rule = "";
+                        if (t.background) rule += \`background: \${t.background} !important; \`;
+                        if (t.text) rule += \`color: \${t.text} !important; \`;
+                        if (t.border) {
+                            if (t.border.width && t.border.color) rule += \`border: \${t.border.width} solid \${t.border.color} !important; \`;
+                            else if (t.border.color) rule += \`border-color: \${t.border.color} !important; \`;
+                            if (t.border.radius) rule += \`border-radius: \${t.border.radius} !important; \`;
+                        }
+                        if (t.width?.min) rule += \`min-width: \${t.width.min} !important; \`;
+                        if (t.width?.max) rule += \`max-width: \${t.width.max} !important; \`;
+                        if (t.height?.min) rule += \`min-height: \${t.height.min} !important; \`;
+                        if (rule.trim()) css += \`.isdl-dm-active .isdl-container-\${id} { \${rule.trim()} }\\n\`;
                     }
                 });
             }
@@ -578,6 +667,24 @@ function generateDevTools(
         function _dmApplyOrderToDOMChildren(nodes, containerEl) {
             let order = 0;
             for (const node of nodes) {
+                // Item 3c: handle synthetic row/column containers — append to parent if not yet in DOM
+                if ((node.kind === "row" || node.kind === "column") && node.synthetic) {
+                    let el = _dmContainerRoot(node.id);
+                    if (!el && node._synthEl) {
+                        el = node._synthEl;
+                        delete node._synthEl;
+                        if (containerEl) containerEl.appendChild(el);
+                    }
+                    if (el) {
+                        if (containerEl && el.parentElement !== containerEl) containerEl.appendChild(el);
+                        el.style.order = String(order++);
+                        el.setAttribute("data-isdl-dm", "1");
+                        el.draggable = true;
+                    } else {
+                        order++;
+                    }
+                    continue;
+                }
                 // Synthesize DOM for static nodes that aren't in the generated markup yet
                 if (node.kind === "static") {
                     let el = _dmStaticRoot(node.id);
@@ -634,6 +741,11 @@ function generateDevTools(
             return _dm.windowContent.querySelector(\`.isdl-section-\${sectionId} .v-card-text .v-row\`);
         }
 
+        // Item 3c: resolve the DOM container element for a row/column node (both AST and synthetic).
+        function _dmContainerRoot(nodeId) {
+            return _dm.windowContent.querySelector(\`.isdl-container-\${CSS.escape(nodeId)}\`);
+        }
+
         function _dmApplyPreview() {
             if (!_dm) return;
 
@@ -642,6 +754,24 @@ function generateDevTools(
 
             // Rebuild preview CSS
             _dm.previewStyleEl.textContent = _dmBuildPreviewCss();
+
+            // Item 3c: synthesise DOM elements for synthetic row/column containers not yet in generated markup
+            _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), node => {
+                if (!node.synthetic) return;
+                if (node.kind !== "row" && node.kind !== "column") return;
+                const existing = _dmContainerRoot(node.id);
+                if (!existing) {
+                    const el = document.createElement("div");
+                    el.className = \`isdl-container-\${node.id}\`;
+                    el.dataset.isdlDmSynth = "1";
+                    el.dataset.isdlDmSynthContainer = "1";
+                    const isRow = node.kind === "row";
+                    el.style.cssText = \`display:flex;flex-wrap:wrap;gap:4px;min-height:36px;flex-basis:100%;\${isRow ? "" : "flex-direction:column;"}\`;
+                    // Will be appended to parent container by the order pass below
+                    // Store on node for the order pass to find
+                    node._synthEl = el;
+                }
+            });
 
             // DOM pass: set CSS order + draggable on addressable nodes per page
             for (const [pageKey, page] of Object.entries(_dm.tree.pages)) {
@@ -656,12 +786,27 @@ function generateDevTools(
                         if (node.kind === "section") {
                             containerEl = _dmGetSectionRowEl(node.id);
                         } else if (node.kind === "row" || node.kind === "column") {
-                            containerEl = _dmSectionRoot(node.id) ?? null;
+                            // Item 3c: use isdl-container-<id> class for all rows/columns
+                            containerEl = _dmContainerRoot(node.id) ?? null;
                         }
                         _dmApplyOrderToDOMChildren(node.children, containerEl);
                     }
                 });
             }
+
+            // Item 4b: apply/remove isdl-dm-hidden class on field DOM elements
+            _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), node => {
+                if (node.kind !== "field") return;
+                const el = _dmFieldRoot(node.name);
+                if (!el) return;
+                if (node.hidden) {
+                    el.classList.add("isdl-dm-hidden");
+                    el.setAttribute("data-isdl-dm", "1");
+                    el.draggable = true;
+                } else {
+                    el.classList.remove("isdl-dm-hidden");
+                }
+            });
 
             // 3c: Icon live preview — swap FA icon classes on the field's label area
             _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), node => {
@@ -740,6 +885,8 @@ function generateDevTools(
                     if (node.hideLabel === true) out.hideLabel = true;
                     if (node.color) out.color = node.color;
                     if (node.icon) out.icon = node.icon;
+                    if (node.hidden === true) out.hidden = true;
+                    if (node.theme && Object.keys(node.theme).length > 0) out.theme = node.theme;
                     return out;
                 }
                 if (node.kind === "static") {
@@ -748,7 +895,9 @@ function generateDevTools(
                     return out;
                 }
                 const out = { kind: node.kind, id: node.id };
-                if (node.kind === "section" && node.hideLabel === true) out.hideLabel = true;
+                if (node.hideLabel === true) out.hideLabel = true;
+                if (node.synthetic === true) out.synthetic = true;
+                if (node.theme && Object.keys(node.theme).length > 0) out.theme = node.theme;
                 out.children = (node.children ?? []).map(stripNode);
                 return out;
             }
@@ -856,7 +1005,48 @@ function generateDevTools(
                 });
                 insertRow.appendChild(btn);
             }
+            // Item 3c: Row and Column insert buttons
+            for (const [label, kind] of [["↔ Row", "row"], ["↕ Column", "column"]]) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "isdl-dm-insert-btn";
+                btn.textContent = label;
+                btn.addEventListener("click", e => {
+                    e.stopPropagation();
+                    _dmInsertContainer(kind);
+                });
+                insertRow.appendChild(btn);
+            }
             body.appendChild(insertRow);
+
+            // Item 4b: Hidden fields section — always shown when there are hidden fields
+            const hiddenNodes = [];
+            _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), n => {
+                if (n.kind === "field" && n.hidden) hiddenNodes.push(n);
+            });
+            if (hiddenNodes.length > 0) {
+                body.appendChild(_dmMakeSectionLabel("Hidden Fields"));
+                const chipsEl = document.createElement("div");
+                chipsEl.className = "isdl-dm-hidden-chips";
+                for (const n of hiddenNodes) {
+                    const chip = document.createElement("div");
+                    chip.className = "isdl-dm-hidden-chip";
+                    chip.textContent = n.label ?? n.name;
+                    const x = document.createElement("button");
+                    x.type = "button";
+                    x.className = "isdl-dm-hidden-chip-x";
+                    x.textContent = "✕";
+                    x.title = "Unhide";
+                    x.addEventListener("click", e => {
+                        e.stopPropagation();
+                        delete n.hidden;
+                        _dmApplyPreview();
+                    });
+                    chip.appendChild(x);
+                    chipsEl.appendChild(chip);
+                }
+                body.appendChild(chipsEl);
+            }
 
             const sel = _dm.selected;
             if (!sel) {
@@ -875,6 +1065,8 @@ function generateDevTools(
                 _dmRenderSectionPanel(body, node, sel.pageKey);
             } else if (node.kind === "static") {
                 _dmRenderStaticPanel(body, node, sel.pageKey);
+            } else if (node.kind === "row" || node.kind === "column") {
+                _dmRenderContainerPanel(body, node, sel.pageKey);
             }
         }
 
@@ -908,11 +1100,149 @@ function generateDevTools(
             _dmApplyPreview();
         }
 
+        // Item 3c: insert a synthetic row or column container
+        function _dmInsertContainer(kind) {
+            if (!_dm) return;
+            const ts = Date.now();
+            const prefix = kind === "row" ? "__dmrow_" : "__dmcol_";
+            const newNode = { kind, id: prefix + ts, synthetic: true, children: [] };
+
+            const pageKey = _dmCurrentPageKey();
+            if (!pageKey) return;
+            const page = _dm.tree.pages[pageKey];
+            if (!page) return;
+
+            if (_dm.selected) {
+                const sel = _dm.selected;
+                const selKind = sel.node.kind === "field" ? "field"
+                              : sel.node.kind === "static" ? "static" : sel.node.kind;
+                const selKey = sel.node.kind === "field" ? sel.node.name : sel.node.id;
+                const found = _dmFindNode(sel.pageKey, selKind, selKey);
+                if (found) {
+                    found.parentChildren.splice(found.index + 1, 0, newNode);
+                    _dm.selected = { pageKey: sel.pageKey, node: newNode };
+                    _dmApplyPreview();
+                    return;
+                }
+            }
+            page.children.push(newNode);
+            _dm.selected = { pageKey, node: newNode };
+            _dmApplyPreview();
+        }
+
         function _dmMakeSectionLabel(text) {
             const div = document.createElement("div");
             div.className = "isdl-dm-section-label";
             div.textContent = text;
             return div;
+        }
+
+        // Item 2c: collapsible Theme group, shared between field, section, row/column panels.
+        // node is a live tree node whose .theme object is mutated; onUpdate is called after each change.
+        function _dmRenderThemeGroup(body, node, onUpdate) {
+            const header = document.createElement("div");
+            header.className = "isdl-dm-collapsible-header";
+            const lbl = _dmMakeSectionLabel("Theme");
+            const toggle = document.createElement("span");
+            toggle.className = "isdl-dm-toggle-icon";
+            toggle.textContent = "▼";
+            header.appendChild(lbl);
+            header.appendChild(toggle);
+
+            const themeBody = document.createElement("div");
+            themeBody.className = "isdl-dm-collapsible-body";
+            let open = false;
+            themeBody.style.display = "none";
+            header.addEventListener("click", () => {
+                open = !open;
+                themeBody.style.display = open ? "flex" : "none";
+                toggle.textContent = open ? "▲" : "▼";
+            });
+            body.appendChild(header);
+
+            function ensureTheme() {
+                if (!node.theme) node.theme = {};
+                return node.theme;
+            }
+            function cleanTheme() {
+                if (!node.theme) return;
+                // Remove empty nested objects
+                if (node.theme.border && Object.values(node.theme.border).every(v => !v)) delete node.theme.border;
+                if (node.theme.width && Object.values(node.theme.width).every(v => !v)) delete node.theme.width;
+                if (node.theme.height && Object.values(node.theme.height).every(v => !v)) delete node.theme.height;
+                if (Object.keys(node.theme).length === 0) delete node.theme;
+            }
+
+            function makeColorRow(label, getter, setter) {
+                const row = document.createElement("div");
+                row.className = "isdl-dm-theme-row";
+                const lbl = document.createElement("label");
+                lbl.textContent = label;
+                const inp = document.createElement("input");
+                inp.type = "color";
+                inp.value = getter() || "#000000";
+                inp.addEventListener("input", () => { ensureTheme(); setter(inp.value); cleanTheme(); onUpdate(); });
+                const clr = document.createElement("button");
+                clr.type = "button";
+                clr.className = "isdl-dm-theme-clear";
+                clr.textContent = "✕";
+                clr.addEventListener("click", () => { ensureTheme(); setter(null); cleanTheme(); onUpdate(); });
+                row.appendChild(lbl);
+                row.appendChild(inp);
+                row.appendChild(clr);
+                themeBody.appendChild(row);
+            }
+
+            function makeTextRow(label, placeholder, getter, setter) {
+                const row = document.createElement("div");
+                row.className = "isdl-dm-theme-row";
+                const lbl = document.createElement("label");
+                lbl.textContent = label;
+                const inp = document.createElement("input");
+                inp.type = "text";
+                inp.className = "isdl-dm-text-input";
+                inp.placeholder = placeholder;
+                inp.value = getter() || "";
+                inp.addEventListener("input", () => { ensureTheme(); setter(inp.value || null); cleanTheme(); onUpdate(); });
+                row.appendChild(lbl);
+                row.appendChild(inp);
+                themeBody.appendChild(row);
+            }
+
+            makeColorRow("Background",
+                () => node.theme?.background,
+                v => { if (v) node.theme.background = v; else delete node.theme?.background; }
+            );
+            makeColorRow("Text",
+                () => node.theme?.text,
+                v => { if (v) node.theme.text = v; else delete node.theme?.text; }
+            );
+            makeColorRow("Border color",
+                () => node.theme?.border?.color,
+                v => { ensureTheme(); if (!node.theme.border) node.theme.border = {}; if (v) node.theme.border.color = v; else delete node.theme.border.color; }
+            );
+            makeTextRow("Border width", "2px",
+                () => node.theme?.border?.width,
+                v => { ensureTheme(); if (!node.theme.border) node.theme.border = {}; if (v) node.theme.border.width = v; else delete node.theme.border.width; }
+            );
+            makeTextRow("Border radius", "8px",
+                () => node.theme?.border?.radius,
+                v => { ensureTheme(); if (!node.theme.border) node.theme.border = {}; if (v) node.theme.border.radius = v; else delete node.theme.border.radius; }
+            );
+            makeTextRow("Min width", "150px",
+                () => node.theme?.width?.min,
+                v => { ensureTheme(); if (!node.theme.width) node.theme.width = {}; if (v) node.theme.width.min = v; else delete node.theme.width.min; }
+            );
+            makeTextRow("Max width", "300px",
+                () => node.theme?.width?.max,
+                v => { ensureTheme(); if (!node.theme.width) node.theme.width = {}; if (v) node.theme.width.max = v; else delete node.theme.width.max; }
+            );
+            makeTextRow("Min height", "60px",
+                () => node.theme?.height?.min,
+                v => { ensureTheme(); if (!node.theme.height) node.theme.height = {}; if (v) node.theme.height.min = v; else delete node.theme.height.min; }
+            );
+
+            body.appendChild(themeBody);
         }
 
         function _dmRenderFieldPanel(body, node, pageKey) {
@@ -1015,6 +1345,9 @@ function generateDevTools(
             regenNote.textContent = "Exact colors and icon apply on regenerate. Live preview is best-effort.";
             body.appendChild(regenNote);
 
+            // Item 2c: Theme group
+            _dmRenderThemeGroup(body, node, () => _dmApplyPreview());
+
             // Move + Reset
             body.appendChild(_dmMakeSectionLabel("Position"));
             const moveRow = document.createElement("div");
@@ -1044,9 +1377,39 @@ function generateDevTools(
                 delete node.hideLabel;
                 delete node.color;
                 delete node.icon;
+                delete node.theme;
                 _dmApplyPreview();
             });
             body.appendChild(resetBtn);
+
+            // Item 4b: Hide/Unhide field button
+            if (node.hidden) {
+                const unhideBtn = document.createElement("button");
+                unhideBtn.type = "button";
+                unhideBtn.className = "isdl-dm-panel-btn";
+                unhideBtn.style.width = "100%";
+                unhideBtn.innerHTML = \`<i class="fa-solid fa-eye"></i> Unhide field\`;
+                unhideBtn.addEventListener("click", e => {
+                    e.stopPropagation();
+                    delete node.hidden;
+                    _dm.selected = null;
+                    _dmApplyPreview();
+                });
+                body.appendChild(unhideBtn);
+            } else {
+                const hideBtn = document.createElement("button");
+                hideBtn.type = "button";
+                hideBtn.className = "isdl-dm-panel-btn danger";
+                hideBtn.style.width = "100%";
+                hideBtn.innerHTML = \`<i class="fa-solid fa-eye-slash"></i> Hide field\`;
+                hideBtn.addEventListener("click", e => {
+                    e.stopPropagation();
+                    node.hidden = true;
+                    _dm.selected = null;
+                    _dmApplyPreview();
+                });
+                body.appendChild(hideBtn);
+            }
         }
 
         function _dmRenderSectionPanel(body, node, pageKey) {
@@ -1070,6 +1433,9 @@ function generateDevTools(
             hideTitleRow.appendChild(document.createTextNode(" Hide title"));
             body.appendChild(hideTitleRow);
 
+            // Item 2c: Theme group
+            _dmRenderThemeGroup(body, node, () => _dmApplyPreview());
+
             // Move
             body.appendChild(_dmMakeSectionLabel("Position"));
             const moveRow = document.createElement("div");
@@ -1087,6 +1453,62 @@ function generateDevTools(
             moveRow.appendChild(upBtn);
             moveRow.appendChild(downBtn);
             body.appendChild(moveRow);
+        }
+
+        // Item 3c: panel for selected row/column container
+        function _dmRenderContainerPanel(body, node, pageKey) {
+            const kindLabel = node.kind === "row" ? "Row" : "Column";
+            const nameDiv = document.createElement("div");
+            nameDiv.innerHTML = \`<strong>\${kindLabel}</strong> <span class="isdl-dm-field-name">\${node.id}</span>\`;
+            if (node.synthetic) {
+                const badge = document.createElement("span");
+                badge.className = "isdl-dm-type-badge";
+                badge.textContent = "synthetic";
+                nameDiv.appendChild(badge);
+            }
+            body.appendChild(nameDiv);
+
+            // Item 2c: Theme group
+            _dmRenderThemeGroup(body, node, () => _dmApplyPreview());
+
+            // Move
+            body.appendChild(_dmMakeSectionLabel("Position"));
+            const moveRow = document.createElement("div");
+            moveRow.className = "isdl-dm-move-row";
+            const upBtn = document.createElement("button");
+            upBtn.type = "button";
+            upBtn.className = "isdl-dm-panel-btn";
+            upBtn.innerHTML = \`<i class="fa-solid fa-arrow-up"></i> Up\`;
+            upBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, -1); });
+            const downBtn = document.createElement("button");
+            downBtn.type = "button";
+            downBtn.className = "isdl-dm-panel-btn";
+            downBtn.innerHTML = \`<i class="fa-solid fa-arrow-down"></i> Down\`;
+            downBtn.addEventListener("click", e => { e.stopPropagation(); _dmMoveNode(pageKey, node, 1); });
+            moveRow.appendChild(upBtn);
+            moveRow.appendChild(downBtn);
+            body.appendChild(moveRow);
+
+            // Remove: splice children into parent at container's former position
+            if (node.synthetic) {
+                const removeBtn = document.createElement("button");
+                removeBtn.type = "button";
+                removeBtn.className = "isdl-dm-panel-btn danger";
+                removeBtn.style.width = "100%";
+                removeBtn.innerHTML = \`<i class="fa-solid fa-trash"></i> Remove (keep children)\`;
+                removeBtn.addEventListener("click", e => {
+                    e.stopPropagation();
+                    const kind = node.kind;
+                    const found = _dmFindAnywhere(kind, node.id);
+                    if (!found) return;
+                    const children = node.children ?? [];
+                    // Replace this container with its children in-place
+                    found.parentChildren.splice(found.index, 1, ...children);
+                    _dm.selected = null;
+                    _dmApplyPreview();
+                });
+                body.appendChild(removeBtn);
+            }
         }
 
         function _dmRenderStaticPanel(body, node, pageKey) {
@@ -1272,7 +1694,7 @@ function generateDevTools(
                 el.removeAttribute("data-isdl-dm");
                 el.removeAttribute("draggable");
                 el.style.order = "";
-                el.classList.remove("isdl-dm-selected", "isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
+                el.classList.remove("isdl-dm-selected", "isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into", "isdl-dm-hidden");
             });
 
             btn?.classList.remove("active");
@@ -1289,7 +1711,8 @@ function generateDevTools(
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
             const staticRoot = e.target.closest("[class*='isdl-static-']");
-            const root = fieldRoot ?? staticRoot ?? sectionRoot;
+            const containerRoot = e.target.closest("[class*='isdl-container-']");
+            const root = fieldRoot ?? staticRoot ?? sectionRoot ?? containerRoot;
 
             if (!root) {
                 _dm.selected = null;
@@ -1297,7 +1720,7 @@ function generateDevTools(
                 return;
             }
 
-            // Extract the key from class name: field > static > section
+            // Extract the key from class name: field > static > section > container
             let kind = null, key = null;
             if (fieldRoot) {
                 const cls = [...fieldRoot.classList].find(c => /^isdl-field-[a-z0-9_-]/.test(c));
@@ -1310,6 +1733,18 @@ function generateDevTools(
             if (!kind && sectionRoot) {
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
                 if (cls) { kind = "section"; key = cls.replace("isdl-section-", ""); }
+            }
+            // Item 3c: container (row/column) — lowest priority, detected via isdl-container-<id>
+            if (!kind && containerRoot) {
+                const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
+                if (cls) {
+                    key = cls.replace("isdl-container-", "");
+                    // Determine row vs column by looking it up in the tree
+                    const foundR = _dmFindAnywhere("row", key);
+                    const foundC = _dmFindAnywhere("column", key);
+                    if (foundR) kind = "row";
+                    else if (foundC) kind = "column";
+                }
             }
 
             if (!kind || !key) {
@@ -1335,7 +1770,8 @@ function generateDevTools(
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
             const staticRoot = e.target.closest("[class*='isdl-static-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
-            const root = fieldRoot ?? staticRoot ?? sectionRoot;
+            const containerRoot = e.target.closest("[class*='isdl-container-']");
+            const root = fieldRoot ?? staticRoot ?? sectionRoot ?? containerRoot;
             if (!root) return;
 
             let kind = null, key = null;
@@ -1351,6 +1787,16 @@ function generateDevTools(
                 const cls = [...sectionRoot.classList].find(c => /^isdl-section-[a-z0-9_-]/.test(c));
                 if (cls) { kind = "section"; key = cls.replace("isdl-section-", ""); }
             }
+            if (!kind && containerRoot) {
+                const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
+                if (cls) {
+                    key = cls.replace("isdl-container-", "");
+                    const foundR = _dmFindAnywhere("row", key);
+                    const foundC = _dmFindAnywhere("column", key);
+                    if (foundR) kind = "row";
+                    else if (foundC) kind = "column";
+                }
+            }
             if (!kind || !key) return;
 
             _dm.dragging = { kind, key };
@@ -1362,6 +1808,7 @@ function generateDevTools(
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
             const staticRoot = e.target.closest("[class*='isdl-static-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
+            const containerRoot = e.target.closest("[class*='isdl-container-']");
 
             // Clear all indicators first
             _dm.windowContent.querySelectorAll(".isdl-dm-drop-before, .isdl-dm-drop-after, .isdl-dm-drop-into").forEach(el => {
@@ -1407,6 +1854,13 @@ function generateDevTools(
                     const before = e.clientX < rect.left + rect.width / 2;
                     sectionRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
                 }
+            } else if (containerRoot && (_dm.dragging.kind === "field" || _dm.dragging.kind === "static")) {
+                // Item 3c: allow dropping fields/statics onto row/column containers
+                const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
+                if (cls) {
+                    e.preventDefault();
+                    containerRoot.classList.add("isdl-dm-drop-into");
+                }
             }
         }
 
@@ -1416,7 +1870,8 @@ function generateDevTools(
             const rel = e.relatedTarget;
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
-            const root = fieldRoot ?? sectionRoot;
+            const containerRoot = e.target.closest("[class*='isdl-container-']");
+            const root = fieldRoot ?? sectionRoot ?? containerRoot;
             if (root && !root.contains(rel)) {
                 root.classList.remove("isdl-dm-drop-before", "isdl-dm-drop-after", "isdl-dm-drop-into");
             }
@@ -1437,6 +1892,7 @@ function generateDevTools(
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
             const staticRoot = e.target.closest("[class*='isdl-static-']");
             const sectionRoot = e.target.closest("[class*='isdl-section-']");
+            const containerRoot = e.target.closest("[class*='isdl-container-']");
 
             const srcFound = _dmFindAnywhere(dragKind, dragKey);
             if (!srcFound) return;
@@ -1469,6 +1925,23 @@ function generateDevTools(
                         targetKind = "section";
                         const rect = sectionRoot.getBoundingClientRect();
                         insertBefore = e.clientX < rect.left + rect.width / 2;
+                    }
+                }
+            } else if (containerRoot && (dragKind === "field" || dragKind === "static")) {
+                // Item 3c: dropping a field/static onto a container appends to its children
+                const cls = [...containerRoot.classList].find(c => /^isdl-container-/.test(c));
+                if (cls) {
+                    const cid = cls.replace("isdl-container-", "");
+                    const foundR = _dmFindAnywhere("row", cid);
+                    const foundC = _dmFindAnywhere("column", cid);
+                    const containerFound = foundR ?? foundC;
+                    if (containerFound) {
+                        srcFound.parentChildren.splice(srcFound.index, 1);
+                        const containerNode = containerFound.node;
+                        const children = containerNode.children ?? (containerNode.children = []);
+                        children.push(srcFound.node);
+                        _dmApplyPreview();
+                        return;
                     }
                 }
             }
