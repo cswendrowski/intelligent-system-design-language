@@ -306,6 +306,26 @@ function generateDevTools(
                     padding: 2px;
                 }
                 .isdl-dm-icon-input { flex: 1; min-width: 0; }
+                .isdl-dm-swatch {
+                    width: 14px; height: 14px; flex: 0 0 14px;
+                    border: 1px solid #2a4a8a; border-radius: 2px;
+                    cursor: pointer; padding: 0;
+                }
+                .isdl-dm-swatch:hover { outline: 1px solid #4a9eff; }
+                .isdl-dm-hint {
+                    background: #14223a; border: 1px solid #2a4a8a; border-radius: 3px;
+                    padding: 6px 8px; font-size: 10px; color: #8aaace; margin-bottom: 6px;
+                    display: flex; gap: 6px; align-items: flex-start;
+                }
+                .isdl-dm-hint button { background: none; border: none; color: #6a8aaa; cursor: pointer; padding: 0; flex-shrink: 0; }
+                .isdl-dm-outline-filter {
+                    width: 100%; box-sizing: border-box; margin-bottom: 2px;
+                    background: #10182a; border: 1px solid #1a2a4a; color: #a0c8ff;
+                    border-radius: 2px; padding: 2px 5px; font-size: 10px;
+                }
+                .isdl-dm-outline-row .isdl-dm-outline-twisty {
+                    cursor: pointer; width: 10px; flex-shrink: 0; color: #4a7aaa; font-size: 8px; text-align: center;
+                }
                 /* ── Status row ── */
                 .isdl-dm-status-row {
                     display: flex;
@@ -1136,8 +1156,10 @@ function generateDevTools(
         }
 
         // Outline tree: indented, click-to-select rows for the active page's nodes.
-        // Open/closed survives panel rebuilds via module-level state.
+        // Open/closed/filter/collapse survive panel rebuilds via module-level state.
         let _dmOutlineOpen = true;
+        let _dmOutlineFilter = "";
+        const _dmOutlineCollapsed = new Set();
 
         function _dmOutlineMeta(node) {
             if (node.kind === "field") return { icon: "fa-solid fa-cube", label: node.label ?? node.name };
@@ -1164,30 +1186,86 @@ function generateDevTools(
             body.appendChild(label);
             if (!_dmOutlineOpen) return;
 
+            // Filter box once the page is big enough to scroll-hunt
+            const totalRows = (() => { let n = 0; _dmWalkNodes(page.children, () => n++); return n; })();
+            if (totalRows > 20) {
+                const filter = document.createElement("input");
+                filter.type = "text";
+                filter.className = "isdl-dm-outline-filter";
+                filter.placeholder = "Filter…";
+                filter.value = _dmOutlineFilter;
+                filter.addEventListener("input", e => {
+                    e.stopPropagation();
+                    _dmOutlineFilter = filter.value;
+                    // Re-render only the outline rows in place (keep input focus)
+                    renderRows();
+                });
+                body.appendChild(filter);
+            } else {
+                _dmOutlineFilter = "";
+            }
+
             const wrap = document.createElement("div");
             wrap.className = "isdl-dm-outline";
-            const addRows = (nodes, depth) => {
-                for (const node of nodes) {
-                    const meta = _dmOutlineMeta(node);
-                    const row = document.createElement("div");
-                    row.className = "isdl-dm-outline-row";
-                    if (node.kind === "field" && node.hidden) row.classList.add("is-hidden");
-                    if (_dm.selected?.node === node) row.classList.add("isdl-dm-outline-selected");
-                    row.style.paddingLeft = \`\${4 + depth * 10}px\`;
-                    row.innerHTML = \`<i class="\${meta.icon}"></i><span></span>\${node.kind === "field" && node.hidden ? '<i class="fa-solid fa-eye-slash"></i>' : ""}\`;
-                    row.querySelector("span").textContent = meta.label;
-                    row.addEventListener("click", e => {
-                        e.stopPropagation();
-                        _dm.selected = { pageKey, node };
-                        _dmApplyPreview();
-                        _dmNodeRoot(node)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-                    });
-                    wrap.appendChild(row);
-                    if (node.children) addRows(node.children, depth + 1);
-                }
+            const makeRow = (node, depth) => {
+                const meta = _dmOutlineMeta(node);
+                const row = document.createElement("div");
+                row.className = "isdl-dm-outline-row";
+                if (node.kind === "field" && node.hidden) row.classList.add("is-hidden");
+                if (_dm.selected?.node === node) row.classList.add("isdl-dm-outline-selected");
+                row.style.paddingLeft = \`\${4 + depth * 10}px\`;
+                // Containers get a collapse twisty
+                const isContainer = !!node.children;
+                const collapsed = isContainer && _dmOutlineCollapsed.has(node.id);
+                row.innerHTML = \`\${isContainer ? \`<span class="isdl-dm-outline-twisty">\${collapsed ? "▸" : "▾"}</span>\` : ""}<i class="\${meta.icon}"></i><span></span>\${node.kind === "field" && node.hidden ? '<i class="fa-solid fa-eye-slash"></i>' : ""}\`;
+                row.querySelector("span:not(.isdl-dm-outline-twisty)").textContent = meta.label;
+                row.querySelector(".isdl-dm-outline-twisty")?.addEventListener("click", e => {
+                    e.stopPropagation();
+                    if (_dmOutlineCollapsed.has(node.id)) _dmOutlineCollapsed.delete(node.id);
+                    else _dmOutlineCollapsed.add(node.id);
+                    renderRows();
+                });
+                row.addEventListener("click", e => {
+                    e.stopPropagation();
+                    _dm.selected = { pageKey, node };
+                    _dmApplyPreview();
+                    _dmNodeRoot(node)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                });
+                return row;
             };
-            addRows(page.children, 0);
+            const renderRows = () => {
+                wrap.innerHTML = "";
+                const q = _dmOutlineFilter.trim().toLowerCase();
+                const addRows = (nodes, depth) => {
+                    for (const node of nodes) {
+                        const meta = _dmOutlineMeta(node);
+                        const matches = !q || meta.label.toLowerCase().includes(q);
+                        if (matches) wrap.appendChild(makeRow(node, depth));
+                        // While filtering, always descend; otherwise honor collapse state
+                        if (node.children && (q || !_dmOutlineCollapsed.has(node.id))) {
+                            addRows(node.children, depth + 1);
+                        }
+                    }
+                };
+                addRows(page.children, 0);
+            };
+            renderRows();
             body.appendChild(wrap);
+        }
+
+        let _dmInsertOpen = true;
+        let _dmHiddenOpen = true;
+
+        function _dmCollapsibleLabel(body, title, isOpen, setOpen) {
+            const label = _dmMakeSectionLabel(\`\${title} \${isOpen ? "▾" : "▸"}\`);
+            label.style.cursor = "pointer";
+            label.addEventListener("click", e => {
+                e.stopPropagation();
+                setOpen(!isOpen);
+                _dmRenderPanelBody();
+            });
+            body.appendChild(label);
+            return isOpen;
         }
 
         function _dmRenderPanelBody() {
@@ -1196,8 +1274,35 @@ function generateDevTools(
             if (!body) return;
             body.innerHTML = "";
 
-            // Insert group — always visible (#5c)
-            body.appendChild(_dmMakeSectionLabel("Insert"));
+            // Page indicator: the panel edits the ACTIVE page — say so in the badge
+            const badge = _dm.panelEl.querySelector(".isdl-dm-doc-badge");
+            if (badge) badge.textContent = \`\${_dm.docType}/\${_dm.docKey} · \${_dmCurrentPageKey()}\`;
+
+            // One-time hint resolving the preview-vs-applied confusion
+            if (!localStorage.getItem("isdl-dm-hint-dismissed")) {
+                const hint = document.createElement("div");
+                hint.className = "isdl-dm-hint";
+                hint.innerHTML = \`<span>Changes preview live. Save writes the layout file; regenerate the system to make it permanent.</span>\`;
+                const x = document.createElement("button");
+                x.type = "button";
+                x.textContent = "✕";
+                x.title = "Dismiss";
+                x.addEventListener("click", e => {
+                    e.stopPropagation();
+                    localStorage.setItem("isdl-dm-hint-dismissed", "1");
+                    _dmRenderPanelBody();
+                });
+                hint.appendChild(x);
+                body.appendChild(hint);
+            }
+
+            // Insert group
+            if (!_dmCollapsibleLabel(body, "Insert", _dmInsertOpen, v => _dmInsertOpen = v)) {
+                _dmRenderOutline(body);
+                _dmRenderHiddenChips(body);
+                _dmRenderSelection(body);
+                return;
+            }
             const insertRow = document.createElement("div");
             insertRow.className = "isdl-dm-insert-row";
             for (const [label, type, defaultText] of [["H Heading", "heading", "Heading"], ["¶ Paragraph", "paragraph", "Paragraph text"], ["— Divider", "hr", undefined]]) {
@@ -1228,35 +1333,45 @@ function generateDevTools(
             // Outline tree — the active page's structure, click-to-select
             _dmRenderOutline(body);
 
-            // Item 4b: Hidden fields section — always shown when there are hidden fields
-            const hiddenNodes = [];
-            _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), n => {
-                if (n.kind === "field" && n.hidden) hiddenNodes.push(n);
-            });
-            if (hiddenNodes.length > 0) {
-                body.appendChild(_dmMakeSectionLabel("Hidden Fields"));
-                const chipsEl = document.createElement("div");
-                chipsEl.className = "isdl-dm-hidden-chips";
-                for (const n of hiddenNodes) {
-                    const chip = document.createElement("div");
-                    chip.className = "isdl-dm-hidden-chip";
-                    chip.textContent = n.label ?? n.name;
-                    const x = document.createElement("button");
-                    x.type = "button";
-                    x.className = "isdl-dm-hidden-chip-x";
-                    x.textContent = "✕";
-                    x.title = "Unhide";
-                    x.addEventListener("click", e => {
-                        e.stopPropagation();
-                        delete n.hidden;
-                        _dmApplyPreview();
-                    });
-                    chip.appendChild(x);
-                    chipsEl.appendChild(chip);
-                }
-                body.appendChild(chipsEl);
-            }
+            _dmRenderHiddenChips(body);
+            _dmRenderSelection(body);
+        }
 
+        function _dmRenderHiddenChips(body) {
+            // Item 4b: Hidden fields section — aggregates ALL pages (the outline shows
+            // only the active one), so chips carry a page tag when off the active page.
+            const hiddenNodes = [];
+            for (const [pk, page] of Object.entries(_dm.tree.pages)) {
+                _dmWalkNodes(page.children, n => {
+                    if (n.kind === "field" && n.hidden) hiddenNodes.push({ n, pk });
+                });
+            }
+            if (hiddenNodes.length === 0) return;
+            if (!_dmCollapsibleLabel(body, "Hidden Fields", _dmHiddenOpen, v => _dmHiddenOpen = v)) return;
+            const activePage = _dmCurrentPageKey();
+            const chipsEl = document.createElement("div");
+            chipsEl.className = "isdl-dm-hidden-chips";
+            for (const { n, pk } of hiddenNodes) {
+                const chip = document.createElement("div");
+                chip.className = "isdl-dm-hidden-chip";
+                chip.textContent = (n.label ?? n.name) + (pk !== activePage ? \` · \${pk}\` : "");
+                const x = document.createElement("button");
+                x.type = "button";
+                x.className = "isdl-dm-hidden-chip-x";
+                x.textContent = "✕";
+                x.title = "Unhide";
+                x.addEventListener("click", e => {
+                    e.stopPropagation();
+                    delete n.hidden;
+                    _dmApplyPreview();
+                });
+                chip.appendChild(x);
+                chipsEl.appendChild(chip);
+            }
+            body.appendChild(chipsEl);
+        }
+
+        function _dmRenderSelection(body) {
             const sel = _dm.selected;
             if (!sel) {
                 const hint = document.createElement("p");
@@ -1290,8 +1405,16 @@ function generateDevTools(
             if (!page) return;
 
             if (_dm.selected) {
-                // Insert after the selected node in its parent container
                 const sel = _dm.selected;
+                // Selecting a CONTAINER and clicking insert means "put it inside" —
+                // inserting next to an empty row you just selected reads as broken.
+                if (sel.node.children) {
+                    sel.node.children.push(newNode);
+                    _dm.selected = { pageKey: sel.pageKey, node: newNode };
+                    _dmApplyPreview();
+                    return;
+                }
+                // Otherwise insert after the selected node in its parent container
                 const kind = sel.node.kind === "field" ? "field"
                            : sel.node.kind === "static" ? "static" : "section";
                 const key = sel.node.kind === "field" ? sel.node.name : sel.node.id;
@@ -1323,6 +1446,13 @@ function generateDevTools(
 
             if (_dm.selected) {
                 const sel = _dm.selected;
+                // Insert INTO a selected container (section/row/column), after otherwise
+                if (sel.node.children) {
+                    sel.node.children.push(newNode);
+                    _dm.selected = { pageKey: sel.pageKey, node: newNode };
+                    _dmApplyPreview();
+                    return;
+                }
                 const selKind = sel.node.kind === "field" ? "field"
                               : sel.node.kind === "static" ? "static" : sel.node.kind;
                 const selKey = sel.node.kind === "field" ? sel.node.name : sel.node.id;
@@ -1348,6 +1478,45 @@ function generateDevTools(
 
         // Item 2c: collapsible Theme group, shared between field, section, row/column panels.
         // node is a live tree node whose .theme object is mutated; onUpdate is called after each change.
+        // Harvest the sheet's own colors (app bar, buttons, cards, text) so authors can
+        // pick the system's palette instead of eyeballing hex values. Cached per DM session.
+        let _dmSwatchCache = null;
+
+        function _dmRgbToHex(rgb) {
+            const m = rgb?.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
+            if (!m) return null;
+            return "#" + [m[1], m[2], m[3]].map(n => (+n).toString(16).padStart(2, "0")).join("");
+        }
+
+        function _dmGetSheetSwatches() {
+            if (_dmSwatchCache) return _dmSwatchCache;
+            const root = _dm?.appRoot ?? document;
+            const picks = [];
+            const add = c => { const hex = _dmRgbToHex(c); if (hex && hex !== "#000000" && !picks.includes(hex)) picks.push(hex); };
+            const bar = root.querySelector(".v-app-bar, .v-toolbar");
+            if (bar) add(getComputedStyle(bar).backgroundColor);
+            const btn = root.querySelector(".v-btn--variant-elevated, .v-btn");
+            if (btn) add(getComputedStyle(btn).backgroundColor);
+            const card = root.querySelector(".v-card");
+            if (card) { add(getComputedStyle(card).borderColor); add(getComputedStyle(card).backgroundColor); }
+            const anyText = root.querySelector(".v-card-title, .v-label");
+            if (anyText) add(getComputedStyle(anyText).color);
+            _dmSwatchCache = picks.slice(0, 5);
+            return _dmSwatchCache;
+        }
+
+        function _dmAppendSwatches(rowEl, apply) {
+            for (const c of _dmGetSheetSwatches()) {
+                const sw = document.createElement("button");
+                sw.type = "button";
+                sw.className = "isdl-dm-swatch";
+                sw.style.background = c;
+                sw.title = c;
+                sw.addEventListener("click", e => { e.stopPropagation(); apply(c); });
+                rowEl.appendChild(sw);
+            }
+        }
+
         function _dmRenderThemeGroup(body, node, onUpdate) {
             const header = document.createElement("div");
             header.className = "isdl-dm-collapsible-header";
@@ -1399,6 +1568,7 @@ function generateDevTools(
                 row.appendChild(lbl);
                 row.appendChild(inp);
                 row.appendChild(clr);
+                _dmAppendSwatches(row, c => { ensureTheme(); setter(c); inp.value = c; cleanTheme(); onUpdate(); });
                 themeBody.appendChild(row);
             }
 
@@ -1471,11 +1641,17 @@ function generateDevTools(
             sizeRow.className = "isdl-dm-size-row";
             const sizable = node.sizable !== false;
             const currentSize = node.size ?? node.defaultSize ?? "single";
+            const SIZE_TIPS = {
+                single: "Standard width — shares a row with other fields",
+                double: "Twice as wide as a standard field",
+                full: "Takes the entire row",
+            };
             for (const sz of ["single", "double", "full"]) {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "isdl-dm-size-btn" + (currentSize === sz ? " active" : "");
                 btn.textContent = sz.charAt(0).toUpperCase() + sz.slice(1);
+                btn.title = SIZE_TIPS[sz];
                 btn.disabled = !sizable;
                 if (sizable) {
                     btn.addEventListener("click", e => {
@@ -1530,9 +1706,11 @@ function generateDevTools(
                 e.stopPropagation();
                 node.color = undefined;
                 colorInput.value = "#000000";
+                _dmApplyPreview();
             });
             colorRow.appendChild(colorInput);
             colorRow.appendChild(clearColorBtn);
+            _dmAppendSwatches(colorRow, c => { node.color = c; colorInput.value = c; _dmApplyPreview(); });
             body.appendChild(colorRow);
 
             // Icon: style dropdown + name input with Font Awesome autocomplete
@@ -1598,6 +1776,7 @@ function generateDevTools(
             resetBtn.className = "isdl-dm-panel-btn danger";
             resetBtn.style.width = "100%";
             resetBtn.innerHTML = \`<i class="fa-solid fa-rotate-left"></i> Reset overrides\`;
+            resetBtn.title = "Clears size, label, color, icon, and theme — keeps the field's position";
             resetBtn.addEventListener("click", e => {
                 e.stopPropagation();
                 delete node.size;
@@ -1629,6 +1808,7 @@ function generateDevTools(
                 hideBtn.className = "isdl-dm-panel-btn danger";
                 hideBtn.style.width = "100%";
                 hideBtn.innerHTML = \`<i class="fa-solid fa-eye-slash"></i> Hide field\`;
+                hideBtn.title = "Removes the field from the generated sheet. Restore it any time from the Hidden Fields list — the data is untouched.";
                 hideBtn.addEventListener("click", e => {
                     e.stopPropagation();
                     node.hidden = true;
@@ -1690,7 +1870,8 @@ function generateDevTools(
             if (node.synthetic) {
                 const badge = document.createElement("span");
                 badge.className = "isdl-dm-type-badge";
-                badge.textContent = "synthetic";
+                badge.textContent = "added in Design Mode";
+                badge.title = "This container exists only in the layout file, not in your ISDL source";
                 nameDiv.appendChild(badge);
             }
             body.appendChild(nameDiv);
@@ -1884,6 +2065,7 @@ function generateDevTools(
                 tree, selected: null, panelEl, previewStyleEl,
                 listeners: [], dragging: null, btn,
             };
+            _dmSwatchCache = null; // re-harvest the sheet's palette per session
 
             // Activate container layout
             windowContent.classList.add("isdl-dm-active");
@@ -1920,6 +2102,64 @@ function generateDevTools(
                 ["dragend", onDragEnd, true],
             ];
 
+            // Double-click a heading/paragraph → jump straight to its text input
+            const onDblClick = e => {
+                const staticRoot = e.target.closest("[class*='isdl-static-']");
+                if (!staticRoot) return;
+                const cls = [...staticRoot.classList].find(c => /^isdl-static-__static_/.test(c));
+                if (!cls) return;
+                const found = _dmFindAnywhere("static", cls.replace("isdl-static-", ""));
+                if (!found) return;
+                e.preventDefault(); e.stopPropagation();
+                _dm.selected = { pageKey: found.pageKey, node: found.node };
+                _dmApplyPreview();
+                const input = _dm.panelEl?.querySelector(".isdl-dm-text-input");
+                if (input) { input.focus(); input.select(); }
+            };
+            windowContent.addEventListener("dblclick", onDblClick, true);
+            _dm.listeners.push(["dblclick", onDblClick, true]);
+
+            // Keyboard: Esc deselect, Delete hide/remove, arrows move within container.
+            // On document (sheet focus is unreliable); inert while typing in any input.
+            const onKeyDown = e => {
+                if (!_dm) return;
+                const t = document.activeElement;
+                if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+                if (e.key === "Escape" && _dm.selected) {
+                    _dm.selected = null;
+                    _dmApplyPreview();
+                    e.preventDefault();
+                    return;
+                }
+                const sel = _dm.selected;
+                if (!sel) return;
+                if (e.key === "Delete" || e.key === "Backspace") {
+                    const node = sel.node;
+                    if (node.kind === "field") {
+                        node.hidden = true;
+                        _dm.selected = null;
+                    } else if (node.kind === "static" || ((node.kind === "row" || node.kind === "column") && node.synthetic)) {
+                        const found = _dmFindAnywhere(node.kind === "static" ? "static" : node.kind, node.id);
+                        if (found) {
+                            const replacement = node.kind === "static" ? [] : (node.children ?? []);
+                            found.parentChildren.splice(found.index, 1, ...replacement);
+                        }
+                        _dm.selected = null;
+                    } else {
+                        return;
+                    }
+                    _dmApplyPreview();
+                    e.preventDefault();
+                    return;
+                }
+                if (["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(e.key)) {
+                    _dmMoveNode(sel.pageKey, sel.node, (e.key === "ArrowUp" || e.key === "ArrowLeft") ? -1 : 1);
+                    e.preventDefault();
+                }
+            };
+            document.addEventListener("keydown", onKeyDown, true);
+            _dm.docListeners = [["keydown", onKeyDown, true]];
+
             btn.classList.add("active");
             _dmApplyPreview();
         }
@@ -1932,6 +2172,9 @@ function generateDevTools(
             // Remove event listeners
             for (const [type, handler, capture] of listeners) {
                 windowContent.removeEventListener(type, handler, capture);
+            }
+            for (const [type, handler, capture] of _dm.docListeners ?? []) {
+                document.removeEventListener(type, handler, capture);
             }
 
             // Remove panel and preview style
@@ -2071,6 +2314,17 @@ function generateDevTools(
             e.dataTransfer.effectAllowed = "move";
         }
 
+        // Insert-before vs after by pointer position relative to the target's midpoint —
+        // along the axis the children actually flow in (columns stack vertically, so
+        // "before" must mean ABOVE, not left-of).
+        function _dmDropBefore(e, el) {
+            const rect = el.getBoundingClientRect();
+            const dir = el.parentElement ? getComputedStyle(el.parentElement).flexDirection : "row";
+            return (dir || "row").startsWith("column")
+                ? e.clientY < rect.top + rect.height / 2
+                : e.clientX < rect.left + rect.width / 2;
+        }
+
         function _dmHandleDragOver(e) {
             if (!_dm?.dragging) return;
             const fieldRoot = e.target.closest("[class*='isdl-field-']");
@@ -2091,8 +2345,7 @@ function generateDevTools(
                     const targetKey = cls.replace("isdl-field-", "");
                     if (dragKey === targetKey && dragKind === "field") return;
                     e.preventDefault();
-                    const rect = fieldRoot.getBoundingClientRect();
-                    const before = e.clientX < rect.left + rect.width / 2;
+                    const before = _dmDropBefore(e, fieldRoot);
                     fieldRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
                 }
             } else if (staticRoot) {
@@ -2101,8 +2354,7 @@ function generateDevTools(
                     const targetKey = cls.replace("isdl-static-", "");
                     if (_dm.dragging.key === targetKey) return;
                     e.preventDefault();
-                    const rect = staticRoot.getBoundingClientRect();
-                    const before = e.clientX < rect.left + rect.width / 2;
+                    const before = _dmDropBefore(e, staticRoot);
                     staticRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
                 }
             } else if (containerRoot && (_dm.dragging.kind === "field" || _dm.dragging.kind === "static")) {
@@ -2127,8 +2379,7 @@ function generateDevTools(
                     const targetKey = cls.replace("isdl-section-", "");
                     if (_dm.dragging.key === targetKey) return;
                     e.preventDefault();
-                    const rect = sectionRoot.getBoundingClientRect();
-                    const before = e.clientX < rect.left + rect.width / 2;
+                    const before = _dmDropBefore(e, sectionRoot);
                     sectionRoot.classList.add(before ? "isdl-dm-drop-before" : "isdl-dm-drop-after");
                 }
             }
@@ -2174,16 +2425,14 @@ function generateDevTools(
                 if (cls) {
                     targetKey = cls.replace("isdl-field-", "");
                     targetKind = "field";
-                    const rect = fieldRoot.getBoundingClientRect();
-                    insertBefore = e.clientX < rect.left + rect.width / 2;
+                    insertBefore = _dmDropBefore(e, fieldRoot);
                 }
             } else if (staticRoot) {
                 const cls = [...staticRoot.classList].find(c => /^isdl-static-__static_/.test(c));
                 if (cls) {
                     targetKey = cls.replace("isdl-static-", "");
                     targetKind = "static";
-                    const rect = staticRoot.getBoundingClientRect();
-                    insertBefore = e.clientX < rect.left + rect.width / 2;
+                    insertBefore = _dmDropBefore(e, staticRoot);
                 }
             } else if (containerRoot && (dragKind === "field" || dragKind === "static")) {
                 // Row/column target. Checked BEFORE sections: rows live inside sections, so
@@ -2211,8 +2460,7 @@ function generateDevTools(
                         dropInto = true;
                     } else {
                         targetKind = "section";
-                        const rect = sectionRoot.getBoundingClientRect();
-                        insertBefore = e.clientX < rect.left + rect.width / 2;
+                        insertBefore = _dmDropBefore(e, sectionRoot);
                     }
                 }
             }
