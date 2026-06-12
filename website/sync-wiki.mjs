@@ -58,9 +58,31 @@ function escapeAngles(text) {
     });
 }
 
-// Apply both passes line by line, skipping fenced code blocks entirely and inline code
-// spans (odd segments when split on backticks) so example snippets render verbatim.
+// GitHub blockquote alerts (> [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION])
+// aren't understood by VitePress, which uses ::: containers instead. Convert each alert
+// block, preserving the label as the container title.
+function convertAlerts(md) {
+    const ALERT = /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i;
+    const TYPE = { NOTE: 'info', TIP: 'tip', IMPORTANT: 'info', WARNING: 'warning', CAUTION: 'danger' };
+    const lines = md.split(/\r?\n/);
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+        const m = ALERT.exec(lines[i]);
+        if (!m) { out.push(lines[i]); continue; }
+        const kind = m[1].toUpperCase();
+        const title = (m[2] || '').trim() || kind[0] + kind.slice(1).toLowerCase();
+        const body = [];
+        for (i++; i < lines.length && /^>/.test(lines[i]); i++) body.push(lines[i].replace(/^>\s?/, ''));
+        i--; // step back so the outer loop's i++ lands on the next unprocessed line
+        out.push(`::: ${TYPE[kind]} ${title}`, ...body, ':::');
+    }
+    return out.join('\n');
+}
+
+// Apply all passes: alert conversion (block level), then link rewriting + angle escaping
+// line by line, skipping fenced code blocks and inline code spans so snippets stay verbatim.
 function rewrite(md) {
+    md = convertAlerts(md);
     let inFence = false;
     return md.split(/\r?\n/).map(line => {
         if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return line; }
