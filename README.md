@@ -6,6 +6,8 @@ Intelligent System Design Language (ISDL) is a custom programming language that 
 
 ISDL provides both a **VS Code extension** and **CLI tool** for development, featuring syntax highlighting, intelligent validation, autocomplete, and seamless GitHub integration for publishing and sharing your systems.
 
+> 📖 **[Read the full documentation →](https://cswendrowski.github.io/intelligent-system-design-language/)** — a fast, searchable site covering every field type, logic feature, and recipe.
+
 <img width="1303" height="1029" alt="image" src="https://github.com/user-attachments/assets/c4f9aed8-b872-4936-a3ec-135248c64f1d" />
 
 ## ✨ Key Features
@@ -50,6 +52,7 @@ Ready to create your first system? Choose your preferred development environment
 4. Connect to GitHub for easy publishing and sharing
 
 ### 📚 **Learn More**
+* **[📖 Full Documentation Site](https://cswendrowski.github.io/intelligent-system-design-language/)** - Searchable reference for every field, logic feature, and recipe
 * **[Getting Started Guide](https://github.com/cswendrowski/intelligent-system-design-language/wiki/Getting-Started)** - Complete setup and first system tutorial
 * **[Your First System](https://github.com/cswendrowski/intelligent-system-design-language/wiki/Your-first-System)** - Step-by-step walkthrough
 * **[GitHub Integration](https://github.com/cswendrowski/intelligent-system-design-language/wiki/GitHub-Integration)** - Publishing and sharing guide
