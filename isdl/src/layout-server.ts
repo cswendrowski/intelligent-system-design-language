@@ -6,6 +6,11 @@ export interface LayoutServerOptions {
     port: number;
     workspaceDir: string;
     onSaved?: (id: string, layoutPath: string) => void;
+    /**
+     * When provided, POST /regenerate { id } re-runs system generation and resolves with
+     * the output path. Absent → the endpoint reports 501 so Design Mode can explain.
+     */
+    onRegenerate?: (id: string) => Promise<string>;
 }
 
 export interface LayoutServer {
@@ -79,7 +84,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
 }
 
 export function createLayoutServer(options: LayoutServerOptions): Promise<LayoutServer> {
-    const { port, workspaceDir, onSaved } = options;
+    const { port, workspaceDir, onSaved, onRegenerate } = options;
 
     const server = http.createServer(async (req, res) => {
         // CORS preflight
@@ -137,6 +142,31 @@ export function createLayoutServer(options: LayoutServerOptions): Promise<Layout
 
             onSaved?.(id, layoutPath);
             sendJson(res, 200, { ok: true, path: layoutPath });
+            return;
+        }
+
+        if (req.method === 'POST' && req.url === '/regenerate') {
+            if (!onRegenerate) {
+                sendJson(res, 501, { error: 'Regeneration is not available from this server. Run "isdl serve <file> -d <dir>" to enable Save & Apply.' });
+                return;
+            }
+            let payload: { id?: string };
+            try {
+                payload = JSON.parse(await readBody(req));
+            } catch {
+                sendJson(res, 400, { error: 'Invalid JSON' });
+                return;
+            }
+            if (!payload.id || typeof payload.id !== 'string') {
+                sendJson(res, 400, { error: 'Body must be { id: string }' });
+                return;
+            }
+            try {
+                const out = await onRegenerate(payload.id);
+                sendJson(res, 200, { ok: true, path: out });
+            } catch (e) {
+                sendJson(res, 500, { error: `Regeneration failed: ${e instanceof Error ? e.message : e}` });
+            }
             return;
         }
 

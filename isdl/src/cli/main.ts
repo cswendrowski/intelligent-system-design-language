@@ -67,8 +67,8 @@ export default function(): void {
         .command('serve')
         .argument('<file>', `source file (possible file extensions: ${fileExtensions})`)
         .option('-p, --port <port>', 'port to listen on', '3721')
-        .option('-d, --destination <dir>', 'destination directory; if set, regenerates system on each layout save')
-        .description('starts the Design Mode layout server (and optionally regenerates on save)')
+        .option('-d, --destination <dir>', 'destination directory; enables Save & Apply (regeneration on demand from Design Mode)')
+        .description('starts the Design Mode layout server')
         .action(async (fileName: string, opts: ServeOptions) => {
             const port = parseInt(opts.port ?? '3721', 10);
             const workspaceDir = path.dirname(path.resolve(fileName));
@@ -79,18 +79,19 @@ export default function(): void {
                 server = await createLayoutServer({
                     port,
                     workspaceDir,
-                    onSaved: async (id, layoutPath) => {
+                    onSaved: (id, layoutPath) => {
                         console.log(chalk.cyan(`Layout saved: ${layoutPath}`));
-                        if (destination) {
-                            console.log(chalk.gray(`  Regenerating ${path.basename(fileName)}...`));
-                            try {
-                                const outPath = await generateCore(fileName, destination);
-                                console.log(chalk.green(`  Regenerated successfully: ${outPath}`));
-                            } catch (err) {
-                                console.error(chalk.red(`  Regeneration failed:`), err);
-                            }
-                        }
                     },
+                    // Design Mode "Save & Apply": regeneration on demand, not on every save —
+                    // generation is heavy and plain Save shouldn't rebuild under the author.
+                    onRegenerate: destination
+                        ? async () => {
+                            console.log(chalk.gray(`  Save & Apply: regenerating ${path.basename(fileName)}...`));
+                            const outPath = await generateCore(fileName, destination);
+                            console.log(chalk.green(`  Regenerated successfully: ${outPath}`));
+                            return outPath;
+                        }
+                        : undefined,
                 });
             } catch (err) {
                 console.error(chalk.red(`Failed to start layout server on port ${port}:`), err);
@@ -100,9 +101,9 @@ export default function(): void {
             console.log(chalk.green(`ISDL layout server running at http://127.0.0.1:${port}`));
             console.log(chalk.gray(`  Watching workspace: ${workspaceDir}`));
             if (destination) {
-                console.log(chalk.gray(`  Auto-regenerate on save: ${chalk.white('enabled')} → ${destination}`));
+                console.log(chalk.gray(`  Save & Apply (regenerate on demand): ${chalk.white('enabled')} → ${destination}`));
             } else {
-                console.log(chalk.gray(`  Auto-regenerate on save: ${chalk.white('disabled')} (pass -d to enable)`));
+                console.log(chalk.gray(`  Save & Apply: ${chalk.white('disabled')} (pass -d to enable)`));
             }
 
             process.on('SIGINT', () => {

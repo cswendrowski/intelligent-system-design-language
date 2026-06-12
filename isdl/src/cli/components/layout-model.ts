@@ -26,6 +26,12 @@ export interface LayoutThemeOverride {
     border?: { color?: string; width?: string; radius?: string };  // width/radius like "2px"
     width?: { min?: string; max?: string };
     height?: { min?: string; max?: string };
+    /** Containers: spacing between children / inner padding, e.g. "8px". */
+    gap?: string;
+    padding?: string;
+    /** Rows: cross-axis alignment and main-axis distribution. */
+    align?: 'start' | 'center' | 'end';
+    justify?: 'start' | 'center' | 'space-between';
 }
 
 export interface LayoutFieldOverrides {
@@ -35,6 +41,8 @@ export interface LayoutFieldOverrides {
     icon?: string;
     hidden?: boolean;
     theme?: LayoutThemeOverride;
+    /** Display-label override (sheet-side; localization passthrough renders it verbatim). */
+    label?: string;
 }
 
 export interface LayoutFieldNode extends LayoutFieldOverrides {
@@ -65,6 +73,13 @@ export interface LayoutStaticNode {
     /** Text styling for heading/paragraph, e.g. "18px" / "#c0d8f0". */
     fontSize?: string;
     color?: string;
+    align?: 'left' | 'center' | 'right';
+    bold?: boolean;
+    italic?: boolean;
+    fontFamily?: string;
+    /** Vertical spacing, e.g. "12px". */
+    marginTop?: string;
+    marginBottom?: string;
 }
 
 export type LayoutNode = LayoutFieldNode | LayoutContainerNode | LayoutStaticNode;
@@ -115,6 +130,12 @@ export interface EffectiveStaticNode {
     text?: string;
     fontSize?: string;
     color?: string;
+    align?: 'left' | 'center' | 'right';
+    bold?: boolean;
+    italic?: boolean;
+    fontFamily?: string;
+    marginTop?: string;
+    marginBottom?: string;
 }
 
 export type EffectiveNode = EffectiveFieldNode | EffectiveContainerNode | EffectiveStaticNode;
@@ -248,8 +269,13 @@ function pickOverrides(node: LayoutFieldNode): LayoutFieldOverrides {
             if (typeof t.height.min === 'string') h.min = t.height.min;
             if (Object.keys(h).length > 0) tv.height = h;
         }
+        if (typeof t.gap === 'string') tv.gap = t.gap;
+        if (typeof t.padding === 'string') tv.padding = t.padding;
+        if (t.align === 'start' || t.align === 'center' || t.align === 'end') tv.align = t.align;
+        if (t.justify === 'start' || t.justify === 'center' || t.justify === 'space-between') tv.justify = t.justify;
         if (Object.keys(tv).length > 0) out.theme = tv;
     }
+    if (typeof node.label === 'string' && node.label.length > 0) out.label = node.label;
     return out;
 }
 
@@ -311,7 +337,11 @@ function mergePage(
                 });
             } else if (ln.kind === 'static') {
                 // Static nodes have no AST counterpart — always pass through as-is.
-                out.push({ kind: 'static', id: ln.id, staticType: ln.staticType, text: ln.text, fontSize: ln.fontSize, color: ln.color });
+                out.push({
+                    kind: 'static', id: ln.id, staticType: ln.staticType, text: ln.text,
+                    fontSize: ln.fontSize, color: ln.color, align: ln.align, bold: ln.bold,
+                    italic: ln.italic, fontFamily: ln.fontFamily, marginTop: ln.marginTop, marginBottom: ln.marginBottom,
+                });
             }
         }
         return out;
@@ -432,7 +462,10 @@ export function collectSectionOverrides(tree: EffectiveDocTree): Map<string, { h
 export interface ModuleFieldNode extends LayoutFieldOverrides {
     kind: 'field';
     name: string;
+    /** Effective display label: the override when set, else the AST/derived default. */
     label: string;
+    /** The AST/derived label — lets the editor detect "user actually renamed this". */
+    defaultLabel: string;
     typeClass: string;
     defaultSize: LayoutSize;
     sizable: boolean;
@@ -456,6 +489,12 @@ export interface ModuleStaticNode {
     text?: string;
     fontSize?: string;
     color?: string;
+    align?: 'left' | 'center' | 'right';
+    bold?: boolean;
+    italic?: boolean;
+    fontFamily?: string;
+    marginTop?: string;
+    marginBottom?: string;
 }
 
 export type ModuleLayoutNode = ModuleFieldNode | ModuleContainerNode | ModuleStaticNode;
@@ -465,10 +504,12 @@ function serializeNode(node: EffectiveNode): ModuleLayoutNode {
         const el = node.element as { name: string; params?: unknown[] };
         const labelParam = (el.params ?? []).find(p => isLabelParam(p)) as LabelParam | undefined;
         const typeClass = getTypeLabel(node.element);
+        const defaultLabel = labelParam?.value ?? humanizeFieldName(el.name);
         const fieldOut: ModuleFieldNode = {
             kind: 'field',
             name: node.name,
-            label: labelParam?.value ?? humanizeFieldName(el.name),
+            label: node.overrides.label ?? defaultLabel,
+            defaultLabel,
             typeClass,
             defaultSize: getDefaultSize(typeClass),
             sizable: isSizable(typeClass),
@@ -477,7 +518,11 @@ function serializeNode(node: EffectiveNode): ModuleLayoutNode {
         return fieldOut;
     }
     if (node.kind === 'static') {
-        return { kind: 'static', id: node.id, staticType: node.staticType, text: node.text, fontSize: node.fontSize, color: node.color };
+        return {
+            kind: 'static', id: node.id, staticType: node.staticType, text: node.text,
+            fontSize: node.fontSize, color: node.color, align: node.align, bold: node.bold,
+            italic: node.italic, fontFamily: node.fontFamily, marginTop: node.marginTop, marginBottom: node.marginBottom,
+        };
     }
     const containerOut: ModuleContainerNode = {
         kind: node.kind,

@@ -42,7 +42,9 @@
               "staticType": "heading",
               "text": "Combat Stats",
               "fontSize": "18px",
-              "color": "#e91e63"
+              "color": "#e91e63",
+              "align": "center",
+              "bold": true
             },
             {
               "kind": "row",
@@ -62,6 +64,9 @@
             {
               "kind": "section",
               "id": "health",
+              "theme": {
+                "gap": "20px"
+              },
               "children": [
                 {
                   "kind": "row",
@@ -73,7 +78,8 @@
                     },
                     {
                       "kind": "field",
-                      "name": "defense"
+                      "name": "defense",
+                      "label": "Armor Class"
                     },
                     {
                       "kind": "field",

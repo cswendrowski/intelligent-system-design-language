@@ -156,9 +156,17 @@ function getGlobalThemeElevation(entry: Entry): number {
 // `which` selects which subset of declarations to emit, matching the split that
 // the AST helpers impose (width on the flex item; height+paint on the card/element).
 
-function layoutThemeToInlineStyle(theme: LayoutThemeOverride | undefined, which: 'width' | 'height' | 'paint' | 'field'): string {
+function layoutThemeToInlineStyle(theme: LayoutThemeOverride | undefined, which: 'width' | 'height' | 'paint' | 'field' | 'flex'): string {
     if (!theme) return '';
     const decls: string[] = [];
+    if (which === 'flex') {
+        // Container interior: spacing between children, inner padding, and (rows) alignment.
+        if (theme.gap) decls.push(`gap: ${theme.gap}`);
+        if (theme.padding) decls.push(`padding: ${theme.padding}`);
+        if (theme.align) decls.push(`align-items: ${theme.align === 'start' ? 'flex-start' : theme.align === 'end' ? 'flex-end' : 'center'}`);
+        if (theme.justify) decls.push(`justify-content: ${theme.justify === 'start' ? 'flex-start' : theme.justify === 'center' ? 'center' : 'space-between'}`);
+        return decls.join('; ');
+    }
     if (which === 'width' || which === 'field') {
         if (theme.width) {
             if (theme.width.min) decls.push(`min-width: ${theme.width.min}`);
@@ -1404,29 +1412,39 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         if (node.kind === 'static') {
             const staticNode = node as EffectiveStaticNode;
             const safeText = escapeStaticText(staticNode.text ?? '');
-            // Text styling set in Design Mode rides the text element as an inline style.
+            // Text styling set in Design Mode rides the text element as an inline style;
+            // vertical spacing rides the wrapper column.
             const textStyles = [
                 staticNode.fontSize ? `font-size: ${escapeStaticText(staticNode.fontSize)}` : '',
                 staticNode.color ? `color: ${escapeStaticText(staticNode.color)}` : '',
+                staticNode.align ? `text-align: ${staticNode.align}` : '',
+                staticNode.bold ? 'font-weight: bold' : '',
+                staticNode.italic ? 'font-style: italic' : '',
+                staticNode.fontFamily ? `font-family: ${escapeStaticText(staticNode.fontFamily)}` : '',
             ].filter(s => s.length > 0).join('; ');
             const textStyleAttr = textStyles.length > 0 ? ` style="${textStyles}"` : '';
+            const wrapStyles = [
+                staticNode.marginTop ? `margin-top: ${escapeStaticText(staticNode.marginTop)}` : '',
+                staticNode.marginBottom ? `margin-bottom: ${escapeStaticText(staticNode.marginBottom)}` : '',
+            ].filter(s => s.length > 0).join('; ');
+            const wrapStyleAttr = wrapStyles.length > 0 ? ` style="${wrapStyles}"` : '';
             if (staticNode.staticType === 'hr') {
                 return expandToNode`
-                <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
+                <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}"${wrapStyleAttr}>
                     <v-divider></v-divider>
                 </v-col>
                 `;
             }
             if (staticNode.staticType === 'paragraph') {
                 return expandToNode`
-                <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
+                <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}"${wrapStyleAttr}>
                     <p class="isdl-static-paragraph"${textStyleAttr}>${safeText}</p>
                 </v-col>
                 `;
             }
             // heading
             return expandToNode`
-            <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}">
+            <v-col cols="12" class="isdl-static isdl-static-${staticNode.id}"${wrapStyleAttr}>
                 <h3 class="isdl-static-heading"${textStyleAttr}>${safeText}</h3>
             </v-col>
             `;
@@ -1453,6 +1471,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const sectionParams = (element as any)?.params ?? [];
             // hideTitle: layout override wins, fall back to AST hideLabel param.
             const hideTitle = node.hideTitle ?? sectionParams.some((p: any) => isHideLabelParam(p) && p.value);
+            // Interior spacing/alignment rides the inner v-row.
+            const rowFlexStyle = layoutThemeToInlineStyle(node.themeOverride, 'flex');
+            const rowFlexAttr = rowFlexStyle.length > 0 ? ` style="${rowFlexStyle}"` : '';
             // Elevation: per-section theme override, falling back to global theme elevation (default 4).
             const sectionElevationParam = themeParam?.params?.find(isThemeElevationParam) as ThemeElevationParam | undefined;
             const elevation = sectionElevationParam?.value ?? getGlobalThemeElevation(entry);
@@ -1471,7 +1492,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                         ${titleBar}
                         <v-expand-transition>
                             <v-card-text v-show="!collapsedSections['${sectionName}']">
-                                <v-row dense>
+                                <v-row dense${rowFlexAttr}>
                                     ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                                 </v-row>
                             </v-card-text>
@@ -1488,7 +1509,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
                     ${titleNode}
 
                     <v-card-text>
-                        <v-row dense>
+                        <v-row dense${rowFlexAttr}>
                             ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                         </v-row>
                    </v-card-text>
@@ -1504,6 +1525,9 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         const layoutContainerStyle = layoutThemeToInlineStyle(node.themeOverride, 'field');
         const containerStyles = [astContainerStyle, layoutContainerStyle].filter(s => s.length > 0).join('; ');
         const styleAttr = containerStyles.length > 0 ? ` style="${containerStyles}"` : '';
+        // Spacing/alignment rides the flex container element itself.
+        const flexStyle = layoutThemeToInlineStyle(node.themeOverride, 'flex');
+        const flexAttr = flexStyle.length > 0 ? ` style="${flexStyle}"` : '';
 
         // Item 3b: stamp isdl-container-<id> on every row/column for DM DOM addressing.
         const containerId = node.id;
@@ -1511,7 +1535,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
         if (node.kind === 'row') {
             return expandToNode`
             <v-col cols="12"${styleAttr}>
-                <v-row dense class="isdl-row isdl-container-${containerId}">
+                <v-row dense class="isdl-row isdl-container-${containerId}"${flexAttr}>
                     ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
                 </v-row>
             </v-col>
@@ -1520,7 +1544,7 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
         // column
         return expandToNode`
-        <v-col class="isdl-column isdl-container-${containerId}"${styleAttr}>
+        <v-col class="isdl-column isdl-container-${containerId}"${styleAttr ? styleAttr.slice(0, -1) + (flexStyle ? '; ' + flexStyle : '') + '"' : flexAttr}>
             ${joinToNode(node.children, child => generateNode(child), {appendNewLineIfNotEmpty: true})}
         </v-col>
         `;
@@ -1571,7 +1595,12 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
             const iconParam = (layoutOv.icon ? { value: layoutOv.icon } : standardParams.find(p => isIconParam(p))) as IconParam | undefined;
             const colorParam = (layoutOv.color ? { value: layoutOv.color } : standardParams.find(p => isColorParam(p))) as ColorParam | undefined;
 
-            const label = `${document.name}.${element.name}`;
+            // Label override from the layout: emit the literal text instead of the localization
+            // key — game.i18n.localize() passes unknown strings through verbatim, so the
+            // components render the override without any localization-file changes.
+            const label = layoutOv.label
+                ? layoutOv.label.replace(/"/g, '&quot;').replace(/'/g, "\\'").replace(/[{}]/g, '')
+                : `${document.name}.${element.name}`;
             // `hideLabel: true` suppresses the field's label text. Layout override takes precedence.
             const hideLabel = layoutOv.hideLabel ?? standardParams.some(p => isHideLabelParam(p) && p.value);
             const baseFragment = `:disabled="isDisabled('${element.name.toLowerCase()}')" v-if="!isHidden('${element.name.toLowerCase()}')"`;

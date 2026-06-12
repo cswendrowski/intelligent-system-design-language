@@ -312,6 +312,8 @@ function generateDevTools(
                     cursor: pointer; padding: 0;
                 }
                 .isdl-dm-swatch:hover { outline: 1px solid #4a9eff; }
+                .isdl-dm-dirty-dot { color: #ffb74d; font-weight: bold; }
+                .isdl-dm-dirty-label { color: #ffb74d; font-size: 10px; margin-left: auto; }
                 .isdl-dm-hint {
                     background: #14223a; border: 1px solid #2a4a8a; border-radius: 3px;
                     padding: 6px 8px; font-size: 10px; color: #8aaace; margin-bottom: 6px;
@@ -698,11 +700,19 @@ function generateDevTools(
                         css += \`.isdl-dm-active .isdl-section-\${id} .v-card-title { display: none !important; }\\n\`;
                     }
                     // Static text styling: !important so it beats the synth elements' inline defaults
-                    if (node.kind === "static" && (node.fontSize || node.color)) {
+                    if (node.kind === "static") {
                         let rule = "";
                         if (node.fontSize) rule += \`font-size: \${node.fontSize} !important; \`;
                         if (node.color) rule += \`color: \${node.color} !important; \`;
-                        css += \`.isdl-dm-active .isdl-static-\${node.id} h3, .isdl-dm-active .isdl-static-\${node.id} p { \${rule}}\\n\`;
+                        if (node.align) rule += \`text-align: \${node.align} !important; \`;
+                        if (node.bold) rule += \`font-weight: bold !important; \`;
+                        if (node.italic) rule += \`font-style: italic !important; \`;
+                        if (node.fontFamily) rule += \`font-family: \${node.fontFamily} !important; \`;
+                        if (rule) css += \`.isdl-dm-active .isdl-static-\${node.id} h3, .isdl-dm-active .isdl-static-\${node.id} p { \${rule}}\\n\`;
+                        let wrapRule = "";
+                        if (node.marginTop) wrapRule += \`margin-top: \${node.marginTop} !important; \`;
+                        if (node.marginBottom) wrapRule += \`margin-bottom: \${node.marginBottom} !important; \`;
+                        if (wrapRule) css += \`.isdl-dm-active .isdl-static-\${node.id} { \${wrapRule}}\\n\`;
                     }
                     // Item 2d: live preview for section theme overrides (targets .v-card, the painted surface)
                     if (node.kind === "section" && node.theme) {
@@ -717,6 +727,13 @@ function generateDevTools(
                             if (t.border.radius) rule += \`border-radius: \${t.border.radius} !important; \`;
                         }
                         if (rule.trim()) css += \`.isdl-dm-active .isdl-section-\${id} .v-card { \${rule.trim()} }\\n\`;
+                        // Interior spacing/alignment previews on the section's inner row
+                        let flexRule = "";
+                        if (t.gap) flexRule += \`gap: \${t.gap} !important; \`;
+                        if (t.padding) flexRule += \`padding: \${t.padding} !important; \`;
+                        if (t.align) flexRule += \`align-items: \${t.align === "start" ? "flex-start" : t.align === "end" ? "flex-end" : "center"} !important; \`;
+                        if (t.justify) flexRule += \`justify-content: \${t.justify === "start" ? "flex-start" : t.justify === "center" ? "center" : "space-between"} !important; \`;
+                        if (flexRule.trim()) css += \`.isdl-dm-active .isdl-section-\${id} .v-card-text .v-row { \${flexRule.trim()} }\\n\`;
                     }
                     // Item 2d: row/column theme preview (use container class when available)
                     if ((node.kind === "row" || node.kind === "column") && node.theme) {
@@ -733,6 +750,10 @@ function generateDevTools(
                         if (t.width?.min) rule += \`min-width: \${t.width.min} !important; \`;
                         if (t.width?.max) rule += \`max-width: \${t.width.max} !important; \`;
                         if (t.height?.min) rule += \`min-height: \${t.height.min} !important; \`;
+                        if (t.gap) rule += \`gap: \${t.gap} !important; \`;
+                        if (t.padding) rule += \`padding: \${t.padding} !important; \`;
+                        if (t.align) rule += \`align-items: \${t.align === "start" ? "flex-start" : t.align === "end" ? "flex-end" : "center"} !important; \`;
+                        if (t.justify) rule += \`justify-content: \${t.justify === "start" ? "flex-start" : t.justify === "center" ? "center" : "space-between"} !important; \`;
                         if (rule.trim()) css += \`.isdl-dm-active .isdl-container-\${id} { \${rule.trim()} }\\n\`;
                     }
                 });
@@ -924,6 +945,23 @@ function generateDevTools(
                 }
             });
 
+            // Label-override live preview: swap the label element's text (restore on clear/close)
+            _dmWalkNodes(Object.values(_dm.tree.pages).flatMap(p => p.children), node => {
+                if (node.kind !== "field") return;
+                const el = _dmFieldRoot(node.name);
+                if (!el) return;
+                const labelEl = el.querySelector(".v-label, .v-field-label, .v-card-title, legend");
+                if (!labelEl) return;
+                const overridden = node.label && node.defaultLabel && node.label !== node.defaultLabel;
+                if (overridden) {
+                    if (!labelEl.dataset.isdlDmOrigLabel) labelEl.dataset.isdlDmOrigLabel = labelEl.textContent;
+                    if (labelEl.textContent !== node.label) labelEl.textContent = node.label;
+                } else if (labelEl.dataset.isdlDmOrigLabel) {
+                    labelEl.textContent = labelEl.dataset.isdlDmOrigLabel;
+                    delete labelEl.dataset.isdlDmOrigLabel;
+                }
+            });
+
             // Re-apply selection outline
             _dm.windowContent.querySelectorAll(".isdl-dm-selected").forEach(el => el.classList.remove("isdl-dm-selected"));
             if (_dm.selected) {
@@ -942,6 +980,8 @@ function generateDevTools(
             const typingInPanel = _dm.panelEl?.contains(active) &&
                 ["INPUT", "SELECT", "TEXTAREA"].includes(active?.tagName);
             if (!typingInPanel) _dmRenderPanelBody();
+
+            _dmUpdateDirtyUi();
         }
 
         // ── Sidebar panel ─────────────────────────────────────────────────────
@@ -1014,6 +1054,74 @@ function generateDevTools(
             return { style, name };
         }
 
+        // ── Undo/redo + dirty state ──────────────────────────────────────────────
+        // Every mutation calls _dmTouch() (or _dmTouch(key) for continuous inputs,
+        // which collapses a typing burst into one undo step) BEFORE changing the tree.
+        let _dmUndoStack = [];
+        let _dmRedoStack = [];
+        let _dmDirty = false;
+        let _dmLastCommitKey = null;
+
+        function _dmSnapshot() {
+            _dmUndoStack.push(structuredClone(_dm.tree));
+            if (_dmUndoStack.length > 50) _dmUndoStack.shift();
+            _dmRedoStack.length = 0;
+        }
+
+        function _dmTouch(key = null) {
+            if (!_dm) return;
+            if (key === null || _dmLastCommitKey !== key) {
+                _dmSnapshot();
+                _dmLastCommitKey = key;
+            }
+            _dmDirty = true;
+        }
+
+        function _dmUndo() {
+            if (!_dm || _dmUndoStack.length === 0) return;
+            _dmRedoStack.push(structuredClone(_dm.tree));
+            _dm.tree = _dmUndoStack.pop();
+            _dm.selected = null;
+            _dmLastCommitKey = null;
+            _dmDirty = true;
+            _dmApplyPreview();
+        }
+
+        function _dmRedo() {
+            if (!_dm || _dmRedoStack.length === 0) return;
+            _dmUndoStack.push(structuredClone(_dm.tree));
+            _dm.tree = _dmRedoStack.pop();
+            _dm.selected = null;
+            _dmLastCommitKey = null;
+            _dmDirty = true;
+            _dmApplyPreview();
+        }
+
+        function _dmRevert() {
+            if (!_dm?.savedTree) return;
+            _dmSnapshot(); // revert itself is undoable
+            _dm.tree = structuredClone(_dm.savedTree);
+            _dm.selected = null;
+            _dmLastCommitKey = null;
+            _dmDirty = false;
+            _dmApplyPreview();
+        }
+
+        // Sync header/status affordances with the dirty + history state.
+        function _dmUpdateDirtyUi() {
+            if (!_dm?.panelEl) return;
+            const saveBtn = _dm.panelEl.querySelector(".isdl-dm-panel-btn.save");
+            if (saveBtn) saveBtn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\${_dmDirty ? ' <span class="isdl-dm-dirty-dot">•</span>' : ""}\`;
+            const undoBtn = _dm.panelEl.querySelector("[data-dm-undo]");
+            if (undoBtn) undoBtn.disabled = _dmUndoStack.length === 0;
+            const redoBtn = _dm.panelEl.querySelector("[data-dm-redo]");
+            if (redoBtn) redoBtn.disabled = _dmRedoStack.length === 0;
+            const dirtyEl = _dm.panelEl.querySelector("[data-dm-dirty]");
+            if (dirtyEl) dirtyEl.textContent = _dmDirty ? "Unsaved changes" : "";
+            const revertBtn = _dm.panelEl.querySelector("[data-dm-revert]");
+            if (revertBtn) revertBtn.style.display = _dmDirty ? "" : "none";
+        }
+
         // ── Status row state (module-level, lives for DM session) ────────────────
         let _dmLastSyncTime = null;
         let _dmStatusInterval = null;
@@ -1050,6 +1158,7 @@ function generateDevTools(
             function stripNode(node) {
                 if (node.kind === "field") {
                     const out = { kind: "field", name: node.name };
+                    if (node.label && node.label !== node.defaultLabel) out.label = node.label;
                     if (node.size) out.size = node.size;
                     if (node.hideLabel === true) out.hideLabel = true;
                     if (node.color) out.color = node.color;
@@ -1063,6 +1172,12 @@ function generateDevTools(
                     if (node.text != null) out.text = node.text;
                     if (node.fontSize) out.fontSize = node.fontSize;
                     if (node.color) out.color = node.color;
+                    if (node.align) out.align = node.align;
+                    if (node.bold) out.bold = true;
+                    if (node.italic) out.italic = true;
+                    if (node.fontFamily) out.fontFamily = node.fontFamily;
+                    if (node.marginTop) out.marginTop = node.marginTop;
+                    if (node.marginBottom) out.marginBottom = node.marginBottom;
                     return out;
                 }
                 const out = { kind: node.kind, id: node.id };
@@ -1091,20 +1206,50 @@ function generateDevTools(
             header.className = "isdl-dm-panel-header";
             header.innerHTML = \`<i class="fa-solid fa-pen-ruler"></i><span class="isdl-dm-panel-header-title">Design Mode</span><span class="isdl-dm-doc-badge">\${docType}/\${docKey}</span>\`;
 
+            const undoBtn = document.createElement("button");
+            undoBtn.type = "button";
+            undoBtn.className = "isdl-dm-panel-btn";
+            undoBtn.dataset.dmUndo = "1";
+            undoBtn.innerHTML = \`<i class="fa-solid fa-rotate-left"></i>\`;
+            undoBtn.title = "Undo (Ctrl+Z)";
+            undoBtn.style.cssText = "padding:3px 6px;";
+            undoBtn.addEventListener("click", e => { e.stopPropagation(); _dmUndo(); });
+
+            const redoBtn = document.createElement("button");
+            redoBtn.type = "button";
+            redoBtn.className = "isdl-dm-panel-btn";
+            redoBtn.dataset.dmRedo = "1";
+            redoBtn.innerHTML = \`<i class="fa-solid fa-rotate-right"></i>\`;
+            redoBtn.title = "Redo (Ctrl+Shift+Z)";
+            redoBtn.style.cssText = "padding:3px 6px;";
+            redoBtn.addEventListener("click", e => { e.stopPropagation(); _dmRedo(); });
+
             const saveBtn = document.createElement("button");
             saveBtn.type = "button";
             saveBtn.className = "isdl-dm-panel-btn save";
             saveBtn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;
+            saveBtn.title = "Write the layout file (regenerate later to apply)";
             saveBtn.addEventListener("click", e => { e.stopPropagation(); _dmSave(saveBtn, panel); });
+
+            const applyBtn = document.createElement("button");
+            applyBtn.type = "button";
+            applyBtn.className = "isdl-dm-panel-btn save";
+            applyBtn.dataset.dmApply = "1";
+            applyBtn.innerHTML = \`<i class="fa-solid fa-bolt"></i> Apply\`;
+            applyBtn.title = "Save, then regenerate the system right away";
+            applyBtn.addEventListener("click", e => { e.stopPropagation(); _dmSaveAndApply(applyBtn, panel); });
 
             const closeBtn = document.createElement("button");
             closeBtn.type = "button";
             closeBtn.className = "isdl-dm-panel-btn";
             closeBtn.innerHTML = \`<i class="fa-solid fa-times"></i>\`;
             closeBtn.style.cssText = "padding:3px 6px;";
-            closeBtn.addEventListener("click", e => { e.stopPropagation(); _closeDesignMode(); });
+            closeBtn.addEventListener("click", e => { e.stopPropagation(); _dmRequestClose(); });
 
+            header.appendChild(undoBtn);
+            header.appendChild(redoBtn);
             header.appendChild(saveBtn);
+            header.appendChild(applyBtn);
             header.appendChild(closeBtn);
             panel.appendChild(header);
 
@@ -1114,7 +1259,19 @@ function generateDevTools(
             statusRow.innerHTML =
                 \`<span class="isdl-dm-status-dot"></span>\`
               + \`<span class="isdl-dm-status-label">Checking…</span>\`
-              + \`<span class="isdl-dm-status-synced">—</span>\`;
+              + \`<span class="isdl-dm-status-synced">—</span>\`
+              + \`<span class="isdl-dm-dirty-label" data-dm-dirty></span>\`;
+
+            // Revert to last saved (visible only while dirty)
+            const revertBtn = document.createElement("button");
+            revertBtn.type = "button";
+            revertBtn.className = "isdl-dm-export-btn";
+            revertBtn.dataset.dmRevert = "1";
+            revertBtn.innerHTML = \`<i class="fa-solid fa-clock-rotate-left"></i>\`;
+            revertBtn.title = "Revert to last saved layout (undoable)";
+            revertBtn.style.display = "none";
+            revertBtn.addEventListener("click", e => { e.stopPropagation(); _dmRevert(); });
+            statusRow.appendChild(revertBtn);
 
             // Export button (#6)
             const exportBtn = document.createElement("button");
@@ -1362,6 +1519,7 @@ function generateDevTools(
                 x.title = "Unhide";
                 x.addEventListener("click", e => {
                     e.stopPropagation();
+                    _dmTouch();
                     delete n.hidden;
                     _dmApplyPreview();
                 });
@@ -1396,6 +1554,7 @@ function generateDevTools(
 
         function _dmInsertStatic(staticType, defaultText) {
             if (!_dm) return;
+            _dmTouch();
             const newNode = { kind: "static", id: "__static_" + Date.now(), staticType };
             if (defaultText != null) newNode.text = defaultText;
 
@@ -1435,6 +1594,7 @@ function generateDevTools(
         // Item 3c: insert a synthetic row or column container
         function _dmInsertContainer(kind) {
             if (!_dm) return;
+            _dmTouch();
             const ts = Date.now();
             const prefix = kind === "row" ? "__dmrow_" : "__dmcol_";
             const newNode = { kind, id: prefix + ts, synthetic: true, children: [] };
@@ -1505,6 +1665,22 @@ function generateDevTools(
             return _dmSwatchCache;
         }
 
+        // The sheet's own font families (title + body), for the static-text font picker.
+        let _dmFontCache = null;
+        function _dmGetSheetFonts() {
+            if (_dmFontCache) return _dmFontCache;
+            const root = _dm?.appRoot ?? document;
+            const fonts = [];
+            for (const sel of [".v-card-title", ".v-label", "p", ".v-btn"]) {
+                const el = root.querySelector(sel);
+                if (!el) continue;
+                const f = getComputedStyle(el).fontFamily;
+                if (f && !fonts.includes(f)) fonts.push(f);
+            }
+            _dmFontCache = fonts.slice(0, 4);
+            return _dmFontCache;
+        }
+
         function _dmAppendSwatches(rowEl, apply) {
             for (const c of _dmGetSheetSwatches()) {
                 const sw = document.createElement("button");
@@ -1515,6 +1691,65 @@ function generateDevTools(
                 sw.addEventListener("click", e => { e.stopPropagation(); apply(c); });
                 rowEl.appendChild(sw);
             }
+        }
+
+        // Spacing & alignment for containers: the properties that decide dense-vs-sloppy.
+        // Steppers assume px so authors never type units; values live on node.theme.
+        function _dmRenderSpacingGroup(body, node) {
+            body.appendChild(_dmMakeSectionLabel("Spacing"));
+            const ensureTheme = () => (node.theme ??= {});
+            const cleanTheme = () => { if (node.theme && Object.keys(node.theme).length === 0) delete node.theme; };
+
+            const row = document.createElement("div");
+            row.className = "isdl-dm-move-row";
+            const mkPx = (title, key) => {
+                const inp = document.createElement("input");
+                inp.type = "number";
+                inp.min = "0";
+                inp.className = "isdl-dm-text-input";
+                inp.title = title + " (px)";
+                inp.placeholder = title;
+                inp.value = (node.theme?.[key] ?? "").replace("px", "");
+                inp.addEventListener("input", e => {
+                    e.stopPropagation();
+                    _dmTouch("spacing:" + key + ":" + node.id);
+                    const v = inp.value.trim();
+                    if (v === "") { if (node.theme) delete node.theme[key]; }
+                    else ensureTheme()[key] = v + "px";
+                    cleanTheme();
+                    _dmApplyPreview();
+                });
+                row.appendChild(inp);
+            };
+            mkPx("Gap", "gap");
+            mkPx("Padding", "padding");
+            body.appendChild(row);
+
+            const alignRow = document.createElement("div");
+            alignRow.className = "isdl-dm-move-row";
+            const mkChoice = (key, value, icon, title) => {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.className = "isdl-dm-size-btn" + (node.theme?.[key] === value ? " active" : "");
+                b.innerHTML = \`<i class="\${icon}"></i>\`;
+                b.title = title;
+                b.addEventListener("click", e => {
+                    e.stopPropagation();
+                    _dmTouch();
+                    if (node.theme?.[key] === value) { delete node.theme[key]; }
+                    else ensureTheme()[key] = value;
+                    cleanTheme();
+                    _dmApplyPreview();
+                });
+                alignRow.appendChild(b);
+            };
+            mkChoice("align", "start", "fa-solid fa-objects-align-top", "Align children top");
+            mkChoice("align", "center", "fa-solid fa-objects-align-center-vertical", "Align children center");
+            mkChoice("align", "end", "fa-solid fa-objects-align-bottom", "Align children bottom");
+            mkChoice("justify", "start", "fa-solid fa-align-left", "Pack at start");
+            mkChoice("justify", "center", "fa-solid fa-align-center", "Pack centered");
+            mkChoice("justify", "space-between", "fa-solid fa-align-justify", "Spread out");
+            body.appendChild(alignRow);
         }
 
         function _dmRenderThemeGroup(body, node, onUpdate) {
@@ -1559,16 +1794,16 @@ function generateDevTools(
                 const inp = document.createElement("input");
                 inp.type = "color";
                 inp.value = getter() || "#000000";
-                inp.addEventListener("input", () => { ensureTheme(); setter(inp.value); cleanTheme(); onUpdate(); });
+                inp.addEventListener("input", () => { _dmTouch("theme:" + label + ":" + (node.name ?? node.id)); ensureTheme(); setter(inp.value); cleanTheme(); onUpdate(); });
                 const clr = document.createElement("button");
                 clr.type = "button";
                 clr.className = "isdl-dm-theme-clear";
                 clr.textContent = "✕";
-                clr.addEventListener("click", () => { ensureTheme(); setter(null); cleanTheme(); onUpdate(); });
+                clr.addEventListener("click", () => { _dmTouch(); ensureTheme(); setter(null); cleanTheme(); onUpdate(); });
                 row.appendChild(lbl);
                 row.appendChild(inp);
                 row.appendChild(clr);
-                _dmAppendSwatches(row, c => { ensureTheme(); setter(c); inp.value = c; cleanTheme(); onUpdate(); });
+                _dmAppendSwatches(row, c => { _dmTouch(); ensureTheme(); setter(c); inp.value = c; cleanTheme(); onUpdate(); });
                 themeBody.appendChild(row);
             }
 
@@ -1582,7 +1817,7 @@ function generateDevTools(
                 inp.className = "isdl-dm-text-input";
                 inp.placeholder = placeholder;
                 inp.value = getter() || "";
-                inp.addEventListener("input", () => { ensureTheme(); setter(inp.value || null); cleanTheme(); onUpdate(); });
+                inp.addEventListener("input", () => { _dmTouch("themetext:" + label + ":" + (node.name ?? node.id)); ensureTheme(); setter(inp.value || null); cleanTheme(); onUpdate(); });
                 row.appendChild(lbl);
                 row.appendChild(inp);
                 themeBody.appendChild(row);
@@ -1635,6 +1870,23 @@ function generateDevTools(
             typeBadge.textContent = node.typeClass ?? "";
             body.appendChild(typeBadge);
 
+            // Display-label override — rename without touching ISDL source
+            body.appendChild(_dmMakeSectionLabel("Label"));
+            const labelInput = document.createElement("input");
+            labelInput.type = "text";
+            labelInput.className = "isdl-dm-text-input";
+            labelInput.placeholder = node.defaultLabel ?? "";
+            labelInput.title = "Override the field's display label. Empty restores the default.";
+            labelInput.value = node.label !== node.defaultLabel ? (node.label ?? "") : "";
+            labelInput.addEventListener("input", e => {
+                e.stopPropagation();
+                _dmTouch("label:" + node.name);
+                const v = labelInput.value.trim();
+                node.label = v || node.defaultLabel;
+                _dmApplyPreview();
+            });
+            body.appendChild(labelInput);
+
             // Size
             body.appendChild(_dmMakeSectionLabel("Size"));
             const sizeRow = document.createElement("div");
@@ -1656,6 +1908,7 @@ function generateDevTools(
                 if (sizable) {
                     btn.addEventListener("click", e => {
                         e.stopPropagation();
+                        _dmTouch();
                         node.size = sz;
                         _dmApplyPreview();
                     });
@@ -1679,6 +1932,7 @@ function generateDevTools(
             hlCheck.checked = !!node.hideLabel;
             hlCheck.addEventListener("change", e => {
                 e.stopPropagation();
+                _dmTouch();
                 node.hideLabel = hlCheck.checked ? true : undefined;
                 _dmApplyPreview();
             });
@@ -1695,6 +1949,7 @@ function generateDevTools(
             colorInput.value = node.color || "#000000";
             colorInput.addEventListener("input", e => {
                 e.stopPropagation();
+                _dmTouch("color:" + node.name);
                 node.color = colorInput.value;
                 _dmApplyPreview();
             });
@@ -1704,13 +1959,14 @@ function generateDevTools(
             clearColorBtn.textContent = "Clear";
             clearColorBtn.addEventListener("click", e => {
                 e.stopPropagation();
+                _dmTouch();
                 node.color = undefined;
                 colorInput.value = "#000000";
                 _dmApplyPreview();
             });
             colorRow.appendChild(colorInput);
             colorRow.appendChild(clearColorBtn);
-            _dmAppendSwatches(colorRow, c => { node.color = c; colorInput.value = c; _dmApplyPreview(); });
+            _dmAppendSwatches(colorRow, c => { _dmTouch(); node.color = c; colorInput.value = c; _dmApplyPreview(); });
             body.appendChild(colorRow);
 
             // Icon: style dropdown + name input with Font Awesome autocomplete
@@ -1735,6 +1991,7 @@ function generateDevTools(
             iconInput.setAttribute("list", "isdl-dm-fa-icons");
             iconInput.value = parsed.name;
             const applyIcon = () => {
+                _dmTouch("icon:" + node.name);
                 const name = iconInput.value.trim().replace(/^fa-/, "");
                 node.icon = name ? \`\${styleSelect.value} fa-\${name}\` : undefined;
                 _dmApplyPreview();
@@ -1779,6 +2036,7 @@ function generateDevTools(
             resetBtn.title = "Clears size, label, color, icon, and theme — keeps the field's position";
             resetBtn.addEventListener("click", e => {
                 e.stopPropagation();
+                _dmTouch();
                 delete node.size;
                 delete node.hideLabel;
                 delete node.color;
@@ -1797,6 +2055,7 @@ function generateDevTools(
                 unhideBtn.innerHTML = \`<i class="fa-solid fa-eye"></i> Unhide field\`;
                 unhideBtn.addEventListener("click", e => {
                     e.stopPropagation();
+                    _dmTouch();
                     delete node.hidden;
                     _dm.selected = null;
                     _dmApplyPreview();
@@ -1811,6 +2070,7 @@ function generateDevTools(
                 hideBtn.title = "Removes the field from the generated sheet. Restore it any time from the Hidden Fields list — the data is untouched.";
                 hideBtn.addEventListener("click", e => {
                     e.stopPropagation();
+                    _dmTouch();
                     node.hidden = true;
                     _dm.selected = null;
                     _dmApplyPreview();
@@ -1833,12 +2093,15 @@ function generateDevTools(
             htCheck.checked = !!node.hideLabel;
             htCheck.addEventListener("change", e => {
                 e.stopPropagation();
+                _dmTouch();
                 node.hideLabel = htCheck.checked ? true : undefined;
                 _dmApplyPreview();
             });
             hideTitleRow.appendChild(htCheck);
             hideTitleRow.appendChild(document.createTextNode(" Hide title"));
             body.appendChild(hideTitleRow);
+
+            _dmRenderSpacingGroup(body, node);
 
             // Item 2c: Theme group
             _dmRenderThemeGroup(body, node, () => _dmApplyPreview());
@@ -1876,6 +2139,8 @@ function generateDevTools(
             }
             body.appendChild(nameDiv);
 
+            _dmRenderSpacingGroup(body, node);
+
             // Item 2c: Theme group
             _dmRenderThemeGroup(body, node, () => _dmApplyPreview());
 
@@ -1909,6 +2174,7 @@ function generateDevTools(
                     const kind = node.kind;
                     const found = _dmFindAnywhere(kind, node.id);
                     if (!found) return;
+                    _dmTouch();
                     const children = node.children ?? [];
                     // Replace this container with its children in-place
                     found.parentChildren.splice(found.index, 1, ...children);
@@ -1932,6 +2198,7 @@ function generateDevTools(
                 textInput.value = node.text ?? "";
                 textInput.addEventListener("input", e => {
                     e.stopPropagation();
+                    _dmTouch("stext:" + node.id);
                     node.text = textInput.value;
                     // Live-update the preview element's textContent
                     const el = _dmStaticRoot(node.id);
@@ -1954,6 +2221,7 @@ function generateDevTools(
                 sizeInput.value = node.fontSize ?? "";
                 sizeInput.addEventListener("input", e => {
                     e.stopPropagation();
+                    _dmTouch("ssize:" + node.id);
                     const v = sizeInput.value.trim();
                     if (v) node.fontSize = v; else delete node.fontSize;
                     _dmApplyPreview();
@@ -1968,6 +2236,7 @@ function generateDevTools(
                 colorInput.value = node.color ?? "#c0d0e0";
                 colorInput.addEventListener("input", e => {
                     e.stopPropagation();
+                    _dmTouch("scolor:" + node.id);
                     node.color = colorInput.value;
                     _dmApplyPreview();
                 });
@@ -1977,12 +2246,101 @@ function generateDevTools(
                 clearColorBtn.textContent = "Clear";
                 clearColorBtn.addEventListener("click", e => {
                     e.stopPropagation();
+                    _dmTouch();
                     delete node.color;
                     _dmApplyPreview();
                 });
                 colorRow.appendChild(colorInput);
                 colorRow.appendChild(clearColorBtn);
                 body.appendChild(colorRow);
+
+                // Style row: bold / italic / alignment
+                body.appendChild(_dmMakeSectionLabel("Style"));
+                const styleRow = document.createElement("div");
+                styleRow.className = "isdl-dm-move-row";
+                const mkToggle = (icon, title, get, set) => {
+                    const b = document.createElement("button");
+                    b.type = "button";
+                    b.className = "isdl-dm-size-btn" + (get() ? " active" : "");
+                    b.innerHTML = \`<i class="\${icon}"></i>\`;
+                    b.title = title;
+                    b.addEventListener("click", e => {
+                        e.stopPropagation();
+                        _dmTouch();
+                        set(!get());
+                        _dmApplyPreview();
+                    });
+                    styleRow.appendChild(b);
+                };
+                mkToggle("fa-solid fa-bold", "Bold", () => !!node.bold, v => { if (v) node.bold = true; else delete node.bold; });
+                mkToggle("fa-solid fa-italic", "Italic", () => !!node.italic, v => { if (v) node.italic = true; else delete node.italic; });
+                for (const [al, icon] of [["left", "fa-solid fa-align-left"], ["center", "fa-solid fa-align-center"], ["right", "fa-solid fa-align-right"]]) {
+                    const b = document.createElement("button");
+                    b.type = "button";
+                    b.className = "isdl-dm-size-btn" + (node.align === al ? " active" : "");
+                    b.innerHTML = \`<i class="\${icon}"></i>\`;
+                    b.title = "Align " + al;
+                    b.addEventListener("click", e => {
+                        e.stopPropagation();
+                        _dmTouch();
+                        if (node.align === al) delete node.align; else node.align = al;
+                        _dmApplyPreview();
+                    });
+                    styleRow.appendChild(b);
+                }
+                body.appendChild(styleRow);
+
+                // Font family — limited to the sheet's own fonts
+                const fonts = _dmGetSheetFonts();
+                if (fonts.length > 0) {
+                    body.appendChild(_dmMakeSectionLabel("Font"));
+                    const fontSel = document.createElement("select");
+                    fontSel.className = "isdl-dm-icon-style";
+                    fontSel.style.cssText = "width:100%;flex:1;";
+                    const defOpt = document.createElement("option");
+                    defOpt.value = "";
+                    defOpt.textContent = "Default";
+                    fontSel.appendChild(defOpt);
+                    for (const f of fonts) {
+                        const o = document.createElement("option");
+                        o.value = f;
+                        o.textContent = f.split(",")[0].replace(/['"]/g, "");
+                        fontSel.appendChild(o);
+                    }
+                    fontSel.value = node.fontFamily ?? "";
+                    fontSel.addEventListener("change", e => {
+                        e.stopPropagation();
+                        _dmTouch();
+                        if (fontSel.value) node.fontFamily = fontSel.value; else delete node.fontFamily;
+                        _dmApplyPreview();
+                    });
+                    body.appendChild(fontSel);
+                }
+
+                // Vertical spacing steppers
+                body.appendChild(_dmMakeSectionLabel("Spacing"));
+                const spacingRow = document.createElement("div");
+                spacingRow.className = "isdl-dm-move-row";
+                const mkStepper = (title, get, set) => {
+                    const inp = document.createElement("input");
+                    inp.type = "number";
+                    inp.min = "0";
+                    inp.className = "isdl-dm-text-input";
+                    inp.title = title;
+                    inp.placeholder = title;
+                    inp.value = (get() ?? "").replace("px", "");
+                    inp.addEventListener("input", e => {
+                        e.stopPropagation();
+                        _dmTouch("spacing:" + title + node.id);
+                        const v = inp.value.trim();
+                        set(v === "" ? undefined : v + "px");
+                        _dmApplyPreview();
+                    });
+                    spacingRow.appendChild(inp);
+                };
+                mkStepper("Above", () => node.marginTop, v => { if (v) node.marginTop = v; else delete node.marginTop; });
+                mkStepper("Below", () => node.marginBottom, v => { if (v) node.marginBottom = v; else delete node.marginBottom; });
+                body.appendChild(spacingRow);
             }
 
             body.appendChild(_dmMakeSectionLabel("Position"));
@@ -2009,6 +2367,7 @@ function generateDevTools(
             removeBtn.innerHTML = \`<i class="fa-solid fa-trash"></i> Remove\`;
             removeBtn.addEventListener("click", e => {
                 e.stopPropagation();
+                _dmTouch();
                 const found = _dmFindAnywhere("static", node.id);
                 if (found) found.parentChildren.splice(found.index, 1);
                 _dm.selected = null;
@@ -2018,6 +2377,7 @@ function generateDevTools(
         }
 
         function _dmMoveNode(pageKey, node, delta) {
+            _dmTouch();
             const kind = node.kind === "field" ? "field" : node.kind === "static" ? "static" : "section";
             const key = node.kind === "field" ? node.name : node.id;
             const found = _dmFindNode(pageKey, kind, key);
@@ -2066,6 +2426,12 @@ function generateDevTools(
                 listeners: [], dragging: null, btn,
             };
             _dmSwatchCache = null; // re-harvest the sheet's palette per session
+            _dmFontCache = null;
+            _dm.savedTree = structuredClone(tree); // last-saved state, for Revert + dirty tracking
+            _dmUndoStack = [];
+            _dmRedoStack = [];
+            _dmDirty = false;
+            _dmLastCommitKey = null;
 
             // Activate container layout
             windowContent.classList.add("isdl-dm-active");
@@ -2125,6 +2491,12 @@ function generateDevTools(
                 if (!_dm) return;
                 const t = document.activeElement;
                 if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && ["z", "Z", "y", "Y"].includes(e.key)) {
+                    if (e.key.toLowerCase() === "y" || e.shiftKey) _dmRedo();
+                    else _dmUndo();
+                    e.preventDefault();
+                    return;
+                }
                 if (e.key === "Escape" && _dm.selected) {
                     _dm.selected = null;
                     _dmApplyPreview();
@@ -2134,6 +2506,7 @@ function generateDevTools(
                 const sel = _dm.selected;
                 if (!sel) return;
                 if (e.key === "Delete" || e.key === "Backspace") {
+                    _dmTouch();
                     const node = sel.node;
                     if (node.kind === "field") {
                         node.hidden = true;
@@ -2199,6 +2572,11 @@ function generateDevTools(
             });
             // Remove icons synthesized for fields that had none of their own
             windowContent.querySelectorAll("i[data-isdl-dm-synth-icon]").forEach(el => el.remove());
+            // Restore label-override text previews
+            windowContent.querySelectorAll("[data-isdl-dm-orig-label]").forEach(el => {
+                el.textContent = el.dataset.isdlDmOrigLabel;
+                delete el.dataset.isdlDmOrigLabel;
+            });
 
             // Clean up all decorated DOM elements
             windowContent.querySelectorAll("[data-isdl-dm]").forEach(el => {
@@ -2444,6 +2822,7 @@ function generateDevTools(
                     const foundC = _dmFindAnywhere("column", cid);
                     const containerFound = foundR ?? foundC;
                     if (containerFound) {
+                        _dmTouch();
                         srcFound.parentChildren.splice(srcFound.index, 1);
                         const containerNode = containerFound.node;
                         const children = containerNode.children ?? (containerNode.children = []);
@@ -2467,6 +2846,7 @@ function generateDevTools(
 
             if (!targetKey) return;
 
+            _dmTouch();
             // Remove from source (MUST happen before target lookup for same-container moves)
             srcFound.parentChildren.splice(srcFound.index, 1);
 
@@ -2523,7 +2903,10 @@ function generateDevTools(
                 if (result.ok) {
                     ui.notifications.info("Layout saved — regenerate system to apply.");
                     _dmLastSyncTime = Date.now();
+                    _dmDirty = false;
+                    if (_dm) _dm.savedTree = structuredClone(_dm.tree);
                     if (panelEl) _dmUpdateStatusRow(panelEl, true);
+                    return true;
                 } else {
                     ui.notifications.error("Save failed: " + (result.error ?? "unknown"));
                     if (panelEl) _dmUpdateStatusRow(panelEl, false);
@@ -2534,7 +2917,83 @@ function generateDevTools(
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = \`<i class="fa-solid fa-floppy-disk"></i> Save\`;
+                _dmUpdateDirtyUi();
             }
+            return false;
+        }
+
+        // "Save & Apply": save the layout, then ask the layout server to regenerate the
+        // system on the spot. The server replies 501 with guidance when regeneration
+        // isn't wired up (extension without a destination, plain isdl serve).
+        async function _dmSaveAndApply(btn, panelEl) {
+            const saveBtn = panelEl.querySelector(".isdl-dm-panel-btn.save");
+            const saved = await _dmSave(saveBtn ?? btn, panelEl);
+            if (!saved) return;
+
+            btn.disabled = true;
+            const startedAt = Date.now();
+            const tick = setInterval(() => {
+                btn.innerHTML = \`<i class="fa-solid fa-spinner fa-spin"></i> \${Math.round((Date.now() - startedAt) / 1000)}s\`;
+            }, 1000);
+            btn.innerHTML = \`<i class="fa-solid fa-spinner fa-spin"></i> Applying…\`;
+            try {
+                const resp = await fetch(_LAYOUT_SERVER + "/regenerate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: "${id}" })
+                });
+                const result = await resp.json();
+                if (result.ok) {
+                    new Dialog({
+                        title: "System rebuilt",
+                        content: \`<p>The system was regenerated successfully. Reload to load the new sheets.</p>\`,
+                        buttons: {
+                            reload: { label: "Reload now", callback: () => window.location.reload() },
+                            later: { label: "Later" }
+                        },
+                        default: "reload"
+                    }).render(true);
+                } else {
+                    ui.notifications.warn(result.error ?? "Regeneration is not available from this server.");
+                }
+            } catch (err) {
+                ui.notifications.error("Regeneration request failed: " + err.message);
+            } finally {
+                clearInterval(tick);
+                btn.disabled = false;
+                btn.innerHTML = \`<i class="fa-solid fa-bolt"></i> Apply\`;
+            }
+        }
+
+        // Close guard: never silently discard unsaved work.
+        function _dmRequestClose() {
+            if (!_dm) return;
+            if (!_dmDirty) { _closeDesignMode(); return; }
+            const body = _dm.panelEl?.querySelector("[data-dm-panel-body]");
+            if (!body) { _closeDesignMode(); return; }
+            body.innerHTML = "";
+            const box = document.createElement("div");
+            box.className = "isdl-dm-hint";
+            box.style.flexDirection = "column";
+            box.innerHTML = \`<span style="font-size:11px;color:#e0c080;"><i class="fa-solid fa-triangle-exclamation"></i> You have unsaved changes.</span>\`;
+            const mk = (label, cls, fn) => {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.className = "isdl-dm-panel-btn " + cls;
+                b.style.cssText = "width:100%;margin-top:4px;";
+                b.textContent = label;
+                b.addEventListener("click", e => { e.stopPropagation(); fn(); });
+                box.appendChild(b);
+            };
+            mk("Save & Close", "save", async () => {
+                const saveBtn = _dm.panelEl.querySelector(".isdl-dm-panel-btn.save");
+                const ok = await _dmSave(saveBtn, _dm.panelEl);
+                if (ok) _closeDesignMode();
+                else _dmRenderPanelBody();
+            });
+            mk("Discard changes", "danger", () => _closeDesignMode());
+            mk("Keep editing", "", () => _dmRenderPanelBody());
+            body.appendChild(box);
         }
 
         // ─── Sheet overlay ────────────────────────────────────────────────────
