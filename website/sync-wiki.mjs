@@ -118,9 +118,14 @@ function rewrite(md) {
     return md.split(/\r?\n/).map(line => {
         if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return line; }
         if (inFence) return line;
-        const segs = rewriteLinks(line).split('`');
+        // Preserve a leading blockquote marker (> or nested > >) so its structural '>' isn't
+        // escaped to &gt; — which would turn the blockquote into a literal paragraph.
+        const bq = line.match(/^\s*(?:>\s?)+/);
+        const prefix = bq ? bq[0] : '';
+        const rest = prefix ? line.slice(prefix.length) : line;
+        const segs = rewriteLinks(rest).split('`');
         for (let i = 0; i < segs.length; i += 2) segs[i] = escapeAngles(segs[i]);
-        return segs.join('`');
+        return prefix + segs.join('`');
     }).join('\n');
 }
 
