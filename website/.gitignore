@@ -1,0 +1,6 @@
+# Everything synced/built is reproducible from the wiki — keep it out of git.
+node_modules/
+content/
+.vitepress/dist/
+.vitepress/cache/
+.vitepress/sidebar.json

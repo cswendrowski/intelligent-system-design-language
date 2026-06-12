@@ -1,0 +1,15 @@
+{
+  "name": "isdl-docs-site",
+  "private": true,
+  "type": "module",
+  "description": "VitePress docs site for ISDL — content is synced from the GitHub wiki at build time, so the wiki stays the single source of truth.",
+  "scripts": {
+    "sync": "node sync-wiki.mjs",
+    "dev": "node sync-wiki.mjs && vitepress dev",
+    "build": "node sync-wiki.mjs && vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}
