@@ -12,6 +12,8 @@ export default defineConfig({
     // GitHub Pages project site lives under /<repo>/.
     base: '/intelligent-system-design-language/',
     srcDir: 'content',
+    // Self-hosted wiki images live in website/public/ (served at the site root).
+    vite: { publicDir: fileURLToPath(new URL('../public', import.meta.url)) },
     cleanUrls: true,
     lastUpdated: true,
     // PoC: the wiki uses GitHub-flavored links/anchors that don't all map 1:1 to VitePress.

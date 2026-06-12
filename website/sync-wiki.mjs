@@ -33,6 +33,28 @@ console.log(`Wiki source: ${src}`);
 const mdFiles = readdirSync(src).filter(f => f.endsWith('.md'));
 const pageNames = new Set(mdFiles.map(f => f.replace(/\.md$/, '')));
 
+// Index any wiki images we've self-hosted (public/assets/att-<uuid>.<ext>) so the markdown's
+// GitHub user-attachments URLs — which don't hotlink (signed, 5-min-expiry, 403 anonymously) —
+// can be rewritten to load locally and on Pages. Drop more att-<uuid>.<ext> files in to migrate
+// more images; refs without a matching local file are left as-is (and still work on github.com).
+const assetsDir = path.join(here, 'public', 'assets');
+const assetByUuid = new Map();
+if (existsSync(assetsDir)) {
+    for (const f of readdirSync(assetsDir)) {
+        const m = /^att-([0-9a-f-]{36})\./.exec(f);
+        if (m) assetByUuid.set(m[1], f);
+    }
+}
+let localized = 0;
+// Rewrite every self-hosted GitHub user-attachments URL — covers markdown ![]()/[]() and raw
+// <img src>/<a href> alike — to its local /assets/ copy. Refs we haven't downloaded are left.
+function localizeAttachments(md) {
+    return md.replace(/https:\/\/github\.com\/user-attachments\/assets\/([0-9a-f-]{36})/g, (m, uuid) => {
+        if (assetByUuid.has(uuid)) { localized++; return `/assets/${assetByUuid.get(uuid)}`; }
+        return m;
+    });
+}
+
 // Convert GitHub-wiki links ([text](Page) / [text](Page#anchor)) into VitePress relative
 // .md links so cross-references resolve. Only real wiki pages are touched — image paths,
 // external URLs and bare #anchors are left alone.
@@ -50,10 +72,18 @@ function rewriteLinks(line) {
 
 // VitePress compiles markdown as a Vue template, so bare angle brackets in prose (ISDL's
 // `choice<string>` / `table<ItemType>` notation) are read as unclosed HTML tags and break
-// the build. Escape angle-bracket tokens in prose, leaving genuine `<http…>` autolinks.
+// the build. Escape angle-bracket tokens in prose — but preserve genuine HTML tags (the wiki
+// embeds raw <img>, <details>, etc.) and `<http…>` autolinks.
+const HTML_TAGS = new Set(['a', 'img', 'br', 'hr', 'sub', 'sup', 'b', 'i', 'u', 's', 'em', 'strong',
+    'code', 'pre', 'kbd', 'mark', 'small', 'details', 'summary', 'div', 'span', 'p', 'h1', 'h2', 'h3',
+    'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td',
+    'th', 'caption', 'blockquote', 'video', 'audio', 'source', 'picture', 'figure', 'figcaption', 'iframe',
+    'abbr', 'cite', 'q', 'center']);
 function escapeAngles(text) {
     return text.replace(/<[^>]*>?|>/g, tok => {
         if (/^<(?:https?:\/\/|mailto:)[^>]+>$/.test(tok)) return tok; // keep autolinks
+        const tag = /^<\/?\s*([a-zA-Z][a-zA-Z0-9]*)/.exec(tok);
+        if (tag && HTML_TAGS.has(tag[1].toLowerCase())) return tok; // keep real HTML tags
         return tok.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     });
 }
@@ -83,6 +113,7 @@ function convertAlerts(md) {
 // line by line, skipping fenced code blocks and inline code spans so snippets stay verbatim.
 function rewrite(md) {
     md = convertAlerts(md);
+    md = localizeAttachments(md);
     let inFence = false;
     return md.split(/\r?\n/).map(line => {
         if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return line; }
@@ -131,4 +162,4 @@ const groups = sidebar.filter(g => g.items.length);
 writeFileSync(path.join(vpDir, 'sidebar.json'), JSON.stringify(groups, null, 2));
 
 if (tmp) rmSync(tmp, { recursive: true, force: true });
-console.log(`Synced ${pageCount} pages; ${groups.length} sidebar groups.`);
+console.log(`Synced ${pageCount} pages; ${groups.length} sidebar groups; ${localized} self-hosted image refs.`);
