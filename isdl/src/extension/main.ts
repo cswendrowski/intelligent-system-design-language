@@ -134,8 +134,8 @@ function registerCommands(context: vscode.ExtensionContext) {
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select Foundry Data/systems Folder',
-            title: 'Select your Foundry VTT Data/systems folder',
+            openLabel: 'Select Foundry Data Folder',
+            title: 'Select your Foundry VTT Data folder (or the systems/ subfolder)',
             defaultUri: lastSelectedFolder ? vscode.Uri.file(lastSelectedFolder) : undefined
         });
 

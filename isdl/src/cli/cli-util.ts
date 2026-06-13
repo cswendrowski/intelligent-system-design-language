@@ -56,14 +56,24 @@ export async function extractAstNode<T extends AstNode>(fileName: string, servic
 }
 
 interface FilePathData {
-    destination: string,
+    systemDestination: string,
+    devDestination: string,
     name: string
 }
 
 export function extractDestinationAndName(filePath: string, destination: string | undefined): FilePathData {
-    filePath = path.basename(filePath, path.extname(filePath)).replace(/[.-]/g, '');
+    const name = path.basename(filePath, path.extname(filePath)).replace(/[.-]/g, '');
+
+    let base = destination ?? path.join(path.dirname(path.resolve(filePath)), 'generated');
+
+    // Walk up one level if the user pointed at a systems/ or modules/ subfolder
+    if (path.basename(base) === 'systems' || path.basename(base) === 'modules') {
+        base = path.dirname(base);
+    }
+
     return {
-        destination: destination ?? path.join(path.dirname(filePath), 'generated'),
-        name: path.basename(filePath)
+        systemDestination: path.join(base, 'systems'),
+        devDestination: path.join(base, 'modules'),
+        name
     };
 }
