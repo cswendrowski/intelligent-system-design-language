@@ -1,0 +1,17 @@
+config MyRPG {
+    id = "my-rpg"
+    label = "My First RPG"
+}
+
+actor BasicHero {
+    // Name and Description are automatically part of every Document
+    health resource HP(max: 20)
+
+    action Heal {
+        fleeting amount = roll(d8)
+        self.HP += amount
+        chat Healing {
+            self.Name + " heals for " + amount + " HP!"
+        }
+    }
+}

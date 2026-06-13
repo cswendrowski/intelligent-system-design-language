@@ -1,0 +1,361 @@
+// EZD6 — a rules-light D6 RPG, modeled in ISDL.
+// Reproduces the data model + signature rolls of drl2/ezd6-fvtt entirely in
+// declarative ISDL: dynamic boon/bane pools, dice-pool inspection (.contains),
+// declarative settings, and the hero/karma economy.
+// The remaining Foundry-UI bits (mini-sheets, token-HUD button, popcorn
+// initiative) live in <id>-custom.mjs by design — see the Custom Code wiki page.
+
+config EZD6 {
+    label = "EZD6"
+    id = "ezd6"
+    author = "ISDL demo"
+    description = "Easy d6 — creativity over complexity."
+
+    // Glossary keywords — auto-linked in any rich-text field via @Boon, @HeroDie, etc.
+    keywords {
+        Boon(summary: "Add a d6 to the pool and keep the highest.", color: #38a169, icon: "fa-solid fa-circle-plus")
+        Bane(summary: "Add a d6 to the pool and keep the lowest.", color: #c0392b, icon: "fa-solid fa-circle-minus")
+        HeroDie(summary: "Spend to add a d6 to any roll or escape death.", color: #f1c40f, icon: "fa-solid fa-dice-d6")
+        Karma(summary: "Meta-currency; 5 Karma buys a Hero Die.", color: #8e44ad, icon: "fa-solid fa-hand-sparkles")
+        Strike(summary: "Take 3 strikes and you're out of the fight.", color: #c0392b, icon: "fa-solid fa-heart-crack")
+    }
+
+    // Declarative game settings — registered + localized automatically, grouped by Foundry scope.
+    // (Mirrors EZD6's showKarmaChangeInChat / showChangeHeroDice / showCharacterToHit / ...MagicResist.)
+    settings {
+        world {
+            choice<string> KarmaInChat(choices: ["Never", "GM Only", "Everyone"], initial: "GM Only", hint: "When to announce Karma changes in chat")
+            choice<string> HeroDiceInChat(choices: ["Never", "GM Only", "Everyone"], initial: "GM Only", hint: "When to announce Hero Dice changes in chat")
+        }
+        client {
+            boolean ShowToHit(initial: true, hint: "Show the To-Hit number on character sheets")
+            boolean ShowMagicResist(initial: true, hint: "Show Magic Resist on character sheets")
+        }
+    }
+}
+
+// ============================================================
+// CHARACTER ("Pushers and Shovers")
+// ============================================================
+actor Character(icon: "fa-solid fa-user", background: temple) {
+
+    // NOTE: EZD6 uses group "popcorn" initiative (players before monsters, no roll)
+    // with a per-combatant hasActed toggle. ISDL initiative is a numeric formula only,
+    // so this is an approximation: players sort above monsters.
+    initiative(value: 1)
+
+    row {
+        // "health"-tagged so Foundry damage application + token bar wire up automatically.
+        health resource Strikes(label: "Strikes", max: 3, icon: "fa-solid fa-heart-crack", color: #c0392b)
+        number HeroDice(label: "Hero Dice", min: 0, initial: 1, icon: "fa-solid fa-dice-d6", color: #f1c40f)
+        number Karma(label: "Karma", min: 0, initial: 3, icon: "fa-solid fa-hand-sparkles", color: #8e44ad)
+    }
+
+    // 3 strikes and you're down.
+    death status Defeated(when: self.Strikes <= 0)
+
+    page Core(icon: "fa-solid fa-scroll") {
+
+        section Defenses {
+            row {
+                // Display of these two is gated by client settings (read via System.X).
+                number ToHit(label: "To Hit", initial: 3, icon: "fa-solid fa-crosshairs", visibility: {
+                    if (!System.ShowToHit) return Visibility.hidden
+                })
+                number ArmorSave(label: "Armor Save", initial: 5, icon: "fa-solid fa-shield")
+                number MiraculousSave(label: "Miraculous Save", initial: 5, icon: "fa-solid fa-hands-praying")
+                number MagicResist(label: "Magic Resist", initial: 1, icon: "fa-solid fa-wand-sparkles", visibility: {
+                    if (!System.ShowMagicResist) return Visibility.hidden
+                })
+            }
+            string ArmorType(label: "Armor Type")
+            choice<string> Wealth(choices: ["Pauper", "Cash Poor", "Moderate", "Wealthy", "Lordly", "Kingly"], icon: "fa-solid fa-coins")
+        }
+
+        // ---- Signature rolls --------------------------------------------
+
+        section Rolls {
+
+            // Strike / task roll with boons & banes.
+            // Net boons -> keep highest; net banes -> keep lowest. Pool size = 1 + |net|.
+            action Strike(icon: "fa-solid fa-khanda", color: #c0392b) {
+                fleeting opts = prompt(label: "Strike Roll") {
+                    number Boons(label: "Boons", min: 0)
+                    number Banes(label: "Banes", min: 0)
+                }
+                fleeting net = opts.Boons - opts.Banes
+                fleeting pool = 1 + Math.abs(net)
+
+                if (net < 0) {
+                    // (pool)d6kl1 compiles to the Foundry formula "(@pool)d6kl1"
+                    fleeting strikeRoll = roll((pool)d6kl1)
+                    chat StrikeResult {
+                        flavor self.Name + " strikes — keep LOWEST (" + opts.Banes + " bane(s))"
+                        strikeRoll
+                    }
+                }
+                else {
+                    fleeting strikeRoll = roll((pool)d6kh1)
+                    chat StrikeResult {
+                        flavor self.Name + " strikes — keep HIGHEST (" + opts.Boons + " boon(s))"
+                        strikeRoll
+                    }
+                }
+            }
+
+            // Wound save vs Armor Save target number.
+            action WoundSave(icon: "fa-solid fa-shield-heart") {
+                fleeting save = roll(d6)
+                if (save >= self.ArmorSave) {
+                    chat WoundResult {
+                        flavor "Wound Save — no harm!"
+                        save
+                    }
+                }
+                else {
+                    self.Strikes -= 1
+                    chat WoundResult {
+                        flavor "Wound Save failed — take a Strike."
+                        save
+                    }
+                }
+            }
+
+            // Miraculous save vs Miraculous Save target number.
+            action MiraculousSaveRoll(icon: "fa-solid fa-hands-praying") {
+                fleeting save = roll(d6)
+                if (save >= self.MiraculousSave) {
+                    chat MiracleResult {
+                        flavor "Miraculous Save succeeds!"
+                        save
+                    }
+                }
+                else {
+                    chat MiracleResult {
+                        flavor "Miraculous Save fails."
+                        save
+                    }
+                }
+            }
+
+            // Cast a spell/miracle: roll a pool of d6, keep the highest.
+            action CastMagic(icon: "fa-solid fa-wand-magic-sparkles", color: #8e44ad) {
+                fleeting opts = prompt(label: "Cast — how many dice?") {
+                    number Dice(label: "Magic Dice", initial: 1, min: 1)
+                }
+                fleeting cast = roll((opts.Dice)d6kh1)
+
+                // EZD6: the spell fizzles if ANY die in the pool shows a 1 — including the dice
+                // dropped by keep-highest. `.contains(1)` sees discarded faces, so it's correct here.
+                // (`fumble: 1` would only check the *kept* die, so it is NOT equivalent.)
+                if (cast.contains(1)) {
+                    cast.fumble = true   // mark it a fumble for the red chat-card styling
+                    chat CastResult {
+                        flavor "Catastrophe! A 1 came up — the magic fails."
+                        cast
+                    }
+                }
+                else {
+                    chat CastResult {
+                        flavor self.Name + " casts successfully!"
+                        cast
+                    }
+                }
+            }
+
+            // Magic resistance: roll your resist dice, keep highest.
+            action MagicResistRoll(icon: "fa-solid fa-shield-halved") {
+                fleeting resist = roll((self.MagicResist)d6kh1)
+                chat ResistResult {
+                    flavor self.Name + " resists magic"
+                    resist
+                }
+            }
+        }
+
+        // ---- Hero Dice & Karma economy ----------------------------------
+
+        section HeroAndKarma {
+
+            // Disabled (locked = disabled-but-visible) while you have no Hero Dice,
+            // rather than letting the click through and posting a failure message.
+            action RollHeroDie(icon: "fa-solid fa-dice-d6", color: #f1c40f, visibility: {
+                if (self.HeroDice <= 0) return Visibility.locked
+            }) {
+                self.HeroDice -= 1
+                fleeting heroRoll = roll(d6)
+                chat HeroResult {
+                    flavor self.Name + " spends a Hero Die!"
+                    heroRoll
+                }
+            }
+
+            // 5 Karma buys a Hero Die — only if you currently hold none. The precondition is a
+            // disabled (locked) calc, so the button greys out instead of click-then-fail.
+            action BuyHeroDie(icon: "fa-solid fa-cart-shopping", visibility: {
+                if (self.Karma < 5 or self.HeroDice > 0) return Visibility.locked
+            }) {
+                self.Karma -= 5
+                self.HeroDice = 1
+                // HeroDiceInChat is three-way; "GM Only" (a GM whisper) isn't expressible yet — see issue #83 (chat visibility). For now, announce when "Everyone".
+                if (System.HeroDiceInChat == "Everyone") {
+                    chat BoughtHero {
+                        flavor self.Name + " spends 5 Karma for a Hero Die."
+                    }
+                }
+            }
+
+            row {
+                action GainKarma(icon: "fa-solid fa-plus") {
+                    self.Karma += 1
+                    // See note above re: the "GM Only" mode and issue #83.
+                    if (System.KarmaInChat == "Everyone") {
+                        chat KarmaGained {
+                            flavor self.Name + " gains 1 Karma (now " + self.Karma + ")."
+                        }
+                    }
+                }
+                action SpendKarma(icon: "fa-solid fa-minus", visibility: {
+                    if (self.Karma <= 0) return Visibility.locked
+                }) {
+                    self.Karma -= 1
+                }
+            }
+        }
+    }
+
+    // ---- Owned items ----------------------------------------------------
+    page Features(icon: "fa-solid fa-book") {
+        Species SpeciesSlot
+        Heropath HeropathSlot
+        table<Boon> Boons
+        table<Feature> Features
+        table<Inclination> Inclinations
+        table<Aspect> Aspects
+        table<Circle> Circles
+    }
+
+    inventory<Equipment> Gear(
+        rows: 4,
+        columns: 5,
+        slotSize: 50px,
+        quantity: Quantity,
+        label: "Gear",
+        icon: "fa-solid fa-backpack"
+    )
+}
+
+// ============================================================
+// MONSTER
+// ============================================================
+actor Monster(icon: "fa-solid fa-dragon", background: bricks) {
+
+    initiative(value: 0) // acts after players (popcorn approximation — see Character note)
+
+    row {
+        health resource Strikes(label: "Strikes", max: 3, icon: "fa-solid fa-heart-crack", color: #c0392b)
+        number ToHit(label: "To Hit", initial: 3, icon: "fa-solid fa-crosshairs")
+        number MagicResist(label: "Magic Resist", initial: 1, icon: "fa-solid fa-wand-sparkles")
+        number MagicDice(label: "Magic Dice", min: 0, initial: 0, icon: "fa-solid fa-dice-d6")
+    }
+
+    death status Defeated(when: self.Strikes <= 0)
+
+    section Actions {
+        action Strike(icon: "fa-solid fa-khanda") {
+            fleeting opts = prompt(label: "Strike Roll") {
+                number Boons(label: "Boons", min: 0)
+                number Banes(label: "Banes", min: 0)
+            }
+            fleeting net = opts.Boons - opts.Banes
+            fleeting pool = 1 + Math.abs(net)
+            if (net < 0) {
+                fleeting strikeRoll = roll((pool)d6kl1)
+                chat MonsterStrike {
+                    flavor self.Name + " strikes (keep lowest)"
+                    strikeRoll
+                }
+            }
+            else {
+                fleeting strikeRoll = roll((pool)d6kh1)
+                chat MonsterStrike {
+                    flavor self.Name + " strikes (keep highest)"
+                    strikeRoll
+                }
+            }
+        }
+
+        action CastMagic(icon: "fa-solid fa-wand-magic-sparkles") {
+            fleeting cast = roll((self.MagicDice)d6kh1)
+            if (cast.contains(1)) {
+                cast.fumble = true
+                chat MonsterCast {
+                    flavor "The monster's magic fizzles (a 1 appeared)."
+                    cast
+                }
+            }
+            else {
+                chat MonsterCast {
+                    flavor self.Name + " unleashes magic!"
+                    cast
+                }
+            }
+        }
+    }
+
+    table<MonsterFeature> Features
+}
+
+// ============================================================
+// ITEMS — every character/monster feature beyond base stats
+// ============================================================
+// Every Document automatically gets Name, Image and a rich-text Description,
+// so most of these just add their type-specific fields. A lot of these `html` fields should probably just become the built-in description but I left them their specific names for ease of reference
+
+item Heropath(icon: "fa-solid fa-road", svg: "icons/svg/upgrade.svg") {
+    html Details(label: "Path Details")
+}
+
+item Species(icon: "fa-solid fa-paw", svg: "icons/svg/mystery-man.svg") {
+    html Traits(label: "Species Traits")
+}
+
+item Boon(icon: "fa-solid fa-star", svg: "icons/svg/aura.svg") {
+    choice<string> BoonType(label: "Boon Type", choices: ["Species", "Heropath", "Other"])
+}
+
+item Feature(icon: "fa-solid fa-list", svg: "icons/svg/book.svg") {
+    html Effect
+}
+
+item Inclination(icon: "fa-solid fa-compass", svg: "icons/svg/compass.svg") {
+    html Effect
+}
+
+item Aspect(icon: "fa-solid fa-gem", svg: "icons/svg/aura.svg") {
+    html Effect
+}
+
+item Circle(icon: "fa-solid fa-circle-nodes", svg: "icons/svg/circle.svg") {
+    number Rank(min: 1, max: 6, initial: 1, icon: "fa-solid fa-ranking-star")
+    html Spells
+}
+
+// If you wanted, you could do a fancier version with item based Spells like so:
+//   item Spell(icon: "fa-solid fa-scroll", svg: "icons/svg/book.svg") {
+//       number Circle(label: "Circle", min: 1, max: 6, initial: 1)
+//   }
+//   item Circle(icon: "fa-solid fa-circle-nodes", svg: "icons/svg/circle.svg") {
+//       number Rank(min: 1, max: 6, initial: 1, icon: "fa-solid fa-ranking-star")
+//       // pick from the world's shared Spell compendium/list
+//       choices<Spell> Spells(global: true)
+//   }
+
+item Equipment(icon: "fa-solid fa-box", svg: "icons/svg/item-bag.svg") {
+    choice<string> EquipmentType(label: "Type", choices: ["Gear", "Potion", "Weapon", "Scroll", "Magic", "Other"], icon: "fa-solid fa-tag")
+    number Quantity(label: "Quantity", initial: 1, min: 0, icon: "fa-solid fa-hashtag")
+}
+
+item MonsterFeature(icon: "fa-solid fa-skull", svg: "icons/svg/terror.svg") {
+    html Effect
+}

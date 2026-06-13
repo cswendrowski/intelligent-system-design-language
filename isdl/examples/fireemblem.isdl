@@ -1,0 +1,279 @@
+config FireEmblemSystem {
+    label = "Fire Emblem System"
+    id = "fire-emblem-system"
+    description = "Simple adaptation of Fire Emblem combat for tabletop"
+    author = "dragonw1414"
+}
+
+actor Character {
+    health resource HP(min:0, max: {
+        return self.MaxHP
+    })
+
+    column {
+        money Gold
+        number Level(min:1)
+    }
+
+
+    section UnitType {
+        boolean Armor
+        boolean Mounted
+        boolean Flying
+    }
+
+    section Points {
+
+        column {
+            readonly number StatPoints(value: {
+                if(self.Level > 1) {
+                    return 0
+                }
+                else {
+                    return self.InitialPoints - self.UsedPoints
+                }
+            } )
+            readonly number GrowthPoints(value: {
+                return self.InitialGrowthPoints - self.UsedGrowthPoints
+            } )
+        }
+    }
+
+    section Growths {
+        number HPGrowth(min:30, max:100)
+        number PowerGrowth(min:5, max:100)
+        number SkillGrowth(min:5, max:100)
+        number SpeedGrowth(min:5, max:100)
+        number DefenceGrowth(min:5, max:100)
+        number ResistanceGrowth(min:5, max:100)
+    }
+
+    section Attributes {
+
+        column {
+            attribute MaxHP(min:15, max:25,
+                mod: {
+                    return self.MaxHP + Math.floor(((self.HPGrowth/100)*self.Level)) + self.GetHPBonuses()
+                })
+            attribute Power(min:1, max:10,
+                mod: {
+                    return self.Power + Math.floor(((self.PowerGrowth/100)*self.Level))+ self.GetPowerBonuses()
+                },
+                roll: roll(d20 + self.Power))
+            attribute Skill(min:1, max:10,
+                mod: {
+                    return self.Skill + Math.floor(((self.SkillGrowth/100)*self.Level))+ self.GetSkillBonuses()
+                },
+                roll: roll(d20 + self.Skill))
+        }
+
+        column {
+            attribute Speed(min:1, max:10,
+                mod: {
+                    return self.Speed + Math.floor(((self.SpeedGrowth/100)*self.Level))+ self.GetSpeedBonuses()
+                },
+                roll: roll(d20 + self.Speed))
+            attribute Defence(min:1, max:10,
+                mod: {
+                    return self.Defence + Math.floor(((self.DefenceGrowth/100)*self.Level))+ self.GetDefenceBonuses()
+                },
+                roll: roll(d20 + self.Defence))
+            attribute Resistance(min:1, max:10,
+                mod: {
+                    return self.Resistance + Math.floor(((self.ResistanceGrowth/100)*self.Level))+ self.GetResistanceBonuses()
+                },
+                roll: roll(d20 + self.Resistance))
+        }
+    }
+    hidden number InitialPoints(value: {
+        return 20
+    })
+    hidden number InitialGrowthPoints(value: {
+        return 200
+    })
+    hidden number UsedPoints(value: {
+        fleeting total = 0
+        fleeting attributes = [self.Power, self.Skill, self.Speed, self.Defence, self.Resistance]
+        //handle HP seperately
+        total += self.MaxHP - 15
+        each attr in attributes {
+            total += attr - 1
+        }
+        if(self.Armor) {
+            total -= 10
+        }
+        if(self.Mounted) {
+            total += 10
+        }
+        if(self.Flying) {
+            total += 10
+        }
+        return total
+    })
+    hidden number UsedGrowthPoints(value: {
+        fleeting total = 0
+        fleeting attributes = [self.PowerGrowth, self.SkillGrowth, self.SpeedGrowth, self.DefenceGrowth, self.ResistanceGrowth]
+        //handle HP seperately
+        total += self.HPGrowth - 30
+        each attr in attributes {
+            total += (attr - 5)
+        }
+        return total
+    })
+
+    // Stats used to determine combat rolls
+
+    section CombatStats {
+        number ToHit(value: {
+            return (self.Skill * 2) + self.GetToHitBonuses()
+        })
+        number AC(value: {
+            return (self.Speed * 2)+ self.GetACBonuses()
+        })
+        number ROC(value: {
+            return 100 + self.Skill + self.Speed+ self.GetROCBonuses()
+        })
+        number Movement(value: {
+            return 5+ self.GetMovementBonuses()
+        })
+        //Base damage without weapon
+        number Damage(value: {
+            return self.Power+ self.GetDamageBonuses()
+        })
+    }
+
+
+
+    //List of weapon proficiencies
+
+    //List of weapons
+
+    //List of items
+
+    //Utility functions
+
+    function GetToHitBonuses() returns number {
+        return 0
+    }
+
+    function GetACBonuses() returns number {
+        self.HPGrowth++
+        return 0
+    }
+
+    function GetROCBonuses() returns number {
+        return 0
+    }
+
+    function GetMovementBonuses() returns number {
+        fleeting move = 0
+        if(self.Armor) {
+            move -= 1
+        }
+        if(self.Mounted) {
+            move += 2
+        }
+        if(self.Flying) {
+            move += 1
+        }
+        return move
+    }
+
+    function GetDamageBonuses() returns number {
+        return 0
+    }
+
+    function GetHPBonuses() returns number {
+        return 0 + self.HPGrowth
+    }
+
+    function GetPowerBonuses() returns number {
+        return 0
+    }
+
+    function GetSkillBonuses() returns number {
+        return 0
+    }
+
+    function GetSpeedBonuses() returns number {
+        return 0
+    }
+
+    function GetDefenceBonuses() returns number {
+        return 0
+    }
+
+    function GetResistanceBonuses() returns number {
+        return 0
+    }
+
+    function Heal(number Healing) {
+        if(self.HP + Healing <= self.MaxHP) {
+            self.HP += Healing
+            chat Heal {
+                "Healed for " + Healing + " HP!"
+            }
+        }
+        else {
+            self.HP = self.MaxHP
+            chat Heal {
+                "Healed for " + (self.MaxHP - self.HP) + "HP!"
+            }
+        }
+    }
+}
+
+// NPCs (just players but with no growths)
+
+// Weapons
+
+item Weapon {
+    string WeaponName
+    string Type
+    number Power
+    number ToHit
+    number Range
+
+    action Attack {
+        fleeting attack = roll(d100 + self.ToHit)
+        if(parent is Character) {
+            if(target is Character) { // Or NPC
+                fleeting chatMsg = "Miss!"
+                fleeting dmg = parent.Damage + self.Power
+                fleeting totalToHit = parent.ToHit + self.ToHit
+                if(attack.total >= target.AC) {
+                    chatMsg = "Attack Hits!"
+                    if(attack.total >= target.ROC or (attack - totalToHit >= 100)) {
+                        chatMsg = "CRITICAL HIT!"
+                        dmg *= 2
+                    }
+                    chat AttackRoll {
+                        tag attack
+                        tag chatMsg
+                        dmg - target.Defence //Make option for resistance for magic damage
+                    }
+                }
+                else {
+                    chat AttackRoll {
+                        tag attack
+                        "Miss"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Items
+
+item Vulnerary {
+    tracker UsesLeft
+
+    action Use(visibility: {
+        if (self.UsesLeft <= 0) return Visibility.locked // Locked or readonly will disable the Action
+        // If uses are left, the default visibility will be used
+    }) {
+        self.UsesLeft -= 1
+    }
+}
+// Skills

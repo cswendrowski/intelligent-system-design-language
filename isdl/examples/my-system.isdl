@@ -1,0 +1,196 @@
+config MyFirstSystem {
+    label = "TestSystem"
+    id = "test-system"
+    description = "Hey look I'm a system developer!"
+    author = "Cody Swendrowski"
+    // note actually udpate this lol
+}
+
+actor PC {
+    table<Spell> SpellTable
+    table<Equipment> Armors(where: item.Type equals "Armor", fields:[Value, Weight])
+
+    row {
+        attribute Brawn(min: 1, max: 18)
+        number Brains(min:1, max:18)
+        attribute Mana
+        number XP(initial: 0)
+    }
+    table<Skill> SkillTable
+
+    row {
+        unlocked boolean Exhausted
+
+        row {
+            unlocked number HealthModifier
+        }
+        health resource Health(max: {
+            return self.Brawn + self.HealthModifier
+        })
+
+        action GetUserChoice {
+            fleeting userInput = prompt(
+        label: "Choose Your Action",
+        width: 400,
+        height: 300
+    ) {
+                choice<string> ActionType(choices: ["Attack", "Defend", "Cast Spell"])
+                number PowerLevel(min: 1, max: 10, value: 5)
+            }
+        }
+
+        action OutputBoolean {
+            log(self.BoolTest)
+        }
+        unlocked boolean BoolTest
+
+        row {
+            table<TestItems> TestTable(visibility: {
+                if(self.BoolTest) {
+                    return Visibility.default
+                } else {
+                    return Visibility.hidden
+                }
+            })
+        }
+    }
+
+    function PromptTest() returns nothing {
+        fleeting userInput = prompt(
+        label: "Choose Your Action",
+        width: 400,
+        height: 300
+    ) {
+            choice<string> ActionType(choices: ["Attack", "Defend", "Cast Spell"])
+            number PowerLevel(min: 1, max: 10, value: 5)
+        }
+    }
+
+    // function RollCheck(string RollType,string AttributeName, number AttributeValue, boolean StatusEffect, string StatusEffectName) returns nothing {
+    //     log(StatusEffect)
+    //     fleeting HasEffect = StatusEffect
+    //     log(HasEffect)
+    //     fleeting userAnswer = prompt(width: 300, height: 300, label: "Automatically including your Status Effect") {
+    //         number Advantage(min: 0, max: 9, value: 1)
+    //         number Disadvantage(min:0 max: 9, value: 0)
+    //     }
+    //     fleeting rollingValue = self.determineAdvantage(userAnswer.Advantage, userAnswer.Disadvantage, StatusEffect)
+    //     fleeting DieRolled = rollingValue
+    //     fleeting rollResult = roll(DieRolled)
+    //     if (rollResult.total == 20) {
+    //         chat attributeResult {
+    //             RollType + " roll for " + AttributeName + " failed with a Despair!"
+    //             rollResult
+    //         }
+    //     } else if (rollResult.total == 1) {
+    //         chat attributeResult {
+    //             RollType + " roll for " + AttributeName + " succeeded with a Triumph!"
+    //             rollResult
+    //         }
+    //     } else if (rollResult.total <= AttributeValue) {
+    //         chat attributeResult {
+    //             RollType + " roll for " + AttributeName + " succeeded!"
+    //             rollResult
+    //         }
+    //     } else {
+    //         chat attributeResult {
+    //             RollType + " roll for " + AttributeName + " failed!"
+    //             rollResult
+    //         }
+    //     }
+    // }
+
+    function determineAdvantage(number Advantage, number Disadvantage, boolean HasStatusEffect) returns string {
+        log(HasStatusEffect)
+        fleeting netAdvantage = Advantage - Disadvantage
+        log(netAdvantage)
+        if(HasStatusEffect) {
+            log("Has Status Effect")
+            netAdvantage = netAdvantage - 1
+            log(netAdvantage)
+        }
+        if(netAdvantage equals 0) {
+            log("neutral")
+            return "d20"
+        } else if (netAdvantage > 0) {
+            log("has advantage")
+            netAdvantage = netAdvantage + 1
+            return netAdvantage + "d20kl"
+        } else {
+            log("net disadvantage")
+            log(netAdvantage)
+            netAdvantage = netAdvantage * -1
+            log(netAdvantage)
+            netAdvantage = netAdvantage + 1
+            log(netAdvantage)
+            return netAdvantage + "d20kh"
+        }
+    }
+}
+
+
+item TestItems {
+    number TestAmount
+}
+
+item Spell {
+    number Cost
+
+    action Cast {
+        if(parent is PC) {
+            log(parent.Mana)
+            parent.Mana -= self.Cost            // Spend caster's Mana
+            log(parent.Mana)
+            parent.XP += 1                      // Caster gets a tick of XP
+            chat cast {
+                flavor "Cast " + self.Name + "!"
+            }
+        }
+    }
+}
+
+
+item Skill {
+    parent<attribute> TheAttribute
+    unlocked string SkillType
+    unlocked number RankUps(initial: 0, max: 15)
+    number SkillValue(value: {
+        return self.BaseSkillValue + self.RankUps
+    })
+    choice<string> SkillAttribute(choices:["Brawn", "Brains"])
+    number AttributeValue(value: {
+        if(parent is PC) {
+            if(self.SkillAttribute equals "Brawn")
+            return parent.Brawn
+        } else if(self.SkillAttribute equals "Brains") {
+            return parent.Brains
+        }
+    })
+    unlocked boolean IsTrained
+    unlocked number CareerTrainedMultiplayer(value: {
+        if(self.IsTrained) {
+            return 2
+        } else {
+            return 1
+        }
+    })
+    locked number BaseSkillValue(value: {
+        if(self.AttributeValue >=16) {
+            return 7 * self.CareerTrainedMultiplayer
+        }else if(self.AttributeValue >= 13) {
+            return 6 * self.CareerTrainedMultiplayer
+        }else if(self.AttributeValue >= 9) {
+            return 5 * self.CareerTrainedMultiplayer
+        }else if(self.AttributeValue >= 6) {
+            return 4 * self.CareerTrainedMultiplayer
+        }else {
+            return 3 * self.CareerTrainedMultiplayer
+        }
+    })
+}
+
+item Equipment {
+    string Type
+    number Weight
+    number Value
+}
