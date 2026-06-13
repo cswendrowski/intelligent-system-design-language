@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expandToNode, toString } from 'langium/generate';
 import { Entry } from '../../language/generated/ast.js';
-import { isConfigExpression } from '../../language/generated/ast.js';
+import { isConfigExpression, isActor, isItem } from '../../language/generated/ast.js';
 
 export function generateDevModule(entry: Entry, id: string, devDest: string) {
     const scriptsDir = path.join(devDest, 'scripts');
@@ -13,8 +13,15 @@ export function generateDevModule(entry: Entry, id: string, devDest: string) {
     const title = (entry.config.body.find(x => isConfigExpression(x) && x.type === 'label') as any)?.value ?? id;
     const author = (entry.config.body.find(x => isConfigExpression(x) && x.type === 'author') as any)?.value ?? '';
 
+    // Foundry fires `render${ClassName}` — for our generated sheets that's `render<Doc>VueSheet`
+    // (e.g. renderHeroVueSheet), NOT the generic renderActorSheet. Hook the real class names so
+    // the dev overlays actually attach.
+    const sheetHooks = entry.documents
+        .filter(d => isActor(d) || isItem(d))
+        .map(d => `render${d.name}VueSheet`);
+
     generateModuleJson(id, title, author, devDest);
-    generateDevTools(id, title, devDest);
+    generateDevTools(id, title, devDest, sheetHooks);
 }
 
 function generateModuleJson(id: string, title: string, author: string, devDest: string) {
@@ -49,8 +56,9 @@ function generateModuleJson(id: string, title: string, author: string, devDest: 
     fs.writeFileSync(filePath, toString(fileNode));
 }
 
-function generateDevTools(id: string, title: string, devDest: string) {
+function generateDevTools(id: string, title: string, devDest: string, sheetHooks: string[]) {
     const filePath = path.join(devDest, 'scripts', 'dev-tools.mjs');
+    const allRenderHooks = ['renderActorSheet', 'renderActorSheetV2', 'renderItemSheet', 'renderItemSheetV2', ...sheetHooks];
     const fileNode = expandToNode`
         // ${id}-dev — developer companion for ${title}
         // Regenerated on each build. Customise ${id}-custom.mjs instead.
@@ -78,7 +86,7 @@ function generateDevTools(id: string, title: string, devDest: string) {
                     font-size: 11px;
                     color: #e0e0e0;
                     box-shadow: 0 2px 8px rgba(0,0,0,.6);
-                    pointer-events: auto;
+                    pointer-events: none;
                     min-width: 220px;
                     z-index: 10000;
                 }
@@ -127,7 +135,13 @@ function generateDevTools(id: string, title: string, devDest: string) {
                     line-height: 1.4;
                 }
                 .isdl-dev-copy:hover { background: #4a9eff; color: #1a1a2e; }
-                .isdl-design-mode-btn { opacity: 0.4; cursor: not-allowed !important; }
+                .isdl-pick-mode-btn { opacity: 0.4; transition: opacity 0.15s, color 0.15s; }
+                .isdl-pick-mode-btn.isdl-pick-active { opacity: 1; color: #f6a623 !important; }
+                .isdl-dev-tooltip.isdl-dev-locked { border-color: #f6a623; box-shadow: 0 4px 16px rgba(0,0,0,.8); pointer-events: auto; }
+                .isdl-dev-tip-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #2a3a5a; }
+                .isdl-dev-tip-title { font-size: 10px; font-weight: bold; color: #f6a623; letter-spacing: 0.05em; }
+                .isdl-dev-dismiss { background: none; border: 1px solid #f6a623; border-radius: 2px; color: #f6a623; cursor: pointer; padding: 0 5px; font-size: 11px; line-height: 1.6; }
+                .isdl-dev-dismiss:hover { background: #f6a623; color: #1a1a2e; }
                 .isdl-inspector { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
                 .isdl-inspector-hint { font-size: 12px; color: #888; margin: 0; }
                 .isdl-inspector-hint code { font-size: 11px; background: #eee; padding: 1px 3px; border-radius: 2px; }
@@ -149,8 +163,20 @@ function generateDevTools(id: string, title: string, devDest: string) {
             document.head.appendChild(style);
         }
 
-        // ─── Tooltip helpers ────────────────────────────────────────────────
-        let _devTip = null;
+        // ─── Pick-mode field inspector ──────────────────────────────────────
+        let _pickMode = false;
+        let _hoverTip = null;
+        let _lockedTip = null;
+
+        function _setPickMode(enabled) {
+            _pickMode = enabled;
+            if (!enabled) { _clearLockedTip(); _clearHoverTip(); }
+            document.querySelectorAll(".isdl-pick-mode-btn")
+                .forEach(b => b.classList.toggle("isdl-pick-active", enabled));
+            console.log(\`[\${MODULE_ID}] pick mode \${enabled ? "ON — hover a field, click to lock" : "off"}\`);
+        }
+        function _clearHoverTip() { _hoverTip?.remove(); _hoverTip = null; }
+        function _clearLockedTip() { _lockedTip?.remove(); _lockedTip = null; }
 
         function _makeRow(iconClass, label, value) {
             return \`
@@ -165,22 +191,40 @@ function generateDevTools(id: string, title: string, devDest: string) {
             \`;
         }
 
-        function _showDevTooltip(el, systemPath, typeSelector, nameSelector) {
-            _hideDevTooltip();
+        function _buildTipBody(systemPath, typeSelector, nameSelector) {
+            return \`<div class="isdl-dev-section-header"><i class="fa-solid fa-database"></i> Data Path<span class="isdl-dev-section-hint">for macros &amp; scripts</span></div>\`
+                + _makeRow("fa-solid fa-folder-open", "system path", systemPath)
+                + \`<div class="isdl-dev-section-header" style="margin-top:8px"><i class="fa-solid fa-paintbrush"></i> CSS Selectors<span class="isdl-dev-section-hint">for custom.css</span></div>\`
+                + (typeSelector ? _makeRow("fa-solid fa-layer-group", "all fields of this type", typeSelector) : "")
+                + (nameSelector ? _makeRow("fa-solid fa-crosshairs", "just this field", nameSelector) : "");
+        }
+
+        function _positionTip(tip, el) {
+            const rect = el.getBoundingClientRect();
+            tip.style.top = (rect.bottom + 4) + "px";
+            tip.style.left = rect.left + "px";
+        }
+
+        function _showHoverTip(el, systemPath, typeSelector, nameSelector) {
+            _clearHoverTip();
+            if (!_pickMode || _lockedTip) return;
             const tip = document.createElement("div");
             tip.className = "isdl-dev-tooltip";
+            tip.innerHTML = _buildTipBody(systemPath, typeSelector, nameSelector);
+            _positionTip(tip, el);
+            document.body.appendChild(tip);
+            _hoverTip = tip;
+        }
+
+        function _lockTip(el, systemPath, typeSelector, nameSelector) {
+            _clearHoverTip();
+            _clearLockedTip();
+            const tip = document.createElement("div");
+            tip.className = "isdl-dev-tooltip isdl-dev-locked";
             tip.innerHTML =
-                \`<div class="isdl-dev-section-header">
-                    <i class="fa-solid fa-database"></i> Data Path
-                    <span class="isdl-dev-section-hint">for macros &amp; scripts</span>
-                </div>\` +
-                _makeRow("fa-solid fa-folder-open", "system path", systemPath) +
-                \`<div class="isdl-dev-section-header" style="margin-top:8px">
-                    <i class="fa-solid fa-paintbrush"></i> CSS Selectors
-                    <span class="isdl-dev-section-hint">for custom.css</span>
-                </div>\` +
-                (typeSelector ? _makeRow("fa-solid fa-layer-group", "all fields of this type", typeSelector) : "") +
-                (nameSelector ? _makeRow("fa-solid fa-crosshairs", "just this field", nameSelector) : "");
+                \`<div class="isdl-dev-tip-header"><span class="isdl-dev-tip-title"><i class="fa-solid fa-crosshairs"></i> FIELD INFO</span><button type="button" class="isdl-dev-dismiss" title="Dismiss">&times;</button></div>\`
+                + _buildTipBody(systemPath, typeSelector, nameSelector);
+            tip.querySelector(".isdl-dev-dismiss").addEventListener("click", e => { e.stopPropagation(); _clearLockedTip(); });
             tip.querySelectorAll(".isdl-dev-copy").forEach(btn => {
                 btn.addEventListener("click", e => {
                     e.stopPropagation();
@@ -191,16 +235,37 @@ function generateDevTools(id: string, title: string, devDest: string) {
                     });
                 });
             });
-            const rect = el.getBoundingClientRect();
-            tip.style.top = (rect.bottom + 4) + "px";
-            tip.style.left = rect.left + "px";
+            _positionTip(tip, el);
             document.body.appendChild(tip);
-            _devTip = tip;
+            _lockedTip = tip;
         }
 
-        function _hideDevTooltip() {
-            _devTip?.remove();
-            _devTip = null;
+        // Delegated field listeners — attached once on document, so they work for Vue-mounted
+        // fields regardless of render timing and survive sheet re-renders.
+        let _pickWired = false;
+        function _wirePickDelegation() {
+            if (_pickWired) return;
+            _pickWired = true;
+            let _curField = null;
+            const _fieldAt = t => {
+                const el = t?.closest?.("[class*='isdl-']");
+                if (!el) return null;
+                const input = el.querySelector("input[name^='system.'], select[name^='system.'], textarea[name^='system.']");
+                if (!input) return null;
+                const { typeSelector, nameSelector } = _buildCssSelectors(el);
+                return { el, systemPath: input.getAttribute("name"), typeSelector, nameSelector };
+            };
+            document.addEventListener("mouseover", e => {
+                if (!_pickMode) return;
+                const f = _fieldAt(e.target);
+                if (f && f.el !== _curField) { _curField = f.el; _showHoverTip(f.el, f.systemPath, f.typeSelector, f.nameSelector); }
+                else if (!f && _curField) { _curField = null; _clearHoverTip(); }
+            });
+            document.addEventListener("click", e => {
+                if (!_pickMode) return;
+                const f = _fieldAt(e.target);
+                if (f) { e.stopPropagation(); _lockTip(f.el, f.systemPath, f.typeSelector, f.nameSelector); }
+            }, true);
         }
 
         function _buildCssSelectors(el) {
@@ -256,6 +321,11 @@ function generateDevTools(id: string, title: string, devDest: string) {
         }
 
         // ─── Sheet overlay ──────────────────────────────────────────────────
+        function _addHeaderControl(header, btn) {
+            const closeBtn = header.querySelector(".close, [data-action='close'], [aria-label='Close']");
+            if (closeBtn) closeBtn.before(btn); else header.append(btn);
+        }
+
         function _activateOverlays(doc, html) {
             const root = html instanceof HTMLElement ? html : html?.[0];
             if (!root) return;
@@ -265,37 +335,35 @@ function generateDevTools(id: string, title: string, devDest: string) {
             const header = root.querySelector(".window-header, .window-controls")
                 ?? root.closest(".window-app, .application")?.querySelector(".window-header, .window-controls");
 
-            // Inspector button — opens system data dialog
+            // System Data Viewer button — icon as an <i> child (not a class on the button),
+            // inserted before the close control so it sits on the right.
             if (header && !header.querySelector(".isdl-inspector-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = "isdl-inspector-btn header-control fa-solid fa-magnifying-glass";
+                btn.className = "isdl-inspector-btn header-control";
+                btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
                 btn.setAttribute("aria-label", "Inspect System Data");
                 btn.setAttribute("data-tooltip", "Inspect System Data");
                 btn.addEventListener("click", e => { e.preventDefault(); _openInspector(doc); });
-                header.prepend(btn);
+                _addHeaderControl(header, btn);
             }
 
-            // Design Mode stub button (greyed out until VS Code HTTP server is up)
-            if (header && !header.querySelector(".isdl-design-mode-btn")) {
+            // Pick Mode button — toggles the field path/CSS picker: hover a field to preview
+            // its data path + CSS selectors, click to lock the tooltip.
+            if (header && !header.querySelector(".isdl-pick-mode-btn")) {
                 const btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = "isdl-design-mode-btn header-control fa-solid fa-pen-ruler";
-                btn.setAttribute("aria-label", "Design Mode");
-                btn.setAttribute("data-tooltip", "Design Mode — open your .isdl file in VS Code to enable");
-                btn.disabled = true;
-                header.prepend(btn);
+                btn.className = "isdl-pick-mode-btn header-control";
+                btn.innerHTML = '<i class="fa-solid fa-crosshairs"></i>';
+                btn.setAttribute("aria-label", "Pick Mode");
+                btn.setAttribute("data-tooltip", "Pick Mode — hover a field to preview its data path & CSS, click to lock the tooltip");
+                btn.addEventListener("click", e => { e.preventDefault(); _setPickMode(!_pickMode); });
+                _addHeaderControl(header, btn);
             }
 
-            // System path + CSS selectors on hover for every rendered ISDL field
-            root.querySelectorAll("[class*='isdl-']").forEach(el => {
-                const input = el.querySelector("input[name^='system.'], select[name^='system.'], textarea[name^='system.']");
-                if (!input) return;
-                const systemPath = input.getAttribute("name");
-                const { typeSelector, nameSelector } = _buildCssSelectors(el);
-                el.addEventListener("mouseenter", () => _showDevTooltip(el, systemPath, typeSelector, nameSelector));
-                el.addEventListener("mouseleave", _hideDevTooltip);
-            });
+            // Field hover/click is handled by a single delegated listener (wired once below),
+            // so it works for Vue-mounted fields regardless of render timing.
+            _wirePickDelegation();
         }
 
         // ─── Verbose logging ────────────────────────────────────────────────
@@ -314,19 +382,13 @@ function generateDevTools(id: string, title: string, devDest: string) {
 
         // ApplicationV2 (Foundry v13+) fires renderActorSheetV2 / renderItemSheetV2
         // ApplicationV1 fires the legacy renderActorSheet / renderItemSheet
-        for (const hook of ["renderActorSheet", "renderActorSheetV2"]) {
+        // Foundry fires render<ClassName>; our sheets are <Doc>VueSheet. The generic
+        // ActorSheet/ItemSheet names are kept as a fallback for other Foundry versions.
+        for (const hook of ${JSON.stringify(allRenderHooks)}) {
             Hooks.on(hook, (app, html) => {
-                const doc = app.actor ?? app.document;
+                const doc = app.actor ?? app.item ?? app.document;
                 _activateOverlays(doc, html instanceof HTMLElement ? html : html?.[0] ?? app.element);
-                console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name, doc?.system);
-            });
-        }
-
-        for (const hook of ["renderItemSheet", "renderItemSheetV2"]) {
-            Hooks.on(hook, (app, html) => {
-                const doc = app.item ?? app.document;
-                _activateOverlays(doc, html instanceof HTMLElement ? html : html?.[0] ?? app.element);
-                console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name, doc?.system);
+                console.log(\`[\${MODULE_ID}] \${hook}\`, doc?.name);
             });
         }
 
