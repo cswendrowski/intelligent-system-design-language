@@ -5,6 +5,7 @@ import { IntelligentSystemDesignLanguageValidator, registerValidationChecks } fr
 import { IsdlScopeProvider } from './isdl-scope-provider.js';
 import { IsdlFormatter } from './intelligent-system-design-language-formatter.js';
 import { IsdlHoverProvider } from './isdl-hover-provider.js';
+import { IsdlCompletionProvider } from './isdl-completion-provider.js';
 import { IsdlParserErrorMessageProvider } from './isdl-parser-error-message-provider.js';
 import { IsdlDocumentValidator } from './isdl-document-validator.js';
 
@@ -41,7 +42,8 @@ export const IntelligentSystemDesignLanguageModule: Module<IntelligentSystemDesi
     },
     lsp: {
         Formatter: (_services) => new IsdlFormatter(),
-        HoverProvider: (_services) => new IsdlHoverProvider()
+        HoverProvider: (_services) => new IsdlHoverProvider(),
+        CompletionProvider: (services) => new IsdlCompletionProvider(services)
     }
 };
 

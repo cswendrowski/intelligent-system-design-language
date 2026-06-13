@@ -1,4 +1,5 @@
 import type { ValidationAcceptor, ValidationChecks } from 'langium';
+import { wikiDiagnostic } from './isdl-docs.js';
 import {
     type IntelligentSystemDesignLanguageAstType,
     type Actor,
@@ -316,7 +317,7 @@ export class IntelligentSystemDesignLanguageValidator {
     validatePromptInputAccess(access: PromptInputAccess, accept: ValidationAcceptor): void {
         const prompt = AstUtils.getContainerOfType(access, isPrompt);
         if (!prompt) {
-            accept('error', "'input.' can only be used inside a prompt.", { node: access });
+            accept('error', "'input.' can only be used inside a prompt.", { node: access, ...wikiDiagnostic('Interactivity#interactive-prompts') });
             return;
         }
         const visualizer = AstUtils.getContainerOfType(access, isRollVisualizerField);
@@ -348,7 +349,7 @@ export class IntelligentSystemDesignLanguageValidator {
         // to false. Every other property (total/highest/lowest/dice and raw Foundry Roll members
         // like result/formula/_total) passes through untouched.
         if (accessor.toLowerCase() === 'successes' && !roll.params.some(isSuccessParam)) {
-            accept('error', `'.successes' requires a 'success:' parameter on roll '${name}'.`, { node });
+            accept('error', `'.successes' requires a 'success:' parameter on roll '${name}'.`, { node, ...wikiDiagnostic('Basic-Logic#roll-properties') });
         }
     }
 
@@ -406,7 +407,7 @@ export class IntelligentSystemDesignLanguageValidator {
         if (property.name) {
             const firstChar = property.name.substring(0, 1);
             if (firstChar.toUpperCase() !== firstChar) {
-                accept('warning', 'Property names should start with a capital.', { node: property, property: 'name' });
+                accept('warning', 'Property names should start with a capital.', { node: property, property: 'name', ...wikiDiagnostic('Document#naming-conventions') });
             }
         }
 
@@ -475,7 +476,7 @@ export class IntelligentSystemDesignLanguageValidator {
         const choices = field.params.find(isStringParamChoices) as StringParamChoices | undefined;
 
         if (!choices || !choices.choices || choices.choices.length === 0) {
-            accept('error', 'String choice fields must have at least one choice defined.', { node: field, property: 'params' });
+            accept('error', 'String choice fields must have at least one choice defined.', { node: field, property: 'params', ...wikiDiagnostic('Fields#choice-string') });
             return;
         }
 
@@ -498,7 +499,7 @@ export class IntelligentSystemDesignLanguageValidator {
         if (field.documents.length > 1) {
             const fieldsParam = field.params.find(isTableFieldsParam);
             if (!fieldsParam) {
-                accept('error', 'Multi-type tables require an explicit `fields:` parameter listing the shared columns', { node: field });
+                accept('error', 'Multi-type tables require an explicit `fields:` parameter listing the shared columns', { node: field, ...wikiDiagnostic('Fields#table-field') });
                 return;
             }
 
@@ -535,7 +536,7 @@ export class IntelligentSystemDesignLanguageValidator {
         // Validate that inventory only references item documents
         if (field.documents[0]?.ref && isActor(field.documents[0].ref)) {
             accept('error', 'Inventory fields can only reference item documents, not actors.',
-                { node: field, property: 'documents' });
+                { node: field, property: 'documents', ...wikiDiagnostic('Fields#inventory-field') });
         }
 
         if (field.documents.length > 1) {
