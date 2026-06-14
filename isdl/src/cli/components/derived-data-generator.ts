@@ -276,10 +276,25 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
             if ( isAttributeExp(property) ) {
                 console.log("Processing Derived Attribute: " + property.name);
                 const modParam = property.params.find(p => isAttributeParamMod(p)) as AttributeParamMod | undefined;
+                const attrValueParam = property.params.find(p => isNumberParamValue(p)) as NumberParamValue | undefined;
                 return expandToNode`
 
                     // ${property.name} Attribute Derived Data
+                    ${attrValueParam != undefined ? expandToNode`
+                    const ${property.name.toLowerCase()}CurrentValueFunc = (system) => {
+                        const context = {
+                            object: this
+                        };
+                        ${translateMethodOrValueOrStored(property, attrValueParam)}
+                    };
+                    let ${property.name.toLowerCase()}CurrentValue = ${property.name.toLowerCase()}CurrentValueFunc(this.system);
+                    // Protect against NaN from invalid operations (e.g., "A" + 2)
+                    if (isNaN(${property.name.toLowerCase()}CurrentValue) || ${property.name.toLowerCase()}CurrentValue === undefined || ${property.name.toLowerCase()}CurrentValue === null) {
+                        ${property.name.toLowerCase()}CurrentValue = 0;
+                    }
+                    `.appendNewLine() : expandToNode`
                     const ${property.name.toLowerCase()}CurrentValue = this.system.${property.name.toLowerCase()}?.value ?? 0;
+                    `.appendNewLine()}
                     const ${property.name.toLowerCase()}CurrentMax = this.system.${property.name.toLowerCase()}?.max ?? 0;
                     const ${property.name.toLowerCase()}ModFunc = (system) => {
                         const context = {

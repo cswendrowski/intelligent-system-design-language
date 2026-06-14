@@ -59,6 +59,11 @@ actor BasicHero {
     // Name and Description are automatically part of every Document
     attribute Brawn(min: 0, max: 30)
     number HealthModifier
+
+    // QA (#126): attribute with a `value:` block (not `mod:`) — the computed value must be
+    // emitted, otherwise the attribute silently rendered 0.
+    attribute Strength(min: 0, max: 50, value: { return self.HealthModifier + 10 })
+
     row {
         health resource HP(max: { return self.Brawn + self.HealthModifier })
     }
