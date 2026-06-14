@@ -690,7 +690,7 @@ FunctionParam:
 fragment SelfSpecialAccess:
     access=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects");
 fragment Self:
-    (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
+    (("self." SelfSpecialAccess) | ( "self." property=[Property:ID] ) | ("self[" "self." propertyLookup=[Property:ID] "]" )  ) ("." subProperties+=("Name" | "name" | "number" | "die" | ID))*;
 Access:
     Self;
 Assignment:
@@ -709,12 +709,12 @@ QuickModifyAssignment:
 // rollVisualizer to chart a formula that reacts to the user's prompt inputs live.
 
 PromptInputAccess:
-    "input." property=[Property:ID] ("." subProperties+=("Name" | "number" | "die" | ID))*;
+    "input." property=[Property:ID] ("." subProperties+=("Name" | "name" | "number" | "die" | ID))*;
 
 // Parent Access / Modification ------------------------------------------------------
 
 fragment Parent:
-    "parent" ( "." (nameAccess="Name" | property=[Property:ID]) | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
+    "parent" ( "." (nameAccess=("Name" | "name") | property=[Property:ID]) | "[" "self." propertyLookup=[Property:ID] "]" ) ("." subProperties+=("Name" | "name" | "number" | "die" | ID))*;
 ParentAccess:
     Parent;
 ParentAssignment:
@@ -730,7 +730,7 @@ ParentQuickModifyAssignment:
 // Target Access / Modification ------------------------------------------------------
 
 fragment Target:
-    "target" ( "." (nameAccess="Name" | property=[Property:ID]) ) ("." subProperties+=("Name" | "number" | "die" | ID))*;
+    "target" ( "." (nameAccess=("Name" | "name") | property=[Property:ID]) ) ("." subProperties+=("Name" | "name" | "number" | "die" | ID))*;
 TargetAccess:
     Target;
 TargetAssignment:
@@ -746,7 +746,7 @@ TargetQuickModifyAssignment:
 // Variable Access / Modification ------------------------------------------------------
 
 FleetingAccess:
-    variable=[VariableExpression] (("." subProperty=("Name" | "dice" | ID))? | ("[" arrayAccess=Expression "]")?);
+    variable=[VariableExpression] (("." subProperty=("Name" | "name" | "dice" | ID))? | ("[" arrayAccess=Expression "]")?);
 VariableAccess:
     (VariableExpression | Parameter);
 VariableAssignment:
@@ -760,7 +760,7 @@ VariableIncrementDecrementAssignment:
 VariableQuickModifyAssignment:
     VariableAccessFrag term=("+="|"-="|"*="|"/=") exp=Expression;
 ItemAccess:
-    "item" "." property=ID ("." subProperty=("Name" | ID))?;
+    "item" "." property=ID ("." subProperty=("Name" | "name" | ID))?;
 
 // Roll result method access: r.count(1) / r.contains(die => die >= 3).
 // Property accessors (r.crit, r.successes, r.dice, ...) flow through Ref/FleetingAccess
@@ -968,7 +968,7 @@ Literal:
     val=(INT|STRING|DICE|NOTHING|BOOLEAN);
 // cross-reference to a parameter
 Ref:
-    val=[VariableAccess:ID] ("." subProperties+=("Name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects" | "dice" | ID))*;
+    val=[VariableAccess:ID] ("." subProperties+=("Name" | "name" | "Description" | "Image" | "DocumentType" | "EditMode" | "Effects" | "dice" | ID))*;
 // grouped expression with parentheses
 Group:
     '(' ge=Expression ')';

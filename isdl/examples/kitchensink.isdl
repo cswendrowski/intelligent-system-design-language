@@ -274,11 +274,14 @@ actor BasicHero {
         }
     }
 
-    // QA (#122): target.Name — built-in name, no type guard required
+    // QA (#122): target.Name / target.name — built-in document name (both casings), no type
+    // guard required (emits `context.target?.name`). Lowercase `name` is what the grammar fix
+    // unblocked — it used to fail to parse because `name` is a keyword token.
     action StrikeTarget(icon: "fa-solid fa-crosshairs") {
         chat TargetCard {
             target.Name
         }
+        log("Striking " + target.name)
         if (target is Hero) {
             target.ResourceField -= 1
         }
@@ -1162,6 +1165,13 @@ item Skill {
         }
         return 0 + self.SkillMod
     })
+
+    // QA (#122): parent.Name / parent.name — the owning actor's built-in name, both casings
+    // (emits `context.object.parent?.name`).
+    action LogOwner(icon: "fa-solid fa-user") {
+        log("Owner: " + parent.Name)
+        log("owner: " + parent.name)
+    }
 
     action Roll(icon: "fa-solid fa-dice-d20") {
         fleeting skill = 0
