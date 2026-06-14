@@ -73,6 +73,11 @@ actor BasicHero {
     // it doesn't clamp to 0 if sibling fields aren't computed yet.
     number MasteryLevel(value: { return self.Brawn * 2 }, max: { return self.Brawn * 7 })
 
+    // QA (#124): number with a computed `value:` block AND a static `min:` — the static-min
+    // initializer must resolve to a real value, not `let skillindexMin = skillindexMin;` (a TDZ
+    // self-reference that threw ReferenceError on every access).
+    number SkillIndex(label: "Skill Index", min: 0, value: { return self.HealthModifier * 2 })
+
     // QA: rollVisualizer -- charts a dice formula's distribution + average. Additive formula
     // (dice + field reference) takes the exact convolution path and reacts to HealthModifier.
     rollVisualizer DamagePreview(value: 2d6 + self.HealthModifier, label: "Expected Damage")

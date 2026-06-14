@@ -180,21 +180,21 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
                                 current = 0;
                             }
                             ${minParam != undefined ? expandToNode`
-                                let ${property.name.toLowerCase()}Min = ${minIsCalculated
+                                let ${property.name.toLowerCase()}MinClamp = ${minIsCalculated
                                     ? `${property.name.toLowerCase()}MinFunc(this.system)`
                                     : `${property.name.toLowerCase()}Min`};
-                                if (isNaN(${property.name.toLowerCase()}Min) || ${property.name.toLowerCase()}Min == null) { ${property.name.toLowerCase()}Min = 0; }
-                                if ( current < ${property.name.toLowerCase()}Min ) {
-                                    current = ${property.name.toLowerCase()}Min;
+                                if (isNaN(${property.name.toLowerCase()}MinClamp) || ${property.name.toLowerCase()}MinClamp == null) { ${property.name.toLowerCase()}MinClamp = 0; }
+                                if ( current < ${property.name.toLowerCase()}MinClamp ) {
+                                    current = ${property.name.toLowerCase()}MinClamp;
                                 }
                             `.appendNewLine() : ""}
                             ${maxParam != undefined ? expandToNode`
-                                let ${property.name.toLowerCase()}Max = ${maxIsCalculated
+                                let ${property.name.toLowerCase()}MaxClamp = ${maxIsCalculated
                                     ? `${property.name.toLowerCase()}MaxFunc(this.system)`
                                     : `${property.name.toLowerCase()}Max`};
-                                if (isNaN(${property.name.toLowerCase()}Max) || ${property.name.toLowerCase()}Max == null) { ${property.name.toLowerCase()}Max = 0; }
-                                if ( current > ${property.name.toLowerCase()}Max ) {
-                                    current = ${property.name.toLowerCase()}Max;
+                                if (isNaN(${property.name.toLowerCase()}MaxClamp) || ${property.name.toLowerCase()}MaxClamp == null) { ${property.name.toLowerCase()}MaxClamp = 0; }
+                                if ( current > ${property.name.toLowerCase()}MaxClamp ) {
+                                    current = ${property.name.toLowerCase()}MaxClamp;
                                 }
                             `.appendNewLine() : ""}
                             return current;
