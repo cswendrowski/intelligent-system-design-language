@@ -531,6 +531,10 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             choice<string> ChoiceStringField(choices: ["Option A", "Option B", "Option C"])
             // QA #117: unicode in choice keys — accented chars should survive as normalized ASCII keys
             choice<string> Sunsign(choices: ["Ùlándus", "Arálius", "Fenéri", "Áhnù"])
+            // QA (#125): multi-select `choices` — selecting an option must store the option's
+            // value string, not the whole option object ("[object Object] is not a valid choice"),
+            // and the selection must persist across the edit-mode toggle. Mixes a plain string
+            // with extended {value,label,icon,color} objects to cover both branches.
             choices<string> ChoicesStringField(choices: [
                 "Basic Option",
                 { value: "Advanced", label: "Advanced Option", icon: "fa-solid fa-star", color: #FFD700 },

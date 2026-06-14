@@ -59,8 +59,13 @@ export default function generateStringChoicesComponent(destination: string, entr
                 }
                 
                 if (props.isExtended) {
-                    // For extended choices, create objects with value, icon, color from items
-                    const selectedObjects = newValues.map(value => {
+                    // For extended choices, create objects with value, icon, color from items.
+                    // v-select may hand us either the option value strings or the raw option
+                    // objects depending on slot/return-object behavior, so normalize to the
+                    // value string first. The stored datamodel keys on this string, so storing
+                    // the object would make Foundry reject it ("[object Object] is not a valid choice").
+                    const selectedObjects = newValues.map(entry => {
+                        const value = (entry && typeof entry === 'object') ? entry.value : entry;
                         const item = props.items.find(i => i.value === value);
                         if (item) {
                             const obj = { value: item.value, icon: item.icon || "", color: item.color || "#ffffff" };
@@ -76,8 +81,10 @@ export default function generateStringChoicesComponent(destination: string, entr
                     });
                     foundry.utils.setProperty(props.context, props.systemPath, selectedObjects);
                 } else {
-                    // For simple choices, store the array of strings directly
-                    foundry.utils.setProperty(props.context, props.systemPath, newValues);
+                    // For simple choices, store the array of value strings directly.
+                    // Normalize in case v-select hands back raw option objects.
+                    const selectedStrings = newValues.map(entry => (entry && typeof entry === 'object') ? entry.value : entry);
+                    foundry.utils.setProperty(props.context, props.systemPath, selectedStrings);
                 }
             }
         });
