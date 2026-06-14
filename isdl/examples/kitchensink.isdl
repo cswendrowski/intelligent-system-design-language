@@ -1072,6 +1072,19 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
     number EffectMe
     hidden number AvailableSkillLevels
 
+    // QA (#123): function parameters (`SkillName`, `Floor`) must emit as bare locals, NOT with a
+    // spurious `.system` suffix (`SkillName.system` → undefined → runtime TypeError). The `each`
+    // loop var `sk` over an embedded collection still resolves correctly (`sk.Name` → built-in
+    // `sk.name`, `sk.SkillMod` → `sk.system.skillmod`).
+    function getSkillMod(string SkillName, number Floor) returns number {
+        each sk in self.Skills {
+            if (sk.Name equals SkillName and sk.SkillMod > Floor) {
+                return sk.SkillMod
+            }
+        }
+        return 0
+    }
+
     page Equipment(icon: "fa-solid fa-backpack", background: food) {
         Equipment Armor
         table<Equipment> Armors(where: item.Type equals "Armor")

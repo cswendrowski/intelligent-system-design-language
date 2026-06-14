@@ -1022,11 +1022,30 @@ export function translateExpression(entry: Entry, id: string, expression: string
         }
         console.log("Translating Reference Expression: " + accessPath);
 
-        // Check if we are in an each loop
-        const eachExp = AstUtils.getContainerOfType(expression.$container, isEach);
-        if (eachExp != undefined) {
-            if (isAccess(eachExp.collection) || isParentAccess(eachExp.collection) || isTargetAccess(eachExp.collection)) {
-                accessPath = `${accessPath}.system`;
+        // If this reference resolves to an `each` loop variable, the loop iterates over a
+        // collection of Foundry Documents (embedded items). Custom fields on a Document live
+        // under `.system` (e.g. `sk.Expertise` -> `sk.system.expertise`), so member access on
+        // the loop variable needs the `.system` hop. Built-in Document props like `.name` are
+        // handled separately below and must NOT get `.system`.
+        //
+        // Only the loop VARIABLE itself gets this treatment. Function/method parameters and
+        // other locals that merely appear inside the loop body (e.g. `SkillName`, `Expt`) are
+        // plain JS values and must be referenced by their bare name -- appending `.system` to a
+        // string param produced `SkillName.system` (undefined at runtime). See bug #123.
+        //
+        // Walk every enclosing `each` (not just the innermost) so a reference to an outer loop
+        // variable from within a nested loop still resolves correctly.
+        const refTarget0 = expression.val.ref;
+        if (isParameter(refTarget0)) {
+            let eachAncestor = AstUtils.getContainerOfType(expression.$container, isEach);
+            while (eachAncestor != undefined) {
+                if (eachAncestor.var === refTarget0) {
+                    if (isAccess(eachAncestor.collection) || isParentAccess(eachAncestor.collection) || isTargetAccess(eachAncestor.collection)) {
+                        accessPath = `${accessPath}.system`;
+                    }
+                    break;
+                }
+                eachAncestor = AstUtils.getContainerOfType(eachAncestor.$container, isEach);
             }
         }
 
