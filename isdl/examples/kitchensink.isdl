@@ -697,6 +697,16 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             self<paperdoll> SelfPaperdoll
             self<html> SelfHtml
         }
+
+        // QA: a self<die> reference and a singular choice<Document> subproperty in one roll.
+        // Self refs store a full "system.x" path (must not be prefixed again); a choice<Document>
+        // field holds the linked Document (subproperty reads must hop through .system).
+        action RollSelectedDie {
+            fleeting selectedDieRoll = roll(self.SelfDie + self.ChoiceField.SkillMod)
+            chat selectedDieRoll {
+                selectedDieRoll
+            }
+        }
     }
 
     page Info(background: hideout) {

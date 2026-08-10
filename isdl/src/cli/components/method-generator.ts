@@ -308,11 +308,12 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                     `;
                 }
 
+                // Parent/self refs are clearable on the sheet, so the stored path may be null.
                 if (isParentPropertyRefExp(expression.property?.ref)) {
-                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
+                    label = `${label} - \${(context.object.system.${expression.property?.ref?.name.toLowerCase()} ?? "").replace("system.", "").replaceAll(".", " ").titleCase()\}`;
                 }
                 else if (isSelfPropertyRefExp(expression.property?.ref)) {
-                    label = `${label} - \${context.object.system.${expression.property?.ref?.name.toLowerCase()}.replace("system.", "").replaceAll(".", " ").titleCase()\}`;
+                    label = `${label} - \${(context.object.system.${expression.property?.ref?.name.toLowerCase()} ?? "").replace("system.", "").replaceAll(".", " ").titleCase()\}`;
                 }
                 else {
                     for (const subProperty of expression.subProperties ?? []) {
@@ -499,6 +500,7 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
             if (isAccess(expression)) {
                 let path = "context.object.system";
                 let label = "";
+                let documentChoicePath: string | undefined = undefined;
 
                 console.log("Access:", expression.property?.ref?.name, expression.propertyLookup?.ref?.name);
 
@@ -521,7 +523,7 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
 
                     console.log(label, path);
                     return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, ${path}.toLowerCase())${subProperty}
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object.parent, (${path} ?? "").toLowerCase())${subProperty} ?? 0
                     `;
                 }
                 else if (isSelfPropertyRefExp(expression.property?.ref)) {
@@ -538,9 +540,11 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                         subProperty = "?.mod";
                     }
 
+                    // The stored value is already a full path (e.g. "system.fortitude") - see the
+                    // choices emitted for i-self-property-reference - so it must not be prefixed again.
                     console.log(label, selfPropertyPath);
                     return expandToNode`
-                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, "system." + ${selfPropertyPath}.toLowerCase())${subProperty}
+                        "${label.replaceAll(".", "").replaceAll(" ", "").toLowerCase()}": foundry.utils.getProperty(context.object, (${selfPropertyPath} ?? "").toLowerCase())${subProperty} ?? 0
                     `;
                 }
                 else {
@@ -590,11 +594,23 @@ function fleetingSubProperty(expression: FleetingAccess): string | undefined {
                     if (isAttributeExp(expression.property?.ref) && (expression.subProperties == undefined || expression.subProperties.length == 0 || expression.subProperties[0] !== "mod")) {
                         path = `${path}.mod`;
                     }
+
+                    // A `choice<Document>` field initializes to the linked Document, so reading a
+                    // subproperty off it has to hop through `.system` and use that property's own
+                    // accessor (.value / .mod). getSystemPath already knows those rules.
+                    if (isDocumentChoiceExp(expression.property?.ref) && (expression.subProperties?.length ?? 0) > 0) {
+                        documentChoicePath = `context.object.${getSystemPath(expression.property!.ref, expression.subProperties, expression)}`;
+                    }
                 }
 
                 for (const subProperty of expression.subProperties ?? []) {
-                    path = `${path}.${subProperty}`;
+                    if (documentChoicePath == undefined) {
+                        path = `${path}.${subProperty}`;
+                    }
                     label = `${label} ${humanize(subProperty)}`;
+                }
+                if (documentChoicePath != undefined) {
+                    path = documentChoicePath;
                 }
                 console.log(label, path);
                 return expandToNode`
@@ -1174,12 +1190,12 @@ export function translateExpression(entry: Entry, id: string, expression: string
             if (isParentPropertyRefExp(expression.property?.ref)) {
                 // Parent refs store a full path (e.g. "system.fight") resolved against the parent.
                 return expandToNode`
-                    foundry.utils.getProperty(context.object.parent, context.object.system.${refName}.toLowerCase())${accessor}
+                    foundry.utils.getProperty(context.object.parent, (context.object.system.${refName} ?? "").toLowerCase())${accessor}
                 `;
             }
-            // Self refs store a property name resolved against this document under system.
+            // Self refs store a full path (e.g. "system.fortitude") resolved against this document.
             return expandToNode`
-                foundry.utils.getProperty(context.object, "system." + context.object.system.${refName}.toLowerCase())${accessor}
+                foundry.utils.getProperty(context.object, (context.object.system.${refName} ?? "").toLowerCase())${accessor}
             `;
         }
 
