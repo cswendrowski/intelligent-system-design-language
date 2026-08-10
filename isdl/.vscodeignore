@@ -16,3 +16,10 @@ CLAUDE.md
 RELEASE_NOTES.md
 test-output/**
 test-output-*/**
+test-gen/**
+ISDL-LLM-Guide.md
+# Users' own .isdl systems, kept locally for debugging (gitignored) -- never ship these
+examples/users/**
+.mcp.json
+.codegraph/**
+.idea/**
