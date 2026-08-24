@@ -126,8 +126,19 @@ export default function generateTrackerComponent(destination: string) {
             return Math.round(percentage * 100);
         });
 
-        const refill = () => value.value = max.value;
-        const empty = () => value.value = 0;
+        // refill/empty/add/remove used to assign value.value and stop there, which only
+        // touches the render context -- nothing reaches the database. The write then
+        // happened by accident, whenever some unrelated field's submitOnChange serialized
+        // the whole form and swept up the changed input. That's how an untouched resource
+        // gets overwritten by a later, unrelated edit (and why the change looked like it
+        // came from the wrong field). Persist explicitly instead. See #144.
+        const persistValue = (newValue) => {
+            value.value = newValue;
+            if (document) document.update({ [props.systemPath + '.value']: newValue });
+        };
+
+        const refill = () => persistValue(max.value);
+        const empty = () => persistValue(0);
 
         const filledIcon = computed(() => {
             if (!props.icon) return "fa-solid fa-star";
@@ -185,14 +196,14 @@ export default function generateTrackerComponent(destination: string) {
         const add = () => {
             if (props.disableValue || isDisabled('value')) return;
             if (value.value < max.value) {
-                value.value++;
+                persistValue(value.value + 1);
             }
         }
 
         const remove = () => {
             if (props.disableValue || isDisabled('value')) return;
             if (value.value > min.value) {
-                value.value--;
+                persistValue(value.value - 1);
             }
         }
 
@@ -376,13 +387,20 @@ export default function generateTrackerComponent(destination: string) {
 
                             <v-number-input v-if="trackerStyle == 'plain'" :model-value="value" @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }" :name="systemPath" :min="min" :max="max" :disabled="isDisabled('value') || disableValue" type="number" variant="outlined" density="compact" hide-details="true"></v-number-input>
                         </div>
+                        <!--
+                            The sub-value inputs below are v-show (not v-if), so they stay in the
+                            DOM while collapsed and every unrelated field change on the sheet
+                            re-submits them via submitOnChange. A collapsed panel can't be edited,
+                            so its inputs have nothing to contribute -- dropping :name while
+                            collapsed keeps them out of the form entirely. See #144.
+                        -->
                         <v-expand-transition>
                             <div v-show="expanded" style="margin-top: 1rem;">
                                 <div class="d-flex flex-row">
                                     <v-number-input
                                         :model-value="value"
                                         @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }"
-                                        :name="systemPath + '.value'"
+                                        :name="expanded ? systemPath + '.value' : undefined"
                                         label="Value"
                                         controlVariant="stacked"
                                         density="compact"
@@ -396,7 +414,7 @@ export default function generateTrackerComponent(destination: string) {
                                     <v-number-input
                                         :model-value="temp"
                                         @update:model-value="(v) => { temp = v; persistOnStep(systemPath + '.temp', v); }"
-                                        :name="systemPath + '.temp'"
+                                        :name="expanded ? systemPath + '.temp' : undefined"
                                         label="Temp"
                                         controlVariant="stacked"
                                         density="compact"
@@ -413,7 +431,7 @@ export default function generateTrackerComponent(destination: string) {
                                     <v-number-input
                                         :model-value="min"
                                         @update:model-value="(v) => { min = v; persistOnStep(systemPath + '.min', v); }"
-                                        :name="systemPath + '.min'"
+                                        :name="expanded ? systemPath + '.min' : undefined"
                                         label="Min"
                                         controlVariant="stacked"
                                         density="compact"
@@ -428,7 +446,7 @@ export default function generateTrackerComponent(destination: string) {
                                     <v-number-input
                                         :model-value="max"
                                         @update:model-value="(v) => { max = v; persistOnStep(systemPath + '.max', v); }"
-                                        :name="systemPath + '.max'"
+                                        :name="expanded ? systemPath + '.max' : undefined"
                                         label="Max"
                                         controlVariant="stacked"
                                         density="compact"

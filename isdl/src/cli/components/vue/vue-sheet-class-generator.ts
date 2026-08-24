@@ -265,6 +265,20 @@ export function generateDocumentVueSheet(entry: Entry, id: string, document: Doc
             _prepareSubmitData(event, form, formData) {
                 // We don't modify the image via the sheet itself, so we can remove it from the submit data to avoid errors.
                 delete formData.object.img;
+
+                // Resource / tracker sub-values ride along on every submit, because
+                // submitOnChange serializes the whole form no matter which field changed.
+                // If one of them is momentarily blank -- a re-render in flight, or a stepper
+                // edit that never persisted -- a null would be coerced to 0 and silently
+                // overwrite stored HP. Blank is never an intentional edit for these, so drop
+                // it and leave the stored value alone. See #144.
+                for (const [key, value] of Object.entries(formData.object)) {
+                    if (!/\.(value|temp|min|max)$/.test(key)) continue;
+                    if (value === null || value === undefined || value === "") {
+                        delete formData.object[key];
+                    }
+                }
+
                 return super._prepareSubmitData(event, form, formData);
             }
 

@@ -95,6 +95,11 @@ export default function generateResourceComponent(destination: string) {
                 </v-btn>
             </v-card-actions>
 
+            <!--
+                v-show keeps these inputs in the DOM while collapsed, so every unrelated
+                field change re-submits them via submitOnChange. A collapsed panel can't be
+                edited, so drop :name to keep it out of the form entirely. See #144.
+            -->
             <v-expand-transition>
                 <div v-show="expanded">
                     <v-card-text>
@@ -102,7 +107,7 @@ export default function generateResourceComponent(destination: string) {
                             <v-number-input
                                 :model-value="value"
                                 @update:model-value="(v) => { value = v; persistOnStep(systemPath + '.value', v); }"
-                                :name="systemPath + '.value'"
+                                :name="expanded ? systemPath + '.value' : undefined"
                                 label="Value"
                                 controlVariant="stacked"
                                 density="compact"
@@ -114,7 +119,7 @@ export default function generateResourceComponent(destination: string) {
                             <v-number-input
                                 :model-value="temp"
                                 @update:model-value="(v) => { temp = v; persistOnStep(systemPath + '.temp', v); }"
-                                :name="systemPath + '.temp'"
+                                :name="expanded ? systemPath + '.temp' : undefined"
                                 label="Temp"
                                 controlVariant="stacked"
                                 density="compact"
@@ -126,7 +131,7 @@ export default function generateResourceComponent(destination: string) {
                             <v-number-input
                                 :model-value="max"
                                 @update:model-value="(v) => { max = v; persistOnStep(systemPath + '.max', v); }"
-                                :name="systemPath + '.max'"
+                                :name="expanded ? systemPath + '.max' : undefined"
                                 label="Max"
                                 :disabled="disabled"
                                 controlVariant="stacked"
