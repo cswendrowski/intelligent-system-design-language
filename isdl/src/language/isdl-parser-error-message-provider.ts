@@ -41,6 +41,17 @@ export class IsdlParserErrorMessageProvider extends LangiumParserErrorMessagePro
             return `Missing comma between items — expected ',' before ${actual.image}.`;
         }
 
+        // Quoted dice in a die/dice `choices:` list. Writing `choices: ["d4", "d6"]` is a natural
+        // guess -- `choice<string>` lists really are quoted -- but dice sizes are bare tokens, so
+        // the STRING never matches DICE and the list fails to parse. Keyed on a STRING that looks
+        // like a die appearing where a list item belongs, so it can't fire on ordinary text choices.
+        if (actual?.tokenType?.name === 'STRING' && this.looksLikeQuotedDie(actual.image)
+            && (previous?.image === '[' || previous?.image === ',')) {
+            const bare = actual.image.slice(1, -1);
+            return `Dice sizes are written without quotes — use \`${bare}\` instead of ${actual.image}. `
+                + `(Quoted lists are for \`choice<string>\` fields; \`die\` and \`dice\` take bare sizes like \`d4\`, \`2d6\`, or \`d6x\`.)`;
+        }
+
         // Extension point for further plain-English rewrites. Add a detector here (keyed
         // conservatively on expected/previous/actual tokens or ruleName) when a recurring confusing
         // error is identified; unrecognized cases fall back to the default Langium message.
@@ -48,5 +59,13 @@ export class IsdlParserErrorMessageProvider extends LangiumParserErrorMessagePro
         // Rule names carry a trailing zero-width space (U+200B) -- strip non-letters before comparing:
         //   const ruleName = (rawRuleName ?? '').replace(/[^A-Za-z]/g, '');
         return undefined;
+    }
+
+    /** Matches a STRING token whose contents are a dice size: "d4", "2d6", "d6x". */
+    private looksLikeQuotedDie(image: string | undefined): boolean {
+        if (!image || image.length < 3) return false;
+        const quote = image[0];
+        if ((quote !== '"' && quote !== "'") || image[image.length - 1] !== quote) return false;
+        return /^\d*d\d+\w*$/.test(image.slice(1, -1));
     }
 }
