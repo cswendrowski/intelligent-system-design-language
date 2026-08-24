@@ -56,8 +56,11 @@ export default function generateDieComponent(destination: string, entry?: Entry)
         const dieIcon = computed(() => {
             const currentValue = value.value;
             if (!currentValue || currentValue === 'none') return 'fa-solid fa-ban';
-            if (currentValue.startsWith('d')) {
-                return \`fa-solid fa-dice-\${currentValue}\`;
+            // A die may carry a formula suffix (d6x, d6kh, ...); Font Awesome only has
+            // icons for the plain sizes, so match on the dN part alone.
+            const baseDie = currentValue.match(/^d\\d+/)?.[0];
+            if (baseDie) {
+                return \`fa-solid fa-dice-\${baseDie}\`;
             }
             return 'fa-solid fa-dice';
         });

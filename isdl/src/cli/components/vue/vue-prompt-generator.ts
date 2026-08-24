@@ -277,7 +277,8 @@ function generateElement(element: ClassExpression): CompositeGeneratorNode {
 
         if (isDieField(element) || isDiceField(element)) {
             const choicesParam = element.params.find(x => isDieChoicesParam(x)) as DieChoicesParam | undefined;
-            const choices = choicesParam ? `[${choicesParam.choices.join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
+            // Bare DICE tokens must be quoted -- the binding is a Vue expression, not a literal list.
+            const choices = choicesParam ? `[${choicesParam.choices.map(c => `'${c}'`).join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
             if (isDieField(element)) {
                 const noneParam = element.params.find(x => isDieNoneParam(x)) as DieNoneParam | undefined;
                 const noneAttr = noneParam?.value ? `:none="true"` : '';

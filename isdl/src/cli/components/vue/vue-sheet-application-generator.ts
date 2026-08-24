@@ -2311,7 +2311,10 @@ function generateVueComponentTemplate(entry: Entry, id: string, document: Docume
 
             if (isDiceFields(element)) {
                 let choicesParam = element.params.find(x => isDieChoicesParam(x)) as DieChoicesParam | undefined;
-                let choices = choicesParam ? `[${choicesParam.choices.join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
+                // `choices:` holds bare DICE tokens (d4, d6, ...). The binding is a Vue expression,
+                // so they have to be quoted or Vue reads them as undefined identifiers and the
+                // select renders blank.
+                let choices = choicesParam ? `[${choicesParam.choices.map(c => `'${c}'`).join(", ")}]` : "[ 'd4', 'd6', 'd8', 'd10', 'd12', 'd20' ]";
                 let noneParam = element.params.find(x => isDieNoneParam(x)) as DieNoneParam | undefined;
                 let noneAttr = noneParam?.value ? `:none="true"` : '';
 

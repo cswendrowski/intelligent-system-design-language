@@ -698,6 +698,15 @@ actor Hero(icon: "fa-solid fa-sword", background: texture) {
             self<html> SelfHtml
         }
 
+        // QA: explicit `choices:` on die/dice fields -- bare DICE tokens must reach the Vue
+        // binding quoted, or the select renders blank. The `x` suffix (exploding) also exercises
+        // the DICE terminal's optional suffix and the die icon's dN extraction.
+        section DieChoices {
+            die RestrictedDie(choices: [d4, d6, d8])
+            die ExplodingDie(choices: [d4x, d6x, d8x], initial: d6x)
+            dice RestrictedPool(choices: [d6, d10])
+        }
+
         // QA: a self<die> reference and a singular choice<Document> subproperty in one roll.
         // Self refs store a full "system.x" path (must not be prefixed again); a choice<Document>
         // field holds the linked Document (subproperty reads must hop through .system).
