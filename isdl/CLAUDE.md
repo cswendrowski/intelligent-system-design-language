@@ -43,6 +43,127 @@ During iterative development, only build the project (`npm run build`) — don't
 
 `examples/kitchensink.isdl` is explicitly the QA fixture — it exists to exercise the generator. When you add or change a feature, add a representative test case for it to the kitchensink (a field, param, table, action, etc. that hits the new code path), so the next generation covers it. Keep additions minimal and clearly relevant to the feature.
 
+## Running Foundry Locally (v12 / v13 / v14)
+
+Three Foundry versions are installed side by side, each with its own data directory
+and port, so all three can run simultaneously. Use this when a bug report names a
+specific Foundry version — reproduce on *that* version before diagnosing, since
+sheet form-submission behavior differs meaningfully across v12, v13, and v14.
+
+| Version | Binary | Data directory | Port |
+|---|---|---|---|
+| 12.331 | `C:\Program Files\Foundry Virtual Tabletop\Foundry Virtual Tabletop.exe` (desktop app) | `C:\Users\Cody\AppData\Local\FoundryVTT` | 3024 |
+| 13.350 | `C:\Users\Cody\Downloads\FoundryVTT-Node-13.342\main.mjs` (node build) | `C:\Users\Cody\AppData\Local\FoundryVTTV13` | 30000 |
+| 14.360 | `C:\Users\Cody\Downloads\FoundryVTT-Node-14.360\main.mjs` (node build) | `C:\Users\Cody\AppData\Local\FoundryVTT Unstable` | 30001 |
+
+The node build directories are named after the download, not the build they report
+(`FoundryVTT-Node-13.342` serves 13.350). Trust the version the server logs at startup.
+
+### Launching
+
+v12 is the desktop app — launch the `.exe` and it serves on its configured port:
+
+```powershell
+Start-Process -FilePath "C:\Program Files\Foundry Virtual Tabletop\Foundry Virtual Tabletop.exe"
+```
+
+v13 and v14 are node builds. Run `main.mjs` directly, in the background:
+
+```bash
+# v13
+cd "C:/Users/Cody/Downloads/FoundryVTT-Node-13.342" && \
+  node main.mjs --dataPath="C:/Users/Cody/AppData/Local/FoundryVTTV13" --port=30000 --noupnp
+
+# v14
+cd "C:/Users/Cody/Downloads/FoundryVTT-Node-14.360" && \
+  node main.mjs --dataPath="C:/Users/Cody/AppData/Local/FoundryVTT Unstable" --port=30001 --noupnp
+```
+
+Note the data path for v14 contains a space — quote it. `Start-Process` with quoted
+`--dataPath` arguments fails silently here; prefer launching node builds as a
+background Bash task, which also captures the startup log.
+
+### Licensing
+
+Node builds need `Config/license.json` in their data directory or they park on the
+license-key screen. Copy one from a data directory that already has it and **restart
+the server** — the license is read at startup:
+
+```bash
+cp "C:/Users/Cody/AppData/Local/FoundryVTTV13/Config/license.json" \
+   "C:/Users/Cody/AppData/Local/FoundryVTT Unstable/Config/license.json"
+```
+
+Look for `Software license verification succeeded` in the startup log.
+
+### Creating and launching a world
+
+Generate the system into the target version's data directory first:
+
+```bash
+node ./bin/cli.js generate examples/users/<file>.isdl \
+  -d "C:/Users/Cody/AppData/Local/FoundryVTT Unstable/Data/systems"
+```
+
+On **v12 and v13**, create and launch a world over the setup API from the browser
+console (the launch parameter is `world`, not `id`):
+
+```js
+await fetch("/setup", { method: "POST", headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({ action: "createWorld", id: "myworld", title: "My World",
+                         system: "<system-id>", background: "", nextSession: null, description: "" }) });
+await fetch("/setup", { method: "POST", headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({ action: "launchWorld", world: "myworld" }) });
+```
+
+**v14 removed the `createWorld` setup action.** Write the world manifest to disk
+instead, then restart the server so it discovers the new world (the world list is
+built at startup), then `launchWorld` as above:
+
+```bash
+mkdir -p "C:/Users/Cody/AppData/Local/FoundryVTT Unstable/Data/worlds/myworld"
+cat > "C:/Users/Cody/AppData/Local/FoundryVTT Unstable/Data/worlds/myworld/world.json" <<'EOF'
+{
+  "id": "myworld",
+  "title": "My World",
+  "system": "<system-id>",
+  "description": "",
+  "coreVersion": "14.360",
+  "compatibility": { "minimum": "14", "verified": "14" },
+  "systemVersion": "This is auto replaced",
+  "flags": {}
+}
+EOF
+```
+
+Then join at `http://localhost:<port>/join` — select Gamemaster and submit.
+
+### Driving a session with chrome-devtools MCP
+
+Navigate to `http://localhost:<port>` and drive the sheet with `evaluate_script`.
+Useful patterns when investigating sheet bugs:
+
+```js
+// Capture every update the sheet issues, with the pre-update state
+globalThis.__updates = [];
+Hooks.on("preUpdateActor", (doc, changes) =>
+  globalThis.__updates.push({ changes: foundry.utils.deepClone(changes),
+                              hpBefore: foundry.utils.deepClone(doc.system.hp) }));
+
+// Compare stored vs displayed — desync between these is the signature of
+// a form-submit clobbering bug
+actor._source.system.hp                                  // stored
+document.querySelector("input[name='system.hp.value']").value  // displayed
+```
+
+Vuetify selects do not open from a synthetic `.click()`. Either click via the MCP
+`click` tool against a snapshot uid, or dispatch the full pointer sequence
+(`pointerdown`, `mousedown`, `pointerup`, `mouseup`, `click`) on the `.v-field`.
+
+Beware that a tracker/resource's `.v-field__append-inner` holds both the expand
+caret (`fa-caret-down`) *and* the number-input steppers (`[data-testid="decrement"]`).
+Selecting the wrong one silently changes the value instead of expanding the panel.
+
 ## File Extensions
 
 The project supports two file extensions:
