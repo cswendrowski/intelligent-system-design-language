@@ -151,15 +151,26 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
 
         return expandToNode`
         function registerStatusEffects() {
-            CONFIG.statusEffects = [
+            const statusEffects = [
                 ${hasDead ? '' : `{"id":"dead","name":"EFFECT.StatusDead","img":"icons/svg/skull.svg"},`}
                 {"id":"unconscious","name":"EFFECT.StatusUnconscious","img":"icons/svg/unconscious.svg"},
                 {"id":"invisible","name":"EFFECT.StatusInvisible","img":"icons/svg/invisible.svg"},
                 ${joinToNode(statusEffects, generateStatusEffect, { appendNewLineIfNotEmpty: true, separator: ',' })}
             ];
+
+            if (game.release.generation >= 14) {
+                // v14 keys CONFIG.statusEffects by id and deprecates assigning the whole array.
+                // Same result as the assignment: only this system's conditions remain.
+                for (const effect of Object.values(CONFIG.statusEffects)) {
+                    if (!statusEffects.some(e => e.id === effect.id)) delete CONFIG.statusEffects[effect.id];
+                }
+                for (const effect of statusEffects) CONFIG.statusEffects[effect.id] = effect;
+            } else {
+                CONFIG.statusEffects = statusEffects;
+            }
             
             // Also store for journal generation
-            game.system.statusEffects = CONFIG.statusEffects;
+            game.system.statusEffects = statusEffects;
         }
         `.appendNewLine();
     }
@@ -227,6 +238,7 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         import DataTableApp from "../sheets/vue/datatable-app.mjs";
         ${joinToNode(entry.documents, generateDocumentPromptImports, { appendNewLineIfNotEmpty: true })}
         import ${entry.config.name}EffectVueSheet from "../sheets/vue/active-effect-sheet.mjs";
+        import { Actors, Items, ActorSheet, ItemSheet, DocumentSheetConfig } from "../compat.mjs";
         import ${entry.config.name}Actor from "../documents/actor.mjs";
         import ${entry.config.name}Item from "../documents/item.mjs";
         import ${entry.config.name}Combatant from "../documents/combatant.mjs";
@@ -240,7 +252,8 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         export function init() {
             console.log('${id} | Initializing System');
 
-            CONFIG.ActiveEffect.legacyTransferral = false;
+            // Gone in v14: effects on owned items apply to the actor in place.
+            if (game.release.generation < 14) CONFIG.ActiveEffect.legacyTransferral = false;
 
             registerSettings();
             registerDataModels();
@@ -366,8 +379,11 @@ export function generateInitHookMjs(entry: Entry, id: string, destination: strin
         /* -------------------------------------------- */
 
         function registerDocumentSheets() {
-            Actors.unregisterSheet("core", ActorSheet);
-            Items.unregisterSheet("core", ItemSheet);
+            // v14 registers no core Actor or Item sheet, so there is nothing to remove there.
+            if (game.release.generation < 14) {
+                Actors.unregisterSheet("core", ActorSheet);
+                Items.unregisterSheet("core", ItemSheet);
+            }
 
             // Actors
             ${joinToNode(entry.documents.filter(d => isActor(d)), document => `Actors.registerSheet("${id}", ${document.name}VueSheet, {types: ["${document.name.toLowerCase()}"], makeDefault: true});`, { appendNewLineIfNotEmpty: true })}

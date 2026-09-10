@@ -60,6 +60,7 @@ export function generatePinnedVuetifyDatatableComponent(id: string, document: Do
     const fileNode = expandToNode`
 <script setup>
     import { ref, computed, inject, onMounted, watch } from "vue";
+    const renderTemplate = foundry.applications?.handlebars?.renderTemplate ?? globalThis.renderTemplate;
 
     const props = defineProps({
         systemPath: String,

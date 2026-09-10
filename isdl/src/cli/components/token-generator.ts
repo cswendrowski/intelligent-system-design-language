@@ -12,6 +12,8 @@ export function generateCanvasToken(entry: Entry, id: string, destination: strin
     }
 
     const fileNode = expandToNode`
+    import { Token } from "../compat.mjs";
+
     export default class ${entry.config.name}Token extends Token {
         /** @inheritDoc */
         _drawBar(number, bar, data) {

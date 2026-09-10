@@ -164,6 +164,7 @@ export function generateBaseActiveEffectBaseSheet(entry: Entry, id: string, dest
     const fileNode = expandToNode`
         import VueRenderingMixin from './VueRenderingMixin.mjs';
         import { ActiveEffectApp } from "./components/components.vue.es.mjs";
+        import { TextEditor, FilePicker } from "../../compat.mjs";
         const { DOCUMENT_OWNERSHIP_LEVELS } = CONST;
         export default class ${entry.config.name}EffectVueSheet extends VueRenderingMixin(foundry.applications.api.DocumentSheetV2) {
             

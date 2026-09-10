@@ -14,6 +14,7 @@ export function generateDocumentCreationDialog(entry: Entry, id: string, destina
     const fileNode = expandToNode`
         import VueRenderingMixin from './VueRenderingMixin.mjs';
         import { DocumentCreationApp } from "./components/components.vue.es.mjs";
+        import { FormDataExtended } from "../../compat.mjs";
         export default class DocumentCreationVueDialog extends VueRenderingMixin(foundry.applications.api.ApplicationV2) {
             
             constructor(resolve, reject, options= {}) {
