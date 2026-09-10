@@ -78,6 +78,7 @@ export function generateDatatableVueSheet( entry: Entry, id: string, destination
 
     const fileNode = expandToNode`
         import VueRenderingMixin from './VueRenderingMixin.mjs';
+        import { DragDrop } from "../../compat.mjs";
         ${joinToNode(entry.documents, generateImportForDocument, { appendNewLineIfNotEmpty: true })}
 
         export default class DatatableApp extends VueRenderingMixin(foundry.applications.api.ApplicationV2) {

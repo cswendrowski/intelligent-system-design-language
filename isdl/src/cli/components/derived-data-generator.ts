@@ -1298,6 +1298,8 @@ export function generateExtendedDocumentClasses(entry: Entry, id: string, destin
         }
 
         const fileNode = expandToNode`
+            import { renderTemplate, FormDataExtended } from "../compat.mjs";
+
             export default class ${entry.config.name}${type} extends ${type} {
                 /** @override */
                 prepareDerivedData() {

@@ -248,6 +248,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
         const fileNode = expandToNode`
         <script setup>
             import { ref, computed, inject, onMounted } from "vue";
+            const renderTemplate = foundry.applications?.handlebars?.renderTemplate ?? globalThis.renderTemplate;
 
             const props = defineProps({
                 context: Object,
@@ -732,6 +733,7 @@ function generateVueComponentScript(entry: Entry, id: string, document: Document
     return expandToNode`
     <script setup>
         import { ref, watch, inject, computed, watchEffect } from "vue";
+        const renderTemplate = foundry.applications?.handlebars?.renderTemplate ?? globalThis.renderTemplate;
         ${joinToNode(allTables, table => importDataTable2(table), {appendNewLineIfNotEmpty: true})}
         ${joinToNode(pages, importPageOfPinnedDataTable, {appendNewLineIfNotEmpty: true})}
         ${joinToNode(actions, importActionComponent, {appendNewLineIfNotEmpty: true})}

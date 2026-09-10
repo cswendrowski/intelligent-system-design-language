@@ -69,6 +69,7 @@ export async function generateJavaScript(entry: Entry, filePath: string, destina
     generateExtendedDocumentClasses(entry, id, systemDest);
     generateMeasuredTemplatePreview(systemDest);
     generateEntryMjs(entry, id, systemDest);
+    generateCompatMjs(entry, id, systemDest);
     generateCustomEntryMjs(entry, id, systemDest);
     generateInitHookMjs(entry, id, systemDest);
     generateReadyHookMjs(entry, id, systemDest);
@@ -275,10 +276,55 @@ function generateEntryMjs(entry: Entry, id: string, destination: string) {
         Hooks.once("init", init);
         Hooks.once("ready", ready);
         Hooks.on("devModeReady", ({registerPackageDebugFlag}) => registerPackageDebugFlag("${id}"));
-        Hooks.on("renderChatMessage", renderChatLog);
+        // v13 hands the message element to renderChatMessageHTML; renderChatMessage (jQuery) is removed in v15.
+        // Chosen at init, since game.release is not set while this module loads.
+        Hooks.once("init", () => {
+            Hooks.on(game.release.generation >= 13 ? "renderChatMessageHTML" : "renderChatMessage", renderChatLog);
+        });
         Hooks.on("renderSettings", renderSettings);
         Hooks.on("hotReload", hotReload);
         Hooks.on("hotbarDrop", hotbarDrop);
+    `.appendNewLineIfNotEmpty();
+
+    fs.writeFileSync(generatedFilePath, toString(fileNode));
+}
+
+function generateCompatMjs(entry: Entry, id: string, destination: string) {
+    const generatedFilePath = path.join(destination, "system", "compat.mjs");
+
+    const fileNode = expandToNode`
+        // Where the running Foundry keeps each API. v13 moved these under the
+        // foundry namespace and v14 warns on the bare globals; v12 has only the
+        // globals, and its classes are lexical bindings, not globalThis
+        // properties, so the fallback is the bare name. The right side of \`??\`
+        // is only evaluated on v12, so v13 and v14 never touch the deprecated
+        // global. The locals carry other names so the bare name still resolves
+        // to the global inside this module.
+        const actors = foundry.documents?.collections?.Actors ?? Actors;
+        const items = foundry.documents?.collections?.Items ?? Items;
+        const actorSheet = foundry.appv1?.sheets?.ActorSheet ?? ActorSheet;
+        const itemSheet = foundry.appv1?.sheets?.ItemSheet ?? ItemSheet;
+        const documentSheetConfig = foundry.applications?.apps?.DocumentSheetConfig ?? DocumentSheetConfig;
+        const textEditor = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
+        const filePicker = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
+        const dragDrop = foundry.applications?.ux?.DragDrop?.implementation ?? DragDrop;
+        const token = foundry.canvas?.placeables?.Token ?? Token;
+        const renderTemplateFn = foundry.applications?.handlebars?.renderTemplate ?? renderTemplate;
+        const formDataExtended = foundry.applications?.ux?.FormDataExtended ?? FormDataExtended;
+
+        export {
+            actors as Actors,
+            items as Items,
+            actorSheet as ActorSheet,
+            itemSheet as ItemSheet,
+            documentSheetConfig as DocumentSheetConfig,
+            textEditor as TextEditor,
+            filePicker as FilePicker,
+            dragDrop as DragDrop,
+            token as Token,
+            renderTemplateFn as renderTemplate,
+            formDataExtended as FormDataExtended,
+        };
     `.appendNewLineIfNotEmpty();
 
     fs.writeFileSync(generatedFilePath, toString(fileNode));
@@ -356,7 +402,8 @@ function generateRenderChatLogHookMjs(entry: Entry, id: string, destination: str
         import ${entry.config.name}ChatCard from "../documents/chat-card.mjs";
 
         export function renderChatLog(app, html, data) {
-            ${entry.config.name}ChatCard.activateListeners(html);
+            // renderChatMessageHTML (v13+) hands an element; the card listeners still read jQuery.
+            ${entry.config.name}ChatCard.activateListeners(html instanceof HTMLElement ? $(html) : html);
         }
     `.appendNewLineIfNotEmpty();
 
@@ -412,6 +459,8 @@ function generateExtendedRoll(entry: Entry, id: string, destination: string) {
     }
 
     const fileNode = expandToNode`
+        import { renderTemplate } from "../compat.mjs";
+
         export default class ${entry.config.name}Roll extends Roll {
             async getTooltip() {
                 const parts = [];

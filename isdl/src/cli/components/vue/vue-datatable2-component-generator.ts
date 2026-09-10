@@ -365,6 +365,7 @@ export function generateVuetifyDatatableComponent(entry: Entry, id: string, docu
     const fileNode = expandToNode`
     <script setup>
         import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick } from "vue";
+        const renderTemplate = foundry.applications?.handlebars?.renderTemplate ?? globalThis.renderTemplate;
 
         const props = defineProps({
             systemPath: String,

@@ -70,6 +70,7 @@ export function generatePromptSheetClass(name: string, entry: Entry, id: string,
     const fileNode = expandToNode`
         import VueRenderingMixin from '../../VueRenderingMixin.mjs';
         import { ${document.name}${titleize(type)}${name}Prompt } from "../../components/components.vue.es.mjs";
+        import { DragDrop } from "../../../../compat.mjs";
 
         export default class ${document.name}${name}PromptApp extends VueRenderingMixin(foundry.applications.api.ApplicationV2) {
             
